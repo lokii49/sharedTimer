@@ -29,6 +29,8 @@ class MessagesViewController: MSMessagesAppViewController {
 
     private func presentView(for conversation: MSConversation) {
         if let payload = TimerPayload.from(url: conversation.selectedMessage?.url) {
+            TimerStore.save(payload)
+            NotificationScheduler.scheduleAlert(for: payload)
             presentRunningView(payload: payload)
         } else {
             presentComposeView()
@@ -72,6 +74,7 @@ class MessagesViewController: MSMessagesAppViewController {
         guard let conversation = activeConversation else { return }
 
         TimerStore.save(payload)
+        NotificationScheduler.scheduleAlert(for: payload)
 
         switch mode {
         case .link:

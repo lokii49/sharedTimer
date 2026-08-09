@@ -32,7 +32,12 @@ struct ContentView: View {
                 }
             }
         }
-        .onAppear { timers = TimerStore.loadAll() }
+        .onAppear {
+            timers = TimerStore.loadAll()
+            for payload in timers where !payload.isExpired {
+                NotificationScheduler.scheduleAlert(for: payload)
+            }
+        }
     }
 
     private var emptyState: some View {
