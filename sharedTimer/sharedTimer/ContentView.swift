@@ -68,7 +68,7 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(timeString(remaining))
+            Text(timeString(remaining > 0 ? remaining : payload.duration))
                 .font(.system(.body, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(remaining > 0 ? .primary : .secondary)
