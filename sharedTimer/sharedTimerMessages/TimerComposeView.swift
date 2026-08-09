@@ -8,8 +8,9 @@ import SwiftUI
 struct TimerComposeView: View {
     @State private var label: String = "Timer"
     @State private var minutes: Double = 5
+    @State private var shareMode: TimerShareMode = .link
 
-    let onStart: (TimerPayload) -> Void
+    let onStart: (TimerPayload, TimerShareMode) -> Void
 
     private let presets: [Double] = [1, 3, 5, 10, 15, 30, 60]
 
@@ -38,10 +39,26 @@ struct TimerComposeView: View {
                 }
                 .padding(.horizontal)
 
+                VStack(spacing: 6) {
+                    Picker("Share as", selection: $shareMode) {
+                        Text("App Card").tag(TimerShareMode.appCard)
+                        Text("Link").tag(TimerShareMode.link)
+                    }
+                    .pickerStyle(.segmented)
+
+                    Text(shareMode == .appCard
+                         ? "Nicer bubble, but only works if your friend has this app too."
+                         : "Plain link — works for anyone, opens in a browser view.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal)
+
                 Button {
                     let name = label.trimmingCharacters(in: .whitespacesAndNewlines)
                     let payload = TimerPayload(label: name.isEmpty ? "Timer" : name, duration: minutes * 60)
-                    onStart(payload)
+                    onStart(payload, shareMode)
                 } label: {
                     Text("Start & Share")
                         .frame(maxWidth: .infinity)

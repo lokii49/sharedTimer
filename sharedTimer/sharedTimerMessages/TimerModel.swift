@@ -5,6 +5,11 @@
 
 import Foundation
 
+enum TimerShareMode {
+    case appCard
+    case link
+}
+
 struct TimerPayload: Codable {
     let id: String
     let label: String
