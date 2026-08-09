@@ -9,7 +9,7 @@ import SwiftUI
 
 class MessagesViewController: MSMessagesAppViewController {
 
-    private var hostingController: UIHostingController<TimerComposeView>?
+    private var hostingController: UIHostingController<AnyView>?
 
     override func willBecomeActive(with conversation: MSConversation) {
         presentComposeView()
@@ -19,10 +19,20 @@ class MessagesViewController: MSMessagesAppViewController {
     }
 
     private func presentComposeView() {
-        let root = TimerComposeView { [weak self] payload in
+        let root = AnyView(TimerComposeView { [weak self] payload in
             self?.send(payload: payload)
-        }
+        })
+        presentRoot(root)
+    }
 
+    private func presentRunningView(payload: TimerPayload) {
+        let root = AnyView(TimerRunningView(payload: payload) { [weak self] in
+            self?.presentComposeView()
+        })
+        presentRoot(root)
+    }
+
+    private func presentRoot(_ root: AnyView) {
         if let hosting = hostingController {
             hosting.rootView = root
         } else {
@@ -46,5 +56,7 @@ class MessagesViewController: MSMessagesAppViewController {
                 print("SharedTimer insertText error: \(error)")
             }
         }
+
+        presentRunningView(payload: payload)
     }
 }
