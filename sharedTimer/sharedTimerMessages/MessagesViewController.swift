@@ -63,7 +63,7 @@ class MessagesViewController: MSMessagesAppViewController {
 
         switch mode {
         case .link:
-            let minutes = Int(payload.remaining / 60)
+            let minutes = Int((payload.duration / 60).rounded())
             let text = "⏱️ \(payload.label) — \(minutes) min timer\n\(payload.url().absoluteString)"
             conversation.insertText(text) { error in
                 if let error {
