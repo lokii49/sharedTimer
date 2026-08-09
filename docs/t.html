@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Shared Timer</title>
+<meta property="og:title" content="Shared Timer">
+<meta property="og:description" content="Tap to see the live countdown">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0b0d10;
+    --card: #16191d;
+    --text: #f5f6f7;
+    --muted: #8a9099;
+    --accent: #ff9f0a;
+    --done: #ff453a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 360px;
+    background: var(--card);
+    border-radius: 24px;
+    padding: 36px 28px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+  }
+  .label {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 18px;
+    word-break: break-word;
+  }
+  .clock {
+    font-variant-numeric: tabular-nums;
+    font-size: 56px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin: 0 0 8px;
+  }
+  .clock.done { color: var(--done); }
+  .status {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 0;
+  }
+  .status.done { color: var(--done); font-weight: 600; }
+  .hint {
+    margin-top: 28px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <p class="label" id="label">Timer</p>
+    <p class="clock" id="clock">--:--</p>
+    <p class="status" id="status">loading&hellip;</p>
+    <p class="hint">Shared via SharedTimer for iMessage</p>
+  </div>
+
+<script>
+  function qs(name) {
+    return new URLSearchParams(window.location.search).get(name);
+  }
+
+  function formatRemaining(seconds) {
+    const s = Math.max(0, Math.floor(seconds));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    const pad = (n) => String(n).padStart(2, "0");
+    return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+  }
+
+  const labelEl = document.getElementById("label");
+  const clockEl = document.getElementById("clock");
+  const statusEl = document.getElementById("status");
+
+  const label = qs("label") || "Timer";
+  const endParam = qs("end");
+  labelEl.textContent = label;
+  document.title = label + " · Shared Timer";
+
+  const endSeconds = endParam ? parseFloat(endParam) : NaN;
+
+  if (!isFinite(endSeconds)) {
+    clockEl.textContent = "--:--";
+    statusEl.textContent = "No timer data in this link.";
+  } else {
+    const endMs = endSeconds * 1000;
+
+    function tick() {
+      const remaining = (endMs - Date.now()) / 1000;
+      if (remaining <= 0) {
+        clockEl.textContent = "00:00";
+        clockEl.classList.add("done");
+        statusEl.textContent = "Time's up!";
+        statusEl.classList.add("done");
+        clearInterval(timer);
+        return;
+      }
+      clockEl.textContent = formatRemaining(remaining);
+      statusEl.textContent = "counting down";
+    }
+
+    tick();
+    const timer = setInterval(tick, 1000);
+  }
+</script>
+</body>
+</html>
