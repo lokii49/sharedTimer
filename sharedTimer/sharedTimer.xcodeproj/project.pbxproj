@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		470A5005302889C0006EB758 /* Messages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 470A5004302889C0006EB758 /* Messages.framework */; };
 		470A5011302889C1006EB758 /* sharedTimerMessages.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 470A5002302889C0006EB758 /* sharedTimerMessages.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		470A5047302896F1006EB758 /* sharedTimerClip.app in Embed App Clips */ = {isa = PBXBuildFile; fileRef = 470A5023302896F0006EB758 /* sharedTimerClip.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,6 +34,27 @@
 			remoteGlobalIDString = 470A5001302889C0006EB758;
 			remoteInfo = sharedTimerMessages;
 		};
+		470A5034302896F1006EB758 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 470A4FCA30288982006EB758 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 470A5022302896F0006EB758;
+			remoteInfo = sharedTimerClip;
+		};
+		470A503E302896F1006EB758 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 470A4FCA30288982006EB758 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 470A5022302896F0006EB758;
+			remoteInfo = sharedTimerClip;
+		};
+		470A5045302896F1006EB758 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 470A4FCA30288982006EB758 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 470A5022302896F0006EB758;
+			remoteInfo = sharedTimerClip;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -47,6 +69,17 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		470A504C302896F1006EB758 /* Embed App Clips */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/AppClips";
+			dstSubfolderSpec = 16;
+			files = (
+				470A5047302896F1006EB758 /* sharedTimerClip.app in Embed App Clips */,
+			);
+			name = "Embed App Clips";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -55,6 +88,9 @@
 		470A4FEB30288983006EB758 /* sharedTimerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = sharedTimerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		470A5002302889C0006EB758 /* sharedTimerMessages.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = sharedTimerMessages.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		470A5004302889C0006EB758 /* Messages.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Messages.framework; path = System/Library/Frameworks/Messages.framework; sourceTree = SDKROOT; };
+		470A5023302896F0006EB758 /* sharedTimerClip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = sharedTimerClip.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		470A5033302896F1006EB758 /* sharedTimerClipTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = sharedTimerClipTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		470A503D302896F1006EB758 /* sharedTimerClipUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = sharedTimerClipUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -64,6 +100,13 @@
 				Info.plist,
 			);
 			target = 470A5001302889C0006EB758 /* sharedTimerMessages */;
+		};
+		470A5048302896F1006EB758 /* Exceptions for "sharedTimerClip" folder in "sharedTimerClip" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 470A5022302896F0006EB758 /* sharedTimerClip */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -89,6 +132,24 @@
 				470A5012302889C1006EB758 /* Exceptions for "sharedTimerMessages" folder in "sharedTimerMessages" target */,
 			);
 			path = sharedTimerMessages;
+			sourceTree = "<group>";
+		};
+		470A5024302896F0006EB758 /* sharedTimerClip */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				470A5048302896F1006EB758 /* Exceptions for "sharedTimerClip" folder in "sharedTimerClip" target */,
+			);
+			path = sharedTimerClip;
+			sourceTree = "<group>";
+		};
+		470A5036302896F1006EB758 /* sharedTimerClipTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = sharedTimerClipTests;
+			sourceTree = "<group>";
+		};
+		470A5040302896F1006EB758 /* sharedTimerClipUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = sharedTimerClipUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -123,6 +184,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		470A5020302896F0006EB758 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		470A5030302896F1006EB758 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		470A503A302896F1006EB758 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -133,6 +215,9 @@
 				470A4FE430288983006EB758 /* sharedTimerTests */,
 				470A4FEE30288983006EB758 /* sharedTimerUITests */,
 				470A5006302889C0006EB758 /* sharedTimerMessages */,
+				470A5024302896F0006EB758 /* sharedTimerClip */,
+				470A5036302896F1006EB758 /* sharedTimerClipTests */,
+				470A5040302896F1006EB758 /* sharedTimerClipUITests */,
 				470A5003302889C0006EB758 /* Frameworks */,
 				470A4FD330288982006EB758 /* Products */,
 			);
@@ -145,6 +230,9 @@
 				470A4FE130288983006EB758 /* sharedTimerTests.xctest */,
 				470A4FEB30288983006EB758 /* sharedTimerUITests.xctest */,
 				470A5002302889C0006EB758 /* sharedTimerMessages.appex */,
+				470A5023302896F0006EB758 /* sharedTimerClip.app */,
+				470A5033302896F1006EB758 /* sharedTimerClipTests.xctest */,
+				470A503D302896F1006EB758 /* sharedTimerClipUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -168,11 +256,13 @@
 				470A4FCF30288982006EB758 /* Frameworks */,
 				470A4FD030288982006EB758 /* Resources */,
 				470A5016302889C1006EB758 /* Embed Foundation Extensions */,
+				470A504C302896F1006EB758 /* Embed App Clips */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				470A5010302889C1006EB758 /* PBXTargetDependency */,
+				470A5046302896F1006EB758 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				470A4FD430288982006EB758 /* sharedTimer */,
@@ -252,6 +342,74 @@
 			productReference = 470A5002302889C0006EB758 /* sharedTimerMessages.appex */;
 			productType = "com.apple.product-type.app-extension.messages";
 		};
+		470A5022302896F0006EB758 /* sharedTimerClip */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 470A5049302896F1006EB758 /* Build configuration list for PBXNativeTarget "sharedTimerClip" */;
+			buildPhases = (
+				470A501F302896F0006EB758 /* Sources */,
+				470A5020302896F0006EB758 /* Frameworks */,
+				470A5021302896F0006EB758 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				470A5024302896F0006EB758 /* sharedTimerClip */,
+			);
+			name = sharedTimerClip;
+			packageProductDependencies = (
+			);
+			productName = sharedTimerClip;
+			productReference = 470A5023302896F0006EB758 /* sharedTimerClip.app */;
+			productType = "com.apple.product-type.application.on-demand-install-capable";
+		};
+		470A5032302896F1006EB758 /* sharedTimerClipTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 470A504D302896F1006EB758 /* Build configuration list for PBXNativeTarget "sharedTimerClipTests" */;
+			buildPhases = (
+				470A502F302896F1006EB758 /* Sources */,
+				470A5030302896F1006EB758 /* Frameworks */,
+				470A5031302896F1006EB758 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				470A5035302896F1006EB758 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				470A5036302896F1006EB758 /* sharedTimerClipTests */,
+			);
+			name = sharedTimerClipTests;
+			packageProductDependencies = (
+			);
+			productName = sharedTimerClipTests;
+			productReference = 470A5033302896F1006EB758 /* sharedTimerClipTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		470A503C302896F1006EB758 /* sharedTimerClipUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 470A5050302896F1006EB758 /* Build configuration list for PBXNativeTarget "sharedTimerClipUITests" */;
+			buildPhases = (
+				470A5039302896F1006EB758 /* Sources */,
+				470A503A302896F1006EB758 /* Frameworks */,
+				470A503B302896F1006EB758 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				470A503F302896F1006EB758 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				470A5040302896F1006EB758 /* sharedTimerClipUITests */,
+			);
+			name = sharedTimerClipUITests;
+			packageProductDependencies = (
+			);
+			productName = sharedTimerClipUITests;
+			productReference = 470A503D302896F1006EB758 /* sharedTimerClipUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -276,6 +434,17 @@
 					470A5001302889C0006EB758 = {
 						CreatedOnToolsVersion = 26.6;
 					};
+					470A5022302896F0006EB758 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					470A5032302896F1006EB758 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = 470A5022302896F0006EB758;
+					};
+					470A503C302896F1006EB758 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = 470A5022302896F0006EB758;
+					};
 				};
 			};
 			buildConfigurationList = 470A4FCD30288982006EB758 /* Build configuration list for PBXProject "sharedTimer" */;
@@ -296,6 +465,9 @@
 				470A4FE030288983006EB758 /* sharedTimerTests */,
 				470A4FEA30288983006EB758 /* sharedTimerUITests */,
 				470A5001302889C0006EB758 /* sharedTimerMessages */,
+				470A5022302896F0006EB758 /* sharedTimerClip */,
+				470A5032302896F1006EB758 /* sharedTimerClipTests */,
+				470A503C302896F1006EB758 /* sharedTimerClipUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -323,6 +495,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		470A5000302889C0006EB758 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		470A5021302896F0006EB758 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		470A5031302896F1006EB758 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		470A503B302896F1006EB758 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -360,6 +553,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		470A501F302896F0006EB758 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		470A502F302896F1006EB758 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		470A5039302896F1006EB758 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -377,6 +591,21 @@
 			isa = PBXTargetDependency;
 			target = 470A5001302889C0006EB758 /* sharedTimerMessages */;
 			targetProxy = 470A500F302889C1006EB758 /* PBXContainerItemProxy */;
+		};
+		470A5035302896F1006EB758 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 470A5022302896F0006EB758 /* sharedTimerClip */;
+			targetProxy = 470A5034302896F1006EB758 /* PBXContainerItemProxy */;
+		};
+		470A503F302896F1006EB758 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 470A5022302896F0006EB758 /* sharedTimerClip */;
+			targetProxy = 470A503E302896F1006EB758 /* PBXContainerItemProxy */;
+		};
+		470A5046302896F1006EB758 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 470A5022302896F0006EB758 /* sharedTimerClip */;
+			targetProxy = 470A5045302896F1006EB758 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -507,6 +736,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = sharedTimer/sharedTimer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
@@ -517,7 +747,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -540,6 +770,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = sharedTimer/sharedTimer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
@@ -550,7 +781,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -576,7 +807,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -598,7 +829,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -619,6 +850,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimerUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -639,6 +871,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimerUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -663,7 +896,7 @@
 				INFOPLIST_FILE = sharedTimerMessages/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = sharedTimerMessages;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -693,7 +926,7 @@
 				INFOPLIST_FILE = sharedTimerMessages/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = sharedTimerMessages;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -709,6 +942,164 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		470A504A302896F1006EB758 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = sharedTimerClip/sharedTimerClip.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = sharedTimerClip/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = sharedTimer;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimer.Clip;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		470A504B302896F1006EB758 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = sharedTimerClip/sharedTimerClip.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = sharedTimerClip/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = sharedTimer;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimer.Clip;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		470A504E302896F1006EB758 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimer.sharedTimerClipTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/sharedTimerClip.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/sharedTimerClip";
+			};
+			name = Debug;
+		};
+		470A504F302896F1006EB758 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimer.sharedTimerClipTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/sharedTimerClip.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/sharedTimerClip";
+			};
+			name = Release;
+		};
+		470A5051302896F1006EB758 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimer.sharedTimerClipUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = sharedTimerClip;
+			};
+			name = Debug;
+		};
+		470A5052302896F1006EB758 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimer.sharedTimerClipUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = sharedTimerClip;
 			};
 			name = Release;
 		};
@@ -756,6 +1147,33 @@
 			buildConfigurations = (
 				470A5014302889C1006EB758 /* Debug */,
 				470A5015302889C1006EB758 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		470A5049302896F1006EB758 /* Build configuration list for PBXNativeTarget "sharedTimerClip" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				470A504A302896F1006EB758 /* Debug */,
+				470A504B302896F1006EB758 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		470A504D302896F1006EB758 /* Build configuration list for PBXNativeTarget "sharedTimerClipTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				470A504E302896F1006EB758 /* Debug */,
+				470A504F302896F1006EB758 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		470A5050302896F1006EB758 /* Build configuration list for PBXNativeTarget "sharedTimerClipUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				470A5051302896F1006EB758 /* Debug */,
+				470A5052302896F1006EB758 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

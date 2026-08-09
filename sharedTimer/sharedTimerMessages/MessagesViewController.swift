@@ -71,6 +71,8 @@ class MessagesViewController: MSMessagesAppViewController {
     private func send(payload: TimerPayload, mode: TimerShareMode) {
         guard let conversation = activeConversation else { return }
 
+        TimerStore.save(payload)
+
         switch mode {
         case .link:
             let minutes = Int((payload.duration / 60).rounded())
