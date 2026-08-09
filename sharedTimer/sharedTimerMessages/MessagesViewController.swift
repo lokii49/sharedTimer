@@ -65,10 +65,11 @@ class MessagesViewController: MSMessagesAppViewController {
         case .link:
             let minutes = Int((payload.duration / 60).rounded())
             let text = "⏱️ \(payload.label) — \(minutes) min timer\n\(payload.url().absoluteString)"
-            conversation.insertText(text) { error in
+            conversation.insertText(text) { [weak self] error in
                 if let error {
                     print("SharedTimer insertText error: \(error)")
                 }
+                self?.dismiss()
             }
 
         case .appCard:
@@ -80,14 +81,13 @@ class MessagesViewController: MSMessagesAppViewController {
             message.url = payload.url()
             message.summaryText = "Shared timer: \(payload.label)"
 
-            conversation.insert(message) { error in
+            conversation.insert(message) { [weak self] error in
                 if let error {
                     print("SharedTimer insert error: \(error)")
                 }
+                self?.dismiss()
             }
         }
-
-        presentRunningView(payload: payload)
     }
 
     private func formattedTime(_ date: Date) -> String {
