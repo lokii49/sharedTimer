@@ -11,6 +11,11 @@ class MessagesViewController: MSMessagesAppViewController {
 
     private var hostingController: UIHostingController<AnyView>?
 
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        presentComposeView()
+    }
+
     override func willBecomeActive(with conversation: MSConversation) {
         presentView(for: conversation)
         if presentationStyle == .compact {
@@ -50,9 +55,14 @@ class MessagesViewController: MSMessagesAppViewController {
         } else {
             let hosting = UIHostingController(rootView: root)
             addChild(hosting)
-            hosting.view.frame = view.bounds
-            hosting.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            hosting.view.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(hosting.view)
+            NSLayoutConstraint.activate([
+                hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                hosting.view.topAnchor.constraint(equalTo: view.topAnchor),
+                hosting.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            ])
             hosting.didMove(toParent: self)
             hostingController = hosting
         }
