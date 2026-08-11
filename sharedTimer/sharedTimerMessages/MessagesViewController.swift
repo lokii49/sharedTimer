@@ -104,8 +104,7 @@ class MessagesViewController: MSMessagesAppViewController {
 
         switch mode {
         case .link:
-            let minutes = Int((payload.duration / 60).rounded())
-            let text = "⏱️ \(payload.label) — \(minutes) min timer\n\(payload.url().absoluteString)"
+            let text = "\(shareEmoji(for: payload)) \(payload.label) — \(shareSummary(for: payload))\n\(payload.url().absoluteString)"
             conversation.insertText(text) { [weak self] error in
                 if let error {
                     print("SharedTimer insertText error: \(error)")
@@ -117,10 +116,10 @@ class MessagesViewController: MSMessagesAppViewController {
             let message = MSMessage()
             let layout = MSMessageTemplateLayout()
             layout.caption = payload.label
-            layout.subcaption = payload.isExpired ? "Timer done" : "Ends at \(formattedTime(payload.endDate))"
+            layout.subcaption = payload.isExpired ? "Timer done" : subcaption(for: payload)
             message.layout = layout
             message.url = payload.url()
-            message.summaryText = "Shared timer: \(payload.label)"
+            message.summaryText = "Shared \(payload.kind == .countdown ? "countdown" : "timer"): \(payload.label)"
 
             conversation.insert(message) { [weak self] error in
                 if let error {
@@ -135,5 +134,28 @@ class MessagesViewController: MSMessagesAppViewController {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    private func shareEmoji(for payload: TimerPayload) -> String {
+        payload.kind == .countdown ? "📅" : "⏱️"
+    }
+
+    private func shareSummary(for payload: TimerPayload) -> String {
+        switch payload.kind {
+        case .timer:
+            let minutes = Int((payload.duration / 60).rounded())
+            return "\(minutes) min timer"
+        case .countdown:
+            return "counting down to \(TimeFormat.targetDate(payload.endDate))"
+        }
+    }
+
+    private func subcaption(for payload: TimerPayload) -> String {
+        switch payload.kind {
+        case .timer:
+            return "Ends at \(formattedTime(payload.endDate))"
+        case .countdown:
+            return "→ \(TimeFormat.targetDate(payload.endDate))"
+        }
     }
 }

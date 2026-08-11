@@ -14,4 +14,5 @@ struct TimerActivityAttributes: ActivityAttributes {
 
     var timerID: String
     var label: String
+    var kind: TimerKind
 }
