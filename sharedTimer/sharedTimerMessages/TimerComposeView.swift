@@ -38,7 +38,7 @@ struct TimerComposeView: View {
 
                         Text(shareMode == .appCard
                              ? "Nicer bubble, but only works if your friend has SharedTimer too."
-                             : "Plain link — opens for anyone, app or not.")
+                             : "Plain link — opens SharedTimer if they have it, or a web countdown if not.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)

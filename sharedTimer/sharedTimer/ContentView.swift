@@ -8,6 +8,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var timers: [TimerPayload] = TimerStore.loadAll()
     @State private var showingNewTimer = false
+    @State private var incomingPayload: TimerPayload?
 
     var body: some View {
         NavigationStack {
@@ -49,6 +50,11 @@ struct ContentView: View {
                     apply(payload)
                 }
             }
+            .sheet(item: $incomingPayload) { payload in
+                AddSharedTimerSheet(payload: payload) {
+                    apply($0)
+                }
+            }
         }
         .onAppear {
             timers = TimerStore.loadAll()
@@ -59,6 +65,20 @@ struct ContentView: View {
                 }
             }
         }
+        .onOpenURL { url in
+            handleIncoming(url: url)
+        }
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            handleIncoming(url: activity.webpageURL)
+        }
+    }
+
+    /// A tapped shared link (Universal Link) landed us here. If we already have
+    /// this timer, just leave it be — otherwise offer the recipient a chance to add it.
+    private func handleIncoming(url: URL?) {
+        guard let parsed = TimerPayload.from(url: url) else { return }
+        guard !timers.contains(where: { $0.id == parsed.id }) else { return }
+        incomingPayload = parsed
     }
 
     private var emptyState: some View {
@@ -211,6 +231,67 @@ private struct NewTimerSheet: View {
                 }
             }
         }
+    }
+}
+
+private struct AddSharedTimerSheet: View {
+    let payload: TimerPayload
+    let onAdd: (TimerPayload) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                Spacer()
+
+                Image(systemName: payload.kind == .countdown ? "calendar.badge.plus" : "timer")
+                    .font(.system(size: 44))
+                    .foregroundStyle(.orange)
+
+                VStack(spacing: 6) {
+                    Text(payload.label)
+                        .font(.title2.bold())
+                        .multilineTextAlignment(.center)
+
+                    if payload.kind == .countdown {
+                        Text("→ \(TimeFormat.targetDate(payload.endDate))")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Text(TimeFormat.remaining(payload.remaining))
+                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+
+                Text("Someone shared this \(payload.kind == .countdown ? "countdown" : "timer") with you. Add it to see a live countdown and get a reminder when it ends.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                Spacer()
+
+                Button {
+                    onAdd(payload)
+                    dismiss()
+                } label: {
+                    Label("Add to My Timers", systemImage: "plus.circle.fill")
+                        .font(.system(.body, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+            }
+            .padding()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Not Now") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
 

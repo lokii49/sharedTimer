@@ -29,11 +29,15 @@ class MessagesViewController: MSMessagesAppViewController {
 
     private func presentView(for conversation: MSConversation) {
         if let payload = TimerPayload.from(url: conversation.selectedMessage?.url) {
-            let stored = TimerStore.loadAll().first { $0.id == payload.id } ?? payload
-            TimerStore.save(stored)
-            NotificationScheduler.scheduleAlert(for: stored)
-            LiveActivityController.start(for: stored)
-            presentRunningView(payload: stored)
+            if let existing = TimerStore.loadAll().first(where: { $0.id == payload.id }) {
+                // Already ours — either we sent it, or we added it earlier. Keep it live.
+                NotificationScheduler.scheduleAlert(for: existing)
+                LiveActivityController.start(for: existing)
+                presentRunningView(payload: existing, isAdded: true)
+            } else {
+                // Shared by someone else: preview only, until they explicitly add it.
+                presentRunningView(payload: payload, isAdded: false)
+            }
         } else {
             presentComposeView()
         }
@@ -46,11 +50,15 @@ class MessagesViewController: MSMessagesAppViewController {
         presentRoot(root)
     }
 
-    private func presentRunningView(payload: TimerPayload) {
+    private func presentRunningView(payload: TimerPayload, isAdded: Bool) {
         let root = AnyView(TimerRunningView(
             payload: payload,
+            isAdded: isAdded,
             onNewTimer: { [weak self] in
                 self?.presentComposeView()
+            },
+            onAdd: { [weak self] added in
+                self?.persist(added)
             },
             onUpdate: { [weak self] updated in
                 self?.persist(updated)

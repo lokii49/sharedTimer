@@ -7,16 +7,22 @@ import SwiftUI
 
 struct TimerRunningView: View {
     @State private var payload: TimerPayload
+    @State private var isAdded: Bool
     let onNewTimer: () -> Void
+    let onAdd: (TimerPayload) -> Void
     let onUpdate: (TimerPayload) -> Void
     let onDelete: (TimerPayload) -> Void
 
     init(payload: TimerPayload,
+         isAdded: Bool,
          onNewTimer: @escaping () -> Void,
+         onAdd: @escaping (TimerPayload) -> Void,
          onUpdate: @escaping (TimerPayload) -> Void,
          onDelete: @escaping (TimerPayload) -> Void) {
         self._payload = State(initialValue: payload)
+        self._isAdded = State(initialValue: isAdded)
         self.onNewTimer = onNewTimer
+        self.onAdd = onAdd
         self.onUpdate = onUpdate
         self.onDelete = onDelete
     }
@@ -76,26 +82,42 @@ struct TimerRunningView: View {
                     .padding(.vertical, 4)
 
                     Label(
-                        done ? "Timer finished" : "This matches what your friend sees",
-                        systemImage: done ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
+                        statusLine(done: done),
+                        systemImage: done ? "checkmark.circle.fill" : (isAdded ? "arrow.triangle.2.circlepath" : "person.crop.circle.badge.plus")
                     )
                     .font(.footnote)
                     .foregroundStyle(done ? .red : .secondary)
+                    .multilineTextAlignment(.center)
 
                     if !done {
-                        HStack(spacing: 12) {
-                            controlButton(
-                                title: payload.isPaused ? "Resume" : "Pause",
-                                systemImage: payload.isPaused ? "play.fill" : "pause.fill"
-                            ) {
-                                togglePause()
-                            }
+                        if isAdded {
+                            HStack(spacing: 12) {
+                                controlButton(
+                                    title: payload.isPaused ? "Resume" : "Pause",
+                                    systemImage: payload.isPaused ? "play.fill" : "pause.fill"
+                                ) {
+                                    togglePause()
+                                }
 
-                            controlButton(title: "+1 min", systemImage: "plus") {
-                                extend(by: 60)
+                                controlButton(title: "+1 min", systemImage: "plus") {
+                                    extend(by: 60)
+                                }
                             }
+                            .padding(.horizontal, 24)
+                        } else {
+                            Button {
+                                isAdded = true
+                                onAdd(payload)
+                            } label: {
+                                Label("Add to My Timers", systemImage: "plus.circle.fill")
+                                    .font(.system(.body, weight: .semibold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 6)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.orange)
+                            .padding(.horizontal, 24)
                         }
-                        .padding(.horizontal, 24)
                     }
 
                     Button(action: onNewTimer) {
@@ -107,20 +129,32 @@ struct TimerRunningView: View {
                     .tint(.orange)
                     .padding(.horizontal, 32)
 
-                    Button(role: .destructive) {
-                        onDelete(payload)
-                    } label: {
-                        Label("Delete Timer", systemImage: "trash")
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 4)
+                    if isAdded {
+                        Button(role: .destructive) {
+                            onDelete(payload)
+                        } label: {
+                            Label("Delete Timer", systemImage: "trash")
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.bordered)
+                        .padding(.horizontal, 32)
+                        .padding(.bottom, 12)
                     }
-                    .buttonStyle(.bordered)
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 12)
                 }
                 .frame(maxWidth: .infinity)
             }
         }
+    }
+
+    private func statusLine(done: Bool) -> String {
+        if done {
+            return "Timer finished"
+        }
+        if isAdded {
+            return "This matches what your friend sees"
+        }
+        return "Shared with you — add it to get reminders and a live countdown"
     }
 
     private func controlButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
