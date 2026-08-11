@@ -15,7 +15,7 @@ enum LiveActivityController {
             return
         }
 
-        let attributes = TimerActivityAttributes(timerID: payload.id, label: payload.label)
+        let attributes = TimerActivityAttributes(timerID: payload.id, label: payload.label, kind: payload.kind)
         do {
             _ = try Activity.request(attributes: attributes, content: content(for: payload))
         } catch {

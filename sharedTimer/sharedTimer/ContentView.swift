@@ -7,28 +7,46 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var timers: [TimerPayload] = TimerStore.loadAll()
+    @State private var showingNewTimer = false
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            Group {
-                if timers.isEmpty {
-                    emptyState
-                } else {
-                    List {
-                        let active = timers.filter { !$0.isExpired }.sorted { $0.endDate < $1.endDate }
-                        let expired = timers.filter { $0.isExpired }.sorted { $0.endDate > $1.endDate }
+        NavigationStack {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Group {
+                    if timers.isEmpty {
+                        emptyState
+                    } else {
+                        List {
+                            let active = timers.filter { !$0.isExpired }.sorted { $0.endDate < $1.endDate }
+                            let expired = timers.filter { $0.isExpired }.sorted { $0.endDate > $1.endDate }
 
-                        if !active.isEmpty {
-                            Section("Active") {
-                                ForEach(active) { row(for: $0, at: context.date) }
+                            if !active.isEmpty {
+                                Section("Active") {
+                                    ForEach(active) { row(for: $0, at: context.date) }
+                                }
                             }
-                        }
-                        if !expired.isEmpty {
-                            Section("Expired") {
-                                ForEach(expired) { row(for: $0, at: context.date) }
+                            if !expired.isEmpty {
+                                Section("Expired") {
+                                    ForEach(expired) { row(for: $0, at: context.date) }
+                                }
                             }
                         }
                     }
+                }
+            }
+            .navigationTitle("SharedTimer")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingNewTimer = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingNewTimer) {
+                NewTimerSheet { payload in
+                    apply(payload)
                 }
             }
         }
@@ -49,7 +67,7 @@ struct ContentView: View {
                 .font(.system(size: 48))
             Text("SharedTimer")
                 .font(.title2.bold())
-            Text("Open this app inside iMessage to share a timer.")
+            Text("Create a timer or countdown below, or open this app inside iMessage to share one.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -62,14 +80,19 @@ struct ContentView: View {
         let remaining = payload.remaining
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(payload.label)
-                    .font(.body.weight(.medium))
+                Label {
+                    Text(payload.label)
+                        .font(.body.weight(.medium))
+                } icon: {
+                    Image(systemName: payload.kind == .countdown ? "calendar" : "timer")
+                        .foregroundStyle(.secondary)
+                }
                 Text(statusText(for: payload))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(timeString(remaining > 0 ? remaining : payload.duration))
+            Text(TimeFormat.remaining(remaining > 0 ? remaining : payload.duration))
                 .font(.system(.body, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(payload.isExpired ? .secondary : (payload.isPaused ? .orange : .primary))
@@ -103,7 +126,12 @@ struct ContentView: View {
 
     private func statusText(for payload: TimerPayload) -> String {
         if payload.isPaused {
-            return "paused at \(timeString(payload.remaining))"
+            return "paused at \(TimeFormat.remaining(payload.remaining))"
+        }
+        if payload.kind == .countdown {
+            return payload.remaining > 0
+                ? "→ \(TimeFormat.targetDate(payload.endDate))"
+                : "reached \(TimeFormat.targetDate(payload.endDate))"
         }
         if payload.remaining > 0 {
             return "ends \(payload.endDate.formatted(date: .omitted, time: .shortened))"
@@ -138,18 +166,51 @@ struct ContentView: View {
         }
         if let index = timers.firstIndex(where: { $0.id == updated.id }) {
             timers[index] = updated
+        } else {
+            timers.append(updated)
         }
     }
+}
 
-    private func timeString(_ interval: TimeInterval) -> String {
-        let t = max(0, Int(interval))
-        let h = t / 3600
-        let m = (t % 3600) / 60
-        let s = t % 60
-        if h > 0 {
-            return String(format: "%d:%02d:%02d", h, m, s)
+private struct NewTimerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var label: String = ""
+    @State private var kind: TimerKind = .timer
+    @State private var minutes: Double = 5
+    @State private var targetDate: Date = Date().addingTimeInterval(86400)
+    @FocusState private var labelFocused: Bool
+
+    let onCreate: (TimerPayload) -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                TimerFieldsView(
+                    label: $label,
+                    kind: $kind,
+                    minutes: $minutes,
+                    targetDate: $targetDate,
+                    labelFocused: $labelFocused
+                )
+                .padding()
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("New")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Start") {
+                        let payload = TimerPayload.compose(label: label, kind: kind, minutes: minutes, targetDate: targetDate)
+                        onCreate(payload)
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
         }
-        return String(format: "%02d:%02d", m, s)
     }
 }
 

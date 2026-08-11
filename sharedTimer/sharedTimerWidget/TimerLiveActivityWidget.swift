@@ -17,7 +17,7 @@ struct TimerLiveActivityWidget: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.attributes.label, systemImage: "timer")
+                    Label(context.attributes.label, systemImage: symbolName(for: context.attributes.kind))
                         .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
@@ -25,13 +25,13 @@ struct TimerLiveActivityWidget: Widget {
                         .monospacedDigit()
                 }
             } compactLeading: {
-                Image(systemName: "timer")
+                Image(systemName: symbolName(for: context.attributes.kind))
             } compactTrailing: {
-                countdownText(state: context.state)
+                compactCountdownText(state: context.state)
                     .monospacedDigit()
                     .frame(width: 44)
             } minimal: {
-                Image(systemName: "timer")
+                Image(systemName: symbolName(for: context.attributes.kind))
             }
         }
     }
@@ -42,36 +42,51 @@ private struct LockScreenTimerView: View {
     let state: TimerActivityAttributes.ContentState
 
     var body: some View {
-        HStack {
-            Label(attributes.label, systemImage: "timer")
-                .font(.headline)
-                .foregroundStyle(.white)
-                .lineLimit(1)
-            Spacer()
-            countdownText(state: state)
-                .font(.title2.bold())
-                .monospacedDigit()
-                .foregroundStyle(.white)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Label(attributes.label, systemImage: symbolName(for: attributes.kind))
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Spacer()
+                countdownText(state: state)
+                    .font(.title2.bold())
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+            }
+            if attributes.kind == .countdown {
+                Text("→ \(TimeFormat.targetDate(state.endDate))")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.7))
+            }
         }
     }
 }
 
+private func symbolName(for kind: TimerKind) -> String {
+    kind == .countdown ? "calendar" : "timer"
+}
+
+/// Full remaining time, day-aware ("3d 04:12:09"), for lock screen and the expanded island.
 @ViewBuilder
 private func countdownText(state: TimerActivityAttributes.ContentState) -> some View {
     if let pausedRemaining = state.pausedRemaining {
-        Text(clockString(pausedRemaining))
+        Text(TimeFormat.remaining(pausedRemaining))
+    } else if state.endDate.timeIntervalSinceNow >= 86400 {
+        Text(TimeFormat.remaining(state.endDate.timeIntervalSinceNow))
     } else {
         Text(timerInterval: Date.now...max(Date.now, state.endDate), countsDown: true)
     }
 }
 
-private func clockString(_ interval: TimeInterval) -> String {
-    let t = max(0, Int(interval))
-    let h = t / 3600
-    let m = (t % 3600) / 60
-    let s = t % 60
-    if h > 0 {
-        return String(format: "%d:%02d:%02d", h, m, s)
+/// Compact "3d" or live HH:MM:SS for the ~44pt compact Dynamic Island slot.
+@ViewBuilder
+private func compactCountdownText(state: TimerActivityAttributes.ContentState) -> some View {
+    if let pausedRemaining = state.pausedRemaining {
+        Text(pausedRemaining >= 86400 ? TimeFormat.compactDays(pausedRemaining) : TimeFormat.remaining(pausedRemaining))
+    } else if state.endDate.timeIntervalSinceNow >= 86400 {
+        Text(TimeFormat.compactDays(state.endDate.timeIntervalSinceNow))
+    } else {
+        Text(timerInterval: Date.now...max(Date.now, state.endDate), countsDown: true)
     }
-    return String(format: "%02d:%02d", m, s)
 }

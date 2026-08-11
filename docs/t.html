@@ -49,12 +49,18 @@
   }
   .clock {
     font-variant-numeric: tabular-nums;
-    font-size: 56px;
+    font-size: clamp(32px, 9vw, 56px);
     font-weight: 700;
     letter-spacing: 1px;
     margin: 0 0 8px;
   }
   .clock.done { color: var(--done); }
+  .target {
+    font-size: 13px;
+    color: var(--accent);
+    margin: 0 0 10px;
+    font-weight: 600;
+  }
   .status {
     font-size: 14px;
     color: var(--muted);
@@ -71,6 +77,7 @@
 <body>
   <div class="card">
     <p class="label" id="label">Timer</p>
+    <p class="target" id="target" hidden></p>
     <p class="clock" id="clock">--:--</p>
     <p class="status" id="status">loading&hellip;</p>
     <p class="hint">Shared via SharedTimer for iMessage</p>
@@ -83,25 +90,40 @@
 
   function formatRemaining(seconds) {
     const s = Math.max(0, Math.floor(seconds));
-    const h = Math.floor(s / 3600);
+    const days = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
     const m = Math.floor((s % 3600) / 60);
     const sec = s % 60;
     const pad = (n) => String(n).padStart(2, "0");
+    if (days > 0) return `${days}d ${pad(h)}:${pad(m)}:${pad(sec)}`;
     return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
   }
 
+  function formatTargetDate(ms) {
+    const d = new Date(ms);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
   const labelEl = document.getElementById("label");
+  const targetEl = document.getElementById("target");
   const clockEl = document.getElementById("clock");
   const statusEl = document.getElementById("status");
 
   const label = qs("label") || "Timer";
   const endParam = qs("end");
+  const kind = qs("kind") || "timer";
   labelEl.textContent = label;
   document.title = label + " · Shared Timer";
 
   const endSeconds = endParam ? parseFloat(endParam) : NaN;
   const pausedParam = qs("paused");
   const pausedSeconds = pausedParam !== null ? parseFloat(pausedParam) : NaN;
+
+  if (kind === "countdown" && isFinite(endSeconds)) {
+    targetEl.textContent = "→ " + formatTargetDate(endSeconds * 1000);
+    targetEl.hidden = false;
+  }
 
   if (isFinite(pausedSeconds)) {
     clockEl.textContent = formatRemaining(pausedSeconds);

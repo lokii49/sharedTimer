@@ -16,12 +16,20 @@ struct TimerClipView: View {
             let tint = ringColor(for: progress, done: done)
 
             VStack(spacing: 28) {
-                Text(payload.label)
-                    .font(.system(.title3, design: .rounded, weight: .semibold))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-                    .padding(.top, 12)
+                VStack(spacing: 4) {
+                    Text(payload.label)
+                        .font(.system(.title3, design: .rounded, weight: .semibold))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+
+                    if payload.kind == .countdown {
+                        Text("→ \(TimeFormat.targetDate(payload.endDate))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 12)
 
                 ZStack {
                     Circle()
@@ -34,9 +42,11 @@ struct TimerClipView: View {
                         .animation(.linear(duration: 0.9), value: progress)
 
                     VStack(spacing: 4) {
-                        Text(timeString(remaining))
-                            .font(.system(size: 40, weight: .bold, design: .rounded))
+                        Text(TimeFormat.remaining(remaining))
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
                             .monospacedDigit()
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(1)
                             .foregroundStyle(done ? .red : .primary)
 
                         Text(done ? "TIME'S UP" : "REMAINING")
@@ -67,14 +77,4 @@ struct TimerClipView: View {
         return .accentColor
     }
 
-    private func timeString(_ interval: TimeInterval) -> String {
-        let t = max(0, Int(interval))
-        let h = t / 3600
-        let m = (t % 3600) / 60
-        let s = t % 60
-        if h > 0 {
-            return String(format: "%d:%02d:%02d", h, m, s)
-        }
-        return String(format: "%02d:%02d", m, s)
-    }
 }
