@@ -1,6 +1,6 @@
 //
 //  TimerModel.swift
-//  sharedTimerMessages
+//  sharedTimerWidget
 //
 
 import Foundation

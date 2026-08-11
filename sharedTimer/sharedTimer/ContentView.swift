@@ -36,6 +36,9 @@ struct ContentView: View {
             timers = TimerStore.loadAll()
             for payload in timers where !payload.isExpired {
                 NotificationScheduler.scheduleAlert(for: payload)
+                if !payload.isPaused {
+                    LiveActivityController.start(for: payload)
+                }
             }
         }
     }
@@ -56,14 +59,12 @@ struct ContentView: View {
     }
 
     private func row(for payload: TimerPayload, at date: Date) -> some View {
-        let remaining = payload.endDate.timeIntervalSince(date)
+        let remaining = payload.remaining
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(payload.label)
                     .font(.body.weight(.medium))
-                Text(remaining > 0
-                     ? "ends \(payload.endDate.formatted(date: .omitted, time: .shortened))"
-                     : "finished \(payload.endDate.formatted(date: .omitted, time: .shortened))")
+                Text(statusText(for: payload))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -71,7 +72,72 @@ struct ContentView: View {
             Text(timeString(remaining > 0 ? remaining : payload.duration))
                 .font(.system(.body, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(remaining > 0 ? .primary : .secondary)
+                .foregroundStyle(payload.isExpired ? .secondary : (payload.isPaused ? .orange : .primary))
+        }
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                delete(payload)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading) {
+            if !payload.isExpired {
+                Button {
+                    togglePause(payload)
+                } label: {
+                    Label(payload.isPaused ? "Resume" : "Pause",
+                          systemImage: payload.isPaused ? "play.fill" : "pause.fill")
+                }
+                .tint(.orange)
+
+                Button {
+                    extend(payload, by: 60)
+                } label: {
+                    Label("+1 min", systemImage: "plus")
+                }
+                .tint(.blue)
+            }
+        }
+    }
+
+    private func statusText(for payload: TimerPayload) -> String {
+        if payload.isPaused {
+            return "paused at \(timeString(payload.remaining))"
+        }
+        if payload.remaining > 0 {
+            return "ends \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+        }
+        return "finished \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+    }
+
+    private func delete(_ payload: TimerPayload) {
+        TimerStore.delete(id: payload.id)
+        NotificationScheduler.cancel(id: payload.id)
+        LiveActivityController.end(id: payload.id)
+        timers.removeAll { $0.id == payload.id }
+    }
+
+    private func togglePause(_ payload: TimerPayload) {
+        let updated = payload.isPaused ? payload.resumed() : payload.paused()
+        apply(updated)
+    }
+
+    private func extend(_ payload: TimerPayload, by interval: TimeInterval) {
+        apply(payload.extended(by: interval))
+    }
+
+    private func apply(_ updated: TimerPayload) {
+        TimerStore.save(updated)
+        NotificationScheduler.cancel(id: updated.id)
+        if !updated.isPaused {
+            NotificationScheduler.scheduleAlert(for: updated)
+            LiveActivityController.start(for: updated)
+        } else {
+            LiveActivityController.update(for: updated)
+        }
+        if let index = timers.firstIndex(where: { $0.id == updated.id }) {
+            timers[index] = updated
         }
     }
 

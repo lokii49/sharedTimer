@@ -1,6 +1,6 @@
 //
 //  NotificationScheduler.swift
-//  sharedTimerMessages
+//  sharedTimerClip
 //
 
 import Foundation

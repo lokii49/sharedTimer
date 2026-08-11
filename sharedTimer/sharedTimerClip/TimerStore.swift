@@ -1,6 +1,6 @@
 //
 //  TimerStore.swift
-//  sharedTimer
+//  sharedTimerClip
 //
 
 import Foundation
