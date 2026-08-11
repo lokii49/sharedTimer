@@ -4,12 +4,8 @@
 <dict>
 	<key>NSExtension</key>
 	<dict>
-		<key>NSExtensionPrincipalClass</key>
-		<string>$(PRODUCT_MODULE_NAME).MessagesViewController</string>
 		<key>NSExtensionPointIdentifier</key>
-		<string>com.apple.message-payload-provider</string>
+		<string>com.apple.widgetkit-extension</string>
 	</dict>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
 </dict>
 </plist>

@@ -6,6 +6,7 @@
 <title>Shared Timer</title>
 <meta property="og:title" content="Shared Timer">
 <meta property="og:description" content="Tap to see the live countdown">
+<meta name="apple-itunes-app" content="app-clip-bundle-id=com.lokesh.sharedTimer.Clip, app-clip-display=card">
 <style>
   :root {
     color-scheme: light dark;
@@ -99,8 +100,13 @@
   document.title = label + " · Shared Timer";
 
   const endSeconds = endParam ? parseFloat(endParam) : NaN;
+  const pausedParam = qs("paused");
+  const pausedSeconds = pausedParam !== null ? parseFloat(pausedParam) : NaN;
 
-  if (!isFinite(endSeconds)) {
+  if (isFinite(pausedSeconds)) {
+    clockEl.textContent = formatRemaining(pausedSeconds);
+    statusEl.textContent = "paused";
+  } else if (!isFinite(endSeconds)) {
     clockEl.textContent = "--:--";
     statusEl.textContent = "No timer data in this link.";
   } else {

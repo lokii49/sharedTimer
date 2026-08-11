@@ -29,9 +29,11 @@ class MessagesViewController: MSMessagesAppViewController {
 
     private func presentView(for conversation: MSConversation) {
         if let payload = TimerPayload.from(url: conversation.selectedMessage?.url) {
-            TimerStore.save(payload)
-            NotificationScheduler.scheduleAlert(for: payload)
-            presentRunningView(payload: payload)
+            let stored = TimerStore.loadAll().first { $0.id == payload.id } ?? payload
+            TimerStore.save(stored)
+            NotificationScheduler.scheduleAlert(for: stored)
+            LiveActivityController.start(for: stored)
+            presentRunningView(payload: stored)
         } else {
             presentComposeView()
         }
@@ -45,10 +47,33 @@ class MessagesViewController: MSMessagesAppViewController {
     }
 
     private func presentRunningView(payload: TimerPayload) {
-        let root = AnyView(TimerRunningView(payload: payload) { [weak self] in
-            self?.presentComposeView()
-        })
+        let root = AnyView(TimerRunningView(
+            payload: payload,
+            onNewTimer: { [weak self] in
+                self?.presentComposeView()
+            },
+            onUpdate: { [weak self] updated in
+                self?.persist(updated)
+            },
+            onDelete: { [weak self] deleted in
+                TimerStore.delete(id: deleted.id)
+                NotificationScheduler.cancel(id: deleted.id)
+                LiveActivityController.end(id: deleted.id)
+                self?.presentComposeView()
+            }
+        ))
         presentRoot(root)
+    }
+
+    private func persist(_ payload: TimerPayload) {
+        TimerStore.save(payload)
+        NotificationScheduler.cancel(id: payload.id)
+        if payload.isPaused {
+            LiveActivityController.update(for: payload)
+        } else {
+            NotificationScheduler.scheduleAlert(for: payload)
+            LiveActivityController.start(for: payload)
+        }
     }
 
     private func presentRoot(_ root: AnyView) {
@@ -75,6 +100,7 @@ class MessagesViewController: MSMessagesAppViewController {
 
         TimerStore.save(payload)
         NotificationScheduler.scheduleAlert(for: payload)
+        LiveActivityController.start(for: payload)
 
         switch mode {
         case .link:

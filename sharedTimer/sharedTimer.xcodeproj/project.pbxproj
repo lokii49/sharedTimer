@@ -10,6 +10,7 @@
 		470A5005302889C0006EB758 /* Messages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 470A5004302889C0006EB758 /* Messages.framework */; };
 		470A5011302889C1006EB758 /* sharedTimerMessages.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 470A5002302889C0006EB758 /* sharedTimerMessages.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		470A5047302896F1006EB758 /* sharedTimerClip.app in Embed App Clips */ = {isa = PBXBuildFile; fileRef = 470A5023302896F0006EB758 /* sharedTimerClip.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AB00000D0000000000000000 /* sharedTimerWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB0000010000000000000000 /* sharedTimerWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -55,6 +56,13 @@
 			remoteGlobalIDString = 470A5022302896F0006EB758;
 			remoteInfo = sharedTimerClip;
 		};
+		AB00000B0000000000000000 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 470A4FCA30288982006EB758 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AB0000040000000000000000;
+			remoteInfo = sharedTimerWidget;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -65,6 +73,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				470A5011302889C1006EB758 /* sharedTimerMessages.appex in Embed Foundation Extensions */,
+				AB00000D0000000000000000 /* sharedTimerWidget.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -91,6 +100,7 @@
 		470A5023302896F0006EB758 /* sharedTimerClip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = sharedTimerClip.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		470A5033302896F1006EB758 /* sharedTimerClipTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = sharedTimerClipTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		470A503D302896F1006EB758 /* sharedTimerClipUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = sharedTimerClipUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB0000010000000000000000 /* sharedTimerWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = sharedTimerWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -107,6 +117,13 @@
 				Info.plist,
 			);
 			target = 470A5022302896F0006EB758 /* sharedTimerClip */;
+		};
+		AB0000030000000000000000 /* Exceptions for "sharedTimerWidget" folder in "sharedTimerWidget" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AB0000040000000000000000 /* sharedTimerWidget */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -150,6 +167,14 @@
 		470A5040302896F1006EB758 /* sharedTimerClipUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = sharedTimerClipUITests;
+			sourceTree = "<group>";
+		};
+		AB0000020000000000000000 /* sharedTimerWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AB0000030000000000000000 /* Exceptions for "sharedTimerWidget" folder in "sharedTimerWidget" target */,
+			);
+			path = sharedTimerWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -205,6 +230,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AB0000060000000000000000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -218,6 +250,7 @@
 				470A5024302896F0006EB758 /* sharedTimerClip */,
 				470A5036302896F1006EB758 /* sharedTimerClipTests */,
 				470A5040302896F1006EB758 /* sharedTimerClipUITests */,
+				AB0000020000000000000000 /* sharedTimerWidget */,
 				470A5003302889C0006EB758 /* Frameworks */,
 				470A4FD330288982006EB758 /* Products */,
 			);
@@ -233,6 +266,7 @@
 				470A5023302896F0006EB758 /* sharedTimerClip.app */,
 				470A5033302896F1006EB758 /* sharedTimerClipTests.xctest */,
 				470A503D302896F1006EB758 /* sharedTimerClipUITests.xctest */,
+				AB0000010000000000000000 /* sharedTimerWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -263,6 +297,7 @@
 			dependencies = (
 				470A5010302889C1006EB758 /* PBXTargetDependency */,
 				470A5046302896F1006EB758 /* PBXTargetDependency */,
+				AB00000C0000000000000000 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				470A4FD430288982006EB758 /* sharedTimer */,
@@ -410,6 +445,28 @@
 			productReference = 470A503D302896F1006EB758 /* sharedTimerClipUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		AB0000040000000000000000 /* sharedTimerWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB00000A0000000000000000 /* Build configuration list for PBXNativeTarget "sharedTimerWidget" */;
+			buildPhases = (
+				AB0000050000000000000000 /* Sources */,
+				AB0000060000000000000000 /* Frameworks */,
+				AB0000070000000000000000 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AB0000020000000000000000 /* sharedTimerWidget */,
+			);
+			name = sharedTimerWidget;
+			packageProductDependencies = (
+			);
+			productName = sharedTimerWidget;
+			productReference = AB0000010000000000000000 /* sharedTimerWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -445,6 +502,9 @@
 						CreatedOnToolsVersion = 26.6;
 						TestTargetID = 470A5022302896F0006EB758;
 					};
+					AB0000040000000000000000 = {
+						CreatedOnToolsVersion = 26.6;
+					};
 				};
 			};
 			buildConfigurationList = 470A4FCD30288982006EB758 /* Build configuration list for PBXProject "sharedTimer" */;
@@ -468,6 +528,7 @@
 				470A5022302896F0006EB758 /* sharedTimerClip */,
 				470A5032302896F1006EB758 /* sharedTimerClipTests */,
 				470A503C302896F1006EB758 /* sharedTimerClipUITests */,
+				AB0000040000000000000000 /* sharedTimerWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -516,6 +577,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		470A503B302896F1006EB758 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AB0000070000000000000000 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -574,6 +642,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AB0000050000000000000000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -606,6 +681,11 @@
 			isa = PBXTargetDependency;
 			target = 470A5022302896F0006EB758 /* sharedTimerClip */;
 			targetProxy = 470A5045302896F1006EB758 /* PBXContainerItemProxy */;
+		};
+		AB00000C0000000000000000 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AB0000040000000000000000 /* sharedTimerWidget */;
+			targetProxy = AB00000B0000000000000000 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -742,6 +822,7 @@
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -776,6 +857,7 @@
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1105,6 +1187,66 @@
 			};
 			name = Release;
 		};
+		AB0000080000000000000000 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = sharedTimerWidget/sharedTimerWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = sharedTimerWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "SharedTimer Widget";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimer.sharedTimerWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AB0000090000000000000000 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = sharedTimerWidget/sharedTimerWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = sharedTimerWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "SharedTimer Widget";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimer.sharedTimerWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1176,6 +1318,15 @@
 			buildConfigurations = (
 				470A5051302896F1006EB758 /* Debug */,
 				470A5052302896F1006EB758 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AB00000A0000000000000000 /* Build configuration list for PBXNativeTarget "sharedTimerWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB0000080000000000000000 /* Debug */,
+				AB0000090000000000000000 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
