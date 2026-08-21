@@ -12,80 +12,84 @@ struct TimerLiveActivityWidget: Widget {
         ActivityConfiguration(for: TimerActivityAttributes.self) { context in
             LockScreenTimerView(attributes: context.attributes, state: context.state)
                 .padding()
-                .activityBackgroundTint(Color.black.opacity(0.8))
-                .activitySystemActionForegroundColor(Color.white)
+                .background(Sky.gradient(endDate: context.state.endDate, pausedRemaining: context.state.pausedRemaining))
+                .activityBackgroundTint(Color.clear)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.attributes.label, systemImage: symbolName(for: context.attributes.kind))
+                    Label(context.attributes.label, systemImage: context.attributes.kind.symbolName)
+                        .font(.headline)
                         .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    countdownText(state: context.state)
+                    remainingText(endDate: context.state.endDate, pausedRemaining: context.state.pausedRemaining)
+                        .font(.title3.weight(.medium))
                         .monospacedDigit()
+                        .minimumScaleFactor(0.6)
+                        .lineLimit(1)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 96, alignment: .trailing)
+                        .foregroundStyle(.white)
                 }
             } compactLeading: {
-                Image(systemName: symbolName(for: context.attributes.kind))
+                Image(systemName: context.attributes.kind.symbolName)
+                    .foregroundStyle(context.attributes.kind.accentColor)
             } compactTrailing: {
                 compactCountdownText(state: context.state)
                     .monospacedDigit()
+                    .foregroundStyle(.white)
                     .frame(width: 44)
             } minimal: {
-                Image(systemName: symbolName(for: context.attributes.kind))
+                Image(systemName: context.attributes.kind.symbolName)
+                    .foregroundStyle(context.attributes.kind.accentColor)
             }
         }
     }
 }
 
+/// Lock Screen banner under the timer's sky: small-caps label leading, thin live
+/// countdown trailing — the same light-as-time language as everywhere else.
 private struct LockScreenTimerView: View {
     let attributes: TimerActivityAttributes
     let state: TimerActivityAttributes.ContentState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Label(attributes.label, systemImage: symbolName(for: attributes.kind))
-                    .font(.headline)
-                    .foregroundStyle(.white)
+            HStack(alignment: .firstTextBaseline) {
+                Text(attributes.label)
+                    .skyLabel(12)
+                    .foregroundStyle(.white.opacity(0.85))
                     .lineLimit(1)
                 Spacer()
-                countdownText(state: state)
-                    .font(.title2.bold())
+                remainingText(endDate: state.endDate, pausedRemaining: state.pausedRemaining)
+                    .font(.system(size: 30, weight: .light))
                     .monospacedDigit()
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 150, alignment: .trailing)
                     .foregroundStyle(.white)
             }
-            if attributes.kind == .countdown {
-                Text("→ \(TimeFormat.targetDate(state.endDate))")
-                    .font(.caption2)
+            if state.pausedRemaining != nil {
+                Text("Paused")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.7))
+            } else if attributes.kind == .countdown {
+                Text(TimeFormat.targetDate(state.endDate))
+                    .font(.caption)
                     .foregroundStyle(.white.opacity(0.7))
             }
         }
     }
 }
 
-private func symbolName(for kind: TimerKind) -> String {
-    kind == .countdown ? "calendar" : "timer"
-}
-
-/// Full remaining time, day-aware ("3d 04:12:09"), for lock screen and the expanded island.
-@ViewBuilder
-private func countdownText(state: TimerActivityAttributes.ContentState) -> some View {
-    if let pausedRemaining = state.pausedRemaining {
-        Text(TimeFormat.remaining(pausedRemaining))
-    } else if state.endDate.timeIntervalSinceNow >= 86400 {
-        Text(TimeFormat.remaining(state.endDate.timeIntervalSinceNow))
-    } else {
-        Text(timerInterval: Date.now...max(Date.now, state.endDate), countsDown: true)
-    }
-}
-
-/// Compact "3d" or live HH:MM:SS for the ~44pt compact Dynamic Island slot.
+/// Ultra-compact counterpart for the ~44pt Dynamic Island compact slot.
 @ViewBuilder
 private func compactCountdownText(state: TimerActivityAttributes.ContentState) -> some View {
     if let pausedRemaining = state.pausedRemaining {
-        Text(pausedRemaining >= 86400 ? TimeFormat.compactDays(pausedRemaining) : TimeFormat.remaining(pausedRemaining))
+        Text(pausedRemaining >= 86400 ? TimeFormat.compactSnapshot(pausedRemaining) : TimeFormat.remaining(pausedRemaining))
     } else if state.endDate.timeIntervalSinceNow >= 86400 {
-        Text(TimeFormat.compactDays(state.endDate.timeIntervalSinceNow))
+        Text(TimeFormat.compactSnapshot(state.endDate.timeIntervalSinceNow))
     } else {
         Text(timerInterval: Date.now...max(Date.now, state.endDate), countsDown: true)
     }

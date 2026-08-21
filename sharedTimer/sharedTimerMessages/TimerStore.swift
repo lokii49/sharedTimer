@@ -4,7 +4,11 @@
 //
 
 import Foundation
+import WidgetKit
 
+/// `save`/`delete` reload every widget timeline as a side effect (see `persist`). Widget
+/// extension code must only ever call `loadAll` — writing from inside a timeline provider
+/// would trigger a reload from within that same reload's render pass.
 enum TimerStore {
     private static let appGroupID = "group.com.lokesh.sharedTimer"
     private static let key = "sharedTimers"
@@ -39,5 +43,9 @@ enum TimerStore {
         let trimmed = payloads.filter { $0.isPaused || $0.endDate > cutoff }
         guard let data = try? JSONEncoder().encode(trimmed) else { return }
         defaults?.set(data, forKey: key)
+        // The home-screen widget only re-reads the App Group store when told to — otherwise
+        // it keeps showing its last timeline entry until whatever refresh date it computed
+        // last, which for a far-out countdown can be hours away.
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }

@@ -3,85 +3,41 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Shared Timer</title>
-<meta property="og:title" content="Shared Timer">
+<title>Timer Duo</title>
+<meta property="og:title" content="Timer Duo">
 <meta property="og:description" content="Tap to see the live countdown">
 <meta name="apple-itunes-app" content="app-clip-bundle-id=com.lokesh.sharedTimer.Clip, app-clip-display=card">
 <style>
-  :root {
-    color-scheme: light dark;
-    --bg: #0b0d10;
-    --card: #16191d;
-    --text: #f5f6f7;
-    --muted: #8a9099;
-    --accent: #ff9f0a;
-    --done: #ff453a;
-  }
+  /* "Horizon" — time as light. The page IS the timer's sky, matching Sky.swift:
+     ember (<1h), dusk (<1d), night (days+), mist (paused), overcast (done). */
+  :root { color-scheme: dark; }
   * { box-sizing: border-box; }
-  html, body {
-    height: 100%;
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-  }
+  html, body { height: 100%; margin: 0; }
   body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-  }
-  .card {
-    width: 100%;
-    max-width: 360px;
-    background: var(--card);
-    border-radius: 24px;
-    padding: 36px 28px;
-    text-align: center;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 24px; color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    background: linear-gradient(160deg, #0d0d1a, #1c2247);
+    transition: background 2s linear;
   }
   .label {
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--muted);
-    margin: 0 0 18px;
-    word-break: break-word;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+    opacity: 0.85; margin: 0; text-align: center; word-break: break-word;
   }
   .clock {
     font-variant-numeric: tabular-nums;
-    font-size: clamp(32px, 9vw, 56px);
-    font-weight: 700;
-    letter-spacing: 1px;
-    margin: 0 0 8px;
+    font-size: clamp(56px, 17vw, 96px); font-weight: 100; letter-spacing: 0.01em; margin: 0;
   }
-  .clock.done { color: var(--done); }
-  .target {
-    font-size: 13px;
-    color: var(--accent);
-    margin: 0 0 10px;
-    font-weight: 600;
-  }
-  .status {
-    font-size: 14px;
-    color: var(--muted);
-    margin: 0;
-  }
-  .status.done { color: var(--done); font-weight: 600; }
-  .hint {
-    margin-top: 28px;
-    font-size: 12px;
-    color: var(--muted);
-  }
+  body.done .clock { opacity: 0.55; }
+  .sub { font-size: 14px; opacity: 0.75; margin: 0; }
+  .hint { position: fixed; bottom: 22px; font-size: 11px; opacity: 0.45; }
 </style>
 </head>
 <body>
-  <div class="card">
-    <p class="label" id="label">Timer</p>
-    <p class="target" id="target" hidden></p>
-    <p class="clock" id="clock">--:--</p>
-    <p class="status" id="status">loading&hellip;</p>
-    <p class="hint">Shared via SharedTimer for iMessage</p>
-  </div>
+  <p class="label" id="label">Timer</p>
+  <p class="clock" id="clock">--:--</p>
+  <p class="sub" id="status">loading&hellip;</p>
+  <p class="hint">Shared with Timer Duo for iMessage</p>
 
 <script>
   function qs(name) {
@@ -105,8 +61,30 @@
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
 
+  // Sky families — fresh and drained stops mirror Sky.swift; the sky brightens toward
+  // sunrise as the timer drains.
+  const SKIES = {
+    ember:  { fresh: [[51,18,89],[166,48,87],[255,153,82]],  drained: [[122,46,100],[224,107,87],[255,209,138]] },
+    dusk:   { fresh: [[13,31,79],[51,84,156],[128,179,217]], drained: [[61,110,168],[128,166,217],[255,217,168]] },
+    night:  { fresh: [[8,13,46],[28,46,110],[64,84,156]],    drained: [[28,46,110],[74,102,184],[240,168,105]] },
+    mist:   { fresh: [[20,51,48],[46,107,97],[143,209,181]], drained: [[20,51,48],[46,107,97],[143,209,181]] },
+    over:   { fresh: [[33,33,38],[56,56,66],[89,89,102]],    drained: [[33,33,38],[56,56,66],[89,89,102]] }
+  };
+
+  function mix(a, b, t) {
+    return a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  }
+
+  function paintSky(family, drain) {
+    const fam = SKIES[family];
+    const t = Math.min(1, Math.max(0, drain)) ** 2; // eased, like Sky.swift
+    const stops = fam.fresh.map((s, i) => mix(s, fam.drained[i], t))
+      .map((s) => `rgb(${s[0]},${s[1]},${s[2]})`);
+    document.body.style.background =
+      `linear-gradient(160deg, ${stops[0]}, ${stops[1]} 55%, ${stops[2]} 120%)`;
+  }
+
   const labelEl = document.getElementById("label");
-  const targetEl = document.getElementById("target");
   const clockEl = document.getElementById("clock");
   const statusEl = document.getElementById("status");
 
@@ -114,38 +92,47 @@
   const endParam = qs("end");
   const kind = qs("kind") || "timer";
   labelEl.textContent = label;
-  document.title = label + " · Shared Timer";
+  document.title = label + " · Timer Duo";
 
   const endSeconds = endParam ? parseFloat(endParam) : NaN;
+  const durParam = qs("dur");
+  const duration = durParam ? parseFloat(durParam) : NaN;
   const pausedParam = qs("paused");
   const pausedSeconds = pausedParam !== null ? parseFloat(pausedParam) : NaN;
 
-  if (kind === "countdown" && isFinite(endSeconds)) {
-    targetEl.textContent = "→ " + formatTargetDate(endSeconds * 1000);
-    targetEl.hidden = false;
+  function familyFor(totalSeconds) {
+    if (totalSeconds < 3600) return "ember";
+    if (totalSeconds < 86400) return "dusk";
+    return "night";
   }
 
   if (isFinite(pausedSeconds)) {
     clockEl.textContent = formatRemaining(pausedSeconds);
-    statusEl.textContent = "paused";
+    statusEl.textContent = "Paused";
+    paintSky("mist", 0);
   } else if (!isFinite(endSeconds)) {
     clockEl.textContent = "--:--";
     statusEl.textContent = "No timer data in this link.";
   } else {
     const endMs = endSeconds * 1000;
+    const family = familyFor(isFinite(duration) ? duration : Math.max(1, (endMs - Date.now()) / 1000));
 
     function tick() {
       const remaining = (endMs - Date.now()) / 1000;
       if (remaining <= 0) {
         clockEl.textContent = "00:00";
-        clockEl.classList.add("done");
-        statusEl.textContent = "Time's up!";
-        statusEl.classList.add("done");
+        document.body.classList.add("done");
+        statusEl.textContent = "Time's up";
+        paintSky("over", 0);
         clearInterval(timer);
         return;
       }
       clockEl.textContent = formatRemaining(remaining);
-      statusEl.textContent = "counting down";
+      statusEl.textContent = kind === "countdown"
+        ? formatTargetDate(endMs)
+        : "counting down";
+      const drain = isFinite(duration) && duration > 0 ? 1 - remaining / duration : 0;
+      paintSky(family, drain);
     }
 
     tick();

@@ -10,6 +10,7 @@ import SwiftUI
 struct SharedTimerWidgetBundle: WidgetBundle {
     var body: some Widget {
         SharedTimerWidget()
+        SharedTimerCountdownWidget()
         TimerLiveActivityWidget()
     }
 }

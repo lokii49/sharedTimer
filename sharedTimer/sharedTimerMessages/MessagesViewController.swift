@@ -13,6 +13,13 @@ class MessagesViewController: MSMessagesAppViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // Horizon is dark-first; Messages.app owns this extension's trait environment,
+        // so the dark trait has to be forced on the controller itself for UIKit-hosted
+        // SwiftUI colors to resolve against the dark room.
+        overrideUserInterfaceStyle = .dark
+        // Fire-and-forget, opportunistic: ensures share-time later is a single round
+        // trip (record+share save) instead of two (zone create, then record+share save).
+        CloudSyncController.ensureZoneExists { _ in }
         presentComposeView()
     }
 
@@ -59,6 +66,7 @@ class MessagesViewController: MSMessagesAppViewController {
                 TimerStore.delete(id: deleted.id)
                 NotificationScheduler.cancel(id: deleted.id)
                 LiveActivityController.end(id: deleted.id)
+                CloudSyncController.pushDelete(id: deleted.id)
                 self?.presentComposeView()
             }
         ))
@@ -74,6 +82,7 @@ class MessagesViewController: MSMessagesAppViewController {
             NotificationScheduler.scheduleAlert(for: payload)
             LiveActivityController.start(for: payload)
         }
+        CloudSyncController.pushUp(payload)
     }
 
     private func presentRoot(_ root: AnyView) {
@@ -82,6 +91,7 @@ class MessagesViewController: MSMessagesAppViewController {
         } else {
             let hosting = UIHostingController(rootView: root)
             addChild(hosting)
+            hosting.view.backgroundColor = UIColor(Sky.room)
             hosting.view.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(hosting.view)
             NSLayoutConstraint.activate([
@@ -95,6 +105,11 @@ class MessagesViewController: MSMessagesAppViewController {
         }
     }
 
+    /// The local timer starts unconditionally first — sharing always works locally even
+    /// if the cloud call fails or times out. `CloudSyncController.createShare` has its
+    /// own internal ~4s timeout and always calls back with either a share URL or nil;
+    /// nil means "send exactly today's plain link," which is what makes the added
+    /// network dependency safe rather than a regression.
     private func send(payload: TimerPayload, mode: TimerShareMode) {
         guard let conversation = activeConversation else { return }
 
@@ -102,9 +117,19 @@ class MessagesViewController: MSMessagesAppViewController {
         NotificationScheduler.scheduleAlert(for: payload)
         LiveActivityController.start(for: payload)
 
+        CloudSyncController.createShare(for: payload) { [weak self] shareURL in
+            DispatchQueue.main.async {
+                self?.deliver(payload: payload, mode: mode, shareURL: shareURL, conversation: conversation)
+            }
+        }
+    }
+
+    private func deliver(payload: TimerPayload, mode: TimerShareMode, shareURL: URL?, conversation: MSConversation) {
+        let link = outgoingURL(for: payload, shareURL: shareURL)
+
         switch mode {
         case .link:
-            let text = "\(shareEmoji(for: payload)) \(payload.label) — \(shareSummary(for: payload))\n\(payload.url().absoluteString)"
+            let text = "\(shareEmoji(for: payload)) \(payload.label) — \(shareSummary(for: payload))\n\(link.absoluteString)"
             conversation.insertText(text) { [weak self] error in
                 if let error {
                     print("SharedTimer insertText error: \(error)")
@@ -118,7 +143,7 @@ class MessagesViewController: MSMessagesAppViewController {
             layout.caption = payload.label
             layout.subcaption = payload.isExpired ? "Timer done" : subcaption(for: payload)
             message.layout = layout
-            message.url = payload.url()
+            message.url = link
             message.summaryText = "Shared \(payload.kind == .countdown ? "countdown" : "timer"): \(payload.label)"
 
             conversation.insert(message) { [weak self] error in
@@ -128,6 +153,19 @@ class MessagesViewController: MSMessagesAppViewController {
                 self?.dismiss()
             }
         }
+    }
+
+    /// `payload.url()`'s wire format is untouched — the CloudKit share URL rides along
+    /// as an extra query param that App Clip / docs/t.html already ignore silently.
+    private func outgoingURL(for payload: TimerPayload, shareURL: URL?) -> URL {
+        guard let shareURL,
+              var components = URLComponents(url: payload.url(), resolvingAgainstBaseURL: false) else {
+            return payload.url()
+        }
+        var items = components.queryItems ?? []
+        items.append(URLQueryItem(name: "ckshare", value: shareURL.absoluteString))
+        components.queryItems = items
+        return components.url ?? payload.url()
     }
 
     private func formattedTime(_ date: Date) -> String {

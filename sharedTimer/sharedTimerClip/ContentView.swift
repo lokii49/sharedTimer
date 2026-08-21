@@ -29,19 +29,14 @@ struct ContentView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "timer")
-                .font(.system(size: 48))
-                .foregroundStyle(.orange)
-            Text("SharedTimer")
-                .font(.title2.bold())
-            Text("Open a shared timer link to see the live countdown.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
+        ZStack {
+            Sky.room.ignoresSafeArea()
+            ContentUnavailableView {
+                Label("Timer Duo", systemImage: "timer")
+            } description: {
+                Text("Open a shared timer link to see the live countdown.")
+            }
         }
-        .padding()
     }
 
     private func handle(url: URL?) {
@@ -57,7 +52,8 @@ struct ContentView: View {
             return
         }
         let config = SKOverlay.AppClipConfiguration(position: .bottom)
-        SKOverlay.present(in: scene, configuration: config)
+        let overlay = SKOverlay(configuration: config)
+        overlay.present(in: scene)
     }
 }
 

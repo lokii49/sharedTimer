@@ -5,76 +5,73 @@
 
 import SwiftUI
 
+/// The App Clip's whole job: one shared timer, full-bleed under its own sky.
 struct TimerClipView: View {
     let payload: TimerPayload
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let remaining = payload.remaining
-            let progress = payload.progress(at: context.date)
             let done = payload.isExpired
-            let tint = ringColor(for: progress, done: done)
+            let phase = reduceMotion ? 0 : sin(context.date.timeIntervalSinceReferenceDate / 19)
 
-            VStack(spacing: 28) {
-                VStack(spacing: 4) {
-                    Text(payload.label)
-                        .font(.system(.title3, design: .rounded, weight: .semibold))
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-
-                    if payload.kind == .countdown {
-                        Text("→ \(TimeFormat.targetDate(payload.endDate))")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.top, 12)
-
-                ZStack {
-                    Circle()
-                        .stroke(Color.primary.opacity(0.08), lineWidth: 14)
-
-                    Circle()
-                        .trim(from: 0, to: progress)
-                        .stroke(tint, style: StrokeStyle(lineWidth: 14, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .animation(.linear(duration: 0.9), value: progress)
-
-                    VStack(spacing: 4) {
-                        Text(TimeFormat.remaining(remaining))
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                            .minimumScaleFactor(0.5)
-                            .lineLimit(1)
-                            .foregroundStyle(done ? .red : .primary)
-
-                        Text(done ? "TIME'S UP" : "REMAINING")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .tracking(1)
-                    }
-                }
-                .frame(width: 200, height: 200)
-
-                Label(
-                    done ? "Timer finished" : "Live countdown from a shared timer",
-                    systemImage: done ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
+            ZStack {
+                LinearGradient(
+                    colors: Sky.colors(for: payload, at: context.date),
+                    startPoint: UnitPoint(x: 0.15 + 0.1 * phase, y: 0),
+                    endPoint: UnitPoint(x: 0.85 - 0.1 * phase, y: 1)
                 )
-                .font(.footnote)
-                .foregroundStyle(done ? .red : .secondary)
+                .ignoresSafeArea()
+                .animation(.linear(duration: 1), value: phase)
 
-                Spacer()
+                VStack {
+                    Text(payload.kind == .countdown ? "Shared Countdown" : "Shared Timer")
+                        .skyLabel()
+                        .foregroundStyle(.white.opacity(0.7))
+                        .padding(.top, 24)
+
+                    Spacer()
+
+                    VStack(spacing: 10) {
+                        Text(payload.label)
+                            .skyLabel(13)
+                            .foregroundStyle(.white.opacity(0.85))
+                        Text(TimeFormat.display(remaining))
+                            .skyDigits(64, weight: .thin)
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.4)
+                            .padding(.horizontal, 24)
+                        Text(subtitle(done: done))
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.75))
+                    }
+
+                    Spacer()
+
+                    Label(
+                        done ? "Timer finished" : "Live countdown from a shared timer",
+                        systemImage: done ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.6))
+                    .padding(.bottom, 30)
+                }
             }
-            .frame(maxWidth: .infinity)
         }
     }
 
-    private func ringColor(for progress: Double, done: Bool) -> Color {
-        if done { return .red }
-        if progress < 0.15 { return .red }
-        if progress < 0.4 { return .orange }
-        return .accentColor
+    private func subtitle(done: Bool) -> String {
+        if done {
+            return "Finished \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+        }
+        if payload.isPaused {
+            return "Paused"
+        }
+        if payload.kind == .countdown {
+            return TimeFormat.targetDate(payload.endDate)
+        }
+        return "ends at \(payload.endDate.formatted(date: .omitted, time: .shortened))"
     }
-
 }

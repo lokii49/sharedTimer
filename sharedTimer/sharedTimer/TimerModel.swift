@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 enum TimerShareMode: String, Codable {
     case appCard
@@ -155,6 +156,9 @@ struct TimerPayload: Codable, Identifiable {
 
 /// Day-aware time formatting shared by every surface that renders a countdown.
 enum TimeFormat {
+    /// Countdowns at or beyond this range switch from a duration string to a calendar breakdown.
+    static let calendarThreshold: TimeInterval = 7 * 86400
+
     /// "3d 04:12:09" beyond a day, "4:12:09" beyond an hour, else "12:09".
     static func remaining(_ interval: TimeInterval) -> String {
         let total = max(0, Int(interval))
@@ -171,9 +175,59 @@ enum TimeFormat {
         return String(format: "%02d:%02d", m, s)
     }
 
-    /// Compact "12d" form for tight widget/glanceable layouts.
-    static func compactDays(_ interval: TimeInterval) -> String {
-        "\(max(0, Int(interval) / 86400))d"
+    /// "3d 4h" — a coarse duration for surfaces that refresh on a timeline rather than every
+    /// second; never claims a minutes/seconds precision it can't actually keep live.
+    static func daysHours(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval))
+        let days = total / 86400
+        let h = (total % 86400) / 3600
+        return h > 0 ? "\(days)d \(h)h" : "\(days)d"
+    }
+
+    /// "1y 2mo", "2mo 15d", "21d" — calendar-aware breakdown for far-out countdowns.
+    static func calendarBreakdown(_ interval: TimeInterval, at now: Date = Date()) -> String {
+        let comps = Calendar.current.dateComponents([.year, .month, .day], from: now, to: now.addingTimeInterval(max(0, interval)))
+        let y = comps.year ?? 0, m = comps.month ?? 0, d = max(comps.day ?? 0, 0)
+        if y > 0 { return m > 0 ? "\(y)y \(m)mo" : "\(y)y" }
+        if m > 0 { return d > 0 ? "\(m)mo \(d)d" : "\(m)mo" }
+        return "\(d)d"
+    }
+
+    /// Single most significant unit, for ultra-compact slots like the Dynamic Island's compact views.
+    static func compactCalendar(_ interval: TimeInterval, at now: Date = Date()) -> String {
+        let comps = Calendar.current.dateComponents([.year, .month, .day], from: now, to: now.addingTimeInterval(max(0, interval)))
+        if let y = comps.year, y > 0 { return "\(y)y" }
+        if let m = comps.month, m > 0 { return "\(m)mo" }
+        return "\(max(comps.day ?? 0, 0))d"
+    }
+
+    /// Chooser for surfaces that tick live every second (`TimelineView`, in-app): full precision
+    /// under `calendarThreshold`, calendar breakdown beyond it.
+    static func display(_ interval: TimeInterval, at now: Date = Date()) -> String {
+        interval >= calendarThreshold ? calendarBreakdown(interval, at: now) : remaining(interval)
+    }
+
+    /// Chooser for surfaces that only refresh on a timeline or content update (widgets, Live
+    /// Activities): never renders a seconds field it can't actually keep live.
+    static func snapshot(_ interval: TimeInterval, at now: Date = Date()) -> String {
+        interval >= calendarThreshold ? calendarBreakdown(interval, at: now) : daysHours(interval)
+    }
+
+    /// Ultra-compact counterpart to `snapshot`, for the Dynamic Island's compact slots.
+    static func compactSnapshot(_ interval: TimeInterval, at now: Date = Date()) -> String {
+        interval >= calendarThreshold ? compactCalendar(interval, at: now) : "\(max(0, Int(interval)) / 86400)d"
+    }
+
+    /// Fixed-width zero-padded digits for a widget where the numbers are the whole point:
+    /// "HH:MM:SS" under the calendar threshold, "YY:MM:DD" beyond it. Always exactly 8
+    /// characters, so a big font sized for it doesn't jitter as the value changes.
+    static func bigDigits(_ interval: TimeInterval, at now: Date = Date()) -> String {
+        if interval >= calendarThreshold {
+            let comps = Calendar.current.dateComponents([.year, .month, .day], from: now, to: now.addingTimeInterval(max(0, interval)))
+            return String(format: "%02d:%02d:%02d", max(0, comps.year ?? 0), max(0, comps.month ?? 0), max(0, comps.day ?? 0))
+        }
+        let total = max(0, Int(interval))
+        return String(format: "%02d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
     }
 
     /// "2026-08-11" target date, e.g. for countdown rows and share text.
@@ -183,3 +237,22 @@ enum TimeFormat {
         return formatter.string(from: date)
     }
 }
+
+extension TimerKind {
+    /// System accents, one per kind: orange for timers (the Clock app's color) and red
+    /// for date countdowns (the Calendar app's color). System colors adapt to Light/Dark
+    /// Mode and accessibility settings on their own.
+    var accentColor: Color {
+        switch self {
+        case .timer: return .orange
+        case .countdown: return .red
+        }
+    }
+
+    var symbolName: String {
+        self == .countdown ? "calendar" : "timer"
+    }
+}
+
+/// Paused state accent — system yellow, distinct from both kind accents.
+let pausedColor = Color.yellow
