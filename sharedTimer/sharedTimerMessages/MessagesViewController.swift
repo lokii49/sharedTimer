@@ -10,6 +10,8 @@ import SwiftUI
 class MessagesViewController: MSMessagesAppViewController {
 
     private var hostingController: UIHostingController<AnyView>?
+    /// Reset each time presentRunningView shows a timer — see stageAttributionText.
+    private var hasStagedAttribution = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -41,8 +43,40 @@ class MessagesViewController: MSMessagesAppViewController {
             NotificationScheduler.scheduleAlert(for: stored)
             LiveActivityController.start(for: stored)
             presentRunningView(payload: stored)
+            acceptShareIfNeeded(from: conversation.selectedMessage?.url, localPayloadID: stored.id)
         } else {
             presentComposeView()
+        }
+    }
+
+    /// Closes the Phase-1 gap: a recipient who only ever opens this extension (never the
+    /// main app's onOpenURL) previously never got a CloudLink, so pushUp/pushDelete
+    /// silently no-op'd for them forever — see CloudSyncController.acceptShare, already
+    /// present in this target but never called until now. Mirrors
+    /// ContentView.handleIncoming. Guarded on CloudLinkStore so it only runs once —
+    /// presentView fires on every willBecomeActive/didReceive. This is a receive-path
+    /// write, so it goes through TimerStore/NotificationScheduler/LiveActivityController
+    /// directly rather than persist(_:action:) — never pushUp here, which would echo the
+    /// remote state straight back to the server (see CloudSyncController's own invariant).
+    private func acceptShareIfNeeded(from url: URL?, localPayloadID: String) {
+        guard CloudLinkStore.get(timerID: localPayloadID) == nil,
+              let url,
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let shareString = components.queryItems?.first(where: { $0.name == "ckshare" })?.value,
+              let shareURL = URL(string: shareString) else { return }
+
+        CloudSyncController.acceptShare(from: shareURL) { authoritative in
+            guard let authoritative else { return }
+            DispatchQueue.main.async {
+                TimerStore.save(authoritative)
+                NotificationScheduler.cancel(id: authoritative.id)
+                if authoritative.isPaused {
+                    LiveActivityController.update(for: authoritative)
+                } else {
+                    NotificationScheduler.scheduleAlert(for: authoritative)
+                    LiveActivityController.start(for: authoritative)
+                }
+            }
         }
     }
 
@@ -54,13 +88,14 @@ class MessagesViewController: MSMessagesAppViewController {
     }
 
     private func presentRunningView(payload: TimerPayload) {
+        hasStagedAttribution = false
         let root = AnyView(TimerRunningView(
             payload: payload,
             onNewTimer: { [weak self] in
                 self?.presentComposeView()
             },
-            onUpdate: { [weak self] updated in
-                self?.persist(updated)
+            onUpdate: { [weak self] updated, action in
+                self?.persist(updated, action: action)
             },
             onDelete: { [weak self] deleted in
                 TimerStore.delete(id: deleted.id)
@@ -73,7 +108,7 @@ class MessagesViewController: MSMessagesAppViewController {
         presentRoot(root)
     }
 
-    private func persist(_ payload: TimerPayload) {
+    private func persist(_ payload: TimerPayload, action: String) {
         TimerStore.save(payload)
         NotificationScheduler.cancel(id: payload.id)
         if payload.isPaused {
@@ -82,7 +117,30 @@ class MessagesViewController: MSMessagesAppViewController {
             NotificationScheduler.scheduleAlert(for: payload)
             LiveActivityController.start(for: payload)
         }
-        CloudSyncController.pushUp(payload)
+        CloudSyncController.pushUp(payload, action: action)
+        stageAttributionText(for: payload, action: action)
+    }
+
+    /// Stages — never sends — a one-line "Sam paused Pasta — 5:22 left" into the
+    /// conversation's input field for a local pause/resume/extend on a shared timer. An
+    /// extension can only fill the input, never post on its own; the person still has to
+    /// tap send. Only the first mutation per presentation stages anything — insertText
+    /// replaces the field's content each call, so repeated taps would otherwise stomp on
+    /// whatever the person already typed in response. No-ops when there's no active
+    /// conversation (e.g. torn down mid-flight) or the timer isn't cloud-linked, matching
+    /// every other CloudKit-absence no-op here.
+    private func stageAttributionText(for payload: TimerPayload, action: String) {
+        guard !hasStagedAttribution,
+              let conversation = activeConversation,
+              CloudLinkStore.get(timerID: payload.id) != nil else { return }
+        hasStagedAttribution = true
+        let name = DisplayNameStore.name ?? "Someone"
+        let remaining = TimeFormat.display(payload.remaining)
+        conversation.insertText("\(name) \(action) \(payload.label) — \(remaining) left") { error in
+            if let error {
+                print("SharedTimer insertText (attribution) error: \(error)")
+            }
+        }
     }
 
     private func presentRoot(_ root: AnyView) {
@@ -117,11 +175,36 @@ class MessagesViewController: MSMessagesAppViewController {
         NotificationScheduler.scheduleAlert(for: payload)
         LiveActivityController.start(for: payload)
 
-        CloudSyncController.createShare(for: payload) { [weak self] shareURL in
-            DispatchQueue.main.async {
-                self?.deliver(payload: payload, mode: mode, shareURL: shareURL, conversation: conversation)
+        promptForDisplayNameIfNeeded {
+            CloudSyncController.createShare(for: payload) { [weak self] shareURL in
+                DispatchQueue.main.async {
+                    self?.deliver(payload: payload, mode: mode, shareURL: shareURL, conversation: conversation)
+                }
             }
         }
+    }
+
+    /// One-time prompt for DisplayNameStore.name — see DisplayNameStore.swift. Skipping
+    /// (Skip, or dismissing) just falls back to "Someone" in attribution; nothing here
+    /// blocks on it, including this call site itself, which proceeds either way.
+    private func promptForDisplayNameIfNeeded(then completion: @escaping () -> Void) {
+        guard DisplayNameStore.name == nil else {
+            completion()
+            return
+        }
+        let alert = UIAlertController(
+            title: "What should we call you?",
+            message: "Shown to people you share timers with, like \"Sam paused Pasta.\"",
+            preferredStyle: .alert
+        )
+        alert.addTextField { $0.placeholder = "Your name" }
+        alert.addAction(UIAlertAction(title: "Skip", style: .cancel) { _ in completion() })
+        alert.addAction(UIAlertAction(title: "Continue", style: .default) { [weak alert] _ in
+            let trimmed = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !trimmed.isEmpty { DisplayNameStore.name = trimmed }
+            completion()
+        })
+        present(alert, animated: true)
     }
 
     private func deliver(payload: TimerPayload, mode: TimerShareMode, shareURL: URL?, conversation: MSConversation) {

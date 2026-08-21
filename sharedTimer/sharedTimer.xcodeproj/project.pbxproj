@@ -10,6 +10,7 @@
 		470A5005302889C0006EB758 /* Messages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 470A5004302889C0006EB758 /* Messages.framework */; };
 		470A5011302889C1006EB758 /* sharedTimerMessages.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 470A5002302889C0006EB758 /* sharedTimerMessages.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		470A5047302896F1006EB758 /* sharedTimerClip.app in Embed App Clips */ = {isa = PBXBuildFile; fileRef = 470A5023302896F0006EB758 /* sharedTimerClip.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4710160F30387B490049528C /* sharedTimerWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 471015EF30387B480049528C /* sharedTimerWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AB00000D0000000000000000 /* sharedTimerWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB0000010000000000000000 /* sharedTimerWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -56,6 +57,27 @@
 			remoteGlobalIDString = 470A5022302896F0006EB758;
 			remoteInfo = sharedTimerClip;
 		};
+		471015FC30387B490049528C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 470A4FCA30288982006EB758 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 471015EE30387B480049528C;
+			remoteInfo = "sharedTimerWatch Watch App";
+		};
+		4710160630387B490049528C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 470A4FCA30288982006EB758 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 471015EE30387B480049528C;
+			remoteInfo = "sharedTimerWatch Watch App";
+		};
+		4710160D30387B490049528C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 470A4FCA30288982006EB758 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 471015EE30387B480049528C;
+			remoteInfo = "sharedTimerWatch Watch App";
+		};
 		AB00000B0000000000000000 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 470A4FCA30288982006EB758 /* Project object */;
@@ -89,6 +111,17 @@
 			name = "Embed App Clips";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4710161330387B490049528C /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				4710160F30387B490049528C /* sharedTimerWatch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -100,6 +133,9 @@
 		470A5023302896F0006EB758 /* sharedTimerClip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = sharedTimerClip.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		470A5033302896F1006EB758 /* sharedTimerClipTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = sharedTimerClipTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		470A503D302896F1006EB758 /* sharedTimerClipUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = sharedTimerClipUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		471015EF30387B480049528C /* sharedTimerWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "sharedTimerWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		471015FB30387B490049528C /* sharedTimerWatch Watch AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "sharedTimerWatch Watch AppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4710160530387B490049528C /* sharedTimerWatch Watch AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "sharedTimerWatch Watch AppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AB0000010000000000000000 /* sharedTimerWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = sharedTimerWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -169,6 +205,21 @@
 			path = sharedTimerClipUITests;
 			sourceTree = "<group>";
 		};
+		471015F030387B480049528C /* sharedTimerWatch Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "sharedTimerWatch Watch App";
+			sourceTree = "<group>";
+		};
+		471015FE30387B490049528C /* sharedTimerWatch Watch AppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "sharedTimerWatch Watch AppTests";
+			sourceTree = "<group>";
+		};
+		4710160830387B490049528C /* sharedTimerWatch Watch AppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "sharedTimerWatch Watch AppUITests";
+			sourceTree = "<group>";
+		};
 		AB0000020000000000000000 /* sharedTimerWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -230,6 +281,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		471015EC30387B480049528C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		471015F830387B490049528C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4710160230387B490049528C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AB0000060000000000000000 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -251,6 +323,9 @@
 				470A5036302896F1006EB758 /* sharedTimerClipTests */,
 				470A5040302896F1006EB758 /* sharedTimerClipUITests */,
 				AB0000020000000000000000 /* sharedTimerWidget */,
+				471015F030387B480049528C /* sharedTimerWatch Watch App */,
+				471015FE30387B490049528C /* sharedTimerWatch Watch AppTests */,
+				4710160830387B490049528C /* sharedTimerWatch Watch AppUITests */,
 				470A5003302889C0006EB758 /* Frameworks */,
 				470A4FD330288982006EB758 /* Products */,
 			);
@@ -267,6 +342,9 @@
 				470A5033302896F1006EB758 /* sharedTimerClipTests.xctest */,
 				470A503D302896F1006EB758 /* sharedTimerClipUITests.xctest */,
 				AB0000010000000000000000 /* sharedTimerWidget.appex */,
+				471015EF30387B480049528C /* sharedTimerWatch Watch App.app */,
+				471015FB30387B490049528C /* sharedTimerWatch Watch AppTests.xctest */,
+				4710160530387B490049528C /* sharedTimerWatch Watch AppUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -291,6 +369,7 @@
 				470A4FD030288982006EB758 /* Resources */,
 				470A5016302889C1006EB758 /* Embed Foundation Extensions */,
 				470A504C302896F1006EB758 /* Embed App Clips */,
+				4710161330387B490049528C /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
@@ -298,6 +377,7 @@
 				470A5010302889C1006EB758 /* PBXTargetDependency */,
 				470A5046302896F1006EB758 /* PBXTargetDependency */,
 				AB00000C0000000000000000 /* PBXTargetDependency */,
+				4710160E30387B490049528C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				470A4FD430288982006EB758 /* sharedTimer */,
@@ -445,6 +525,74 @@
 			productReference = 470A503D302896F1006EB758 /* sharedTimerClipUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		471015EE30387B480049528C /* sharedTimerWatch Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4710161030387B490049528C /* Build configuration list for PBXNativeTarget "sharedTimerWatch Watch App" */;
+			buildPhases = (
+				471015EB30387B480049528C /* Sources */,
+				471015EC30387B480049528C /* Frameworks */,
+				471015ED30387B480049528C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				471015F030387B480049528C /* sharedTimerWatch Watch App */,
+			);
+			name = "sharedTimerWatch Watch App";
+			packageProductDependencies = (
+			);
+			productName = "sharedTimerWatch Watch App";
+			productReference = 471015EF30387B480049528C /* sharedTimerWatch Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
+		471015FA30387B490049528C /* sharedTimerWatch Watch AppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4710161430387B490049528C /* Build configuration list for PBXNativeTarget "sharedTimerWatch Watch AppTests" */;
+			buildPhases = (
+				471015F730387B490049528C /* Sources */,
+				471015F830387B490049528C /* Frameworks */,
+				471015F930387B490049528C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				471015FD30387B490049528C /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				471015FE30387B490049528C /* sharedTimerWatch Watch AppTests */,
+			);
+			name = "sharedTimerWatch Watch AppTests";
+			packageProductDependencies = (
+			);
+			productName = "sharedTimerWatch Watch AppTests";
+			productReference = 471015FB30387B490049528C /* sharedTimerWatch Watch AppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		4710160430387B490049528C /* sharedTimerWatch Watch AppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4710161730387B490049528C /* Build configuration list for PBXNativeTarget "sharedTimerWatch Watch AppUITests" */;
+			buildPhases = (
+				4710160130387B490049528C /* Sources */,
+				4710160230387B490049528C /* Frameworks */,
+				4710160330387B490049528C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4710160730387B490049528C /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				4710160830387B490049528C /* sharedTimerWatch Watch AppUITests */,
+			);
+			name = "sharedTimerWatch Watch AppUITests";
+			packageProductDependencies = (
+			);
+			productName = "sharedTimerWatch Watch AppUITests";
+			productReference = 4710160530387B490049528C /* sharedTimerWatch Watch AppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		AB0000040000000000000000 /* sharedTimerWidget */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AB00000A0000000000000000 /* Build configuration list for PBXNativeTarget "sharedTimerWidget" */;
@@ -502,6 +650,17 @@
 						CreatedOnToolsVersion = 26.6;
 						TestTargetID = 470A5022302896F0006EB758;
 					};
+					471015EE30387B480049528C = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					471015FA30387B490049528C = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = 471015EE30387B480049528C;
+					};
+					4710160430387B490049528C = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = 471015EE30387B480049528C;
+					};
 					AB0000040000000000000000 = {
 						CreatedOnToolsVersion = 26.6;
 					};
@@ -529,6 +688,9 @@
 				470A5032302896F1006EB758 /* sharedTimerClipTests */,
 				470A503C302896F1006EB758 /* sharedTimerClipUITests */,
 				AB0000040000000000000000 /* sharedTimerWidget */,
+				471015EE30387B480049528C /* sharedTimerWatch Watch App */,
+				471015FA30387B490049528C /* sharedTimerWatch Watch AppTests */,
+				4710160430387B490049528C /* sharedTimerWatch Watch AppUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -577,6 +739,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		470A503B302896F1006EB758 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		471015ED30387B480049528C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		471015F930387B490049528C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4710160330387B490049528C /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -642,6 +825,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		471015EB30387B480049528C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		471015F730387B490049528C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4710160130387B490049528C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AB0000050000000000000000 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -681,6 +885,21 @@
 			isa = PBXTargetDependency;
 			target = 470A5022302896F0006EB758 /* sharedTimerClip */;
 			targetProxy = 470A5045302896F1006EB758 /* PBXContainerItemProxy */;
+		};
+		471015FD30387B490049528C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 471015EE30387B480049528C /* sharedTimerWatch Watch App */;
+			targetProxy = 471015FC30387B490049528C /* PBXContainerItemProxy */;
+		};
+		4710160730387B490049528C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 471015EE30387B480049528C /* sharedTimerWatch Watch App */;
+			targetProxy = 4710160630387B490049528C /* PBXContainerItemProxy */;
+		};
+		4710160E30387B490049528C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 471015EE30387B480049528C /* sharedTimerWatch Watch App */;
+			targetProxy = 4710160D30387B490049528C /* PBXContainerItemProxy */;
 		};
 		AB00000C0000000000000000 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -822,6 +1041,7 @@
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = sharedTimer/Shortcuts.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Timer Duo";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -859,6 +1079,7 @@
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = sharedTimer/Shortcuts.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Timer Duo";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -1191,6 +1412,164 @@
 			};
 			name = Release;
 		};
+		4710161130387B490049528C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "sharedTimerWatch Watch App/sharedTimerWatch Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = sharedTimerWatch;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.lokesh.sharedTimer;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimer.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.5;
+			};
+			name = Debug;
+		};
+		4710161230387B490049528C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "sharedTimerWatch Watch App/sharedTimerWatch Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = sharedTimerWatch;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.lokesh.sharedTimer;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimer.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.5;
+			};
+			name = Release;
+		};
+		4710161530387B490049528C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.lokesh.sharedTimerWatch-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/sharedTimerWatch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/sharedTimerWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.5;
+			};
+			name = Debug;
+		};
+		4710161630387B490049528C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.lokesh.sharedTimerWatch-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/sharedTimerWatch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/sharedTimerWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.5;
+			};
+			name = Release;
+		};
+		4710161830387B490049528C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.lokesh.sharedTimerWatch-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "sharedTimerWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 10.6;
+			};
+			name = Debug;
+		};
+		4710161930387B490049528C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.lokesh.sharedTimerWatch-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "sharedTimerWatch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 10.6;
+			};
+			name = Release;
+		};
 		AB0000080000000000000000 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1322,6 +1701,33 @@
 			buildConfigurations = (
 				470A5051302896F1006EB758 /* Debug */,
 				470A5052302896F1006EB758 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4710161030387B490049528C /* Build configuration list for PBXNativeTarget "sharedTimerWatch Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4710161130387B490049528C /* Debug */,
+				4710161230387B490049528C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4710161430387B490049528C /* Build configuration list for PBXNativeTarget "sharedTimerWatch Watch AppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4710161530387B490049528C /* Debug */,
+				4710161630387B490049528C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4710161730387B490049528C /* Build configuration list for PBXNativeTarget "sharedTimerWatch Watch AppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4710161830387B490049528C /* Debug */,
+				4710161930387B490049528C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

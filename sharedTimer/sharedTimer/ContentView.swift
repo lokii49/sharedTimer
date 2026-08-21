@@ -4,12 +4,17 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @State private var timers: [TimerPayload] = TimerStore.loadAll()
     @State private var showingNewTimer = false
+    @State private var pendingNewTimerKind: TimerKind = .timer
     @State private var sharingPayload: TimerPayload?
     @State private var incomingPayload: TimerPayload?
+    @State private var showingNamePrompt = false
+    @State private var nameInput: String = ""
+    @State private var pendingNameCompletion: (() -> Void)?
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -55,9 +60,22 @@ struct ContentView: View {
                 }
             }
             .sheet(isPresented: $showingNewTimer) {
-                NewTimerSheet { payload in
+                NewTimerSheet(initialKind: pendingNewTimerKind) { payload in
                     apply(payload)
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .quickActionTriggered)) { notification in
+                // Home Screen Quick Action (long-press the app icon), warm-launch case —
+                // app already running, so this subscriber exists when SceneDelegate posts.
+                // Cold launch is handled separately in .onAppear (see openQuickAction).
+                guard let type = notification.object as? String else { return }
+                openQuickAction(type)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .externalTimerStoreChange)) { _ in
+                // Watch-relayed mutation or CloudKit silent push landed while this view
+                // is already foregrounded — scenePhase alone won't fire here since we
+                // never left .active. Re-read TimerStore directly.
+                timers = TimerStore.loadAll()
             }
             .sheet(item: $sharingPayload) { payload in
                 ShareTimerSheet(payload: payload)
@@ -72,6 +90,22 @@ struct ContentView: View {
                     onDismiss: { incomingPayload = nil }
                 )
             }
+            .alert("What should we call you?", isPresented: $showingNamePrompt) {
+                TextField("Your name", text: $nameInput)
+                Button("Continue") {
+                    let trimmed = nameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty { DisplayNameStore.name = trimmed }
+                    nameInput = ""
+                    pendingNameCompletion?()
+                    pendingNameCompletion = nil
+                }
+                Button("Skip", role: .cancel) {
+                    pendingNameCompletion?()
+                    pendingNameCompletion = nil
+                }
+            } message: {
+                Text("Shown to people you share timers with, like \"Sam paused Pasta.\"")
+            }
         }
         .tint(.white)
         .onAppear {
@@ -83,9 +117,20 @@ struct ContentView: View {
                 }
             }
             pullCloudChanges()
+            // Cold-launch Quick Action: SceneDelegate's willConnectTo runs before this
+            // .onAppear (and before .onReceive's subscriber exists), so it buffers the
+            // shortcut type in a static var instead of posting — drain it here.
+            if let type = SceneDelegate.pendingShortcutType {
+                SceneDelegate.pendingShortcutType = nil
+                openQuickAction(type)
+            }
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
+            // Re-read TimerStore first — a timer created while backgrounded (e.g. via
+            // TimerIntents.swift's Siri intents) writes straight to the App Group and has
+            // no CloudLink, so pullCloudChanges alone would never surface it here.
+            timers = TimerStore.loadAll()
             pullCloudChanges()
         }
         .onOpenURL { url in
@@ -130,7 +175,7 @@ struct ContentView: View {
             // disclosure chevron outside the sky, which breaks the full-bleed card.
             .background(
                 NavigationLink("") {
-                    TimerDetailView(payload: payload, onUpdate: apply, onDelete: delete)
+                    TimerDetailView(payload: payload, onUpdate: applyMutation, onDelete: delete)
                 }
                 .opacity(0)
             )
@@ -164,7 +209,7 @@ struct ContentView: View {
         }
         .contextMenu {
             Button {
-                sharingPayload = payload
+                withDisplayName { sharingPayload = payload }
             } label: {
                 Label("Share…", systemImage: "square.and.arrow.up")
             }
@@ -194,19 +239,54 @@ struct ContentView: View {
         NotificationScheduler.cancel(id: payload.id)
         LiveActivityController.end(id: payload.id)
         CloudSyncController.pushDelete(id: payload.id)
+        WatchSyncController.pushCurrentState()
         timers.removeAll { $0.id == payload.id }
     }
 
     private func togglePause(_ payload: TimerPayload) {
         let updated = payload.isPaused ? payload.resumed() : payload.paused()
-        apply(updated)
+        applyMutation(updated, action: updated.isPaused ? "paused" : "resumed")
     }
 
     private func extend(_ payload: TimerPayload, by interval: TimeInterval) {
-        apply(payload.extended(by: interval))
+        applyMutation(payload.extended(by: interval), action: "extended")
     }
 
-    private func apply(_ updated: TimerPayload) {
+    /// Shared by the row's swipe/context-menu actions and TimerDetailView's own controls
+    /// (both mutate a timer the same way). The mutation always applies immediately —
+    /// gating it behind the name prompt risked the alert not presenting from a pushed
+    /// TimerDetailView and silently dropping the pause/extend. The prompt runs alongside,
+    /// not in front of it: if no name is set yet, this push writes "Someone"
+    /// (DisplayNameStore's documented fallback) and the next one picks up whatever the
+    /// person enters.
+    private func applyMutation(_ updated: TimerPayload, action: String) {
+        apply(updated, action: action)
+        if CloudLinkStore.get(timerID: updated.id) != nil {
+            promptForNameIfNeeded()
+        }
+    }
+
+    /// Fire-and-forget version for call sites that don't need to wait on the result
+    /// (mutations — see applyMutation). No-ops if a name is already set.
+    private func promptForNameIfNeeded() {
+        guard DisplayNameStore.name == nil else { return }
+        showingNamePrompt = true
+    }
+
+    /// Runs `then` immediately if a display name is already set (DisplayNameStore); else
+    /// prompts once and runs `then` after Continue/Skip. Only used for the Share… flow,
+    /// where the prompt has to resolve before the share sheet opens (two presentations at
+    /// once would fight each other) — see DisplayNameStore.swift for the skip fallback.
+    private func withDisplayName(_ then: @escaping () -> Void) {
+        guard DisplayNameStore.name == nil else {
+            then()
+            return
+        }
+        pendingNameCompletion = then
+        showingNamePrompt = true
+    }
+
+    private func apply(_ updated: TimerPayload, action: String = "updated") {
         TimerStore.save(updated)
         NotificationScheduler.cancel(id: updated.id)
         if !updated.isPaused {
@@ -215,7 +295,8 @@ struct ContentView: View {
         } else {
             LiveActivityController.update(for: updated)
         }
-        CloudSyncController.pushUp(updated)
+        CloudSyncController.pushUp(updated, action: action)
+        WatchSyncController.pushCurrentState()
         if let index = timers.firstIndex(where: { $0.id == updated.id }) {
             timers[index] = updated
         } else {
@@ -234,6 +315,15 @@ struct ContentView: View {
     /// their own sent link) must still (re-)establish CloudLink, or later pause/resume/
     /// extend on this device silently has nothing to push to. Absence of the param (or a
     /// failed accept) leaves the plain-link snapshot exactly as it was — no regression.
+    private func openQuickAction(_ type: String) {
+        switch type {
+        case "newTimer": pendingNewTimerKind = .timer
+        case "newCountdown": pendingNewTimerKind = .countdown
+        default: return
+        }
+        showingNewTimer = true
+    }
+
     private func handleIncoming(url: URL?) {
         guard let parsed = TimerPayload.from(url: url) else { return }
         let alreadyKnown = timers.contains(where: { $0.id == parsed.id })
@@ -289,6 +379,11 @@ struct ContentView: View {
                     LiveActivityController.end(id: id)
                     timers.removeAll { $0.id == id }
                 }
+                // Unconditional, not gated on updated/deletedIDs being non-empty — this
+                // is also where the scenePhase handler's TimerStore.loadAll() re-read
+                // (Siri-intent/Messages-extension mutations made while backgrounded)
+                // needs to reach the watch, and that path has no CloudKit delta at all.
+                WatchSyncController.pushCurrentState()
             }
         }
     }
@@ -297,12 +392,17 @@ struct ContentView: View {
 private struct NewTimerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var label: String = ""
-    @State private var kind: TimerKind = .timer
+    @State private var kind: TimerKind
     @State private var minutes: Double = 5
     @State private var targetDate: Date = Date().addingTimeInterval(86400)
     @FocusState private var labelFocused: Bool
 
     let onCreate: (TimerPayload) -> Void
+
+    init(initialKind: TimerKind = .timer, onCreate: @escaping (TimerPayload) -> Void) {
+        self._kind = State(initialValue: initialKind)
+        self.onCreate = onCreate
+    }
 
     /// Live preview of the sky this timer will get.
     private var previewPayload: TimerPayload {
@@ -351,12 +451,15 @@ private struct NewTimerSheet: View {
 /// glowing in the middle and frosted controls floating at the bottom.
 private struct TimerDetailView: View {
     @State private var payload: TimerPayload
-    let onUpdate: (TimerPayload) -> Void
+    let onUpdate: (TimerPayload, String) -> Void
     let onDelete: (TimerPayload) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var participantCount: Int?
+    @State private var attribution: (name: String, action: String)?
+    @State private var hasBuzzedFinish = false
 
-    init(payload: TimerPayload, onUpdate: @escaping (TimerPayload) -> Void, onDelete: @escaping (TimerPayload) -> Void) {
+    init(payload: TimerPayload, onUpdate: @escaping (TimerPayload, String) -> Void, onDelete: @escaping (TimerPayload) -> Void) {
         self._payload = State(initialValue: payload)
         self.onUpdate = onUpdate
         self.onDelete = onDelete
@@ -396,6 +499,11 @@ private struct TimerDetailView: View {
                         Text(subtitle(done: done))
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.75))
+                        if let statusLine {
+                            Text(statusLine)
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.55))
+                        }
                     }
 
                     Spacer()
@@ -426,6 +534,15 @@ private struct TimerDetailView: View {
                     .padding(.bottom, 28)
                 }
             }
+            // TimelineView localizes invalidation to this closure — a modifier attached
+            // outside it (below) only re-evaluates on @State changes, never on the tick
+            // that actually crosses zero. `done` is recomputed fresh every tick, so
+            // .onChange has to live in here to see the flip.
+            .onChange(of: done) { _, isExpired in
+                guard isExpired, !hasBuzzedFinish else { return }
+                hasBuzzedFinish = true
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
@@ -435,6 +552,20 @@ private struct TimerDetailView: View {
                     Image(systemName: "square.and.arrow.up")
                 }
             }
+        }
+        .onAppear {
+            hasBuzzedFinish = payload.isExpired
+            CloudSyncController.fetchParticipantCount(for: payload) { participantCount = $0 }
+            CloudSyncController.fetchAttribution(for: payload) { attribution = $0 }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .externalTimerStoreChange)) { _ in
+            // This view holds its own @State copy of payload (seeded once when pushed),
+            // so a watch-relayed pause or CloudKit push landing while this exact screen is
+            // open would otherwise sit invisible until the user backs out and re-enters —
+            // ContentView's own reload (TimerStore.loadAll() into its `timers` array)
+            // doesn't touch this already-pushed view's local copy at all.
+            guard let fresh = TimerStore.loadAll().first(where: { $0.id == payload.id }) else { return }
+            payload = fresh
         }
     }
 
@@ -453,12 +584,26 @@ private struct TimerDetailView: View {
 
     private func togglePause() {
         payload = payload.isPaused ? payload.resumed() : payload.paused()
-        onUpdate(payload)
+        onUpdate(payload, payload.isPaused ? "paused" : "resumed")
     }
 
     private func extend(by interval: TimeInterval) {
         payload = payload.extended(by: interval)
-        onUpdate(payload)
+        onUpdate(payload, "extended")
+    }
+
+    /// "2 watching" / "Sam paused" — whichever cloud status has resolved so far; nil
+    /// (renders nothing) until the on-demand fetches in .onAppear land, and permanently
+    /// nil for a purely local timer.
+    private var statusLine: String? {
+        var parts: [String] = []
+        if let participantCount, participantCount > 1 {
+            parts.append("\(participantCount) watching")
+        }
+        if let attribution, attribution.name != DisplayNameStore.name {
+            parts.append("\(attribution.name) \(attribution.action)")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }
 

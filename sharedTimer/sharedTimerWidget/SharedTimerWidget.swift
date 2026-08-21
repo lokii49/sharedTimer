@@ -130,19 +130,40 @@ struct ConfigurableTimerProvider: AppIntentTimelineProvider {
 
 struct BigCountdownWidgetView: View {
     @Environment(\.widgetFamily) private var family
+    @Environment(\.showsWidgetContainerBackground) private var showsWidgetContainerBackground
+    @Environment(\.widgetRenderingMode) private var widgetRenderingMode
     let payload: TimerPayload?
 
+    /// StandBy strips whatever `.containerBackground` supplies and substitutes plain
+    /// system black — this widget's entire identity is that background, so it has to be
+    /// redrawn as ordinary content there. Skipped in `.vibrant` (StandBy Night Mode / Lock
+    /// Screen): the system desaturates everything by luminance in that mode, and a
+    /// colorful gradient underneath fights that rather than helping it.
+    private var needsStandBySkyLayer: Bool {
+        !showsWidgetContainerBackground && widgetRenderingMode == .fullColor
+    }
+
     var body: some View {
-        Group {
-            if let payload {
-                content(for: payload)
-            } else {
-                emptyView
+        ZStack {
+            if needsStandBySkyLayer {
+                if let payload {
+                    Sky.gradient(for: payload)
+                } else {
+                    Sky.room
+                }
+            }
+            Group {
+                if let payload {
+                    content(for: payload)
+                } else {
+                    emptyView
+                }
             }
         }
         .containerBackground(for: .widget) {
             // The widget IS the timer's sky, edge to edge. The sky is fixed artwork — all
-            // text on it is white, so nothing here needs to adapt to Light/Dark Mode.
+            // text on it is white, so nothing here needs to adapt to Light/Dark Mode. This
+            // is ignored in StandBy — see needsStandBySkyLayer above.
             if let payload {
                 Sky.gradient(for: payload)
             } else {
@@ -254,33 +275,48 @@ struct TimerListProvider: TimelineProvider {
 
 struct TimerListWidgetView: View {
     @Environment(\.widgetFamily) private var family
+    @Environment(\.showsWidgetContainerBackground) private var showsWidgetContainerBackground
+    @Environment(\.widgetRenderingMode) private var widgetRenderingMode
     let entry: TimerListEntry
 
     private var maxRows: Int { family == .systemLarge ? 5 : 2 }
 
+    /// See BigCountdownWidgetView's needsStandBySkyLayer — same StandBy mechanism, lower
+    /// stakes here since each row already paints its own gradient as regular content, not
+    /// through containerBackground, so only the near-black outer backdrop is at risk.
+    private var needsStandBySkyLayer: Bool {
+        !showsWidgetContainerBackground && widgetRenderingMode == .fullColor
+    }
+
     var body: some View {
-        Group {
-            if entry.payloads.isEmpty {
-                emptyView
-            } else {
-                VStack(spacing: 7) {
-                    let shown = Array(entry.payloads.prefix(maxRows))
-                    ForEach(shown) { payload in
-                        // Fixed row height, stack pinned to the top — with a single timer
-                        // the row must not stretch and drift to the vertical center.
-                        row(payload)
-                            .frame(height: 54)
+        ZStack {
+            if needsStandBySkyLayer {
+                Sky.room
+            }
+            Group {
+                if entry.payloads.isEmpty {
+                    emptyView
+                } else {
+                    VStack(spacing: 7) {
+                        let shown = Array(entry.payloads.prefix(maxRows))
+                        ForEach(shown) { payload in
+                            // Fixed row height, stack pinned to the top — with a single timer
+                            // the row must not stretch and drift to the vertical center.
+                            row(payload)
+                                .frame(height: 54)
+                        }
+                        if entry.payloads.count > maxRows {
+                            Text("\(entry.payloads.count - maxRows) more…")
+                                .font(.caption2)
+                                .foregroundStyle(Sky.roomInk)
+                        }
                     }
-                    if entry.payloads.count > maxRows {
-                        Text("\(entry.payloads.count - maxRows) more…")
-                            .font(.caption2)
-                            .foregroundStyle(Sky.roomInk)
-                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
-        // The dark room, fixed — each row hangs in it as its own small sky.
+        // The dark room, fixed — each row hangs in it as its own small sky. Ignored in
+        // StandBy — see needsStandBySkyLayer above.
         .containerBackground(Sky.room, for: .widget)
     }
 

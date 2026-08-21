@@ -4,16 +4,19 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct TimerRunningView: View {
     @State private var payload: TimerPayload
     let onNewTimer: () -> Void
-    let onUpdate: (TimerPayload) -> Void
+    let onUpdate: (TimerPayload, String) -> Void
     let onDelete: (TimerPayload) -> Void
+    @State private var participantCount: Int?
+    @State private var hasBuzzedFinish = false
 
     init(payload: TimerPayload,
          onNewTimer: @escaping () -> Void,
-         onUpdate: @escaping (TimerPayload) -> Void,
+         onUpdate: @escaping (TimerPayload, String) -> Void,
          onDelete: @escaping (TimerPayload) -> Void) {
         self._payload = State(initialValue: payload)
         self.onNewTimer = onNewTimer
@@ -50,6 +53,11 @@ struct TimerRunningView: View {
                             .font(.caption2)
                             .foregroundStyle(.white.opacity(0.55))
                             .padding(.top, 2)
+                        if let participantCount, participantCount > 1 {
+                            Text("\(participantCount) watching")
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.55))
+                        }
                     }
 
                     Spacer()
@@ -88,6 +96,19 @@ struct TimerRunningView: View {
                     .padding(.bottom, 18)
                 }
             }
+            // TimelineView localizes invalidation to this closure — a modifier attached
+            // outside it (below) only re-evaluates on @State changes, never on the tick
+            // that actually crosses zero. `done` is recomputed fresh every tick, so
+            // .onChange has to live in here to see the flip.
+            .onChange(of: done) { _, isExpired in
+                guard isExpired, !hasBuzzedFinish else { return }
+                hasBuzzedFinish = true
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+        }
+        .onAppear {
+            hasBuzzedFinish = payload.isExpired
+            CloudSyncController.fetchParticipantCount(for: payload) { participantCount = $0 }
         }
     }
 
@@ -106,11 +127,11 @@ struct TimerRunningView: View {
 
     private func togglePause() {
         payload = payload.isPaused ? payload.resumed() : payload.paused()
-        onUpdate(payload)
+        onUpdate(payload, payload.isPaused ? "paused" : "resumed")
     }
 
     private func extend(by interval: TimeInterval) {
         payload = payload.extended(by: interval)
-        onUpdate(payload)
+        onUpdate(payload, "extended")
     }
 }

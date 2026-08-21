@@ -142,6 +142,8 @@ enum CloudSyncController {
             let record = CKRecord(recordType: recordType, recordID: recordID)
             applyFields(from: payload, to: record)
 
+            applyAttribution(action: "created", to: record)
+
             let share = CKShare(rootRecord: record)
             share.publicPermission = .readWrite
             share[CKShare.SystemFieldKey.title] = payload.label as CKRecordValue
@@ -242,7 +244,9 @@ enum CloudSyncController {
     /// Fire-and-forget. No-ops silently if this timer has no CloudLink (pure local
     /// timer). Retries once on a write conflict, taking the server record and reapplying
     /// this device's field values on top — last-writer-wins on endDate/pausedRemaining.
-    static func pushUp(_ payload: TimerPayload) {
+    /// `action` is a short human-readable verb ("paused", "resumed", "extended") written
+    /// alongside this device's DisplayNameStore name for the "who did what" surfaces.
+    static func pushUp(_ payload: TimerPayload, action: String) {
         guard let link = CloudLinkStore.get(timerID: payload.id) else { return }
         let scope: SyncScope = link.isOwner ? .owner : .participant
         let zoneID = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
@@ -257,6 +261,7 @@ enum CloudSyncController {
                 return
             }
             applyFields(from: payload, to: record)
+            applyAttribution(action: action, to: record)
             save(record, to: database, retryOnConflict: true)
         }
     }
@@ -450,6 +455,74 @@ enum CloudSyncController {
             pausedRemaining: record["pausedRemaining"] as? TimeInterval,
             kind: TimerKind(rawValue: kindRaw) ?? .timer
         )
+    }
+
+    // MARK: - Attribution
+
+    /// Writes this device's self-declared name (DisplayNameStore) and the action that
+    /// triggered this write onto the record. Deliberately not a TimerPayload field — see
+    /// DisplayNameStore.swift and CloudLink.swift for why cloud-only identity stays off
+    /// the wire format shared with docs/t.html.
+    private static func applyAttribution(action: String, to record: CKRecord) {
+        record["lastActorName"] = (DisplayNameStore.name ?? "Someone") as CKRecordValue
+        record["lastAction"] = action as CKRecordValue
+    }
+
+    /// Reads back the attribution `applyAttribution` wrote, independent of building a
+    /// TimerPayload. nil if the record predates this field (pre-Phase-2 timers).
+    static func lastActor(from record: CKRecord) -> (name: String, action: String)? {
+        guard let name = record["lastActorName"] as? String,
+              let action = record["lastAction"] as? String else { return nil }
+        return (name, action)
+    }
+
+    // MARK: - Participants & attribution (on-demand reads)
+
+    /// Fetches this timer's current Timer record, if it has a CloudLink. Shared by
+    /// fetchParticipantCount and fetchAttribution below so a caller wanting both (e.g. a
+    /// detail view's .onAppear) only needs one round trip. Always calls back on main —
+    /// every caller here feeds SwiftUI @State directly, unlike pushUp/pullChanges'
+    /// background-queue callers, which hop to main themselves at their own call sites.
+    private static func fetchRecord(for payload: TimerPayload, completion: @escaping (CKRecord?, CKDatabase) -> Void) {
+        guard let link = CloudLinkStore.get(timerID: payload.id) else {
+            DispatchQueue.main.async { completion(nil, CKContainer.default().privateCloudDatabase) }
+            return
+        }
+        let scope: SyncScope = link.isOwner ? .owner : .participant
+        let zoneID = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
+        let recordID = CKRecord.ID(recordName: link.recordName, zoneID: zoneID)
+        let database = scope.database
+        database.fetch(withRecordID: recordID) { record, error in
+            if let error { log("fetchRecord(\(payload.id)) failed: \(error)") }
+            DispatchQueue.main.async { completion(record, database) }
+        }
+    }
+
+    /// Number of people on this timer's CKShare (owner + everyone who has accepted the
+    /// link), or nil if this timer has no CloudLink or the share can't be resolved.
+    /// On-demand only — no polling, matches every other CloudKit call in this file.
+    /// Calls back on main (see fetchRecord).
+    static func fetchParticipantCount(for payload: TimerPayload, completion: @escaping (Int?) -> Void) {
+        fetchRecord(for: payload) { record, database in
+            guard let shareRecordID = record?.share?.recordID else { completion(nil); return }
+            database.fetch(withRecordID: shareRecordID) { shareRecord, shareError in
+                guard let share = shareRecord as? CKShare else {
+                    if let shareError { log("fetchParticipantCount(\(payload.id)) share fetch failed: \(shareError)") }
+                    DispatchQueue.main.async { completion(nil) }
+                    return
+                }
+                DispatchQueue.main.async { completion(share.participants.count) }
+            }
+        }
+    }
+
+    /// Who last touched this timer and what they did, or nil if there's no CloudLink or
+    /// the record predates this field. On-demand only, same as fetchParticipantCount.
+    /// Calls back on main (see fetchRecord).
+    static func fetchAttribution(for payload: TimerPayload, completion: @escaping ((name: String, action: String)?) -> Void) {
+        fetchRecord(for: payload) { record, _ in
+            completion(record.flatMap(lastActor(from:)))
+        }
     }
 
     // MARK: - Change tokens
