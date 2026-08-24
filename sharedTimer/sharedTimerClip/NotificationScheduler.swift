@@ -26,7 +26,7 @@ enum NotificationScheduler {
         let content = UNMutableNotificationContent()
         content.title = payload.label
         content.body = "Timer finished!"
-        content.sound = .default
+        content.sound = UNNotificationSound(named: UNNotificationSoundName("alarm.caf"))
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, payload.remaining), repeats: false)
         let request = UNNotificationRequest(identifier: payload.id, content: content, trigger: trigger)

@@ -41,6 +41,13 @@ diff sharedTimer/TimerModel.swift sharedTimerMessages/TimerModel.swift
 diff sharedTimer/TimerModel.swift "sharedTimerWatch Watch App/TimerModel.swift"
 ```
 
+`AlarmPlayer.swift` (loops the bundled `alarm.caf` via `AVAudioPlayer` on a `.playback`-category session, so it ignores the silent switch like a native alarm) is the same verbatim-copy pattern, in `sharedTimer`/`sharedTimerMessages`/`sharedTimerClip` only — the three targets with a foreground countdown view and their own `NotificationScheduler.swift`. Each of those `NotificationScheduler.swift` copies also points `content.sound` at `alarm.caf` instead of `.default`, so a resting notification uses the same tone as the foreground loop:
+
+```
+diff sharedTimer/AlarmPlayer.swift sharedTimerMessages/AlarmPlayer.swift
+diff sharedTimer/AlarmPlayer.swift sharedTimerClip/AlarmPlayer.swift
+```
+
 ### Core model (`TimerModel.swift`)
 
 - `TimerPayload` — the one data type for both timer and countdown modes (`TimerKind`). Holds `endDate`, `duration`, optional `pausedRemaining` (non-nil = paused). `remaining`, `isExpired`, `progress(at:)`, `paused()`, `resumed()`, `extended(by:)` are all pure, date-parameterized functions — no wall-clock reads except through the `at:`/default-`Date()` args, which keeps them usable inside `TimelineView`.

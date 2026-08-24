@@ -9,6 +9,8 @@ import SwiftUI
 struct TimerClipView: View {
     let payload: TimerPayload
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hasAlarmed = false
+    @ObservedObject private var alarm = AlarmPlayer.shared
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -56,9 +58,32 @@ struct TimerClipView: View {
                     )
                     .font(.footnote)
                     .foregroundStyle(.white.opacity(0.6))
-                    .padding(.bottom, 30)
+
+                    if done && alarm.isPlaying {
+                        Button("Stop") {
+                            alarm.stop()
+                        }
+                        .buttonStyle(.glassPill)
+                        .padding(.top, 10)
+                    }
+
+                    Spacer().frame(height: 20)
                 }
             }
+            // TimelineView localizes invalidation to this closure (see ContentView's
+            // TimerDetailView for the same pattern) — `done` is recomputed fresh every
+            // tick, so the zero-crossing has to be caught in here.
+            .onChange(of: done) { _, isExpired in
+                guard isExpired, !hasAlarmed else { return }
+                hasAlarmed = true
+                alarm.start()
+            }
+        }
+        .onAppear {
+            hasAlarmed = payload.isExpired
+        }
+        .onDisappear {
+            alarm.stop()
         }
     }
 

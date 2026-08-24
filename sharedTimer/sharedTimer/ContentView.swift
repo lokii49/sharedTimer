@@ -15,6 +15,12 @@ struct ContentView: View {
     @State private var showingNamePrompt = false
     @State private var nameInput: String = ""
     @State private var pendingNameCompletion: (() -> Void)?
+    /// Timers observed still running (not yet expired) on some prior tick — an
+    /// already-expired timer loaded from the store (stale finish, or one that
+    /// arrived via CloudKit already done) never enters this set, so it can't be
+    /// mistaken for a fresh zero-crossing and blare the alarm on launch.
+    @State private var armedIDs: Set<String> = []
+    @ObservedObject private var alarm = AlarmPlayer.shared
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -47,6 +53,12 @@ struct ContentView: View {
                         .scrollContentBackground(.hidden)
                         .background(Sky.room)
                     }
+                }
+                // TimelineView localizes invalidation to this closure (see
+                // TimerDetailView's identical comment) — checking for newly-expired
+                // active timers has to live in here to see the zero-crossing tick.
+                .onChange(of: context.date) { _, date in
+                    checkForNewlyExpired(at: date)
                 }
             }
             .navigationTitle("Timers")
@@ -108,6 +120,11 @@ struct ContentView: View {
             }
         }
         .tint(.white)
+        .overlay(alignment: .bottom) {
+            if alarm.isPlaying {
+                alarmBanner
+            }
+        }
         .onAppear {
             timers = TimerStore.loadAll()
             for payload in timers where !payload.isExpired {
@@ -126,6 +143,16 @@ struct ContentView: View {
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background {
+                // No background-audio entitlement — the AVAudioPlayer loop would be cut
+                // off by the OS anyway; stop it explicitly so isPlaying/the banner don't
+                // linger in a stale "still ringing" state. The scheduled notification's
+                // own alarm.caf sound covers the backgrounded case. `.inactive` (a
+                // Control Center pull, app-switcher peek) is deliberately excluded here —
+                // that's a transient gesture, not a real backgrounding, and shouldn't
+                // silently kill a ringing alarm.
+                alarm.stop()
+            }
             guard newPhase == .active else { return }
             // Re-read TimerStore first — a timer created while backgrounded (e.g. via
             // TimerIntents.swift's Siri intents) writes straight to the App Group and has
@@ -167,6 +194,40 @@ struct ContentView: View {
                     .padding(.horizontal, 40)
             }
         }
+    }
+
+    /// Bar shown while the foreground alarm loop (AlarmPlayer) is sounding —
+    /// same "Time is up" role the native Clock app's Stop button plays.
+    private var alarmBanner: some View {
+        HStack {
+            Label("Time's up", systemImage: "alarm.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+            Spacer()
+            Button("Stop") {
+                alarm.stop()
+            }
+            .buttonStyle(.glassPill)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: Capsule())
+        .padding(.horizontal, 20)
+        .padding(.bottom, 12)
+    }
+
+    /// Fires the foreground alarm loop the moment a timer this screen has actually
+    /// watched running (in `armedIDs`) transitions to expired. Only membership in
+    /// `armedIDs` — never "loaded already expired" — counts as a zero-crossing, so
+    /// a stale finished timer (loaded on launch, or arriving already-done via
+    /// CloudKit) can't trigger the alarm. Paused timers are never expired, so they
+    /// stay armed and alarm correctly once resumed and run down.
+    private func checkForNewlyExpired(at date: Date) {
+        let stillRunning = Set(timers.filter { !$0.isExpired }.map(\.id))
+        let justFinished = armedIDs.subtracting(stillRunning)
+        armedIDs = stillRunning
+        guard !justFinished.isEmpty else { return }
+        alarm.start()
     }
 
     private func row(for payload: TimerPayload, at date: Date) -> some View {
@@ -458,6 +519,7 @@ private struct TimerDetailView: View {
     @State private var participantCount: Int?
     @State private var attribution: (name: String, action: String)?
     @State private var hasBuzzedFinish = false
+    @ObservedObject private var alarm = AlarmPlayer.shared
 
     init(payload: TimerPayload, onUpdate: @escaping (TimerPayload, String) -> Void, onDelete: @escaping (TimerPayload) -> Void) {
         self._payload = State(initialValue: payload)
@@ -520,6 +582,11 @@ private struct TimerDetailView: View {
                             }
                             .buttonStyle(.glassPill)
                         }
+                    } else if alarm.isPlaying {
+                        Button("Stop") {
+                            alarm.stop()
+                        }
+                        .buttonStyle(.glassPill)
                     }
 
                     Button {
@@ -542,6 +609,12 @@ private struct TimerDetailView: View {
                 guard isExpired, !hasBuzzedFinish else { return }
                 hasBuzzedFinish = true
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
+                // ContentView's own root-level check also catches this zero-crossing
+                // while this screen is pushed, but AlarmPlayer.start() no-ops when
+                // already playing, so calling it again here is free — don't rely on
+                // the (unverified) assumption that the ancestor TimelineView keeps
+                // ticking behind an active NavigationStack push.
+                alarm.start()
             }
         }
         .navigationBarTitleDisplayMode(.inline)

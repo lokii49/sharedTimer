@@ -32,7 +32,7 @@ struct ContentView: View {
         ZStack {
             Sky.room.ignoresSafeArea()
             ContentUnavailableView {
-                Label("Timer Duo", systemImage: "timer")
+                Label("Timer", systemImage: "timer")
             } description: {
                 Text("Open a shared timer link to see the live countdown.")
             }

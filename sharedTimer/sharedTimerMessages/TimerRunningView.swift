@@ -13,6 +13,7 @@ struct TimerRunningView: View {
     let onDelete: (TimerPayload) -> Void
     @State private var participantCount: Int?
     @State private var hasBuzzedFinish = false
+    @ObservedObject private var alarm = AlarmPlayer.shared
 
     init(payload: TimerPayload,
          onNewTimer: @escaping () -> Void,
@@ -62,6 +63,13 @@ struct TimerRunningView: View {
 
                     Spacer()
 
+                    if done && alarm.isPlaying {
+                        Button("Stop") {
+                            alarm.stop()
+                        }
+                        .buttonStyle(.glassPill)
+                    }
+
                     if !done {
                         HStack(spacing: 10) {
                             Button(payload.isPaused ? "Resume" : "Pause") {
@@ -104,11 +112,18 @@ struct TimerRunningView: View {
                 guard isExpired, !hasBuzzedFinish else { return }
                 hasBuzzedFinish = true
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
+                alarm.start()
             }
         }
         .onAppear {
             hasBuzzedFinish = payload.isExpired
             CloudSyncController.fetchParticipantCount(for: payload) { participantCount = $0 }
+        }
+        .onDisappear {
+            // The Messages extension's own compact/expanded lifecycle can tear this
+            // view down while the alarm is still looping (user swipes to another app
+            // in the conversation) — nothing else would stop it.
+            alarm.stop()
         }
     }
 
