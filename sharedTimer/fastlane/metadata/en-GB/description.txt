@@ -1,0 +1,10 @@
+Set a timer or countdown, then share it — everyone sees the same live countdown, updating in real time.
+
+• Timers and day-aware countdowns — "3d 04:12:09" when it's far off, "12:09" once it's close
+• Share a live, synced timer over iMessage. Pause, resume, or extend it and everyone watching sees the change instantly
+• Home Screen widgets and a Live Activity / Dynamic Island view, so the time is on screen without opening the app
+• Apple Watch companion app
+• Ask Siri to start a timer or countdown, or use the Home Screen quick actions
+• No app required for recipients — a shared link opens a live countdown page for anyone
+
+No ads, no accounts, no tracking. Your timers stay on your device unless you choose to share one.
