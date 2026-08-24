@@ -5,3 +5,7 @@ DerivedData/
 xcuserdata/
 *.xcscmblueprint
 *.xccheckout
+sharedTimer/fastlane/api_key.json
+*.p8
+sharedTimer/fastlane/report.xml
+sharedTimer/build-sim/

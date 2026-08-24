@@ -1042,7 +1042,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimer/Shortcuts.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Timer Duo";
+				INFOPLIST_KEY_CFBundleDisplayName = Timer;
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1080,7 +1080,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimer/Shortcuts.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Timer Duo";
+				INFOPLIST_KEY_CFBundleDisplayName = Timer;
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1202,7 +1202,7 @@
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerMessages/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Timer Duo";
+				INFOPLIST_KEY_CFBundleDisplayName = Timer;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1233,7 +1233,7 @@
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerMessages/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Timer Duo";
+				INFOPLIST_KEY_CFBundleDisplayName = Timer;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1266,7 +1266,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerClip/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Timer Duo";
+				INFOPLIST_KEY_CFBundleDisplayName = Timer;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1302,7 +1302,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerClip/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Timer Duo";
+				INFOPLIST_KEY_CFBundleDisplayName = Timer;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1579,7 +1579,7 @@
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Timer Duo Widget";
+				INFOPLIST_KEY_CFBundleDisplayName = "Timer Widget";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1609,7 +1609,7 @@
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Timer Duo Widget";
+				INFOPLIST_KEY_CFBundleDisplayName = "Timer Widget";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

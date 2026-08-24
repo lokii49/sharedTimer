@@ -1,0 +1,99 @@
+default_platform(:ios)
+require 'json'
+
+platform :ios do
+  private_lane :auth do
+    api_key_json = JSON.parse(File.read("api_key.json"))
+    app_store_connect_api_key(
+      key_id: api_key_json["key_id"],
+      issuer_id: api_key_json["issuer_id"],
+      key_content: api_key_json["key"],
+      is_key_content_base64: false,
+      in_house: api_key_json["in_house"] || false,
+      duration: 1200
+    )
+  end
+
+  desc "Remove the currently-waiting-for-review version from review so metadata/screenshots become editable again"
+  lane :cancel_review do
+    auth
+    app = Spaceship::ConnectAPI::App.find("com.lokesh.sharedTimer")
+    version = app.get_app_store_versions(filter: { appStoreState: "WAITING_FOR_REVIEW" }).first
+    UI.user_error!("No version in WAITING_FOR_REVIEW state found") unless version
+    submission = version.app_store_version_submission
+    UI.user_error!("No submission found on #{version.version_string} (#{version.app_store_state})") unless submission
+    submission.delete!
+    UI.success("Removed #{version.version_string} from review — it's editable again")
+  end
+
+  desc "Upload metadata only (release notes etc.), no binary/screenshots/submission changes"
+  lane :update_metadata do
+    auth
+    upload_to_app_store(
+      force: true,
+      skip_binary_upload: true,
+      skip_metadata: false,
+      skip_screenshots: true,
+      skip_app_version_update: true
+    )
+  end
+
+  desc "Upload screenshots only, no binary/metadata/submission changes"
+  lane :update_screenshots do
+    auth
+    upload_to_app_store(
+      force: true,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: false,
+      skip_app_version_update: true
+    )
+  end
+
+  desc "Resubmit the current build for review without re-uploading binary/metadata/screenshots"
+  lane :resubmit do
+    auth
+    upload_to_app_store(
+      force: true,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: true,
+      skip_app_version_update: true,
+      submit_for_review: true,
+      automatic_release: false,
+      run_precheck_before_submit: false,
+      submission_information: {
+        add_id_info_uses_idfa: false,
+        content_rights_contains_third_party_content: false
+      }
+    )
+  end
+
+  desc "Archive, upload, and submit the current version for App Store review"
+  lane :release do
+    auth
+
+    build_app(
+      scheme: "sharedTimer",
+      project: "sharedTimer.xcodeproj",
+      configuration: "Release",
+      export_method: "app-store",
+      clean: true,
+      output_directory: "./build",
+      xcargs: "-allowProvisioningUpdates"
+    )
+
+    upload_to_app_store(
+      force: true,
+      skip_metadata: false,
+      skip_screenshots: false,
+      submit_for_review: true,
+      automatic_release: false,
+      run_precheck_before_submit: false,
+      submission_information: {
+        add_id_info_uses_idfa: false,
+        content_rights_contains_third_party_content: false
+      }
+    )
+  end
+end

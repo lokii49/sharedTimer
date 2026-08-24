@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Timer Duo</title>
-<meta property="og:title" content="Timer Duo">
+<title>Timer</title>
+<meta property="og:title" content="Timer">
 <meta property="og:description" content="Tap to see the live countdown">
 <meta name="apple-itunes-app" content="app-clip-bundle-id=com.lokesh.sharedTimer.Clip, app-clip-display=card">
 <style>
@@ -37,7 +37,7 @@
   <p class="label" id="label">Timer</p>
   <p class="clock" id="clock">--:--</p>
   <p class="sub" id="status">loading&hellip;</p>
-  <p class="hint">Shared with Timer Duo for iMessage</p>
+  <p class="hint">Shared with Timer for iMessage</p>
 
 <script>
   function qs(name) {
@@ -92,7 +92,7 @@
   const endParam = qs("end");
   const kind = qs("kind") || "timer";
   labelEl.textContent = label;
-  document.title = label + " · Timer Duo";
+  document.title = label + " · Timer";
 
   const endSeconds = endParam ? parseFloat(endParam) : NaN;
   const durParam = qs("dur");

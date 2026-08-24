@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Timer — App Store Screenshots</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #05050a;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 32px;
+    padding: 40px;
+    font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .instructions {
+    background: #15151f;
+    color: #AABBCC;
+    padding: 24px 40px;
+    border-radius: 12px;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    font-size: 18px;
+    line-height: 1.7;
+    margin-bottom: 8px;
+    max-width: 1290px;
+  }
+  .instructions strong { color: #EAF0F6; }
+
+  /* ── Slide base: 1320x2868 = iPhone 6.9" App Store size, matches raw captures 1:1 ── */
+  .slide {
+    width: 1320px;
+    height: 2868px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── Backgrounds — each echoes a Sky.swift state from the app itself ── */
+  .slide-1 { background: linear-gradient(165deg, #0a0a16 0%, #14142a 55%, #0d0d1a 100%); } /* night — list */
+  .slide-2 { background: linear-gradient(165deg, #2c1140 0%, #7a2a52 55%, #d97a3a 100%); } /* ember — new timer */
+  .slide-3 { background: linear-gradient(165deg, #341140 0%, #9c2f5e 55%, #e8863f 100%); } /* dusk-ember — live detail */
+  .slide-4 { background: linear-gradient(165deg, #0d1230 0%, #1c2a5e 55%, #3a5bb8 100%); } /* night-blue — countdown */
+  .slide-5 { background: linear-gradient(165deg, #071022 0%, #0d2a4a 55%, #0b84ff 130%); } /* iMessage blue — share */
+
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(150px);
+    opacity: 0.40;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .slide-1 .blob-a { width: 700px; height: 700px; background: #3a3a6e; top: -180px; right: -160px; }
+  .slide-1 .blob-b { width: 540px; height: 540px; background: #1e2a4a; bottom: 80px;  left: -130px; }
+
+  .slide-2 .blob-a { width: 700px; height: 700px; background: #e8863f; top: -180px; right: -160px; }
+  .slide-2 .blob-b { width: 560px; height: 560px; background: #7a2a52; bottom: 80px;  left: -130px; }
+
+  .slide-3 .blob-a { width: 700px; height: 700px; background: #f2a25a; top: -160px; right: -180px; }
+  .slide-3 .blob-b { width: 600px; height: 600px; background: #6e2050; bottom: 160px; left: -150px; }
+
+  .slide-4 .blob-a { width: 700px; height: 700px; background: #3a5bb8; top: -180px; left: -130px; }
+  .slide-4 .blob-b { width: 540px; height: 540px; background: #1c2a5e; bottom: 80px;  right: -110px; }
+
+  .slide-5 .blob-a { width: 700px; height: 700px; background: #0b84ff; top: -180px; right: -110px; }
+  .slide-5 .blob-b { width: 560px; height: 560px; background: #0d2a4a; bottom: 80px;  left: -150px; }
+
+  .content {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 80px;
+  }
+
+  .logo { margin-top: 110px; display: flex; align-items: center; gap: 22px; }
+  .logo-icon {
+    width: 88px; height: 88px; border-radius: 20px; overflow: hidden;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); flex-shrink: 0;
+  }
+  .logo-icon img { width: 88px; height: 88px; display: block; }
+  .logo-text { font-size: 56px; font-weight: 700; letter-spacing: -1.5px; color: #FFFFFF; }
+
+  .headline { margin-top: 56px; text-align: center; }
+  .headline h1 {
+    font-size: 104px; font-weight: 800; letter-spacing: -3.5px; line-height: 1.04;
+    color: #FFFFFF;
+  }
+  .headline p {
+    margin-top: 30px; font-size: 48px; font-weight: 400; line-height: 1.35;
+    color: rgba(255,255,255,0.72); letter-spacing: -0.5px;
+  }
+
+  .phone-wrap { margin-top: 66px; }
+  .phone {
+    width: 826px; height: 1797px; background: #17171f; border-radius: 76px; padding: 18px;
+    box-shadow:
+      0 0 0 2px rgba(255, 255, 255, 0.06),
+      0 0 0 8px rgba(0, 0, 0, 0.35),
+      0 0 0 10px rgba(255, 255, 255, 0.04),
+      0 40px 90px rgba(0, 0, 0, 0.45),
+      0 80px 220px rgba(0, 0, 0, 0.30);
+  }
+  .phone-screen { width: 790px; height: 1761px; border-radius: 58px; overflow: hidden; background: #000; }
+  .phone-screen img { width: 790px; height: 1761px; object-fit: cover; object-position: top; display: block; }
+
+  .pill-row { margin-top: 48px; display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  .pill {
+    padding: 18px 44px; border-radius: 100px; font-size: 36px; font-weight: 600;
+    letter-spacing: -0.3px; white-space: nowrap; color: #FFFFFF; background: rgba(255,255,255,0.14);
+    backdrop-filter: blur(6px);
+  }
+</style>
+</head>
+<body>
+
+<div class="instructions">
+  <strong>To export each slide as PNG (1320×2868):</strong><br>
+  Chrome → DevTools → right-click the <code>.slide</code> div in the Elements panel → "Capture node screenshot".<br>
+  Files land at native 1320×2868 — App Store 6.9" size, no scaling needed.
+</div>
+
+<!-- SLIDE 1 — Timers list -->
+<div class="slide slide-1">
+  <div class="blob blob-a"></div>
+  <div class="blob blob-b"></div>
+  <div class="content">
+    <div class="logo">
+      <div class="logo-icon"><img src="icon.png" alt="Timer"></div>
+      <span class="logo-text">Timer</span>
+    </div>
+    <div class="headline">
+      <h1>All your timers,<br>in one place.</h1>
+      <p>Kitchen timers, trip countdowns,<br>anything you're waiting on.</p>
+    </div>
+    <div class="phone-wrap">
+      <div class="phone"><div class="phone-screen"><img src="list.png" alt="Timers list"></div></div>
+    </div>
+    <div class="pill-row">
+      <span class="pill">⏱ Timers &amp; Countdowns</span>
+      <span class="pill">🔔 Live Activities</span>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 2 — New timer -->
+<div class="slide slide-2">
+  <div class="blob blob-a"></div>
+  <div class="blob blob-b"></div>
+  <div class="content">
+    <div class="logo">
+      <div class="logo-icon"><img src="icon.png" alt="Timer"></div>
+      <span class="logo-text">Timer</span>
+    </div>
+    <div class="headline">
+      <h1>Start a timer<br>in seconds.</h1>
+      <p>Presets for the usual stuff,<br>a wheel for everything else.</p>
+    </div>
+    <div class="phone-wrap">
+      <div class="phone"><div class="phone-screen"><img src="new-timer.png" alt="New timer"></div></div>
+    </div>
+    <div class="pill-row">
+      <span class="pill">⚡ Quick Presets</span>
+      <span class="pill">🏷️ Custom Labels</span>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 3 — Live detail -->
+<div class="slide slide-3">
+  <div class="blob blob-a"></div>
+  <div class="blob blob-b"></div>
+  <div class="content">
+    <div class="logo">
+      <div class="logo-icon"><img src="icon.png" alt="Timer"></div>
+      <span class="logo-text">Timer</span>
+    </div>
+    <div class="headline">
+      <h1>Time,<br>as light.</h1>
+      <p>The sky shifts with your timer —<br>ember to dusk to done.</p>
+    </div>
+    <div class="phone-wrap">
+      <div class="phone"><div class="phone-screen"><img src="live-detail.png" alt="Live timer detail"></div></div>
+    </div>
+    <div class="pill-row">
+      <span class="pill">🌅 Living Gradient</span>
+      <span class="pill">📱 Widgets &amp; Live Activities</span>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 4 — Countdown create -->
+<div class="slide slide-4">
+  <div class="blob blob-a"></div>
+  <div class="blob blob-b"></div>
+  <div class="content">
+    <div class="logo">
+      <div class="logo-icon"><img src="icon.png" alt="Timer"></div>
+      <span class="logo-text">Timer</span>
+    </div>
+    <div class="headline">
+      <h1>Count down<br>to any date.</h1>
+      <p>Trips, birthdays, deadlines —<br>pick a day and watch it approach.</p>
+    </div>
+    <div class="phone-wrap">
+      <div class="phone"><div class="phone-screen"><img src="countdown-create.png" alt="New countdown"></div></div>
+    </div>
+    <div class="pill-row">
+      <span class="pill">📅 Any Date &amp; Time</span>
+      <span class="pill">🔁 One-Tap Presets</span>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 5 — iMessage share -->
+<div class="slide slide-5">
+  <div class="blob blob-a"></div>
+  <div class="blob blob-b"></div>
+  <div class="content">
+    <div class="logo">
+      <div class="logo-icon"><img src="icon.png" alt="Timer"></div>
+      <span class="logo-text">Timer</span>
+    </div>
+    <div class="headline">
+      <h1>Share it, right<br>in iMessage.</h1>
+      <p>Send a live countdown your<br>friends can watch tick down too.</p>
+    </div>
+    <div class="phone-wrap">
+      <div class="phone"><div class="phone-screen"><img src="imessage-share.png" alt="Share in iMessage"></div></div>
+    </div>
+    <div class="pill-row">
+      <span class="pill">💬 Native iMessage Extension</span>
+      <span class="pill">🔗 Opens for Anyone</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -68,7 +68,7 @@ struct TimerComposeView: View {
                 .pickerStyle(.segmented)
             } footer: {
                 Text(shareMode == .appCard
-                     ? "A richer bubble, but it only works if your friend has Timer Duo too."
+                     ? "A richer bubble, but it only works if your friend has Timer too."
                      : "A plain link that opens for anyone, app or not.")
             }
         }
