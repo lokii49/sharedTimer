@@ -39,6 +39,18 @@ enum LiveActivityController {
         }
     }
 
+    /// Re-pushes every running timer's Live Activity. `start(for:)` already no-ops into
+    /// an `update` when the activity still exists, so this both keeps a long countdown's
+    /// activity from being auto-ended after its last update goes stale (iOS gives an
+    /// activity roughly an 8h budget since its last push) and recreates one the system
+    /// already dropped. Call opportunistically (e.g. app foregrounding) — there's no
+    /// server here to push this on a schedule while the app isn't running.
+    static func refreshAll(from payloads: [TimerPayload]) {
+        for payload in payloads where !payload.isPaused && !payload.isFinished {
+            start(for: payload)
+        }
+    }
+
     private static func content(for payload: TimerPayload) -> ActivityContent<TimerActivityAttributes.ContentState> {
         ActivityContent(
             state: TimerActivityAttributes.ContentState(endDate: payload.endDate, pausedRemaining: payload.pausedRemaining),

@@ -72,6 +72,15 @@ struct TimerPayload: Codable, Identifiable {
         !isPaused && remaining <= 0
     }
 
+    /// True once remaining time has reached zero, whether or not the timer is
+    /// currently paused. `isExpired` deliberately stays false while paused — that's
+    /// what stops the alarm/notification firing for a timer someone paused on
+    /// purpose — but a paused timer at zero should still read as finished in list
+    /// grouping and other display contexts, not sit indefinitely as "active/paused".
+    var isFinished: Bool {
+        remaining <= 0
+    }
+
     /// Fraction of the timer remaining, for progress rings. 1 = just started, 0 = done.
     func progress(at date: Date = Date()) -> Double {
         guard duration > 0 else { return 0 }

@@ -20,6 +20,7 @@ struct ContentView: View {
     /// arrived via CloudKit already done) never enters this set, so it can't be
     /// mistaken for a fresh zero-crossing and blare the alarm on launch.
     @State private var armedIDs: Set<String> = []
+    @State private var showingNotificationPermissionAlert = false
     @ObservedObject private var alarm = AlarmPlayer.shared
     @Environment(\.scenePhase) private var scenePhase
 
@@ -31,8 +32,11 @@ struct ContentView: View {
                         emptyState
                     } else {
                         List {
-                            let active = timers.filter { !$0.isExpired }.sorted { $0.endDate < $1.endDate }
-                            let expired = timers.filter { $0.isExpired }.sorted { $0.endDate > $1.endDate }
+                            // isFinished, not isExpired: a timer paused exactly at zero is
+                            // still "paused" for alarm purposes, but reads as Finished here
+                            // rather than sitting in Active forever.
+                            let active = timers.filter { !$0.isFinished }.sorted { $0.endDate < $1.endDate }
+                            let expired = timers.filter { $0.isFinished }.sorted { $0.endDate > $1.endDate }
 
                             if !active.isEmpty {
                                 Section {
@@ -88,6 +92,18 @@ struct ContentView: View {
                 // is already foregrounded — scenePhase alone won't fire here since we
                 // never left .active. Re-read TimerStore directly.
                 timers = TimerStore.loadAll()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NotificationScheduler.permissionDeniedNotification)) { _ in
+                showingNotificationPermissionAlert = true
+            }
+            .alert("Notifications are off", isPresented: $showingNotificationPermissionAlert) {
+                Button("Open Settings") {
+                    guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                    UIApplication.shared.open(url)
+                }
+                Button("Not Now", role: .cancel) {}
+            } message: {
+                Text("Timers won't alert you while the app is in the background until notifications are allowed.")
             }
             .sheet(item: $sharingPayload) { payload in
                 ShareTimerSheet(payload: payload)
@@ -159,6 +175,11 @@ struct ContentView: View {
             // no CloudLink, so pullCloudChanges alone would never surface it here.
             timers = TimerStore.loadAll()
             pullCloudChanges()
+            // Opportunistic Live Activity keep-alive: there's no server here to push a
+            // periodic refresh while the app isn't running, so a multi-day countdown's
+            // activity only survives past iOS's ~8h no-update budget if something re-pushes
+            // it — foregrounding the app is the cheapest reliable trigger available.
+            LiveActivityController.refreshAll(from: timers)
         }
         .onOpenURL { url in
             handleIncoming(url: url)

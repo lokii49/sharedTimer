@@ -3,6 +3,7 @@
 //  sharedTimerClip
 //
 
+import AudioToolbox
 import AVFoundation
 import Combine
 
@@ -29,8 +30,14 @@ final class AlarmPlayer: ObservableObject {
             self.player = player
             isPlaying = true
         } catch {
+            print("SharedTimer alarm playback failed: \(error)")
             player = nil
             isPlaying = false
+            // No sound is worse than the wrong sound: if the .playback session never
+            // activates, fall back to a system alert tone + vibration rather than
+            // finishing a timer in total silence.
+            AudioServicesPlaySystemSound(1005)
+            AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
         }
     }
 
