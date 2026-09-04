@@ -39,12 +39,16 @@ enum TimerStore {
         if let decoded = try? JSONDecoder().decode([TimerPayload].self, from: data) {
             return decoded
         }
-        guard let rawArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        // Cast to [Any] first, not [[String: Any]] directly — a wrong-typed element
+        // (not even an object) would fail that cast for the whole array and fall
+        // straight back to the wipe this function exists to avoid.
+        guard let rawArray = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
             return []
         }
         let decoder = JSONDecoder()
-        return rawArray.compactMap { entry in
-            guard let entryData = try? JSONSerialization.data(withJSONObject: entry) else { return nil }
+        return rawArray.compactMap { entry -> TimerPayload? in
+            guard let dict = entry as? [String: Any],
+                  let entryData = try? JSONSerialization.data(withJSONObject: dict) else { return nil }
             return try? decoder.decode(TimerPayload.self, from: entryData)
         }
     }

@@ -9,6 +9,10 @@ import Foundation
 import Testing
 @testable import sharedTimer
 
+// .serialized: the TimerStore tests below share one real App Group UserDefaults key
+// (TimerStore's suite name isn't injectable) — Swift Testing's default parallel
+// execution races two tests writing/reading that key at once otherwise.
+@Suite(.serialized)
 struct sharedTimerTests {
 
     @Test func example() async throws {
@@ -75,6 +79,34 @@ struct sharedTimerTests {
 
         #expect(loaded.count == 1)
         #expect(loaded.first?.id == "good-1")
+        // The JSONSerialization round-trip is where a Date-as-Double could drift —
+        // assert the field that's actually at risk, not just that decoding succeeded.
+        #expect(loaded.first?.endDate == good.endDate)
+    }
+
+    @Test func loadAllSkipsAWronglyTypedArrayElement() throws {
+        let defaults = try #require(UserDefaults(suiteName: "group.com.lokesh.sharedTimer"))
+        let originalData = defaults.data(forKey: "sharedTimers")
+        defer {
+            if let originalData {
+                defaults.set(originalData, forKey: "sharedTimers")
+            } else {
+                defaults.removeObject(forKey: "sharedTimers")
+            }
+        }
+
+        let good = TimerPayload(id: "good-2", label: "Good", duration: 60)
+        let goodData = try JSONEncoder().encode(good)
+        let goodDict = try JSONSerialization.jsonObject(with: goodData)
+        // Not an object at all — casting the whole array straight to [[String: Any]]
+        // fails on this and used to fall back to wiping every timer.
+        let raw = try JSONSerialization.data(withJSONObject: [goodDict, "garbage"])
+        defaults.set(raw, forKey: "sharedTimers")
+
+        let loaded = TimerStore.loadAll()
+
+        #expect(loaded.count == 1)
+        #expect(loaded.first?.id == "good-2")
     }
 
 }

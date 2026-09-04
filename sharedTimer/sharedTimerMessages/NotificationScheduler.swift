@@ -13,18 +13,36 @@ enum NotificationScheduler {
     /// swallowed silently here.
     static let permissionDeniedNotification = Notification.Name("SharedTimerNotificationPermissionDenied")
 
+    /// Posts `permissionDeniedNotification` at most once per process — `scheduleAlert`
+    /// runs once per active timer on every launch, and without this a screen full of
+    /// timers would fire the same alert N times.
+    private static var hasReportedDenial = false
+
     static func scheduleAlert(for payload: TimerPayload) {
         guard !payload.isPaused else { return }
         let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
-            guard granted else {
-                print("SharedTimer notification permission denied — \(payload.label) won't alert in the background")
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(name: permissionDeniedNotification, object: nil)
-                }
+        // Check the *existing* status first: requestAuthorization's granted == false
+        // covers both "already denied" and "just tapped Don't Allow on the prompt this
+        // instant" — only the former should surface our own alert. Firing it the moment
+        // someone answers the system prompt reads as arguing with their answer.
+        center.getNotificationSettings { settings in
+            if settings.authorizationStatus == .denied {
+                reportDenialOnce()
                 return
             }
-            schedule(payload, center: center)
+            center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+                guard granted else { return }
+                schedule(payload, center: center)
+            }
+        }
+    }
+
+    private static func reportDenialOnce() {
+        guard !hasReportedDenial else { return }
+        hasReportedDenial = true
+        print("SharedTimer notification permission denied — timers won't alert in the background")
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: permissionDeniedNotification, object: nil)
         }
     }
 
