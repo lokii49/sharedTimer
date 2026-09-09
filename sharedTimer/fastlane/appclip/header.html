@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 3000px; height: 2000px; overflow: hidden; }
+
+  .sky {
+    width: 3000px; height: 2000px;
+    position: relative;
+    /* Horizon "dusk" family — deep indigo (Sky.dusk.fresh) lifting to the warm
+       sunrise horizon it drains toward (Sky.dusk.drained's #ffd9a8). */
+    background:
+      radial-gradient(80% 120% at 88% 108%, rgba(255,214,168,0.55), rgba(255,214,168,0) 55%),
+      radial-gradient(110% 80% at 50% 40%, rgba(255,255,255,0.12), rgba(255,255,255,0) 60%),
+      linear-gradient(128deg, #0b1a45 0%, #274a8f 46%, #5b8fc4 78%, #9dc0dd 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+    color: #fff;
+  }
+
+  .label {
+    font-size: 76px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.82);
+    margin-bottom: 56px;
+  }
+
+  .digits {
+    font-size: 460px;
+    font-weight: 200;
+    letter-spacing: 0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 140px rgba(255,255,255,0.30);
+  }
+
+  .foot {
+    margin-top: 72px;
+    font-size: 54px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.62);
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .dot {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #ffd9a8;
+    box-shadow: 0 0 40px rgba(255,217,168,0.9);
+  }
+</style>
+</head>
+<body>
+  <div class="sky" id="cap">
+    <div class="label">Shared Timer</div>
+    <div class="digits">4:12:09</div>
+    <div class="foot"><span class="dot"></span> counting down live</div>
+  </div>
+</body>
+</html>
