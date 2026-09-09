@@ -56,7 +56,11 @@ enum NotificationScheduler {
         let content = UNMutableNotificationContent()
         content.title = payload.label
         content.body = payload.kind == .countdown ? "Countdown complete!" : "Timer finished!"
-        content.sound = UNNotificationSound(named: UNNotificationSoundName("alarm.caf"))
+        // Alarm on -> the same loud tone as the foreground loop. Alarm off (the
+        // compose-sheet toggle) -> the standard notification sound, no "banging".
+        content.sound = payload.alarmEnabled
+            ? UNNotificationSound(named: UNNotificationSoundName("alarm.caf"))
+            : .default
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, payload.remaining), repeats: false)
         let request = UNNotificationRequest(identifier: payload.id, content: content, trigger: trigger)

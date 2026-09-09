@@ -99,12 +99,16 @@ enum WatchSyncController {
                 default: replyHandler([:]); return
                 }
                 TimerStore.save(updated)
-                NotificationScheduler.cancel(id: updated.id)
-                if updated.isPaused {
-                    LiveActivityController.update(for: updated)
-                } else {
-                    NotificationScheduler.scheduleAlert(for: updated)
-                    LiveActivityController.start(for: updated)
+                // Same arming sequence as ContentView.armAlerts: AlarmKit alarm for a
+                // .timer, local notification for a .countdown, custom Live Activity only
+                // for .countdown (AlarmKit runs its own for .timer).
+                AlarmController.reschedule(for: updated)
+                if updated.kind == .countdown {
+                    if updated.isPaused {
+                        LiveActivityController.update(for: updated)
+                    } else {
+                        LiveActivityController.start(for: updated)
+                    }
                 }
                 CloudSyncController.pushUp(updated, action: action)
                 pushCurrentState()

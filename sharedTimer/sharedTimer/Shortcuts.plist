@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>Lets a finished timer sound a full-screen alarm you can stop or repeat, even when the app isn't open.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
