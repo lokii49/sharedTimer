@@ -121,6 +121,15 @@ struct TimerPayload: Codable, Identifiable {
         return copy
     }
 
+    /// Restart a finished timer/countdown in place — same id, label and original
+    /// `duration`, running again from now. Keeps the CloudLink and any shared link valid.
+    func repeated(at date: Date = Date()) -> TimerPayload {
+        var copy = self
+        copy.endDate = date.addingTimeInterval(duration)
+        copy.pausedRemaining = nil
+        return copy
+    }
+
     /// Builds a payload from compose-sheet inputs shared by every creation surface (Messages, main app).
     static func compose(label: String, kind: TimerKind, minutes: Double, targetDate: Date, alarmEnabled: Bool = true) -> TimerPayload {
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)

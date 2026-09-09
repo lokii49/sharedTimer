@@ -300,7 +300,14 @@ struct ContentView: View {
             .tint(.red)
         }
         .swipeActions(edge: .leading) {
-            if !payload.isExpired {
+            if payload.isFinished {
+                Button {
+                    repeatTimer(payload)
+                } label: {
+                    Label("Repeat", systemImage: "arrow.clockwise")
+                }
+                .tint(.indigo)
+            } else {
                 Button {
                     togglePause(payload)
                 } label: {
@@ -323,7 +330,13 @@ struct ContentView: View {
             } label: {
                 Label("Share…", systemImage: "square.and.arrow.up")
             }
-            if !payload.isExpired {
+            if payload.isFinished {
+                Button {
+                    repeatTimer(payload)
+                } label: {
+                    Label("Repeat", systemImage: "arrow.clockwise")
+                }
+            } else {
                 Button {
                     togglePause(payload)
                 } label: {
@@ -376,6 +389,13 @@ struct ContentView: View {
 
     private func extend(_ payload: TimerPayload, by interval: TimeInterval) {
         applyMutation(payload.extended(by: interval), action: "extended")
+    }
+
+    /// Restart a finished timer/countdown in place (same id, original duration).
+    private func repeatTimer(_ payload: TimerPayload) {
+        alarm.stop()
+        armedIDs.remove(payload.id)
+        applyMutation(payload.repeated(), action: "repeated")
     }
 
     /// Shared by the row's swipe/context-menu actions and TimerDetailView's own controls
@@ -637,11 +657,19 @@ private struct TimerDetailView: View {
                             }
                             .buttonStyle(.glassPill)
                         }
-                    } else if alarm.isPlaying {
-                        Button("Stop") {
-                            alarm.stop()
+                    } else {
+                        HStack(spacing: 12) {
+                            if alarm.isPlaying {
+                                Button("Stop") {
+                                    alarm.stop()
+                                }
+                                .buttonStyle(.glassPill)
+                            }
+                            Button("Repeat") {
+                                repeatTimer()
+                            }
+                            .buttonStyle(.glassPill)
                         }
-                        .buttonStyle(.glassPill)
                     }
 
                     Button {
@@ -722,6 +750,16 @@ private struct TimerDetailView: View {
     private func extend(by interval: TimeInterval) {
         payload = payload.extended(by: interval)
         onUpdate(payload, "extended")
+    }
+
+    /// Restart a finished timer from its detail screen — stop any in-app alarm loop,
+    /// re-arm the finish handler, and run the standard mutation path (which reschedules
+    /// the AlarmKit alarm / notification and Live Activity).
+    private func repeatTimer() {
+        alarm.stop()
+        hasBuzzedFinish = false
+        payload = payload.repeated()
+        onUpdate(payload, "repeated")
     }
 
     /// "2 watching" / "Sam paused" — whichever cloud status has resolved so far; nil
