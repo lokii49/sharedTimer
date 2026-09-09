@@ -37,16 +37,20 @@ enum AlarmController {
         Task { _ = await ensureAuthorized() }
     }
 
-    /// True when a live AlarmKit alarm is currently backing this timer's finished-alert,
-    /// so a foreground surface must NOT also sound the in-app `AlarmPlayer` loop (that
-    /// would double the sound). False for `.countdown`, for a `.timer` whose
-    /// `schedule` failed and fell back to a local notification (denied / at capacity),
-    /// and once the user has stopped the alarm.
-    static func coversFinishAlert(for payload: TimerPayload) -> Bool {
-        guard payload.kind == .timer,
-              let alarms = try? AlarmManager.shared.alarms else { return false }
-        let id = alarmID(for: payload.id)
-        return alarms.contains { $0.id == id }
+    /// True only when the app itself has to sound the finished-alarm loop: a
+    /// `.countdown` (never AlarmKit), or a `.timer` whose alarm AlarmKit won't deliver
+    /// because permission isn't granted. A `.timer` AlarmKit is handling returns
+    /// false — including one whose alarm the user already stopped from its panel, so
+    /// re-opening the app doesn't re-bang. (`alarms` membership can't tell "never
+    /// scheduled" from "scheduled then dismissed", so don't key on it.)
+    static func shouldSoundInAppAlarm(for payload: TimerPayload) -> Bool {
+        guard payload.alarmEnabled else { return false }
+        switch payload.kind {
+        case .countdown:
+            return true
+        case .timer:
+            return AlarmManager.shared.authorizationState != .authorized
+        }
     }
 
     @discardableResult

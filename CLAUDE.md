@@ -48,7 +48,7 @@ diff sharedTimer/AlarmPlayer.swift sharedTimerMessages/AlarmPlayer.swift
 diff sharedTimer/AlarmPlayer.swift sharedTimerClip/AlarmPlayer.swift
 ```
 
-On iOS 26 a `.timer` finishing gets AlarmKit's own full-screen alert (foreground included), so `ContentView` suppresses the in-app `AlarmPlayer` loop whenever `AlarmController.coversFinishAlert(for:)` is true (a live AlarmKit alarm exists for that timer). The loop still runs for `.countdown`, and for a `.timer` whose alarm failed to schedule and fell back to a local notification (that doesn't sound reliably in the foreground).
+On iOS 26 a `.timer` finishing gets AlarmKit's own full-screen alert (foreground included), so `ContentView` only sounds the in-app `AlarmPlayer` loop when `AlarmController.shouldSoundInAppAlarm(for:)` is true: a `.countdown` (never AlarmKit), or a `.timer` with AlarmKit permission **not** granted. A `.timer` AlarmKit is handling never triggers the loop — deliberately keyed on auth state, not `AlarmManager.alarms` membership, because a stopped-from-the-panel alarm leaves the list and would otherwise re-bang the in-app loop the next time the app opens.
 
 `TimerAlarmMetadata.swift` (the `AlarmMetadata` payload on an AlarmKit alarm) is a verbatim pair — `sharedTimer` (schedules the alarm) + `sharedTimerWidget` (renders its Live Activity):
 

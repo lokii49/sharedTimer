@@ -268,12 +268,11 @@ struct ContentView: View {
         // foreground) — running the in-app AVAudioPlayer loop + banner on top of it would
         // double the sound. Only sound the in-app loop if a .countdown finished, or if a
         // finished .timer somehow has no AlarmKit alarm backing it (denied / fallback).
-        // Sound the in-app loop only for a finished timer that wants an alarm AND that
-        // AlarmKit isn't already alerting for — a .countdown, or a .timer whose alarm
-        // failed to schedule and fell back to a (foreground-silent) local notification.
-        // A timer with the "Alarm" toggle off never loops.
+        // Sound the in-app loop only where the app itself is the alarm: a .countdown,
+        // or a .timer with AlarmKit permission denied. A .timer AlarmKit handled —
+        // even one already stopped from its panel — must not re-bang on app open.
         let finished = timers.filter { justFinished.contains($0.id) }
-        guard finished.contains(where: { $0.alarmEnabled && !AlarmController.coversFinishAlert(for: $0) }) else { return }
+        guard finished.contains(where: { AlarmController.shouldSoundInAppAlarm(for: $0) }) else { return }
         alarm.start()
     }
 
@@ -670,10 +669,9 @@ private struct TimerDetailView: View {
                 // already playing, so calling it again here is free — don't rely on
                 // the (unverified) assumption that the ancestor TimelineView keeps
                 // ticking behind an active NavigationStack push.
-                // A .timer on AlarmKit gets that framework's own full-screen alert, so
-                // the in-app loop would double the sound — skip it (see checkForNewlyExpired).
-                // A timer with the "Alarm" toggle off never loops either.
-                if payload.alarmEnabled && !AlarmController.coversFinishAlert(for: payload) {
+                // Only sound the in-app loop where the app itself is the alarm — a
+                // .countdown, or a .timer with AlarmKit denied (see checkForNewlyExpired).
+                if AlarmController.shouldSoundInAppAlarm(for: payload) {
                     alarm.start()
                 }
             }
