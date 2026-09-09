@@ -22,6 +22,7 @@ struct StartTimerIntent: AppIntent {
 
     @Parameter(title: "Label", default: "Timer") var label: String
     @Parameter(title: "Minutes", default: 5) var minutes: Double
+    @Parameter(title: "Alarm", default: true) var alarm: Bool
 
     /// TimerPayload.compose computes duration as max(1, minutes * 60) — zero/negative
     /// minutes would silently yield a 1s, instantly-expired timer instead of an error.
@@ -30,10 +31,11 @@ struct StartTimerIntent: AppIntent {
         guard minutes > 0 else {
             throw TimerIntentError.nonPositiveMinutes
         }
-        let payload = TimerPayload.compose(label: label, kind: .timer, minutes: minutes, targetDate: Date())
+        let payload = TimerPayload.compose(label: label, kind: .timer, minutes: minutes, targetDate: Date(), alarmEnabled: alarm)
         TimerStore.save(payload)
-        NotificationScheduler.scheduleAlert(for: payload)
-        LiveActivityController.start(for: payload)
+        // .timer + alarm on -> AlarmKit (rings through silent/Focus, Stop/Repeat panel,
+        // its own Live Activity). Alarm off -> a quiet notification. AlarmController picks.
+        AlarmController.reschedule(for: payload)
         return .result(dialog: "Started \(label) for \(Int(minutes)) minutes.")
     }
 }
@@ -43,6 +45,7 @@ struct StartCountdownIntent: AppIntent {
 
     @Parameter(title: "Label", default: "Countdown") var label: String
     @Parameter(title: "Target Date") var targetDate: Date
+    @Parameter(title: "Alarm", default: true) var alarm: Bool
 
     /// TimerPayload.compose computes duration as max(1, targetDate.timeIntervalSinceNow)
     /// for .countdown — a past/near-now date would silently yield a 1s, instantly-expired
@@ -52,7 +55,7 @@ struct StartCountdownIntent: AppIntent {
         guard targetDate > Date() else {
             throw TimerIntentError.pastTargetDate
         }
-        let payload = TimerPayload.compose(label: label, kind: .countdown, minutes: 0, targetDate: targetDate)
+        let payload = TimerPayload.compose(label: label, kind: .countdown, minutes: 0, targetDate: targetDate, alarmEnabled: alarm)
         TimerStore.save(payload)
         NotificationScheduler.scheduleAlert(for: payload)
         LiveActivityController.start(for: payload)

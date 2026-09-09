@@ -3,6 +3,7 @@
 //  sharedTimerMessages
 //
 
+import AudioToolbox
 import AVFoundation
 import Combine
 
@@ -11,6 +12,10 @@ import Combine
 /// silent switch, same as system alarms/timers.
 final class AlarmPlayer: ObservableObject {
     static let shared = AlarmPlayer()
+
+    /// System sound ID for the fallback alert tone (undocumented but stable "Tweet
+    /// Sent" chime — see AudioToolbox's known system sound ID list).
+    private static let fallbackSystemSoundID: SystemSoundID = 1005
 
     @Published private(set) var isPlaying = false
     private var player: AVAudioPlayer?
@@ -29,8 +34,14 @@ final class AlarmPlayer: ObservableObject {
             self.player = player
             isPlaying = true
         } catch {
+            print("SharedTimer alarm playback failed: \(error)")
             player = nil
             isPlaying = false
+            // No sound is worse than the wrong sound: if the .playback session never
+            // activates, fall back to a system alert tone + vibration rather than
+            // finishing a timer in total silence.
+            AudioServicesPlaySystemSound(Self.fallbackSystemSoundID)
+            AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
         }
     }
 

@@ -10,6 +10,7 @@ struct TimerComposeView: View {
     @State private var kind: TimerKind = .timer
     @State private var minutes: Double = 5
     @State private var targetDate: Date = Date().addingTimeInterval(86400)
+    @State private var alarmEnabled = true
     @State private var shareMode: TimerShareMode = .link
     @State private var activeTimers: [TimerPayload] = TimerStore.loadAll().filter { !$0.isExpired }
     @State private var pickedExisting: TimerPayload?
@@ -56,6 +57,7 @@ struct TimerComposeView: View {
                     kind: $kind,
                     minutes: $minutes,
                     targetDate: $targetDate,
+                    alarmEnabled: $alarmEnabled,
                     labelFocused: $labelFocused
                 )
             }
@@ -77,7 +79,7 @@ struct TimerComposeView: View {
         .safeAreaInset(edge: .bottom) {
             Button {
                 labelFocused = false
-                let toShare = pickedExisting ?? TimerPayload.compose(label: label, kind: kind, minutes: minutes, targetDate: targetDate)
+                let toShare = pickedExisting ?? TimerPayload.compose(label: label, kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled)
                 onStart(toShare, shareMode)
             } label: {
                 Label(pickedExisting == nil ? "Start & Share" : "Share", systemImage: "paperplane.fill")
@@ -96,7 +98,7 @@ struct TimerComposeView: View {
     private var previewPayload: TimerPayload {
         pickedExisting ?? TimerPayload.compose(
             label: label.isEmpty ? (kind == .timer ? "Timer" : "Countdown") : label,
-            kind: kind, minutes: minutes, targetDate: targetDate)
+            kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled)
     }
 
     private func existingRow(_ timer: TimerPayload) -> some View {

@@ -23,27 +23,33 @@ struct TimerPayload: Codable, Identifiable {
     let duration: TimeInterval
     var pausedRemaining: TimeInterval?
     let kind: TimerKind
+    /// When false, finishing raises only a quiet notification (standard sound, no
+    /// AlarmKit full-screen ring, no in-app alarm loop) — the compose-sheet "Alarm"
+    /// toggle. Defaults true so every pre-toggle timer/link keeps its old behavior.
+    let alarmEnabled: Bool
 
-    init(id: String = UUID().uuidString, label: String, duration: TimeInterval, kind: TimerKind = .timer) {
+    init(id: String = UUID().uuidString, label: String, duration: TimeInterval, kind: TimerKind = .timer, alarmEnabled: Bool = true) {
         self.id = id
         self.label = label
         self.duration = duration
         self.endDate = Date().addingTimeInterval(duration)
         self.pausedRemaining = nil
         self.kind = kind
+        self.alarmEnabled = alarmEnabled
     }
 
-    init(id: String, label: String, endDate: Date, duration: TimeInterval, pausedRemaining: TimeInterval? = nil, kind: TimerKind = .timer) {
+    init(id: String, label: String, endDate: Date, duration: TimeInterval, pausedRemaining: TimeInterval? = nil, kind: TimerKind = .timer, alarmEnabled: Bool = true) {
         self.id = id
         self.label = label
         self.endDate = endDate
         self.duration = duration
         self.pausedRemaining = pausedRemaining
         self.kind = kind
+        self.alarmEnabled = alarmEnabled
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, label, endDate, duration, pausedRemaining, kind
+        case id, label, endDate, duration, pausedRemaining, kind, alarmEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -55,6 +61,8 @@ struct TimerPayload: Codable, Identifiable {
         pausedRemaining = try container.decodeIfPresent(TimeInterval.self, forKey: .pausedRemaining)
         // Older shared links/stored timers predate `kind`; treat them as plain timers.
         kind = try container.decodeIfPresent(TimerKind.self, forKey: .kind) ?? .timer
+        // Predates the alarm toggle -> keep the old always-alarm behavior.
+        alarmEnabled = try container.decodeIfPresent(Bool.self, forKey: .alarmEnabled) ?? true
     }
 
     var isPaused: Bool {
@@ -70,6 +78,15 @@ struct TimerPayload: Codable, Identifiable {
 
     var isExpired: Bool {
         !isPaused && remaining <= 0
+    }
+
+    /// True once remaining time has reached zero, whether or not the timer is
+    /// currently paused. `isExpired` deliberately stays false while paused — that's
+    /// what stops the alarm/notification firing for a timer someone paused on
+    /// purpose — but a paused timer at zero should still read as finished in list
+    /// grouping and other display contexts, not sit indefinitely as "active/paused".
+    var isFinished: Bool {
+        remaining <= 0
     }
 
     /// Fraction of the timer remaining, for progress rings. 1 = just started, 0 = done.
@@ -104,15 +121,24 @@ struct TimerPayload: Codable, Identifiable {
         return copy
     }
 
+    /// Restart a finished timer/countdown in place — same id, label and original
+    /// `duration`, running again from now. Keeps the CloudLink and any shared link valid.
+    func repeated(at date: Date = Date()) -> TimerPayload {
+        var copy = self
+        copy.endDate = date.addingTimeInterval(duration)
+        copy.pausedRemaining = nil
+        return copy
+    }
+
     /// Builds a payload from compose-sheet inputs shared by every creation surface (Messages, main app).
-    static func compose(label: String, kind: TimerKind, minutes: Double, targetDate: Date) -> TimerPayload {
+    static func compose(label: String, kind: TimerKind, minutes: Double, targetDate: Date, alarmEnabled: Bool = true) -> TimerPayload {
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalLabel = trimmed.isEmpty ? (kind == .timer ? "Timer" : "Countdown") : trimmed
         switch kind {
         case .timer:
-            return TimerPayload(label: finalLabel, duration: max(1, minutes * 60), kind: .timer)
+            return TimerPayload(label: finalLabel, duration: max(1, minutes * 60), kind: .timer, alarmEnabled: alarmEnabled)
         case .countdown:
-            return TimerPayload(label: finalLabel, duration: max(1, targetDate.timeIntervalSinceNow), kind: .countdown)
+            return TimerPayload(label: finalLabel, duration: max(1, targetDate.timeIntervalSinceNow), kind: .countdown, alarmEnabled: alarmEnabled)
         }
     }
 
@@ -130,6 +156,10 @@ struct TimerPayload: Codable, Identifiable {
         ]
         if let pausedRemaining {
             items.append(URLQueryItem(name: "paused", value: String(pausedRemaining)))
+        }
+        // Only emitted when off — absence means "alarm on", so old links stay valid.
+        if !alarmEnabled {
+            items.append(URLQueryItem(name: "alarm", value: "0"))
         }
         components.queryItems = items
         return components.url!
@@ -150,7 +180,9 @@ struct TimerPayload: Codable, Identifiable {
         let duration = durString.flatMap(Double.init) ?? max(endDate.timeIntervalSinceNow, 1)
         let pausedRemaining = items.first(where: { $0.name == "paused" })?.value.flatMap(Double.init)
         let kind = items.first(where: { $0.name == "kind" })?.value.flatMap(TimerKind.init(rawValue:)) ?? .timer
-        return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind)
+        // Absent -> alarm on (old links). Only "0" turns it off.
+        let alarmEnabled = items.first(where: { $0.name == "alarm" })?.value != "0"
+        return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled)
     }
 }
 

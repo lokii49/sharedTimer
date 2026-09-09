@@ -12,5 +12,6 @@ struct SharedTimerWidgetBundle: WidgetBundle {
         SharedTimerWidget()
         SharedTimerCountdownWidget()
         TimerLiveActivityWidget()
+        TimerAlarmActivityWidget()
     }
 }

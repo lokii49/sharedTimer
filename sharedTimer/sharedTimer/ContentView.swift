@@ -20,6 +20,7 @@ struct ContentView: View {
     /// arrived via CloudKit already done) never enters this set, so it can't be
     /// mistaken for a fresh zero-crossing and blare the alarm on launch.
     @State private var armedIDs: Set<String> = []
+    @State private var showingNotificationPermissionAlert = false
     @ObservedObject private var alarm = AlarmPlayer.shared
     @Environment(\.scenePhase) private var scenePhase
 
@@ -31,8 +32,11 @@ struct ContentView: View {
                         emptyState
                     } else {
                         List {
-                            let active = timers.filter { !$0.isExpired }.sorted { $0.endDate < $1.endDate }
-                            let expired = timers.filter { $0.isExpired }.sorted { $0.endDate > $1.endDate }
+                            // isFinished, not isExpired: a timer paused exactly at zero is
+                            // still "paused" for alarm purposes, but reads as Finished here
+                            // rather than sitting in Active forever.
+                            let active = timers.filter { !$0.isFinished }.sorted { $0.endDate < $1.endDate }
+                            let expired = timers.filter { $0.isFinished }.sorted { $0.endDate > $1.endDate }
 
                             if !active.isEmpty {
                                 Section {
@@ -89,6 +93,18 @@ struct ContentView: View {
                 // never left .active. Re-read TimerStore directly.
                 timers = TimerStore.loadAll()
             }
+            .onReceive(NotificationCenter.default.publisher(for: NotificationScheduler.permissionDeniedNotification)) { _ in
+                showingNotificationPermissionAlert = true
+            }
+            .alert("Notifications are off", isPresented: $showingNotificationPermissionAlert) {
+                Button("Open Settings") {
+                    guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                    UIApplication.shared.open(url)
+                }
+                Button("Not Now", role: .cancel) {}
+            } message: {
+                Text("Timers won't alert you while the app is in the background until notifications are allowed.")
+            }
             .sheet(item: $sharingPayload) { payload in
                 ShareTimerSheet(payload: payload)
             }
@@ -127,11 +143,13 @@ struct ContentView: View {
         }
         .onAppear {
             timers = TimerStore.loadAll()
+            // Fold any "Repeat" tapped on a fired timer's AlarmKit panel back in before
+            // arming — the arm loop below then re-aligns the alarm to the revived endDate.
+            for id in AlarmController.reconcileRepeat(into: &timers) {
+                if let revived = timers.first(where: { $0.id == id }) { TimerStore.save(revived) }
+            }
             for payload in timers where !payload.isExpired {
-                NotificationScheduler.scheduleAlert(for: payload)
-                if !payload.isPaused {
-                    LiveActivityController.start(for: payload)
-                }
+                armAlerts(for: payload)
             }
             pullCloudChanges()
             // Cold-launch Quick Action: SceneDelegate's willConnectTo runs before this
@@ -158,7 +176,26 @@ struct ContentView: View {
             // TimerIntents.swift's Siri intents) writes straight to the App Group and has
             // no CloudLink, so pullCloudChanges alone would never surface it here.
             timers = TimerStore.loadAll()
+            // Fold any "Repeat" tapped on a fired timer's AlarmKit panel back into the
+            // local model, then re-arm ONLY those so the alarm and our copy agree on the
+            // endDate — leave every other timer's alarm / Live Activity untouched.
+            let revivedIDs = AlarmController.reconcileRepeat(into: &timers)
+            if !revivedIDs.isEmpty {
+                for id in revivedIDs {
+                    if let revived = timers.first(where: { $0.id == id }) {
+                        TimerStore.save(revived)
+                        armAlerts(for: revived)
+                    }
+                }
+                WatchSyncController.pushCurrentState()
+            }
             pullCloudChanges()
+            // Opportunistic Live Activity keep-alive: there's no server here to push a
+            // periodic refresh while the app isn't running, so a multi-day countdown's
+            // activity only survives past iOS's ~8h no-update budget if something re-pushes
+            // it — foregrounding the app is the cheapest reliable trigger available.
+            // Only .countdown has a custom Live Activity now (AlarmKit owns .timer's).
+            LiveActivityController.refreshAll(from: timers.filter { $0.kind == .countdown })
         }
         .onOpenURL { url in
             handleIncoming(url: url)
@@ -227,6 +264,15 @@ struct ContentView: View {
         let justFinished = armedIDs.subtracting(stillRunning)
         armedIDs = stillRunning
         guard !justFinished.isEmpty else { return }
+        // A .timer that just finished gets AlarmKit's own full-screen alert (even in the
+        // foreground) — running the in-app AVAudioPlayer loop + banner on top of it would
+        // double the sound. Only sound the in-app loop if a .countdown finished, or if a
+        // finished .timer somehow has no AlarmKit alarm backing it (denied / fallback).
+        // Sound the in-app loop only where the app itself is the alarm: a .countdown,
+        // or a .timer with AlarmKit permission denied. A .timer AlarmKit handled —
+        // even one already stopped from its panel — must not re-bang on app open.
+        let finished = timers.filter { justFinished.contains($0.id) }
+        guard finished.contains(where: { AlarmController.shouldSoundInAppAlarm(for: $0) }) else { return }
         alarm.start()
     }
 
@@ -249,9 +295,19 @@ struct ContentView: View {
             } label: {
                 Label("Delete", systemImage: "trash")
             }
+            // Explicit tint: with a clear listRowBackground the destructive role's
+            // default red fill drops out and the button reveals as a white slab.
+            .tint(.red)
         }
         .swipeActions(edge: .leading) {
-            if !payload.isExpired {
+            if payload.isFinished {
+                Button {
+                    repeatTimer(payload)
+                } label: {
+                    Label("Repeat", systemImage: "arrow.clockwise")
+                }
+                .tint(.indigo)
+            } else {
                 Button {
                     togglePause(payload)
                 } label: {
@@ -274,7 +330,13 @@ struct ContentView: View {
             } label: {
                 Label("Share…", systemImage: "square.and.arrow.up")
             }
-            if !payload.isExpired {
+            if payload.isFinished {
+                Button {
+                    repeatTimer(payload)
+                } label: {
+                    Label("Repeat", systemImage: "arrow.clockwise")
+                }
+            } else {
                 Button {
                     togglePause(payload)
                 } label: {
@@ -295,9 +357,25 @@ struct ContentView: View {
         }
     }
 
+    /// Arms the finished-alert for a payload — an AlarmKit alarm for `.timer` (rings
+    /// through silent/Focus, full-screen Stop/Repeat panel, survives force-quit), a
+    /// local notification for `.countdown` — plus the custom Live Activity, which now
+    /// backs `.countdown` only: AlarmKit runs its own Live Activity for a `.timer`, so
+    /// starting ours too would double it up (the "too many Live Activities" bug).
+    /// See AlarmController. Paused/expired payloads are handled inside `reschedule`.
+    private func armAlerts(for payload: TimerPayload) {
+        AlarmController.reschedule(for: payload)
+        guard payload.kind == .countdown else { return }
+        if payload.isPaused {
+            LiveActivityController.update(for: payload)
+        } else {
+            LiveActivityController.start(for: payload)
+        }
+    }
+
     private func delete(_ payload: TimerPayload) {
         TimerStore.delete(id: payload.id)
-        NotificationScheduler.cancel(id: payload.id)
+        AlarmController.clear(id: payload.id)
         LiveActivityController.end(id: payload.id)
         CloudSyncController.pushDelete(id: payload.id)
         WatchSyncController.pushCurrentState()
@@ -311,6 +389,13 @@ struct ContentView: View {
 
     private func extend(_ payload: TimerPayload, by interval: TimeInterval) {
         applyMutation(payload.extended(by: interval), action: "extended")
+    }
+
+    /// Restart a finished timer/countdown in place (same id, original duration).
+    private func repeatTimer(_ payload: TimerPayload) {
+        alarm.stop()
+        armedIDs.remove(payload.id)
+        applyMutation(payload.repeated(), action: "repeated")
     }
 
     /// Shared by the row's swipe/context-menu actions and TimerDetailView's own controls
@@ -349,13 +434,7 @@ struct ContentView: View {
 
     private func apply(_ updated: TimerPayload, action: String = "updated") {
         TimerStore.save(updated)
-        NotificationScheduler.cancel(id: updated.id)
-        if !updated.isPaused {
-            NotificationScheduler.scheduleAlert(for: updated)
-            LiveActivityController.start(for: updated)
-        } else {
-            LiveActivityController.update(for: updated)
-        }
+        armAlerts(for: updated)
         CloudSyncController.pushUp(updated, action: action)
         WatchSyncController.pushCurrentState()
         if let index = timers.firstIndex(where: { $0.id == updated.id }) {
@@ -421,13 +500,7 @@ struct ContentView: View {
             DispatchQueue.main.async {
                 for payload in updated {
                     TimerStore.save(payload)
-                    NotificationScheduler.cancel(id: payload.id)
-                    if payload.isPaused {
-                        LiveActivityController.update(for: payload)
-                    } else {
-                        NotificationScheduler.scheduleAlert(for: payload)
-                        LiveActivityController.start(for: payload)
-                    }
+                    armAlerts(for: payload)
                     if let index = timers.firstIndex(where: { $0.id == payload.id }) {
                         timers[index] = payload
                     } else {
@@ -436,7 +509,7 @@ struct ContentView: View {
                 }
                 for id in deletedIDs {
                     TimerStore.delete(id: id)
-                    NotificationScheduler.cancel(id: id)
+                    AlarmController.clear(id: id)
                     LiveActivityController.end(id: id)
                     timers.removeAll { $0.id == id }
                 }
@@ -456,6 +529,7 @@ private struct NewTimerSheet: View {
     @State private var kind: TimerKind
     @State private var minutes: Double = 5
     @State private var targetDate: Date = Date().addingTimeInterval(86400)
+    @State private var alarmEnabled = true
     @FocusState private var labelFocused: Bool
 
     let onCreate: (TimerPayload) -> Void
@@ -468,7 +542,7 @@ private struct NewTimerSheet: View {
     /// Live preview of the sky this timer will get.
     private var previewPayload: TimerPayload {
         TimerPayload.compose(label: label.isEmpty ? (kind == .timer ? "Timer" : "Countdown") : label,
-                             kind: kind, minutes: minutes, targetDate: targetDate)
+                             kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled)
     }
 
     var body: some View {
@@ -485,6 +559,7 @@ private struct NewTimerSheet: View {
                     kind: $kind,
                     minutes: $minutes,
                     targetDate: $targetDate,
+                    alarmEnabled: $alarmEnabled,
                     labelFocused: $labelFocused
                 )
             }
@@ -498,7 +573,7 @@ private struct NewTimerSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Start") {
-                        onCreate(TimerPayload.compose(label: label, kind: kind, minutes: minutes, targetDate: targetDate))
+                        onCreate(TimerPayload.compose(label: label, kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled))
                         dismiss()
                     }
                     .fontWeight(.semibold)
@@ -582,11 +657,19 @@ private struct TimerDetailView: View {
                             }
                             .buttonStyle(.glassPill)
                         }
-                    } else if alarm.isPlaying {
-                        Button("Stop") {
-                            alarm.stop()
+                    } else {
+                        HStack(spacing: 12) {
+                            if alarm.isPlaying {
+                                Button("Stop") {
+                                    alarm.stop()
+                                }
+                                .buttonStyle(.glassPill)
+                            }
+                            Button("Repeat") {
+                                repeatTimer()
+                            }
+                            .buttonStyle(.glassPill)
                         }
-                        .buttonStyle(.glassPill)
                     }
 
                     Button {
@@ -614,7 +697,11 @@ private struct TimerDetailView: View {
                 // already playing, so calling it again here is free — don't rely on
                 // the (unverified) assumption that the ancestor TimelineView keeps
                 // ticking behind an active NavigationStack push.
-                alarm.start()
+                // Only sound the in-app loop where the app itself is the alarm — a
+                // .countdown, or a .timer with AlarmKit denied (see checkForNewlyExpired).
+                if AlarmController.shouldSoundInAppAlarm(for: payload) {
+                    alarm.start()
+                }
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -663,6 +750,16 @@ private struct TimerDetailView: View {
     private func extend(by interval: TimeInterval) {
         payload = payload.extended(by: interval)
         onUpdate(payload, "extended")
+    }
+
+    /// Restart a finished timer from its detail screen — stop any in-app alarm loop,
+    /// re-arm the finish handler, and run the standard mutation path (which reschedules
+    /// the AlarmKit alarm / notification and Live Activity).
+    private func repeatTimer() {
+        alarm.stop()
+        hasBuzzedFinish = false
+        payload = payload.repeated()
+        onUpdate(payload, "repeated")
     }
 
     /// "2 watching" / "Sam paused" — whichever cloud status has resolved so far; nil

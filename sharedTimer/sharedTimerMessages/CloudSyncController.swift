@@ -440,6 +440,7 @@ enum CloudSyncController {
         record["duration"] = payload.duration as CKRecordValue
         record["pausedRemaining"] = payload.pausedRemaining as CKRecordValue?
         record["kind"] = payload.kind.rawValue as CKRecordValue
+        record["alarmEnabled"] = payload.alarmEnabled as CKRecordValue
     }
 
     private static func makePayload(from record: CKRecord) -> TimerPayload? {
@@ -453,7 +454,9 @@ enum CloudSyncController {
             endDate: endDate,
             duration: duration,
             pausedRemaining: record["pausedRemaining"] as? TimeInterval,
-            kind: TimerKind(rawValue: kindRaw) ?? .timer
+            kind: TimerKind(rawValue: kindRaw) ?? .timer,
+            // Absent on records written before the toggle -> alarm on.
+            alarmEnabled: (record["alarmEnabled"] as? Bool) ?? true
         )
     }
 

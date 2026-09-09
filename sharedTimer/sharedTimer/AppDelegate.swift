@@ -22,6 +22,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         application.registerForRemoteNotifications()
         CloudSyncController.registerSubscriptionsIfNeeded()
         WatchSyncController.activate()
+        // Ask for AlarmKit permission now so the prompt isn't racing the first
+        // .timer's schedule call (see AlarmController).
+        AlarmController.requestAuthorizationIfNeeded()
         return true
     }
 
@@ -46,17 +49,21 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         CloudSyncController.pullChanges { updated, deletedIDs in
             for payload in updated {
                 TimerStore.save(payload)
-                NotificationScheduler.cancel(id: payload.id)
-                if payload.isPaused {
-                    LiveActivityController.update(for: payload)
-                } else {
-                    NotificationScheduler.scheduleAlert(for: payload)
-                    LiveActivityController.start(for: payload)
+                // Same arming sequence as ContentView.armAlerts: AlarmKit alarm for a
+                // .timer, local notification for a .countdown, and the custom Live
+                // Activity only for .countdown (AlarmKit runs its own for .timer).
+                AlarmController.reschedule(for: payload)
+                if payload.kind == .countdown {
+                    if payload.isPaused {
+                        LiveActivityController.update(for: payload)
+                    } else {
+                        LiveActivityController.start(for: payload)
+                    }
                 }
             }
             for id in deletedIDs {
                 TimerStore.delete(id: id)
-                NotificationScheduler.cancel(id: id)
+                AlarmController.clear(id: id)
                 LiveActivityController.end(id: id)
             }
             if !updated.isEmpty || !deletedIDs.isEmpty {

@@ -13,6 +13,7 @@ struct TimerFieldsView: View {
     @Binding var kind: TimerKind
     @Binding var minutes: Double
     @Binding var targetDate: Date
+    @Binding var alarmEnabled: Bool
     var labelFocused: FocusState<Bool>.Binding
 
     private let presets: [Double] = [1, 3, 5, 10, 15, 30, 60]
@@ -32,6 +33,15 @@ struct TimerFieldsView: View {
                 Text("Countdown").tag(TimerKind.countdown)
             }
             .pickerStyle(.segmented)
+        }
+
+        Section {
+            Toggle("Alarm when it ends", isOn: $alarmEnabled)
+                // Root .tint(.white) would make the "on" track white-on-white; pin it
+                // to the kind accent so it reads (orange for a timer, red for a countdown).
+                .tint(kind.accentColor)
+        } footer: {
+            Text(alarmFootnote)
         }
 
         if kind == .timer {
@@ -79,6 +89,19 @@ struct TimerFieldsView: View {
             } footer: {
                 Text("Counting down to \(TimeFormat.targetDate(targetDate))")
             }
+        }
+    }
+
+    /// Only a `.timer` with the alarm on reaches AlarmKit's ringing full-screen panel;
+    /// a `.countdown` always resolves to a notification, so don't promise it a ring.
+    private var alarmFootnote: String {
+        switch (alarmEnabled, kind) {
+        case (false, _):
+            return "A quiet notification instead — no ringing."
+        case (true, .timer):
+            return "Rings full-screen with Stop and Repeat, even when the app is closed or the phone is on silent."
+        case (true, .countdown):
+            return "Sends an alarm-tone notification when the date arrives."
         }
     }
 

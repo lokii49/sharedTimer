@@ -99,6 +99,10 @@
   const duration = durParam ? parseFloat(durParam) : NaN;
   const pausedParam = qs("paused");
   const pausedSeconds = pausedParam !== null ? parseFloat(pausedParam) : NaN;
+  // "alarm=0" means the sender turned the finish alarm off. This page plays no sound
+  // either way, so it's only surfaced as a body data-attribute to keep every wire
+  // param accounted for (see TimerModel.swift url()/from(url:)).
+  document.body.dataset.alarm = qs("alarm") === "0" ? "off" : "on";
 
   function familyFor(totalSeconds) {
     if (totalSeconds < 3600) return "ember";
