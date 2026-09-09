@@ -1,0 +1,4 @@
+• Timers now finish with a full-screen alarm you can Stop or Repeat. It rings through silent mode and Focus, even when the app is closed.
+• New "Alarm when it ends" switch when you create a timer or countdown, for when a quiet notification is all you want.
+• Repeat a finished timer or countdown with one tap.
+• Fixed a blank white area behind the swipe-to-delete button.
