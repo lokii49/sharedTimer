@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 /// The App Clip's whole job: one shared timer, full-bleed under its own sky.
 struct TimerClipView: View {
@@ -11,6 +12,7 @@ struct TimerClipView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hasAlarmed = false
     @ObservedObject private var alarm = AlarmPlayer.shared
+    @ObservedObject private var vibration = VibrationPlayer.shared
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -59,9 +61,10 @@ struct TimerClipView: View {
                     .font(.footnote)
                     .foregroundStyle(.white.opacity(0.6))
 
-                    if done && alarm.isPlaying {
+                    if done && (alarm.isPlaying || vibration.isVibrating) {
                         Button("Stop") {
                             alarm.stop()
+                            vibration.stop()
                         }
                         .buttonStyle(.glassPill)
                         .padding(.top, 10)
@@ -77,6 +80,11 @@ struct TimerClipView: View {
                 guard isExpired, !hasAlarmed else { return }
                 hasAlarmed = true
                 alarm.start()
+                // Independent of the alarm path — vibration has its own toggle.
+                if payload.vibrationEnabled {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    vibration.start()
+                }
             }
         }
         .onAppear {
@@ -84,6 +92,7 @@ struct TimerClipView: View {
         }
         .onDisappear {
             alarm.stop()
+            vibration.stop()
         }
     }
 

@@ -27,8 +27,13 @@ struct TimerPayload: Codable, Identifiable {
     /// AlarmKit full-screen ring, no in-app alarm loop) — the compose-sheet "Alarm"
     /// toggle. Defaults true so every pre-toggle timer/link keeps its old behavior.
     let alarmEnabled: Bool
+    /// When true, finishing also repeats the device vibration in the foreground
+    /// until stopped — the compose-sheet "Vibrate" toggle. Independent of
+    /// `alarmEnabled`: it can vibrate with the alarm off, or stay silent with the
+    /// alarm on. Defaults true so every pre-toggle timer/link keeps buzzing.
+    let vibrationEnabled: Bool
 
-    init(id: String = UUID().uuidString, label: String, duration: TimeInterval, kind: TimerKind = .timer, alarmEnabled: Bool = true) {
+    init(id: String = UUID().uuidString, label: String, duration: TimeInterval, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true) {
         self.id = id
         self.label = label
         self.duration = duration
@@ -36,9 +41,10 @@ struct TimerPayload: Codable, Identifiable {
         self.pausedRemaining = nil
         self.kind = kind
         self.alarmEnabled = alarmEnabled
+        self.vibrationEnabled = vibrationEnabled
     }
 
-    init(id: String, label: String, endDate: Date, duration: TimeInterval, pausedRemaining: TimeInterval? = nil, kind: TimerKind = .timer, alarmEnabled: Bool = true) {
+    init(id: String, label: String, endDate: Date, duration: TimeInterval, pausedRemaining: TimeInterval? = nil, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true) {
         self.id = id
         self.label = label
         self.endDate = endDate
@@ -46,10 +52,11 @@ struct TimerPayload: Codable, Identifiable {
         self.pausedRemaining = pausedRemaining
         self.kind = kind
         self.alarmEnabled = alarmEnabled
+        self.vibrationEnabled = vibrationEnabled
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, label, endDate, duration, pausedRemaining, kind, alarmEnabled
+        case id, label, endDate, duration, pausedRemaining, kind, alarmEnabled, vibrationEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -63,6 +70,13 @@ struct TimerPayload: Codable, Identifiable {
         kind = try container.decodeIfPresent(TimerKind.self, forKey: .kind) ?? .timer
         // Predates the alarm toggle -> keep the old always-alarm behavior.
         alarmEnabled = try container.decodeIfPresent(Bool.self, forKey: .alarmEnabled) ?? true
+        // Predates the vibration toggle -> false, NOT true. Unlike `alarmEnabled`
+        // (whose "loud" meaning never changed), `vibrationEnabled` started as a
+        // harmless foreground-only buzz and only later started also routing through
+        // AlarmKit for a full-screen alert — decoding old data as "on" would silently
+        // upgrade an already-quiet stored timer or shared link into a full-screen
+        // takeover its creator never asked for.
+        vibrationEnabled = try container.decodeIfPresent(Bool.self, forKey: .vibrationEnabled) ?? false
     }
 
     var isPaused: Bool {
@@ -131,14 +145,14 @@ struct TimerPayload: Codable, Identifiable {
     }
 
     /// Builds a payload from compose-sheet inputs shared by every creation surface (Messages, main app).
-    static func compose(label: String, kind: TimerKind, minutes: Double, targetDate: Date, alarmEnabled: Bool = true) -> TimerPayload {
+    static func compose(label: String, kind: TimerKind, minutes: Double, targetDate: Date, alarmEnabled: Bool = true, vibrationEnabled: Bool = true) -> TimerPayload {
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalLabel = trimmed.isEmpty ? (kind == .timer ? "Timer" : "Countdown") : trimmed
         switch kind {
         case .timer:
-            return TimerPayload(label: finalLabel, duration: max(1, minutes * 60), kind: .timer, alarmEnabled: alarmEnabled)
+            return TimerPayload(label: finalLabel, duration: max(1, minutes * 60), kind: .timer, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
         case .countdown:
-            return TimerPayload(label: finalLabel, duration: max(1, targetDate.timeIntervalSinceNow), kind: .countdown, alarmEnabled: alarmEnabled)
+            return TimerPayload(label: finalLabel, duration: max(1, targetDate.timeIntervalSinceNow), kind: .countdown, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
         }
     }
 
@@ -161,6 +175,13 @@ struct TimerPayload: Codable, Identifiable {
         if !alarmEnabled {
             items.append(URLQueryItem(name: "alarm", value: "0"))
         }
+        // Unlike `alarm`, always emitted explicitly (not just when off): absence has
+        // to unambiguously mean "predates the vibration toggle" so an old link decodes
+        // as off (see `from(url:)`) — `alarm`'s on-by-default-when-absent convention is
+        // safe because "alarm on" never changed meaning, but "vibration on" started
+        // also triggering a full-screen AlarmKit takeover, so a pre-existing link
+        // silently inheriting "on" would surprise whoever shared it.
+        items.append(URLQueryItem(name: "vib", value: vibrationEnabled ? "1" : "0"))
         components.queryItems = items
         return components.url!
     }
@@ -182,7 +203,12 @@ struct TimerPayload: Codable, Identifiable {
         let kind = items.first(where: { $0.name == "kind" })?.value.flatMap(TimerKind.init(rawValue:)) ?? .timer
         // Absent -> alarm on (old links). Only "0" turns it off.
         let alarmEnabled = items.first(where: { $0.name == "alarm" })?.value != "0"
-        return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled)
+        // Absent -> vibration off (a link from before the toggle existed): unlike
+        // `alarm`, "vibration on" now also means a full-screen AlarmKit takeover, so an
+        // old link can't default to it. "1" turns it on; anything else (including "0"
+        // or absent) is off.
+        let vibrationEnabled = items.first(where: { $0.name == "vib" })?.value == "1"
+        return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
     }
 }
 

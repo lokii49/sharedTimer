@@ -441,6 +441,7 @@ enum CloudSyncController {
         record["pausedRemaining"] = payload.pausedRemaining as CKRecordValue?
         record["kind"] = payload.kind.rawValue as CKRecordValue
         record["alarmEnabled"] = payload.alarmEnabled as CKRecordValue
+        record["vibrationEnabled"] = payload.vibrationEnabled as CKRecordValue
     }
 
     private static func makePayload(from record: CKRecord) -> TimerPayload? {
@@ -456,7 +457,11 @@ enum CloudSyncController {
             pausedRemaining: record["pausedRemaining"] as? TimeInterval,
             kind: TimerKind(rawValue: kindRaw) ?? .timer,
             // Absent on records written before the toggle -> alarm on.
-            alarmEnabled: (record["alarmEnabled"] as? Bool) ?? true
+            alarmEnabled: (record["alarmEnabled"] as? Bool) ?? true,
+            // Absent on records written before the toggle -> vibration OFF, not on —
+            // see TimerModel.swift's matching decode for why (vibration-on now also
+            // means a full-screen AlarmKit takeover).
+            vibrationEnabled: (record["vibrationEnabled"] as? Bool) ?? false
         )
     }
 

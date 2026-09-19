@@ -4,28 +4,28 @@
 <dict>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>Lets a finished timer sound a full-screen alarm you can stop or repeat, even when the app isn't open.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
-	</array>
 	<key>UIApplicationShortcutItems</key>
 	<array>
 		<dict>
-			<key>UIApplicationShortcutItemType</key>
-			<string>newTimer</string>
-			<key>UIApplicationShortcutItemTitle</key>
-			<string>New Timer</string>
 			<key>UIApplicationShortcutItemIconType</key>
 			<string>UIApplicationShortcutIconTypeTime</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>New Timer</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>newTimer</string>
 		</dict>
 		<dict>
-			<key>UIApplicationShortcutItemType</key>
-			<string>newCountdown</string>
-			<key>UIApplicationShortcutItemTitle</key>
-			<string>New Countdown</string>
 			<key>UIApplicationShortcutItemIconType</key>
 			<string>UIApplicationShortcutIconTypeDate</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>New Countdown</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>newCountdown</string>
 		</dict>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
 	</array>
 </dict>
 </plist>

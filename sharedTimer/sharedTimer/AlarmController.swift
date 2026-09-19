@@ -10,15 +10,23 @@
 //  CloudSyncController / WatchSyncController — and, like those, this file must never be
 //  reachable from TimerStore.swift itself (TimerStore is compiled into the Widget).
 //
-//  Which alert mechanism a timer uses is decided here, by kind:
-//    - .timer     -> AlarmKit: rings through the silent switch and Focus, shows a
-//                    full-screen Stop / Repeat panel, and survives a force-quit.
-//    - .countdown -> NotificationScheduler: a months-out date target ("days until
-//                    vacation") wants a gentle notification, not a ringing alarm.
+//  Which alert mechanism a timer uses is decided here, by whether EITHER the "Alarm"
+//  or "Vibrate" toggle is on (`AlarmController.ownsAlert`) — not by kind. Either toggle
+//  on -> AlarmKit: full-screen through the silent switch and Focus, Stop / Repeat
+//  panel, survives a force-quit, even locked. `alarmEnabled` picks the loud
+//  `alarm.caf` loop; `vibrationEnabled` alone (alarm off) picks `vibration_silent.caf`
+//  — a digitally-silent .caf of the same format/duration. AlarmKit's `sound:` param is
+//  non-optional with no explicit "no sound" case (checked against the actual
+//  AlertConfiguration.AlertSound API: only `.default`/`.named(_:)` exist), so silence
+//  is smuggled in as a named asset rather than omitted — resting on the (device-
+//  unverified) assumption that AlarmKit's alert vibration isn't decoded from the audio
+//  waveform, same as a regular notification's haptic. Both toggles off ->
+//  NotificationScheduler: a quiet, standard-sound notification, no AlarmKit at all.
 //
 //  AlarmKit's own countdown Live Activity replaces the custom per-timer
-//  TimerActivityAttributes Live Activity for .timer — call sites only start the custom
-//  one for .countdown now (see ContentView).
+//  TimerActivityAttributes Live Activity whenever AlarmKit owns the alert — call sites
+//  only start the custom one when `!AlarmController.ownsAlert(for:)` (see
+//  ContentView.armAlerts).
 //
 
 import ActivityKit
@@ -37,20 +45,40 @@ enum AlarmController {
         Task { _ = await ensureAuthorized() }
     }
 
-    /// True only when the app itself has to sound the finished-alarm loop: a
-    /// `.countdown` (never AlarmKit), or a `.timer` whose alarm AlarmKit won't deliver
-    /// because permission isn't granted. A `.timer` AlarmKit is handling returns
-    /// false — including one whose alarm the user already stopped from its panel, so
-    /// re-opening the app doesn't re-bang. (`alarms` membership can't tell "never
-    /// scheduled" from "scheduled then dismissed", so don't key on it.)
+    /// True when either toggle wants AlarmKit to own this payload's finish. Drives both
+    /// `reschedule`'s routing and every call site that skips the custom Live Activity
+    /// because AlarmKit runs its own (see ContentView.armAlerts and its mirrors in
+    /// AppDelegate / WatchSyncController / TimerIntents).
+    static func ownsAlert(for payload: TimerPayload) -> Bool {
+        payload.alarmEnabled || payload.vibrationEnabled
+    }
+
+    /// True only when the app itself has to sound the finished-alarm loop: the alarm
+    /// toggle is on but AlarmKit won't deliver it because permission isn't granted. An
+    /// alarm AlarmKit is handling returns false — including one whose alarm the user
+    /// already stopped from its panel, so re-opening the app doesn't re-bang. (`alarms`
+    /// membership can't tell "never scheduled" from "scheduled then dismissed", so
+    /// don't key on it.)
     static func shouldSoundInAppAlarm(for payload: TimerPayload) -> Bool {
         guard payload.alarmEnabled else { return false }
-        switch payload.kind {
-        case .countdown:
-            return true
-        case .timer:
-            return AlarmManager.shared.authorizationState != .authorized
-        }
+        return AlarmManager.shared.authorizationState != .authorized
+    }
+
+    /// True only when the app itself has to vibrate: `vibrationEnabled` is on, and
+    /// AlarmKit isn't already the sole owner of this alert. AlarmKit now owns it
+    /// whenever authorized and `ownsAlert` is true (which it is here, since
+    /// `vibrationEnabled` alone satisfies `ownsAlert`) — it rings full-screen (loud
+    /// `alarm.caf` if the alarm toggle is also on, silent `vibration_silent.caf`
+    /// otherwise) with its own system vibration, so spinning up `VibrationPlayer` too
+    /// would double-buzz while it's ringing, and — the bug this guards against —
+    /// re-buzz with a stale "Stop" banner every time the app is reopened after the user
+    /// already dismissed AlarmKit's own panel (`checkForNewlyExpired` has no way to see
+    /// "already resolved by AlarmKit", only "expired"). Only when AlarmKit is denied /
+    /// unavailable does `VibrationPlayer` step in as the fallback loop, same spirit as
+    /// `shouldSoundInAppAlarm`'s fallback.
+    static func shouldVibrateInApp(for payload: TimerPayload) -> Bool {
+        guard payload.vibrationEnabled, !TimerStore.isFinishAcknowledged(id: payload.id) else { return false }
+        return AlarmManager.shared.authorizationState != .authorized
     }
 
     @discardableResult
@@ -84,20 +112,17 @@ enum AlarmController {
 
             guard !payload.isPaused, payload.remaining > 0 else { return }
 
-            switch payload.kind {
-            case .countdown:
+            guard ownsAlert(for: payload) else {
+                // Both toggles off: a quiet notification, never AlarmKit.
                 NotificationScheduler.scheduleAlert(for: payload)
-            case .timer where !payload.alarmEnabled:
-                // "Alarm" toggle off: a quiet notification, never AlarmKit.
+                return
+            }
+            if await scheduleAlarm(for: payload) == false {
+                // AlarmKit unavailable / denied / at capacity. A local notification is
+                // a weaker alarm (one-shot, obeys the silent switch) but beats
+                // finishing a timer in silence — same philosophy as
+                // NotificationScheduler's own denial fallback.
                 NotificationScheduler.scheduleAlert(for: payload)
-            case .timer:
-                if await scheduleAlarm(for: payload) == false {
-                    // AlarmKit unavailable / denied / at capacity. A local
-                    // notification is a weaker alarm (one-shot, obeys the silent
-                    // switch) but beats finishing a timer in silence — same
-                    // philosophy as NotificationScheduler's own denial fallback.
-                    NotificationScheduler.scheduleAlert(for: payload)
-                }
             }
         }
     }
@@ -117,7 +142,7 @@ enum AlarmController {
     static func reconcileRepeat(into timers: inout [TimerPayload]) -> [String] {
         guard let alarms = try? AlarmManager.shared.alarms else { return [] }
         var revivedIDs: [String] = []
-        for index in timers.indices where timers[index].kind == .timer && timers[index].isFinished {
+        for index in timers.indices where timers[index].isFinished {
             let id = alarmID(for: timers[index].id)
             guard let alarm = alarms.first(where: { $0.id == id }),
                   alarm.state == .countdown else { continue }
@@ -153,18 +178,28 @@ enum AlarmController {
 
         let attributes = AlarmAttributes<TimerAlarmMetadata>(
             presentation: presentation,
-            metadata: TimerAlarmMetadata(timerID: payload.id, label: payload.label),
-            tintColor: TimerKind.timer.accentColor
+            metadata: TimerAlarmMetadata(timerID: payload.id, label: payload.label, kind: payload.kind),
+            tintColor: payload.kind.accentColor
         )
 
         // preAlert from `remaining` so a resumed / extended timer fires at the right
         // moment; postAlert from `duration` so the panel's Repeat restarts the
         // *original* length, not whatever was left when it finished. The asymmetry is
         // deliberate.
+        // Loud alarm.caf when the alarm toggle is on; otherwise (vibration-only)
+        // vibration_silent.caf — a digitally-silent .caf of the same format/duration.
+        // AlarmKit's `sound:` param is non-optional and has no explicit "no sound"
+        // case (checked against the real API — see the file header). Assumption, NOT
+        // yet confirmed on-device: the alert's system vibration isn't decoded from the
+        // audio waveform, same as a regular notification's haptic firing independent
+        // of which sound plays — so a silent asset should still get the full-screen
+        // alert + vibration + Stop/Repeat panel with no audible tone. If AlarmKit
+        // instead falls back to a default system sound for a silent asset, or refuses
+        // to vibrate without real audio, this needs a different approach.
         let config = AlarmManager.AlarmConfiguration<TimerAlarmMetadata>(
             countdownDuration: .init(preAlert: payload.remaining, postAlert: payload.duration),
             attributes: attributes,
-            sound: .named("alarm.caf")
+            sound: .named(payload.alarmEnabled ? "alarm.caf" : "vibration_silent.caf")
         )
 
         do {

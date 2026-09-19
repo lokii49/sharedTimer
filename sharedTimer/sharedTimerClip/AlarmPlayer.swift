@@ -52,3 +52,36 @@ final class AlarmPlayer: ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
+
+/// Repeats the device vibration until stopped — the "Vibrate when it ends" toggle's
+/// engine. Deliberately independent of `AlarmPlayer`: the vibration toggle is its own
+/// on/off, separate from the alarm toggle, so a finished timer with the alarm off but
+/// vibration on must still buzz without any `AlarmPlayer` involvement.
+final class VibrationPlayer: ObservableObject {
+    static let shared = VibrationPlayer()
+
+    @Published private(set) var isVibrating = false
+    private var timer: Timer?
+
+    private init() {}
+
+    /// Foreground-only, like all vibration APIs — a backgrounded or terminated app
+    /// cannot vibrate, so this only matters while the screen that called `start()`
+    /// (or `checkForNewlyExpired`'s brief re-foreground window) is current.
+    func start() {
+        guard !isVibrating else { return }
+        isVibrating = true
+        AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+        let timer = Timer(timeInterval: 1.5, repeats: true) { _ in
+            AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        isVibrating = false
+    }
+}

@@ -23,6 +23,7 @@ struct StartTimerIntent: AppIntent {
     @Parameter(title: "Label", default: "Timer") var label: String
     @Parameter(title: "Minutes", default: 5) var minutes: Double
     @Parameter(title: "Alarm", default: true) var alarm: Bool
+    @Parameter(title: "Vibrate", default: true) var vibrate: Bool
 
     /// TimerPayload.compose computes duration as max(1, minutes * 60) — zero/negative
     /// minutes would silently yield a 1s, instantly-expired timer instead of an error.
@@ -31,11 +32,15 @@ struct StartTimerIntent: AppIntent {
         guard minutes > 0 else {
             throw TimerIntentError.nonPositiveMinutes
         }
-        let payload = TimerPayload.compose(label: label, kind: .timer, minutes: minutes, targetDate: Date(), alarmEnabled: alarm)
+        let payload = TimerPayload.compose(label: label, kind: .timer, minutes: minutes, targetDate: Date(), alarmEnabled: alarm, vibrationEnabled: vibrate)
         TimerStore.save(payload)
-        // .timer + alarm on -> AlarmKit (rings through silent/Focus, Stop/Repeat panel,
-        // its own Live Activity). Alarm off -> a quiet notification. AlarmController picks.
+        // Either toggle on -> AlarmKit (rings through silent/Focus, Stop/Repeat panel,
+        // its own Live Activity). Both off -> a quiet notification + the custom Live
+        // Activity.
         AlarmController.reschedule(for: payload)
+        if !AlarmController.ownsAlert(for: payload) {
+            LiveActivityController.start(for: payload)
+        }
         return .result(dialog: "Started \(label) for \(Int(minutes)) minutes.")
     }
 }
@@ -46,6 +51,7 @@ struct StartCountdownIntent: AppIntent {
     @Parameter(title: "Label", default: "Countdown") var label: String
     @Parameter(title: "Target Date") var targetDate: Date
     @Parameter(title: "Alarm", default: true) var alarm: Bool
+    @Parameter(title: "Vibrate", default: true) var vibrate: Bool
 
     /// TimerPayload.compose computes duration as max(1, targetDate.timeIntervalSinceNow)
     /// for .countdown — a past/near-now date would silently yield a 1s, instantly-expired
@@ -55,10 +61,15 @@ struct StartCountdownIntent: AppIntent {
         guard targetDate > Date() else {
             throw TimerIntentError.pastTargetDate
         }
-        let payload = TimerPayload.compose(label: label, kind: .countdown, minutes: 0, targetDate: targetDate, alarmEnabled: alarm)
+        let payload = TimerPayload.compose(label: label, kind: .countdown, minutes: 0, targetDate: targetDate, alarmEnabled: alarm, vibrationEnabled: vibrate)
         TimerStore.save(payload)
-        NotificationScheduler.scheduleAlert(for: payload)
-        LiveActivityController.start(for: payload)
+        // Either toggle on -> AlarmKit (rings through silent/Focus, its own Live
+        // Activity). Both off -> a quiet notification + the custom Live Activity.
+        // AlarmController picks; same arming sequence as ContentView.armAlerts.
+        AlarmController.reschedule(for: payload)
+        if !AlarmController.ownsAlert(for: payload) {
+            LiveActivityController.start(for: payload)
+        }
         return .result(dialog: "Counting down to \(label).")
     }
 }
