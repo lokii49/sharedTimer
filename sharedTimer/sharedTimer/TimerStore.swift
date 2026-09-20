@@ -81,7 +81,15 @@ enum TimerStore {
 
     private static func persist(_ payloads: [TimerPayload]) {
         let cutoff = Date().addingTimeInterval(-86400)
-        let trimmed = payloads.filter { $0.isPaused || $0.endDate > cutoff }
+        // A sequence-owning payload's raw `endDate` is only the CURRENT phase's — a
+        // multi-day sequence not foregrounded in 24h+ would otherwise look
+        // long-expired here even though later phases haven't run yet. Project it
+        // forward first (pure/idempotent, doesn't mutate what's actually stored) so
+        // the prune decision reflects whether the whole sequence is really done.
+        let trimmed = payloads.filter {
+            let projected = $0.sequence != nil ? $0.advancedSequence() : $0
+            return projected.isPaused || projected.endDate > cutoff
+        }
         guard let data = try? JSONEncoder().encode(trimmed) else { return }
         defaults?.set(data, forKey: key)
         // The home-screen widget only re-reads the App Group store when told to — otherwise

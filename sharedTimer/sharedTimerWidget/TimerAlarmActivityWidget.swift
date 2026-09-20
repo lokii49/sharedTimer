@@ -49,15 +49,21 @@ struct TimerAlarmActivityWidget: Widget {
                     alarmCountdownText(context.state)
                         .font(.title3.weight(.medium))
                         .monospacedDigit()
+                        .foregroundStyle(.white)
                 }
             } compactLeading: {
                 Image(systemName: kind.symbolName)
+                    .foregroundStyle(kind.accentColor)
             } compactTrailing: {
                 alarmCountdownText(context.state)
                     .monospacedDigit()
-                    .frame(maxWidth: 44)
+                    .foregroundStyle(.white)
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                    .frame(maxWidth: 70)
             } minimal: {
                 Image(systemName: kind.symbolName)
+                    .foregroundStyle(kind.accentColor)
             }
             .keylineTint(kind.accentColor)
         }
@@ -68,6 +74,13 @@ struct TimerAlarmActivityWidget: Widget {
 private func alarmCountdownText(_ state: AlarmPresentationState) -> some View {
     switch state.mode {
     case .countdown(let countdown):
+        // Always the self-ticking system view, at any duration: AlarmKit — not this
+        // app — owns this Live Activity's update cadence, so a static formatted string
+        // here (e.g. a day-count snapshot) would freeze until AlarmKit next happens to
+        // push a state update, unlike the sibling TimerLiveActivityWidget's equivalent,
+        // which the main app's own LiveActivityController keeps refreshing. If a
+        // far-future countdown still doesn't render at this width, the fix is a wider
+        // frame on the caller, not a switch away from `Text(timerInterval:)`.
         Text(timerInterval: Date.now...max(Date.now, countdown.fireDate), countsDown: true)
     case .paused(let paused):
         Text(TimeFormat.remaining(paused.totalCountdownDuration - paused.previouslyElapsedDuration))

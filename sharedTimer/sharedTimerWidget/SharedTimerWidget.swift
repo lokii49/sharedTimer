@@ -121,10 +121,14 @@ struct ConfigurableTimerProvider: AppIntentTimelineProvider {
     /// it specifically. Only fall back to "nearest active" when unconfigured or deleted.
     private func resolve(_ configuration: SelectTimerIntent) -> TimerPayload? {
         let all = TimerStore.loadAll()
+        // `advancedSequence()` is a pure function on an already-loaded value — this
+        // doesn't violate "the widget only ever calls loadAll, never writes" (see
+        // TimerStore's header). Without it a sequence would render whichever phase
+        // the main app last wrote, stale for as long as it isn't reopened.
         if let id = configuration.timer?.id, let match = all.first(where: { $0.id == id }) {
-            return match
+            return match.advancedSequence()
         }
-        return all.filter { !$0.isExpired && !$0.isPaused }.sorted { $0.endDate < $1.endDate }.first
+        return all.filter { !$0.isExpired && !$0.isPaused }.sorted { $0.endDate < $1.endDate }.first?.advancedSequence()
     }
 }
 
@@ -267,7 +271,11 @@ struct TimerListProvider: TimelineProvider {
     }
 
     private func activeSorted() -> [TimerPayload] {
+        // advancedSequence() first (pure, no-op for a plain payload) — filtering by
+        // the raw un-advanced endDate would wrongly drop a sequence sitting on a
+        // stale phase as "expired" when it's really just not yet re-derived.
         TimerStore.loadAll()
+            .map { $0.advancedSequence() }
             .filter { !$0.isExpired }
             .sorted { $0.endDate < $1.endDate }
     }

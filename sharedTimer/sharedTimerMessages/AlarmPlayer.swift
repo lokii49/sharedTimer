@@ -53,7 +53,7 @@ final class AlarmPlayer: ObservableObject {
     }
 }
 
-/// Repeats the device vibration until stopped — the "Vibrate when it ends" toggle's
+/// Repeats the device vibration until stopped — the "Vibrate" toggle's
 /// engine. Deliberately independent of `AlarmPlayer`: the vibration toggle is its own
 /// on/off, separate from the alarm toggle, so a finished timer with the alarm off but
 /// vibration on must still buzz without any `AlarmPlayer` involvement.
