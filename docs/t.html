@@ -103,6 +103,11 @@
   // either way, so it's only surfaced as a body data-attribute to keep every wire
   // param accounted for (see TimerModel.swift url()/from(url:)).
   document.body.dataset.alarm = qs("alarm") === "0" ? "off" : "on";
+  // Same story for the vibration toggle — this page can't vibrate a visitor's device
+  // either, so it's likewise just a data-attribute for parity. Unlike "alarm", "vib" is
+  // always emitted explicitly ("1" or "0") by TimerModel.swift's url(), so absent means
+  // a link from before the toggle existed and defaults off, not on.
+  document.body.dataset.vib = qs("vib") === "1" ? "on" : "off";
 
   function familyFor(totalSeconds) {
     if (totalSeconds < 3600) return "ember";

@@ -187,6 +187,12 @@ struct SkyCard: View {
             }
             .foregroundStyle(.white.opacity(0.85))
 
+            if let caption = payload.sequenceCaption {
+                Text(caption)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+
             Spacer(minLength: 0)
 
             HStack(alignment: .lastTextBaseline) {

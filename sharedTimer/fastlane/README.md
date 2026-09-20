@@ -45,7 +45,7 @@ Upload screenshots only, no binary/metadata/submission changes
 [bundle exec] fastlane ios resubmit
 ```
 
-Resubmit the current build for review without re-uploading binary/metadata/screenshots
+Submit the already-uploaded build for review. Binary + metadata must already be up (via `release`); use this after setting the App Clip Default Experience in App Store Connect (required by hand every version). Idempotent — no-ops if already in review.
 
 ### ios release
 

@@ -173,7 +173,6 @@ class MessagesViewController: MSMessagesAppViewController {
 
         TimerStore.save(payload)
         NotificationScheduler.scheduleAlert(for: payload)
-        LiveActivityController.start(for: payload)
 
         promptForDisplayNameIfNeeded {
             CloudSyncController.createShare(for: payload) { [weak self] shareURL in

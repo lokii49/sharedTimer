@@ -14,6 +14,7 @@ struct TimerRunningView: View {
     @State private var participantCount: Int?
     @State private var hasBuzzedFinish = false
     @ObservedObject private var alarm = AlarmPlayer.shared
+    @ObservedObject private var vibration = VibrationPlayer.shared
 
     init(payload: TimerPayload,
          onNewTimer: @escaping () -> Void,
@@ -63,9 +64,10 @@ struct TimerRunningView: View {
 
                     Spacer()
 
-                    if done && alarm.isPlaying {
+                    if done && (alarm.isPlaying || vibration.isVibrating) {
                         Button("Stop") {
                             alarm.stop()
+                            vibration.stop()
                         }
                         .buttonStyle(.glassPill)
                     }
@@ -111,8 +113,12 @@ struct TimerRunningView: View {
             .onChange(of: done) { _, isExpired in
                 guard isExpired, !hasBuzzedFinish else { return }
                 hasBuzzedFinish = true
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
                 alarm.start()
+                // Independent of the alarm path — vibration has its own toggle.
+                if payload.vibrationEnabled {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    vibration.start()
+                }
             }
         }
         .onAppear {
@@ -124,6 +130,7 @@ struct TimerRunningView: View {
             // view down while the alarm is still looping (user swipes to another app
             // in the conversation) — nothing else would stop it.
             alarm.stop()
+            vibration.stop()
         }
     }
 

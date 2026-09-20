@@ -99,11 +99,12 @@ enum WatchSyncController {
                 default: replyHandler([:]); return
                 }
                 TimerStore.save(updated)
-                // Same arming sequence as ContentView.armAlerts: AlarmKit alarm for a
-                // .timer, local notification for a .countdown, custom Live Activity only
-                // for .countdown (AlarmKit runs its own for .timer).
+                // Same arming sequence as ContentView.armAlerts: AlarmKit alarm when
+                // either toggle is on (either kind), local notification only when both
+                // are off, custom Live Activity only for that both-off case (AlarmKit
+                // runs its own whenever it owns the alert).
                 AlarmController.reschedule(for: updated)
-                if updated.kind == .countdown {
+                if !AlarmController.ownsAlert(for: updated) {
                     if updated.isPaused {
                         LiveActivityController.update(for: updated)
                     } else {

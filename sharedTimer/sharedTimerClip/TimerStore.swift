@@ -12,6 +12,7 @@ import WidgetKit
 enum TimerStore {
     private static let appGroupID = "group.com.lokesh.sharedTimer"
     private static let key = "sharedTimers"
+    private static let acknowledgedFinishKey = "sharedTimerAcknowledgedFinishIDs"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: appGroupID)
@@ -22,12 +23,37 @@ enum TimerStore {
         all.removeAll { $0.id == payload.id }
         all.append(payload)
         persist(all)
+        // Any prior "Stop" on this id was about the finish event it stopped — a fresh
+        // mutation (repeat, extend past finish, a new share of the same id) means a
+        // future finish should be free to alert again.
+        clearAcknowledgedFinish(id: payload.id)
     }
 
     static func delete(id: String) {
         var all = loadAll()
         all.removeAll { $0.id == id }
         persist(all)
+        clearAcknowledgedFinish(id: id)
+    }
+
+    /// "Stop" tapped on the vibration-only finish notification (see AppDelegate's
+    /// `UNUserNotificationCenterDelegate`) — there's nothing actively buzzing in the
+    /// background to interrupt (`VibrationPlayer` is foreground-only), so "Stop" means
+    /// "don't auto-buzz when the app is next opened/foregrounded for this finish."
+    /// Checked by `AlarmController.shouldVibrateInApp`.
+    static func acknowledgeFinish(id: String) {
+        var ids = Set(defaults?.stringArray(forKey: acknowledgedFinishKey) ?? [])
+        ids.insert(id)
+        defaults?.set(Array(ids), forKey: acknowledgedFinishKey)
+    }
+
+    static func isFinishAcknowledged(id: String) -> Bool {
+        (defaults?.stringArray(forKey: acknowledgedFinishKey) ?? []).contains(id)
+    }
+
+    private static func clearAcknowledgedFinish(id: String) {
+        guard let ids = defaults?.stringArray(forKey: acknowledgedFinishKey), ids.contains(id) else { return }
+        defaults?.set(ids.filter { $0 != id }, forKey: acknowledgedFinishKey)
     }
 
     static func loadAll() -> [TimerPayload] {
@@ -55,7 +81,15 @@ enum TimerStore {
 
     private static func persist(_ payloads: [TimerPayload]) {
         let cutoff = Date().addingTimeInterval(-86400)
-        let trimmed = payloads.filter { $0.isPaused || $0.endDate > cutoff }
+        // A sequence-owning payload's raw `endDate` is only the CURRENT phase's — a
+        // multi-day sequence not foregrounded in 24h+ would otherwise look
+        // long-expired here even though later phases haven't run yet. Project it
+        // forward first (pure/idempotent, doesn't mutate what's actually stored) so
+        // the prune decision reflects whether the whole sequence is really done.
+        let trimmed = payloads.filter {
+            let projected = $0.sequence != nil ? $0.advancedSequence() : $0
+            return projected.isPaused || projected.endDate > cutoff
+        }
         guard let data = try? JSONEncoder().encode(trimmed) else { return }
         defaults?.set(data, forKey: key)
         // The home-screen widget only re-reads the App Group store when told to — otherwise

@@ -34,9 +34,20 @@ import Foundation
 enum CloudSyncController {
     private static let appGroupID = "group.com.lokesh.sharedTimer"
     private static let zoneName = "SharedTimers"
-    private static let zoneEnsuredKey = "cloudZoneEnsured"
     private static let subscriptionsRegisteredKey = "cloudSubscriptionsRegistered"
     private static let recordType = "Timer"
+
+    /// Explicit, not `CKContainer.default()`. `.default()` resolves the container from
+    /// the `com.apple.developer.icloud-container-identifiers` entitlement array at
+    /// runtime — reliable in the main app, but observed failing inside the Messages
+    /// extension's sandbox: it silently fell back to CloudKit's own undocumented
+    /// last-resort default, `"iCloud." + bundle identifier`
+    /// (`iCloud.com.lokesh.sharedTimer.sharedTimerMessages`, which doesn't exist as a
+    /// real container — "Bad Container" (5/1014)), even with the entitlement correctly
+    /// present in the source file, Xcode's Signing & Capabilities, and the container
+    /// correctly enabled on the App ID in the Developer Portal. Naming it explicitly
+    /// bypasses whatever that lookup is doing wrong in an extension context.
+    private static let container = CKContainer(identifier: "iCloud.com.lokesh.sharedTimer")
 
     private static var groupDefaults: UserDefaults? {
         UserDefaults(suiteName: appGroupID)
@@ -52,34 +63,36 @@ enum CloudSyncController {
 
         var database: CKDatabase {
             switch self {
-            case .owner: return CKContainer.default().privateCloudDatabase
-            case .participant: return CKContainer.default().sharedCloudDatabase
+            case .owner: return CloudSyncController.container.privateCloudDatabase
+            case .participant: return CloudSyncController.container.sharedCloudDatabase
             }
         }
     }
 
     // MARK: - Zone
 
-    /// Idempotent — cheap to call before every share creation. Cached locally after the
-    /// first success so steady-state sharing is a single round trip, not two.
+    /// Always actually calls through to CloudKit — no local "already ensured" cache.
+    /// `CKModifyRecordZonesOperation` saving a zone that already exists is a documented
+    /// safe no-op, so the round trip this costs is cheap and reliable. A previous local
+    /// cache (set once after the first success, keyed in App Group `UserDefaults`) went
+    /// stale after `CKContainer.default()` was replaced with an explicit `container`
+    /// (see its doc comment) — the flag had been set `true` against whatever container
+    /// `.default()` resolved to at the time, then kept short-circuiting every later call
+    /// even once the target container changed, producing "Zone Not Found" (26/2036)
+    /// errors that looked like a fresh bug. Don't reintroduce caching here.
     static func ensureZoneExists(completion: @escaping (Bool) -> Void) {
-        if groupDefaults?.bool(forKey: zoneEnsuredKey) == true {
-            completion(true)
-            return
-        }
         let zone = CKRecordZone(zoneName: zoneName)
         let operation = CKModifyRecordZonesOperation(recordZonesToSave: [zone], recordZoneIDsToDelete: nil)
         operation.modifyRecordZonesResultBlock = { result in
             switch result {
             case .success:
-                groupDefaults?.set(true, forKey: zoneEnsuredKey)
                 completion(true)
             case .failure(let error):
                 log("ensureZoneExists failed: \(error)")
                 completion(false)
             }
         }
-        CKContainer.default().privateCloudDatabase.add(operation)
+        container.privateCloudDatabase.add(operation)
     }
 
     // MARK: - Push subscriptions (main app only — the Messages extension never receives push)
@@ -150,11 +163,38 @@ enum CloudSyncController {
 
             let operation = CKModifyRecordsOperation(recordsToSave: [record, share], recordIDsToDelete: nil)
             operation.savePolicy = .changedKeys
+            // `share.url` is nil on this local instance even after a successful save —
+            // `modifyRecordsResultBlock` only reports overall success/failure, it never
+            // updates the records you passed in. The server-assigned fields (including
+            // the share URL) only exist on the record `perRecordSaveBlock` hands back.
+            var savedShare: CKShare?
+            var shareRecordError: Error?
+            operation.perRecordSaveBlock = { recordID, result in
+                guard recordID == share.recordID else { return }
+                switch result {
+                case .success(let saved):
+                    savedShare = saved as? CKShare
+                case .failure(let error):
+                    // The overall operation can still report success even when the
+                    // share record specifically failed to save (e.g. the root record
+                    // already has a share — CloudKit allows only one per record) — this
+                    // is the only place that per-record failure is visible. Captured
+                    // rather than logged immediately so it survives into the nil-url
+                    // message below instead of being overwritten by it (this callback
+                    // fires before modifyRecordsResultBlock, and `log` only keeps the
+                    // latest message for the on-screen diagnostic).
+                    shareRecordError = error
+                }
+            }
             operation.modifyRecordsResultBlock = { result in
                 switch result {
                 case .success:
-                    guard let url = share.url else {
-                        log("createShare(\(payload.id)) succeeded but share.url was nil")
+                    guard let url = savedShare?.url else {
+                        if let shareRecordError {
+                            log("createShare(\(payload.id)) share record save failed: \(shareRecordError)")
+                        } else {
+                            log("createShare(\(payload.id)) succeeded but share.url was nil")
+                        }
                         completeOnce(nil)
                         return
                     }
@@ -172,7 +212,7 @@ enum CloudSyncController {
                     completeOnce(nil)
                 }
             }
-            CKContainer.default().privateCloudDatabase.add(operation)
+            container.privateCloudDatabase.add(operation)
         }
     }
 
@@ -229,14 +269,14 @@ enum CloudSyncController {
                     completion(nil)
                 }
             }
-            CKContainer.default().add(acceptOp)
+            container.add(acceptOp)
         }
         metadataOp.fetchShareMetadataResultBlock = { result in
             if case .failure(let error) = result {
                 log("acceptShare fetchShareMetadataResultBlock failed: \(error)")
             }
         }
-        CKContainer.default().add(metadataOp)
+        container.add(metadataOp)
     }
 
     // MARK: - Push local mutations up
@@ -314,7 +354,7 @@ enum CloudSyncController {
                 log("pushDelete(\(id)) failed: \(error)")
             }
         }
-        CKContainer.default().privateCloudDatabase.add(operation)
+        container.privateCloudDatabase.add(operation)
     }
 
     // MARK: - Pull remote changes down
@@ -441,6 +481,7 @@ enum CloudSyncController {
         record["pausedRemaining"] = payload.pausedRemaining as CKRecordValue?
         record["kind"] = payload.kind.rawValue as CKRecordValue
         record["alarmEnabled"] = payload.alarmEnabled as CKRecordValue
+        record["vibrationEnabled"] = payload.vibrationEnabled as CKRecordValue
     }
 
     private static func makePayload(from record: CKRecord) -> TimerPayload? {
@@ -456,7 +497,11 @@ enum CloudSyncController {
             pausedRemaining: record["pausedRemaining"] as? TimeInterval,
             kind: TimerKind(rawValue: kindRaw) ?? .timer,
             // Absent on records written before the toggle -> alarm on.
-            alarmEnabled: (record["alarmEnabled"] as? Bool) ?? true
+            alarmEnabled: (record["alarmEnabled"] as? Bool) ?? true,
+            // Absent on records written before the toggle -> vibration OFF, not on —
+            // see TimerModel.swift's matching decode for why (vibration-on now also
+            // means a full-screen AlarmKit takeover).
+            vibrationEnabled: (record["vibrationEnabled"] as? Bool) ?? false
         )
     }
 
@@ -488,7 +533,7 @@ enum CloudSyncController {
     /// background-queue callers, which hop to main themselves at their own call sites.
     private static func fetchRecord(for payload: TimerPayload, completion: @escaping (CKRecord?, CKDatabase) -> Void) {
         guard let link = CloudLinkStore.get(timerID: payload.id) else {
-            DispatchQueue.main.async { completion(nil, CKContainer.default().privateCloudDatabase) }
+            DispatchQueue.main.async { completion(nil, container.privateCloudDatabase) }
             return
         }
         let scope: SyncScope = link.isOwner ? .owner : .participant

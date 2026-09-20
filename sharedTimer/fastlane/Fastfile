@@ -50,23 +50,64 @@ platform :ios do
     )
   end
 
-  desc "Resubmit the current build for review without re-uploading binary/metadata/screenshots"
+  # App ID reused across lanes.
+  APP_BUNDLE_ID = "com.lokesh.sharedTimer"
+
+  # Create + push the review submission for whatever version is currently editable,
+  # WITHOUT re-selecting the build (re-`select_build` on an already-attached build is
+  # what threw 'pre-release build could not be added'). Mirrors the tail of deliver's
+  # own flow (deliver/lib/deliver/submit_for_review.rb). Idempotent.
+  private_lane :submit_editable_version do
+    platform = Spaceship::ConnectAPI::Platform::IOS
+    app = Spaceship::ConnectAPI::App.find(APP_BUNDLE_ID)
+
+    if (in_progress = app.get_in_progress_review_submission(platform: platform))
+      UI.success("Already in review (#{in_progress.state}) — nothing to do.")
+      next
+    end
+
+    version = app.get_edit_app_store_version(platform: platform)
+    UI.user_error!(
+      "No editable version found. If App Store Connect already shows the version as " \
+      "'Waiting for Review' you're done; otherwise run `fastlane release` first."
+    ) unless version
+
+    UI.user_error!(
+      "No build attached to #{version.version_string}. Run `fastlane release` first " \
+      "(it uploads and selects the build), then `fastlane resubmit`."
+    ) if version.build.nil?
+    UI.message("Build #{version.build.version} already attached to #{version.version_string}.")
+
+    submission = app.get_ready_review_submission(platform: platform, includes: "items")
+    if submission.nil?
+      submission = app.create_review_submission(platform: platform)
+    elsif !submission.items.empty?
+      UI.user_error!(
+        "An open review submission already has items fastlane didn't add — resolve it on " \
+        "the App Store Connect website, then re-run."
+      )
+    end
+
+    submission.add_app_store_version_to_review_items(app_store_version_id: version.id)
+
+    ready = Spaceship::ConnectAPI::AppStoreVersion::AppVersionState::READY_FOR_REVIEW
+    10.times do
+      state = Spaceship::ConnectAPI::AppStoreVersion.get(app_store_version_id: version.id).app_version_state
+      break if state == ready
+      UI.message("Waiting for the version to become #{ready} (now #{state})...")
+      sleep(15)
+    end
+
+    submission.submit_for_review
+    UI.success("#{version.version_string} submitted for review 🚀")
+  end
+
+  desc "Submit the already-uploaded build for review. Binary + metadata must already be up " \
+       "(via `release`); use this after setting the App Clip Default Experience in App Store " \
+       "Connect (required by hand every version). Idempotent — no-ops if already in review."
   lane :resubmit do
     auth
-    upload_to_app_store(
-      force: true,
-      skip_binary_upload: true,
-      skip_metadata: true,
-      skip_screenshots: true,
-      skip_app_version_update: true,
-      submit_for_review: true,
-      automatic_release: false,
-      run_precheck_before_submit: false,
-      submission_information: {
-        add_id_info_uses_idfa: false,
-        content_rights_contains_third_party_content: false
-      }
-    )
+    submit_editable_version
   end
 
   desc "Archive, upload, and submit the current version for App Store review"
@@ -83,11 +124,14 @@ platform :ios do
       xcargs: "-allowProvisioningUpdates"
     )
 
+    # Upload + select build + metadata, but DON'T submit here — the submit is split out
+    # so an App Clip Default Experience gap (which must be fixed by hand in App Store
+    # Connect) doesn't bury the successful upload under a stack trace.
     upload_to_app_store(
       force: true,
       skip_metadata: false,
       skip_screenshots: true,
-      submit_for_review: true,
+      submit_for_review: false,
       automatic_release: false,
       run_precheck_before_submit: false,
       submission_information: {
@@ -95,5 +139,17 @@ platform :ios do
         content_rights_contains_third_party_content: false
       }
     )
+
+    begin
+      submit_editable_version
+    rescue => e
+      UI.error("Upload succeeded, but submitting for review failed:")
+      UI.error(e.message)
+      UI.important(
+        "Fix it in App Store Connect (for this app: App Clip → set the Default Experience " \
+        "— header image, subtitle, action), then run `fastlane resubmit`."
+      )
+      raise
+    end
   end
 end

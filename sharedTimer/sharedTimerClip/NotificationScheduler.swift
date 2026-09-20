@@ -7,6 +7,14 @@ import Foundation
 import UserNotifications
 
 enum NotificationScheduler {
+    /// Category for a vibration-only finish notification (alarm off, vibration on) —
+    /// gives it lock-screen "Repeat"/"Stop" actions, the closest available parity with
+    /// AlarmKit's panel for a payload AlarmKit never touches. Registered + handled in
+    /// the main app's AppDelegate only (same target scope AlarmKit itself has); setting
+    /// it here in every copy is harmless — an unregistered category just renders with
+    /// no action buttons, so Messages/Clip notifications degrade silently.
+    static let vibrationFinishCategoryID = "SHAREDTIMER_VIBRATION_FINISH"
+
     /// Posted (main queue) whenever a schedule attempt finds notification permission
     /// denied, so a foreground surface can tell the person their backgrounded timers
     /// won't alert them — `requestAuthorization`'s `granted == false` case used to be
@@ -56,11 +64,19 @@ enum NotificationScheduler {
         let content = UNMutableNotificationContent()
         content.title = payload.label
         content.body = payload.kind == .countdown ? "Countdown complete!" : "Timer finished!"
-        // Alarm on -> the same loud tone as the foreground loop. Alarm off (the
-        // compose-sheet toggle) -> the standard notification sound, no "banging".
-        content.sound = payload.alarmEnabled
-            ? UNNotificationSound(named: UNNotificationSoundName("alarm.caf"))
-            : .default
+        // Alarm on -> the same loud tone as the foreground loop. Vibration-only (alarm
+        // off, vibration on) -> no sound at all, matching the silent AlarmKit path this
+        // is a fallback for. Both off -> the standard notification sound.
+        if payload.alarmEnabled {
+            content.sound = UNNotificationSound(named: UNNotificationSoundName("alarm.caf"))
+        } else if payload.vibrationEnabled {
+            content.sound = nil
+        } else {
+            content.sound = .default
+        }
+        if !payload.alarmEnabled && payload.vibrationEnabled {
+            content.categoryIdentifier = vibrationFinishCategoryID
+        }
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, payload.remaining), repeats: false)
         let request = UNNotificationRequest(identifier: payload.id, content: content, trigger: trigger)
