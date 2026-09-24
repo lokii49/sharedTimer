@@ -70,8 +70,16 @@ struct TimerPayload: Codable, Identifiable {
     /// Non-nil only for a Pomodoro/Intermittent-Fasting style sequence. Absent from
     /// share links/CloudKit/watch by design (main-app-only in v1) — see CLAUDE.md.
     var sequence: SequenceInfo?
+    /// Non-nil only for a sequence-owning payload created with "Start later" — the
+    /// picked start date/time for phase 0. Sequence-only, same as `sequence` itself
+    /// (absent from share links/CloudKit/watch by design) — `endDate` is computed at
+    /// creation time from this same as any other far-future endDate, so scheduling
+    /// (AlarmKit/NotificationScheduler) needs no changes at all: this field is purely
+    /// derived display state, never mutated after creation. `isPending(at:)` is the only
+    /// thing that reads it. See CLAUDE.md.
+    var scheduledStartDate: Date?
 
-    init(id: String = UUID().uuidString, label: String, duration: TimeInterval, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true, sequence: SequenceInfo? = nil) {
+    init(id: String = UUID().uuidString, label: String, duration: TimeInterval, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true, sequence: SequenceInfo? = nil, scheduledStartDate: Date? = nil) {
         self.id = id
         self.label = label
         self.duration = duration
@@ -81,9 +89,10 @@ struct TimerPayload: Codable, Identifiable {
         self.alarmEnabled = alarmEnabled
         self.vibrationEnabled = vibrationEnabled
         self.sequence = sequence
+        self.scheduledStartDate = scheduledStartDate
     }
 
-    init(id: String, label: String, endDate: Date, duration: TimeInterval, pausedRemaining: TimeInterval? = nil, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true, sequence: SequenceInfo? = nil) {
+    init(id: String, label: String, endDate: Date, duration: TimeInterval, pausedRemaining: TimeInterval? = nil, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true, sequence: SequenceInfo? = nil, scheduledStartDate: Date? = nil) {
         self.id = id
         self.label = label
         self.endDate = endDate
@@ -93,10 +102,11 @@ struct TimerPayload: Codable, Identifiable {
         self.alarmEnabled = alarmEnabled
         self.vibrationEnabled = vibrationEnabled
         self.sequence = sequence
+        self.scheduledStartDate = scheduledStartDate
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, label, endDate, duration, pausedRemaining, kind, alarmEnabled, vibrationEnabled, sequence
+        case id, label, endDate, duration, pausedRemaining, kind, alarmEnabled, vibrationEnabled, sequence, scheduledStartDate
     }
 
     init(from decoder: Decoder) throws {
@@ -119,10 +129,21 @@ struct TimerPayload: Codable, Identifiable {
         vibrationEnabled = try container.decodeIfPresent(Bool.self, forKey: .vibrationEnabled) ?? false
         // Brand new field, no prior default to preserve — absent simply means "not a sequence."
         sequence = try container.decodeIfPresent(SequenceInfo.self, forKey: .sequence)
+        // Brand new field, no prior default to preserve — absent simply means "not pending."
+        scheduledStartDate = try container.decodeIfPresent(Date.self, forKey: .scheduledStartDate)
     }
 
     var isPaused: Bool {
         pausedRemaining != nil
+    }
+
+    /// True until the picked "Start later" moment arrives — pure/date-parameterized so
+    /// it stays testable and consistent with the rest of this file. Never true for a
+    /// payload created without a scheduled start, and never true again once the start
+    /// date has passed (this field is never cleared afterward — see its declaration).
+    func isPending(at date: Date = Date()) -> Bool {
+        guard let scheduledStartDate else { return false }
+        return scheduledStartDate > date
     }
 
     var remaining: TimeInterval {
@@ -197,6 +218,11 @@ struct TimerPayload: Codable, Identifiable {
             copy.endDate = date.addingTimeInterval(duration)
         }
         copy.pausedRemaining = nil
+        // A repeated payload is running now, by definition -- clear any stale scheduled
+        // start so it never reads as pending (belt-and-suspenders: nothing currently
+        // calls repeated() on a still-pending payload, but isPending() must never lie
+        // about a payload this function just started).
+        copy.scheduledStartDate = nil
         return copy
     }
 
@@ -283,14 +309,24 @@ struct TimerPayload: Codable, Identifiable {
     /// Builds a sequence-owning payload (Pomodoro/Intermittent-Fasting style) from a
     /// preset's phase list + loop count. Main-app-only in v1 — never round-tripped
     /// through `url()`/`from(url:)` or CloudKit, so no back-compat concerns here.
-    static func composeSequence(label: String, phases: [SequencePhase], loopCount: Int) -> TimerPayload {
+    /// `startDate` in the past (or omitted) means "start now" -- same clamp as `compose`.
+    static func composeSequence(label: String, phases: [SequencePhase], loopCount: Int, startDate: Date? = nil) -> TimerPayload {
         precondition(!phases.isEmpty, "a sequence needs at least one phase")
         let first = phases[0]
+        let effectiveStart = startDate.flatMap { $0 > Date() ? $0 : nil }
         let seq = SequenceInfo(phases: phases, loopCount: max(1, loopCount), phaseIndex: 0, loopIndex: 0)
-        return TimerPayload(label: label, duration: first.duration, kind: first.kind, alarmEnabled: first.alarmEnabled, vibrationEnabled: first.vibrationEnabled, sequence: seq)
+        return TimerPayload(
+            id: UUID().uuidString, label: label,
+            endDate: (effectiveStart ?? Date()).addingTimeInterval(first.duration),
+            duration: first.duration, kind: first.kind,
+            alarmEnabled: first.alarmEnabled, vibrationEnabled: first.vibrationEnabled,
+            sequence: seq, scheduledStartDate: effectiveStart
+        )
     }
 
-    /// Builds a payload from compose-sheet inputs shared by every creation surface (Messages, main app).
+    /// Builds a payload from compose-sheet inputs shared by every creation surface
+    /// (Messages, main app). "Start later" is sequence-only (see `composeSequence`) --
+    /// a plain timer/countdown always starts now.
     static func compose(label: String, kind: TimerKind, minutes: Double, targetDate: Date, alarmEnabled: Bool = true, vibrationEnabled: Bool = true) -> TimerPayload {
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalLabel = trimmed.isEmpty ? (kind == .timer ? "Timer" : "Countdown") : trimmed
@@ -354,6 +390,8 @@ struct TimerPayload: Codable, Identifiable {
         // old link can't default to it. "1" turns it on; anything else (including "0"
         // or absent) is off.
         let vibrationEnabled = items.first(where: { $0.name == "vib" })?.value == "1"
+        // "Start later" is sequence-only and sequences are never shared -- a shared
+        // link's payload is never pending, same as it's never sequence-owning.
         return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
     }
 }

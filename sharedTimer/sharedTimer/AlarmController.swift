@@ -18,10 +18,11 @@
 //  — a digitally-silent .caf of the same format/duration. AlarmKit's `sound:` param is
 //  non-optional with no explicit "no sound" case (checked against the actual
 //  AlertConfiguration.AlertSound API: only `.default`/`.named(_:)` exist), so silence
-//  is smuggled in as a named asset rather than omitted — resting on the (device-
-//  unverified) assumption that AlarmKit's alert vibration isn't decoded from the audio
-//  waveform, same as a regular notification's haptic. Both toggles off ->
-//  NotificationScheduler: a quiet, standard-sound notification, no AlarmKit at all.
+//  is smuggled in as a named asset rather than omitted — confirmed on a physical
+//  device that AlarmKit's alert vibration isn't decoded from the audio waveform, same
+//  as a regular notification's haptic: a silent asset still rings full-screen with
+//  vibration and no audible tone. Both toggles off -> NotificationScheduler: a quiet,
+//  standard-sound notification, no AlarmKit at all.
 //
 //  AlarmKit's own countdown Live Activity replaces the custom per-timer
 //  TimerActivityAttributes Live Activity whenever AlarmKit owns the alert — call sites
@@ -267,16 +268,27 @@ enum AlarmController {
         // moment; postAlert from `duration` so the panel's Repeat restarts the
         // *original* length, not whatever was left when it finished. The asymmetry is
         // deliberate.
+        //
+        // A pending sequence (isPending()) is the one exception: `remaining` there is
+        // wait-plus-duration, and a plain `preAlert: remaining` countdown makes
+        // AlarmKit's own Live Activity/Dynamic Island appear the instant this is
+        // scheduled -- days before the sequence even starts, confirmed on device. Pin
+        // the actual fire date instead with `schedule: .fixed(payload.endDate)`
+        // (endDate is already start + phase 0's duration -- see composeSequence) and
+        // keep `preAlert: payload.duration` so the countdown/Live Activity only
+        // appears for the last `duration` seconds before that date, i.e. starting
+        // right at the scheduled start. This combination isn't documented (beta API,
+        // checked against the swiftinterface, not behavior) -- verify on device that
+        // the alarm rings at `endDate`, not `endDate + duration`, before trusting it.
+        let scheduleOverride: Alarm.Schedule? = payload.isPending() ? .fixed(payload.endDate) : nil
         // Loud alarm.caf when the alarm toggle is on; otherwise (vibration-only)
         // vibration_silent.caf — a digitally-silent .caf of the same format/duration.
         // AlarmKit's `sound:` param is non-optional and has no explicit "no sound"
-        // case (checked against the real API — see the file header). Assumption, NOT
-        // yet confirmed on-device: the alert's system vibration isn't decoded from the
-        // audio waveform, same as a regular notification's haptic firing independent
-        // of which sound plays — so a silent asset should still get the full-screen
-        // alert + vibration + Stop/Repeat panel with no audible tone. If AlarmKit
-        // instead falls back to a default system sound for a silent asset, or refuses
-        // to vibrate without real audio, this needs a different approach.
+        // case (checked against the real API — see the file header). Confirmed on a
+        // physical device: the alert's system vibration isn't decoded from the audio
+        // waveform, same as a regular notification's haptic firing independent of
+        // which sound plays — a silent asset gets the full-screen alert + vibration +
+        // Stop/Repeat panel with no audible tone, exactly as intended.
         // `stopIntent` (the PRIMARY Stop control's action) must stay nil — confirmed
         // on-device that a non-nil `stopIntent` makes AlarmKit treat the whole alarm as
         // background-resolvable: it ran the intent and dismissed itself the instant the
@@ -300,7 +312,8 @@ enum AlarmController {
                 : AdvanceSequenceIntent(timerID: payload.id)
         }
         let config = AlarmManager.AlarmConfiguration<TimerAlarmMetadata>(
-            countdownDuration: .init(preAlert: payload.remaining, postAlert: payload.duration),
+            countdownDuration: .init(preAlert: payload.isPending() ? payload.duration : payload.remaining, postAlert: payload.duration),
+            schedule: scheduleOverride,
             attributes: attributes,
             stopIntent: nil,
             secondaryIntent: secondaryIntent,

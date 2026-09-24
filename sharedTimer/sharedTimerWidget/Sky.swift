@@ -96,6 +96,42 @@ enum Sky {
         LinearGradient(colors: colors(for: payload, at: date), startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
+    /// Day-aware "when" for the pending state: "Today 3:00 PM" / "Tomorrow 7:00 AM" /
+    /// "Sun 3:00 PM" within a week / "27 Sep, 3:00 PM" beyond that. Deliberately not a
+    /// relative "in 3 days" -- that's the ticking-countdown framing the pending state
+    /// was built to avoid (see CLAUDE.md). Non-private (unlike most of this file's
+    /// per-view helpers) so TimerDetailView can share it instead of re-deriving its own.
+    static func pendingStartText(for start: Date, at now: Date) -> String {
+        let calendar = Calendar.current
+        let time = start.formatted(date: .omitted, time: .shortened)
+        if calendar.isDate(start, inSameDayAs: now) {
+            return "Today \(time)"
+        }
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now), calendar.isDate(start, inSameDayAs: tomorrow) {
+            return "Tomorrow \(time)"
+        }
+        if let sixDaysOut = calendar.date(byAdding: .day, value: 6, to: now), start < sixDaysOut {
+            return "\(start.formatted(.dateTime.weekday(.abbreviated))) \(time)"
+        }
+        return "\(start.formatted(.dateTime.day().month(.abbreviated))), \(time)"
+    }
+
+    /// "2 phases · 7 loops" -- the pending-state caption for a sequence not yet
+    /// started. `TimerPayload.sequenceCaption`'s "Phase 1 of 2 · Loop 1 of 7" reads as
+    /// already running, so this is a separate function rather than a change to it.
+    static func pendingSequenceCaption(_ sequence: SequenceInfo) -> String {
+        "\(sequence.phases.count) phase\(sequence.phases.count == 1 ? "" : "s") · \(sequence.loopCount) loop\(sequence.loopCount == 1 ? "" : "s")"
+    }
+
+    /// "FAST · 0D 16H" -- what phase 0 actually is, for the secondary slot next to the
+    /// big start date/time. Picked over "ends ..." (start + every phase*loop) for
+    /// space: the digit/secondary HStack has to fit "Tomorrow 10:21 PM" and this next
+    /// to it, and this is the shorter of the two candidates.
+    static func pendingFirstPhaseText(_ sequence: SequenceInfo) -> String? {
+        guard let first = sequence.phases.first else { return nil }
+        return "\(first.label) · \(TimeFormat.daysHours(first.duration))"
+    }
+
     /// Live Activity variant: the activity state carries no original duration, so the
     /// family is picked from what REMAINS and shown fresh (no drain) — close enough for a
     /// glance surface, and it never lies about scale.
@@ -173,13 +209,16 @@ struct SkyCard: View {
 
     var body: some View {
         let remaining = payload.remaining
+        let pending = payload.isPending(at: date)
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text(payload.label)
                     .skyLabel(12)
                     .lineLimit(1)
                 Spacer()
-                if payload.isPaused {
+                if pending {
+                    Text("Scheduled").skyLabel(12)
+                } else if payload.isPaused {
                     Text("Paused").skyLabel(12)
                 } else if payload.isExpired {
                     Text("Time's up").skyLabel(12)
@@ -187,7 +226,13 @@ struct SkyCard: View {
             }
             .foregroundStyle(.white.opacity(0.85))
 
-            if let caption = payload.sequenceCaption {
+            // "Phase 1 of 2 · Loop 1 of 7" would misread as already running while
+            // pending -- a plain phase/loop count instead.
+            if pending, let sequence = payload.sequence {
+                Text(Sky.pendingSequenceCaption(sequence))
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.6))
+            } else if let caption = payload.sequenceCaption {
                 Text(caption)
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.6))
@@ -196,17 +241,19 @@ struct SkyCard: View {
             Spacer(minLength: 0)
 
             HStack(alignment: .lastTextBaseline) {
-                Text(TimeFormat.display(remaining > 0 ? remaining : payload.duration))
+                Text(pendingDigits ?? TimeFormat.display(remaining > 0 ? remaining : payload.duration))
                     .skyDigits(34, weight: .regular)
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+                    .minimumScaleFactor(0.5)
                 Spacer(minLength: 8)
                 // Same small-caps voice as the label — every word on a sky speaks it.
                 Text(endText)
                     .skyLabel(12)
                     .foregroundStyle(.white.opacity(0.85))
                     .shadow(color: .black.opacity(0.35), radius: 3)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
         }
         .padding(14)
@@ -214,11 +261,29 @@ struct SkyCard: View {
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(Sky.gradient(for: payload, at: date))
+                // Reads as "not live yet" at a glance, not just via the "Scheduled"
+                // label -- same sky family, visibly muted.
+                .saturation(pending ? 0.35 : 1)
+                .brightness(pending ? -0.1 : 0)
         )
         .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
+    /// The start date/time itself, day-aware, not a ticking countdown to it -- a live
+    /// countdown in the big digit slot read as urgent/already-running, which is what
+    /// the "Scheduled" state exists to avoid. Once the start passes, `isPending` goes
+    /// false on its own and this stops applying.
+    private var pendingDigits: String? {
+        guard let start = payload.scheduledStartDate, payload.isPending(at: date) else { return nil }
+        return Sky.pendingStartText(for: start, at: date)
+    }
+
     private var endText: String {
+        // What phase 0 actually is, not the start time again (the big digits already
+        // show that) -- e.g. "Fast · 0d 16h".
+        if payload.isPending(at: date), let sequence = payload.sequence, let phaseText = Sky.pendingFirstPhaseText(sequence) {
+            return phaseText
+        }
         if payload.isPaused {
             return "held"
         }

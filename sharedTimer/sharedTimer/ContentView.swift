@@ -21,6 +21,10 @@ struct ContentView: View {
     /// arrived via CloudKit already done) never enters this set, so it can't be
     /// mistaken for a fresh zero-crossing and blare the alarm on launch.
     @State private var armedIDs: Set<String> = []
+    /// Same self-initializing pattern as `armedIDs`: starts empty, so the first tick
+    /// after launch only records "already pending," never spuriously treats a payload
+    /// that was pending before the app ever opened as "just started."
+    @State private var pendingIDs: Set<String> = []
     @State private var showingNotificationPermissionAlert = false
     @ObservedObject private var alarm = AlarmPlayer.shared
     @ObservedObject private var vibration = VibrationPlayer.shared
@@ -36,8 +40,12 @@ struct ContentView: View {
                         List {
                             // isFinished, not isExpired: a timer paused exactly at zero is
                             // still "paused" for alarm purposes, but reads as Finished here
-                            // rather than sitting in Active forever.
-                            let active = timers.filter { !$0.isFinished }.sorted { $0.endDate < $1.endDate }
+                            // rather than sitting in Active forever. Pending gets its own
+                            // section (it hasn't started, semantically not "Active" yet)
+                            // sorted by start date, soonest first.
+                            let pending = timers.filter { $0.isPending(at: context.date) }
+                                .sorted { ($0.scheduledStartDate ?? .distantFuture) < ($1.scheduledStartDate ?? .distantFuture) }
+                            let active = timers.filter { !$0.isFinished && !$0.isPending(at: context.date) }.sorted { $0.endDate < $1.endDate }
                             let expired = timers.filter { $0.isFinished }.sorted { $0.endDate > $1.endDate }
 
                             if !active.isEmpty {
@@ -45,6 +53,13 @@ struct ContentView: View {
                                     ForEach(active) { row(for: $0, at: context.date) }
                                 } header: {
                                     Text("Active").skyLabel().foregroundStyle(Sky.roomInk)
+                                }
+                            }
+                            if !pending.isEmpty {
+                                Section {
+                                    ForEach(pending) { row(for: $0, at: context.date) }
+                                } header: {
+                                    Text("Scheduled").skyLabel().foregroundStyle(Sky.roomInk)
                                 }
                             }
                             if !expired.isEmpty {
@@ -309,6 +324,23 @@ struct ContentView: View {
     /// CloudKit) can't trigger the alarm. Paused timers are never expired, so they
     /// stay armed and alarm correctly once resumed and run down.
     private func checkForNewlyExpired(at date: Date) {
+        // A pending payload's real alert is already armed from creation regardless --
+        // AlarmKit's own `schedule: .fixed(endDate)` transitions scheduled->countdown
+        // on its own at the real start time (see AlarmController.scheduleAlarm), and a
+        // both-toggles-off payload's NotificationScheduler alert was already set for
+        // `endDate` too. Calling the full `armAlerts` here would cancel-then-reschedule
+        // the AlarmKit alarm at exactly the moment it's transitioning on its own --
+        // the exact cancel-out-from-under-the-user race CLAUDE.md already warns about
+        // elsewhere (see `alarmKitOwnsAlert`). Only the custom Live Activity (the
+        // both-toggles-off case only) actually needs a nudge here: it's deliberately
+        // withheld while pending, and without this it would only appear on the next
+        // background/foreground cycle.
+        let justStarted = timers.filter { pendingIDs.contains($0.id) && !$0.isPending(at: date) }
+        pendingIDs = Set(timers.filter { $0.isPending(at: date) }.map(\.id))
+        for payload in justStarted where !AlarmController.ownsAlert(for: payload) {
+            LiveActivityController.start(for: payload)
+        }
+
         let stillRunning = Set(timers.filter { !$0.isExpired }.map(\.id))
         let justFinished = armedIDs.subtracting(stillRunning)
         armedIDs = stillRunning
@@ -382,6 +414,16 @@ struct ContentView: View {
                     Label("Repeat", systemImage: "arrow.clockwise")
                 }
                 .tint(.indigo)
+            } else if payload.isPending() {
+                // Pause/Extend don't mean anything before a scheduled start actually
+                // begins -- Delete (already the trailing swipe action) doubles as
+                // "Cancel", and this lets someone not wait for the pick they made.
+                Button {
+                    startEarly(payload)
+                } label: {
+                    Label("Start Now", systemImage: "play.fill")
+                }
+                .tint(.teal)
             } else {
                 Button {
                     togglePause(payload)
@@ -414,6 +456,12 @@ struct ContentView: View {
                     repeatTimer(payload)
                 } label: {
                     Label("Repeat", systemImage: "arrow.clockwise")
+                }
+            } else if payload.isPending() {
+                Button {
+                    startEarly(payload)
+                } label: {
+                    Label("Start Now", systemImage: "play.fill")
                 }
             } else {
                 Button {
@@ -478,6 +526,17 @@ struct ContentView: View {
         vibration.stop()
         armedIDs.remove(payload.id)
         applyMutation(payload.repeated(), action: "repeated")
+    }
+
+    /// "Start Now" on a pending sequence -- reuses `repeated(at:)` rather than adding a
+    /// new model function: a pending sequence is already sitting at phase 0/loop 0
+    /// (never advanced or stepped), so "reset to phase 0/loop 0, endDate = now +
+    /// phase0.duration, clear scheduledStartDate" is exactly "start now," with no
+    /// sequence-specific logic beyond what `repeated()` already does. Not `repeatTimer`
+    /// (above) -- this was never alerting, so there's no alarm/vibration to stop and no
+    /// `armedIDs` entry to clear.
+    private func startEarly(_ payload: TimerPayload) {
+        applyMutation(payload.repeated(), action: "startedEarly")
     }
 
     /// Shared by the row's swipe/context-menu actions and TimerDetailView's own controls
@@ -756,6 +815,8 @@ private struct NewSequenceSheet: View {
     @State private var sequenceName: String
     @State private var draftPhases: [DraftPhase]
     @State private var loopCount: Int
+    @State private var startLater = false
+    @State private var scheduledStart: Date = Date().addingTimeInterval(3600)
 
     let onCreate: (TimerPayload) -> Void
 
@@ -943,6 +1004,28 @@ private struct NewSequenceSheet: View {
                 }
 
                 Section {
+                    // Root `.tint(.white)` (ContentView) leaves an untinted Toggle a
+                    // plain white switch, inconsistent with every other toggle in the
+                    // app (Alarm/Vibrate, PhaseEditView) which all pin to a kind accent.
+                    // A sequence mixes phase kinds, so there's no single "the" kind here
+                    // — use phase 0's, same accent PhaseEditView already shows for it.
+                    Toggle("Start later", isOn: $startLater)
+                        .tint(draftPhases.first?.phase.kind.accentColor ?? .orange)
+                    if startLater {
+                        DatePicker(
+                            "Start date",
+                            selection: $scheduledStart,
+                            in: Date()...,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                    }
+                } footer: {
+                    Text(startLater
+                         ? "Starts \(scheduledStart.formatted(date: .abbreviated, time: .shortened))."
+                         : "Starts right away.")
+                }
+
+                Section {
                     Button {
                         saveSequence()
                     } label: {
@@ -973,7 +1056,8 @@ private struct NewSequenceSheet: View {
                         onCreate(TimerPayload.composeSequence(
                             label: sequenceName.trimmingCharacters(in: .whitespaces),
                             phases: normalizedPhases(),
-                            loopCount: loopCount
+                            loopCount: loopCount,
+                            startDate: startLater ? scheduledStart : nil
                         ))
                         dismiss()
                     }
@@ -1096,6 +1180,7 @@ private struct TimerDetailView: View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let remaining = payload.remaining
             let done = payload.isExpired
+            let pending = payload.isPending(at: context.date)
             // The sway: gradient anchors drift on a slow sine, one step per second,
             // smoothed by the animation below — the sky never sits perfectly still.
             let phase = reduceMotion ? 0 : sin(context.date.timeIntervalSinceReferenceDate / 19)
@@ -1109,6 +1194,9 @@ private struct TimerDetailView: View {
                 )
                 .ignoresSafeArea()
                 .animation(.linear(duration: 1), value: phase)
+                // Same "not live yet" muting as SkyCard's row treatment.
+                .saturation(pending ? 0.35 : 1)
+                .brightness(pending ? -0.1 : 0)
 
                 VStack {
                     Spacer()
@@ -1117,18 +1205,23 @@ private struct TimerDetailView: View {
                         Text(payload.label)
                             .skyLabel(13)
                             .foregroundStyle(.white.opacity(0.85))
-                        if let caption = payload.sequenceCaption {
+                        // "Phase 1 of 2 · Loop 1 of 7" would misread as already running.
+                        if pending, let sequence = payload.sequence {
+                            Text(Sky.pendingSequenceCaption(sequence))
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.6))
+                        } else if let caption = payload.sequenceCaption {
                             Text(caption)
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(0.6))
                         }
-                        Text(TimeFormat.display(remaining))
+                        Text(pending ? (payload.scheduledStartDate.map { Sky.pendingStartText(for: $0, at: context.date) } ?? "") : TimeFormat.display(remaining))
                             .skyDigits(72, weight: .thin)
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.4)
                             .padding(.horizontal, 24)
-                        Text(subtitle(done: done))
+                        Text(subtitle(done: done, pending: pending))
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.75))
                         if let statusLine {
@@ -1140,7 +1233,14 @@ private struct TimerDetailView: View {
 
                     Spacer()
 
-                    if !done {
+                    if pending {
+                        // Pause/Extend don't mean anything before the scheduled start
+                        // actually begins; Delete (below, unconditional) is Cancel.
+                        Button("Start Now") {
+                            startEarly()
+                        }
+                        .buttonStyle(.glassPill)
+                    } else if !done {
                         HStack(spacing: 12) {
                             Button("+1:00") {
                                 extend(by: 60)
@@ -1250,7 +1350,13 @@ private struct TimerDetailView: View {
         }
     }
 
-    private func subtitle(done: Bool) -> String {
+    private func subtitle(done: Bool, pending: Bool = false) -> String {
+        // The big digits above already show the start date/time -- repeating it here
+        // ("Starts Sun, 3:00 PM") is the exact duplication SkyCard's redesign fixed.
+        // What phase 0 actually is fills this slot instead, same as SkyCard's endText.
+        if pending, let sequence = payload.sequence, let phaseText = Sky.pendingFirstPhaseText(sequence) {
+            return phaseText
+        }
         if done {
             return "Finished \(payload.endDate.formatted(date: .omitted, time: .shortened))"
         }
@@ -1266,6 +1372,13 @@ private struct TimerDetailView: View {
     private func togglePause() {
         payload = payload.isPaused ? payload.resumed() : payload.paused()
         onUpdate(payload, payload.isPaused ? "paused" : "resumed")
+    }
+
+    /// Row's own `startEarly` action, mirrored here the same way `togglePause`/`extend`
+    /// mirror the row's -- see the row's `startEarly` doc comment for why `repeated()`.
+    private func startEarly() {
+        payload = payload.repeated()
+        onUpdate(payload, "startedEarly")
     }
 
     private func extend(by interval: TimeInterval) {

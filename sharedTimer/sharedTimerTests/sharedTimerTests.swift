@@ -117,7 +117,8 @@ struct sharedTimerTests {
         let seq = SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 0)
         let original = TimerPayload(
             id: "url-1", label: "Pasta", endDate: now, duration: 600,
-            kind: .countdown, alarmEnabled: false, vibrationEnabled: true, sequence: seq
+            kind: .countdown, alarmEnabled: false, vibrationEnabled: true, sequence: seq,
+            scheduledStartDate: now.addingTimeInterval(120)
         )
 
         let decoded = try? #require(TimerPayload.from(url: original.url()))
@@ -131,8 +132,10 @@ struct sharedTimerTests {
         #expect(decoded?.kind == .countdown)
         #expect(decoded?.alarmEnabled == false)
         #expect(decoded?.vibrationEnabled == true)
-        // sequence is main-app-only — never round-tripped through the share link.
+        // sequence AND scheduledStartDate are both sequence-only/main-app-only —
+        // neither is ever round-tripped through the share link (see CLAUDE.md).
         #expect(decoded?.sequence == nil)
+        #expect(decoded?.scheduledStartDate == nil)
     }
 
     @Test func urlAlarmAbsentDecodesTrueVibAbsentDecodesFalse() throws {
@@ -361,6 +364,106 @@ struct sharedTimerTests {
 
         let loaded = TimerStore.loadAll()
         #expect(loaded.contains { $0.id == "prune-midway" } == true)
+    }
+
+    // MARK: - "Start later" (sequence-only: TimerPayload.isPending / composeSequence / repeated)
+
+    @Test func isPendingBoundary() {
+        let now = Date()
+        let future = TimerPayload(id: "p1", label: "T", endDate: now.addingTimeInterval(100), duration: 100, scheduledStartDate: now.addingTimeInterval(50))
+        let past = TimerPayload(id: "p2", label: "T", endDate: now.addingTimeInterval(100), duration: 100, scheduledStartDate: now.addingTimeInterval(-1))
+        let none = TimerPayload(id: "p3", label: "T", endDate: now.addingTimeInterval(100), duration: 100)
+
+        #expect(future.isPending(at: now) == true)
+        // Exactly at the boundary: no longer pending -- `>` not `>=`, matching
+        // `advancedSequence`'s own boundary convention elsewhere in this file.
+        #expect(future.isPending(at: now.addingTimeInterval(50)) == false)
+        #expect(past.isPending(at: now) == false)
+        #expect(none.isPending(at: now) == false)
+    }
+
+    @Test func composeSequenceWithFutureStartSetsFirstPhaseEndDateFromStart() {
+        let start = Date().addingTimeInterval(1800)
+        let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
+        let payload = TimerPayload.composeSequence(label: "Pomodoro", phases: phases, loopCount: 2, startDate: start)
+
+        #expect(payload.scheduledStartDate == start)
+        #expect(payload.endDate == start.addingTimeInterval(60))
+        #expect(payload.sequence?.phaseIndex == 0)
+        #expect(payload.sequence?.loopIndex == 0)
+    }
+
+    @Test func composeSequenceWithPastStartClampsToStartingNow() {
+        let past = Date().addingTimeInterval(-600)
+        let phases = [SequencePhase(label: "Work", duration: 60)]
+        let payload = TimerPayload.composeSequence(label: "Pomodoro", phases: phases, loopCount: 1, startDate: past)
+
+        // A start at/before now means "start now" -- never a payload whose own
+        // scheduled start already lies in the past. Same clamp `compose` used to have
+        // when it also took a startDate, now sequence-only.
+        #expect(payload.scheduledStartDate == nil)
+        #expect(payload.isPending() == false)
+    }
+
+    @Test func repeatedOnAPendingSequenceStartsItNow() {
+        // "Start Now" (ContentView.startEarly) reuses repeated(at:) rather than a new
+        // model function -- a pending sequence is already at phase 0/loop 0, so
+        // resetting to phase 0/loop 0 with a fresh endDate/no scheduledStartDate is
+        // exactly "start now."
+        let now = Date()
+        let start = now.addingTimeInterval(3600)
+        let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
+        let pending = TimerPayload.composeSequence(label: "Pomodoro", phases: phases, loopCount: 2, startDate: start)
+        #expect(pending.isPending(at: now) == true)
+
+        let started = pending.repeated(at: now)
+
+        #expect(started.isPending(at: now) == false)
+        #expect(started.scheduledStartDate == nil)
+        #expect(started.endDate == now.addingTimeInterval(60))
+        #expect(started.sequence?.phaseIndex == 0)
+        #expect(started.sequence?.loopIndex == 0)
+    }
+
+    @Test func repeatedClearsScheduledStartDate() {
+        let now = Date()
+        let payload = TimerPayload(id: "rep-3", label: "T", endDate: now, duration: 60, scheduledStartDate: now.addingTimeInterval(500))
+
+        let repeated = payload.repeated(at: now)
+
+        #expect(repeated.scheduledStartDate == nil)
+        #expect(repeated.isPending(at: now) == false)
+    }
+
+    @Test func jsonRoundTripPreservesScheduledStartDate() throws {
+        // scheduledStartDate is main-app-only local state: TimerStore's plain JSON
+        // persistence is the only thing that still needs to carry it (never url()/
+        // CloudKit -- see composeSequenceWithFutureStartSetsFirstPhaseEndDateFromStart's
+        // sibling tests above and CLAUDE.md).
+        let now = Date()
+        let original = TimerPayload(id: "seq-persist-1", label: "Pomodoro", endDate: now.addingTimeInterval(60), duration: 60, scheduledStartDate: now.addingTimeInterval(1800))
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .deferredToDate
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .deferredToDate
+        let decoded = try decoder.decode(TimerPayload.self, from: encoder.encode(original))
+
+        #expect(decoded.scheduledStartDate == original.scheduledStartDate)
+        #expect(decoded.isPending(at: now) == true)
+    }
+
+    @Test func jsonDecodeBackCompatsMissingScheduledStartDate() throws {
+        let json = """
+        {"id":"legacy-2","label":"Legacy","endDate":\(Date().timeIntervalSinceReferenceDate + 60),"duration":60}
+        """.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .deferredToDate
+        let decoded = try decoder.decode(TimerPayload.self, from: json)
+
+        #expect(decoded.scheduledStartDate == nil)
+        #expect(decoded.isPending() == false)
     }
 
 }
