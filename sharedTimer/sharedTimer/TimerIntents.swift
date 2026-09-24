@@ -37,7 +37,10 @@ struct StartTimerIntent: AppIntent {
         // Either toggle on -> AlarmKit (rings through silent/Focus, Stop/Repeat panel,
         // its own Live Activity). Both off -> a quiet notification + the custom Live
         // Activity.
-        AlarmController.reschedule(for: payload)
+        // Awaited, not the fire-and-forget `reschedule`: Siri can cold-launch the
+        // process just to run this intent and tear it down the instant `perform()`
+        // returns, same class of bug `AdvanceSequenceIntent` had — see CLAUDE.md.
+        await AlarmController.rescheduleAwaiting(for: payload)
         if !AlarmController.ownsAlert(for: payload) {
             LiveActivityController.start(for: payload)
         }
@@ -66,7 +69,9 @@ struct StartCountdownIntent: AppIntent {
         // Either toggle on -> AlarmKit (rings through silent/Focus, its own Live
         // Activity). Both off -> a quiet notification + the custom Live Activity.
         // AlarmController picks; same arming sequence as ContentView.armAlerts.
-        AlarmController.reschedule(for: payload)
+        // Awaited, not the fire-and-forget `reschedule` -- same Siri-teardown risk as
+        // StartTimerIntent above.
+        await AlarmController.rescheduleAwaiting(for: payload)
         if !AlarmController.ownsAlert(for: payload) {
             LiveActivityController.start(for: payload)
         }
