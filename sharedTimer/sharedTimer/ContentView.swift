@@ -909,6 +909,10 @@ private struct NewSequenceSheet: View {
 
     @ViewBuilder
     private func startFromRow(name: String, subtitle: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        // No .buttonStyle(.plain) here on purpose: the default Form/List button style gives
+        // the whole row cell — including the insets above/below the text, which a `Button`
+        // label's own .contentShape only covers to its own frame — a tap target, not just
+        // the rendered content. .plain drops back to content-only hit-testing.
         Button(action: action) {
             HStack {
                 VStack(alignment: .leading) {
@@ -924,7 +928,7 @@ private struct NewSequenceSheet: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
     }
 
     var body: some View {
@@ -976,7 +980,9 @@ private struct NewSequenceSheet: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
+                                Spacer()
                             }
+                            .contentShape(Rectangle())
                         }
                     }
                     .onDelete { draftPhases.remove(atOffsets: $0) }
