@@ -144,6 +144,46 @@ edge-to-edge like it is on the Home Screen. If so, the fix is `.contentMarginsDi
 `content(for:)` — but that flag also changes Home Screen rendering, so don't apply it without
 checking both.
 
+## Phase 5 — Sequence timers (shipped 1.0.2; scheduled-start added post-1.0.2, device-verification pending)
+
+Not part of the original competitor-gap analysis above — a separate differentiator added on
+its own track once the core sync/reach/StandBy phases were in.
+
+**Built (1.0.2):**
+- `SequencePhase`/`SequenceInfo` on `TimerPayload` — ordered phases (label/kind/duration/own
+  alarm+vibrate toggles), looped `loopCount` times. Free-form builder in `NewSequenceSheet`
+  (add/delete/reorder/edit any phase); Pomodoro and Intermittent Fasting are just seeded
+  starting points, not fixed modes, alongside a blank Custom template.
+- `SavedSequenceStore` — save a built sequence as a blueprint, re-select from "Start from".
+  Main-app-only, kept out of the share/sync path (never round-tripped through `url()`,
+  CloudKit, `docs/t.html`, or the watch app).
+- Background-safe advance: `advancedSequence(at:)` re-derives whichever phase should be
+  current from elapsed time (no running state machine — iOS has no background execution to
+  drive one). AlarmKit per-phase alert gets a dynamic secondary button — "Next"
+  (`AdvanceSequenceIntent`) on every phase but the last, "Cancel" (`EndSequenceIntent`) on the
+  final one — after confirming on device that AlarmKit's `stopIntent` and its built-in
+  `.countdown` secondary-button behavior can't do either job.
+
+**Built (post-1.0.2, this branch — 1.0.3):**
+- "Start later" — `NewSequenceSheet` can schedule a sequence's phase 0 to begin at a future
+  picked time (`TimerPayload.scheduledStartDate`, sequence-only, never shared/synced). The
+  finish alert is still armed at creation, not deferred, since nothing can run in the
+  background to arm it later.
+- Redesigned "Scheduled" state — `SkyCard` shows the start time itself (not a ticking
+  countdown to it) and reads "starts …"; Pause/Extend hidden while pending (don't mean
+  anything yet); Delete doubles as Cancel; "Start Now" reuses `repeated()` to jump straight to
+  running.
+- Fixed a Siri-intent reschedule teardown risk and added the first `TimerModel` unit tests
+  (c5c5708).
+- Fixed row tap targets only responding to the label text, not the rest of the row
+  (53d211d).
+
+**Not yet verified**: on-device re-confirmation of the pending→running AlarmKit `.fixed`
+schedule transition timing after these changes (previously spot-checked once — create a
+pending sequence 2 minutes out with a 1-minute phase 0, confirm nothing shows for 2 minutes
+and the alarm rings at +3, not +4); that a pending sequence never leaks into the watch app via
+`WatchSyncController`'s flattened phase-0 view (guard is code-reviewed, not device-tested).
+
 ## Process for each remaining phase
 
 Same approach as Phase 1: explore the relevant code, design the concrete technical plan via

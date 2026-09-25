@@ -1,5 +1,3 @@
-• New: Sequences. Chain timers into a routine that runs phase after phase and loops — Pomodoro and Intermittent Fasting built in, or build your own and save it to reuse.
-• New "Vibrate" switch alongside Alarm — buzz through silent mode without the sound, or turn both off for a quiet notification.
-• You'll now be notified when someone extends a timer or countdown you're sharing.
-• Fixed a bug where sharing a timer in Messages could fail to sync for the other person.
-• Various alarm and reliability fixes.
+• New: "Start later" for Sequences — schedule a routine to begin at a future time instead of right away, with a redesigned Scheduled state showing the start time.
+• Fixed rows only responding to taps on the label text, not the rest of the row.
+• Various reliability fixes.
