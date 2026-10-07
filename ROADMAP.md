@@ -1,9 +1,78 @@
 # Timer Roadmap
 
-Status as of 2026-10-07 (1.0.3 merged to main via #5; 1.0.4 in progress). Goal: beat the real App Store competitors (ShareTimer, ShareMyTimer,
+Status as of 2026-10-07 (1.0.3 merged to main via #5; 1.0.4 complete on branch `1.0.4`, not yet merged). Goal: beat the real App Store competitors (ShareTimer, ShareMyTimer,
 Synced Timer Plus, TimeTo) by closing the live-sync gap and leaning into the one thing none of
 them have — a real native iMessage extension — instead of routing sharing through a plain link
 or QR code.
+
+## Status at a glance (2026-10-07)
+
+**Release:** 1.0.4 (build 7) is feature-complete on branch `1.0.4`. Version is bumped, App Store release notes are written, CI is green, and all 51 tests pass on the simulator and on an iPhone 14 Pro (iOS 26.7).
+
+**Remaining release steps:**
+1. Merge `1.0.4` → `main` (PR).
+2. Archive and upload (fastlane / App Store Connect).
+3. Submit.
+
+### Fixed in 1.0.4
+
+| Area | What | Verified |
+|---|---|---|
+| CloudKit | Sync could die permanently on an expired change token. The token is now reset and refetched. The db token is saved only after the zone fetch succeeds. | Build + tests; two-account device check pending |
+| Sequences | A Stop mid-sequence no longer stalls the rest. Every phase is pre-armed (window of 8) with its own alarm id. | Device tests + manual |
+| Sequences | "Next" on the card no longer leaves the skipped phase's alarm running (second Lock Screen card). | Device test + manual |
+| Messages / Clip | No second alert or Live Activity when opening a bubble for a timer the main app alarms via AlarmKit. | Manual |
+| CloudKit | A shared timer deleted by a participant no longer comes back. | Unit test; two-account device check pending |
+| Live Activity | No more 0:00 card left on the Lock Screen after a quiet timer finishes. | Build + tests |
+| Live Activity | The paused card shows the correct time after extending while paused. | Device test |
+| Widgets | The list widget refreshes for the earliest timer, not the first row. An unconfigured Single Timer keeps a paused or finished timer (it used to go blank). | Manual |
+| Links | A newer re-shared link updates a timer the recipient already has (`upd` stamp). | Unit tests; two-device check pending |
+| Robustness | Per-timer alarm work runs in call order. TimerStore writes take a cross-process file lock. | Reasoning; #7 isn't unit-testable |
+| Formatting | Correct year on non-Gregorian calendars. Unused overflow-prone `bigDigits` removed. | Unit test |
+| Misc | Siri-started timers reach the watch and the open app. Deleting a ringing timer stops the in-app alarm. | Build + tests |
+
+### Implemented in 1.0.4
+
+| Feature | Verified |
+|---|---|
+| Pause/Resume + Stop (Next/Cancel for sequences) on the Lock Screen card and Dynamic Island. Pause keeps the card visible with Resume. | Manual |
+| Home-screen widget buttons: Single Timer gets Pause/Resume, Stop/Next/Cancel, and Repeat when finished; All Timers gets Pause/Resume per row, with a shimmer while updating. | Manual |
+| Recent timers: one-tap chips in New Timer, 2 dynamic Quick Actions, seeded once from existing timers. | Manual |
+| Control Center / Action button control "Start <recent timer>", which runs without opening the app and confirms with a banner. | Manual |
+| Engineering: shared `Shared/` folder replaces copy-pasted files; `TimerArming` funnel; `ContentView` split; GitHub Actions CI; on-device AlarmKit integration tests. | CI + device |
+
+### Still pending
+
+**Needs a manual check (can't be automated here):**
+- Two iCloud accounts:
+  - Live sharing and accepting a share inside Messages.
+  - The extend notification.
+  - The participant-delete fix.
+  - CloudKit token-reset recovery.
+- Two devices: a re-shared plain link updating the recipient (`upd`).
+- Siri / Shortcuts by voice (Phase 3).
+- Watch app pairing and sync (Phase 3).
+- StandBy rendering of the widgets (Phase 4).
+- Several long sequences at once reaching AlarmKit's alarm cap (`maximumLimitReached`).
+- Pending→running `.fixed` timing of a "Start later" sequence (Phase 5).
+- "Sam paused…" text staged in the Messages input field (Phase 2).
+
+**Known limitations (platform, by design):**
+- An extend/pause made *inside Messages* can't move the main app's AlarmKit alarm until the app next opens. No AlarmKit in extensions.
+- The pre-armed sequence window only refills when the app runs. A sequence left untouched for more than 8 phases runs out of pre-armed alarms.
+- Phases with both toggles off aren't pre-armed.
+- Pause/Resume from a widget updates after a short delay. iOS redraws a widget only after the intent completes; the optimistic-toggle approach doesn't pause (see CLAUDE.md).
+
+**Features not started** (Phase 7, by value for effort):
+1. More Siri / App Intents (pause, resume, extend, "how long is left").
+2. Lock Screen accessory widgets with a progress ring.
+3. Watch complication / Smart Stack (needs the Xcode target wizard first).
+4. Shared sequences.
+5. Recurring countdowns + Calendar import.
+6. Edit a running timer.
+7. Sound picker.
+8. Localization + accessibility pass.
+9. `t.html` polish.
 
 ## Phase 1 — CloudKit live sync (shipped)
 
@@ -184,7 +253,7 @@ pending sequence 2 minutes out with a 1-minute phase 0, confirm nothing shows fo
 and the alarm rings at +3, not +4); that a pending sequence never leaks into the watch app via
 `WatchSyncController`'s flattened phase-0 view (guard is code-reviewed, not device-tested).
 
-## 1.0.4 — Hardening (in progress, branch `1.0.4`)
+## 1.0.4 — Hardening (complete on branch `1.0.4`; see "Status at a glance")
 
 From a full code audit on 2026-10-07. Build + the 26 `sharedTimerTests` (Swift Testing) pass;
 nothing below has been verified on a device yet.
@@ -210,7 +279,7 @@ nothing below has been verified on a device yet.
 `dbChangeToken.*` / `zoneChangeToken.*` App Group keys. Then confirm the next pull still
 delivers changes and doesn't duplicate or resurrect anything (see the zombie gap below).
 
-### Bugs / gaps found, not yet fixed
+### Bugs / gaps found in the 2026-10-07 audit (all fixed in 1.0.4)
 
 Ordered by severity. Each needs a device, a second account, or a product decision, so none
 were changed blind.
@@ -273,22 +342,15 @@ were changed blind.
 - **(e)** ~~Legacy 1.0.3 alarm migration~~: covered by `legacySingleIDAlarmIsCancelledOnFirstSequenceReschedule` on device.
 - **(f)** Several long sequences at once (e.g. 3× Intermittent Fasting = up to 24 pre-armed alarms). Watch for `maximumLimitReached` in the console. Once the cap is hit, a plain timer silently falls back to a notification.
 
-## Phase 7 — Features (good to have)
+## Phase 7 — Features (good to have; first four done in 1.0.4)
 
 Ranked by value vs. effort. Most of these build on intents and infrastructure that already
 exist.
 
-- **Live Activity buttons: done (1.0.4).** Pause/Resume + ✕, with Next/Cancel on sequence phases, on both Live Activities; pause keeps the AlarmKit alarm alive in its paused state. **Confirmed on device (iPhone 14 Pro, 2026-10-07):** Lock Screen ⏭ on a sequence advances to the next phase with a single card (after fixing a skipped-phase alarm that lingered as a second card), ⏸/▶ work. Remaining manual checks (Dynamic Island, ✕ on a plain timer) also reported working. **Still open:** buttons on the home-screen widget —
-  *(original item:)* Pause / +1 min / Repeat via
-  `Button(intent:)` on the home-screen widget and the custom Live Activity. Reuses
-  `TimerStore` plus a `LiveActivityIntent` (same pattern as `AdvanceSequenceIntent`).
+- **Live Activity buttons: done (1.0.4).** Pause/Resume + ✕, with Next/Cancel on sequence phases, on both Live Activities; pause keeps the AlarmKit alarm alive in its paused state. **Confirmed on device (iPhone 14 Pro, 2026-10-07):** Lock Screen ⏭ on a sequence advances to the next phase with a single card (after fixing a skipped-phase alarm that lingered as a second card), ⏸/▶ work. Remaining manual checks (Dynamic Island, ✕ on a plain timer) also reported working.
 - **Home-screen widget buttons: done (1.0.4).** Single Timer: Pause/Resume + Stop/Next/Cancel, Repeat when finished; All Timers: Pause/Resume per row. **Confirmed on device (2026-10-07):** Pause/Resume from the widgets (plain `Button(intent:)` + shimmer — an optimistic `Toggle`/`SetValueIntent` attempt never paused and was reverted); an unconfigured widget keeps the paused timer. Also confirmed on device: ✕ → Repeat on the widget, Recent chips (after a one-time seed from existing timers), dynamic Quick Actions, and the Control Center control starting a timer without opening the app (with a "started" banner as confirmation).
 - **Control Center control and Action button: done (1.0.4)** — `StartRecentTimerControl` starts the most recent timer without opening the app.
 - **Quick-start recents: done (1.0.4)** — Recent chips in the New Timer sheet + 2 dynamic Quick Actions.
-- *(original item:)* **Control Center control and Action button** (`ControlWidget`, iOS 18+): "Start 5-min
-  timer" or a last-used preset. Small, high-visibility work.
-- **Quick-start presets / recents:** one-tap chips for recently used durations and labels
-  in the "+" sheet and the Quick Actions, with dynamic `UIApplicationShortcutItems`.
 - **More Siri / App Intents:** Pause/Resume/Extend/"How long is left on X?" intents over
   the existing `TimerChoice` `AppEntity`, plus Spotlight indexing of timers.
 - **Watch complication / Smart Stack widget:** deferred since Phase 3. Needs the Xcode
