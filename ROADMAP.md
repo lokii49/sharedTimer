@@ -217,8 +217,8 @@ were changed blind.
 
 | # | Sev | Where | Gap | Repro / fix direction |
 |---|-----|-------|-----|------------------------|
-| 1 | ~~High~~ | `AlarmController.performSequenceReschedule` | ~~Sequence stalls after primary **Stop** mid-sequence~~ — **implemented in Phase 6, device verification pending.** Each phase occurrence now has its own pre-armed AlarmKit alarm (window of 8). | See Phase 6 device checks (a), (c), (d). |
-| 2 | ~~High~~ | `TimerStore.isAlarmKitArmed`, Messages/Clip open paths, `TimerArming.arm` | ~~Double alerts + duplicate Live Activities when a timer is in both the main app and Messages~~ — **implemented in Phase 6, device verification pending.** Mutations made *inside* Messages still arm their own notification (platform limit: no AlarmKit in extensions). | See Phase 6 device check (b). |
+| 1 | ~~High~~ | `AlarmController.performSequenceReschedule` | ~~Sequence stalls after primary **Stop** mid-sequence~~ — **fixed in Phase 6, verified on device.** Each phase occurrence now has its own pre-armed AlarmKit alarm (window of 8). | See Phase 6 device checks (a), (c), (d). |
+| 2 | ~~High~~ | `TimerStore.isAlarmKitArmed`, Messages/Clip open paths, `TimerArming.arm` | ~~Double alerts + duplicate Live Activities when a timer is in both the main app and Messages~~ — **fixed in Phase 6, verified on device.** Mutations made *inside* Messages still arm their own notification (platform limit: no AlarmKit in extensions). | See Phase 6 device check (b). |
 | 3 | Med | `CloudSyncController.pushDelete` (`:346`) + `pullChanges` | **A timer a participant deleted comes back.** Participant delete only removes the local `CloudLink`, but the shared-database subscription still delivers that record. The next remote change (or the new token-reset refetch above) calls `TimerStore.save` and it reappears. | Participant deletes a shared timer, the owner then extends it, and the timer is back on the participant's list. Fix: keep a tombstone set of deleted ids in the App Group and skip them in the pull handlers (`ContentView.pullCloudChanges`, `AppDelegate`). Or leave the share (`CKShare` participant removal) on delete. |
 | 4 | Med | `LiveActivityController.swift:66` | **The custom Live Activity is never ended or marked stale at finish** (`staleDate: nil`, no `end` on expiry). A "0:00" activity sits on the Lock Screen until the system kills it (up to 8h + 4h). | Turn both toggles off, run a 1-min timer, and look at the Lock Screen 10 min later. Fix: `staleDate: payload.endDate`. When the app sees a finish (`checkForNewlyExpired`, foreground), call `end(..., dismissalPolicy: .after(endDate + 15min))`. |
 | 5 | Med | `ContentView.handleIncoming` (`:611`), `MessagesViewController.swift:41` | **A re-shared link for a timer that's already known is ignored.** A sender who extends a timer and sends a fresh *plain* (non-CloudKit) link can't update the recipient's copy. | Needs a recency field on the wire (e.g. `rev` = last-modified epoch). Prefer the link only when it's newer. Update `docs/t.html` in lockstep. |
@@ -230,7 +230,7 @@ were changed blind.
 | 11 | Low | `ContentView.delete` (`:505`), pull-delete path | **Deleting a ringing timer leaves the in-app `AlarmPlayer`/`VibrationPlayer` loop going**, along with the "Time's up" banner, until the user taps Stop. | Fix: stop the players when the deleted id is among those currently alerting. |
 | 12 | — | Docs | ~~CLAUDE.md said `sharedTimerTests` was empty~~ — fixed alongside this roadmap. | — |
 
-## Phase 6 — Reliability & engineering (implemented on `1.0.4`, device verification pending)
+## Phase 6 — Reliability & engineering (implemented on `1.0.4`, verified on device)
 
 **Done.** Build and the 32 `sharedTimerTests` pass; CI runs them on every push and PR.
 1. **`ContentView.swift` split** into `NewTimerSheet`, `NewSequenceSheet`, `TimerDetailView`, and `ShareSheets`.
@@ -262,7 +262,7 @@ were changed blind.
 - The legacy 1.0.3 single-id alarm is cancelled on the first reschedule.
 - A plain timer keeps its single id, and the registry (`isAlarmKitArmed`) tracks it.
 
-**Still needs eyes and hands on the device** (visual/interactive; can't be automated from here):
+**Manual device checks — reported working by the user on the iPhone 14 Pro, 2026-10-07** (visual/interactive; not automatable here):
 - **(a)** Pomodoro with 1-min phases. Tap **Stop** (not Next) on phase 1 and lock the phone.
   - Phase 2 rings on time, and so do the phases after it.
   - No Live Activity or Dynamic Island appears for a future phase before its own countdown window, even with several `.fixed` alarms pending at once.
@@ -278,7 +278,7 @@ were changed blind.
 Ranked by value vs. effort. Most of these build on intents and infrastructure that already
 exist.
 
-- **Live Activity buttons: done (1.0.4).** Pause/Resume + ✕, with Next/Cancel on sequence phases, on both Live Activities; pause keeps the AlarmKit alarm alive in its paused state. **Confirmed on device (iPhone 14 Pro, 2026-10-07):** Lock Screen ⏭ on a sequence advances to the next phase with a single card (after fixing a skipped-phase alarm that lingered as a second card), ⏸/▶ work. Still to spot-check: the expanded Dynamic Island, and the ✕ on a plain timer. **Still open:** buttons on the home-screen widget —
+- **Live Activity buttons: done (1.0.4).** Pause/Resume + ✕, with Next/Cancel on sequence phases, on both Live Activities; pause keeps the AlarmKit alarm alive in its paused state. **Confirmed on device (iPhone 14 Pro, 2026-10-07):** Lock Screen ⏭ on a sequence advances to the next phase with a single card (after fixing a skipped-phase alarm that lingered as a second card), ⏸/▶ work. Remaining manual checks (Dynamic Island, ✕ on a plain timer) also reported working. **Still open:** buttons on the home-screen widget —
   *(original item:)* Pause / +1 min / Repeat via
   `Button(intent:)` on the home-screen widget and the custom Live Activity. Reuses
   `TimerStore` plus a `LiveActivityIntent` (same pattern as `AdvanceSequenceIntent`).
