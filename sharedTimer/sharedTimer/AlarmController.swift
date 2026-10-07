@@ -151,7 +151,7 @@ enum AlarmController {
             await performSequenceReschedule(for: payload)
             return
         }
-        if payload.isPaused, payload.remaining > 0, ownsAlert(for: payload), pauseInPlace(id: alarmID(for: payload.id)) {
+        if payload.isPaused, payload.remaining > 0, ownsAlert(for: payload), await armPaused(payload, id: alarmID(for: payload.id)) {
             TimerStore.setAlarmKitArmed(id: payload.id, true)
             return
         }
@@ -217,7 +217,7 @@ enum AlarmController {
         // Paused: keep the current phase's alarm alive in AlarmKit's paused state (its
         // Live Activity shows Resume); every later pre-armed phase is cancelled below,
         // since their fixed dates no longer hold — resuming re-arms the whole window.
-        if payload.isPaused, payload.remaining > 0, ownsAlert(for: payload), pauseInPlace(id: currentID) {
+        if payload.isPaused, payload.remaining > 0, ownsAlert(for: payload), await armPaused(payload, id: currentID) {
             kept.insert(currentID)
         }
         var toSchedule: [(occurrence: ScheduledPhase, projected: TimerPayload, id: UUID, fixedAt: Date?)] = []
@@ -283,24 +283,59 @@ enum AlarmController {
         }
     }
 
-    /// Paused payload: pause its live AlarmKit alarm in place rather than cancelling
-    /// it, so the alarm's Live Activity stays on the Lock Screen / Dynamic Island in
-    /// its Paused mode with a Resume button (TimerAlarmActivityWidget) — the same way
-    /// the Clock app's timer behaves. True when an alarm for `id` is now paused.
-    /// Resuming goes through the normal path: the paused alarm doesn't match a fresh
-    /// config, so it's cancelled and re-created from the payload's `pausedRemaining`.
-    /// Known gap: extending while paused leaves the paused card showing the
-    /// pre-extend time until resume (AlarmKit can't edit a paused alarm's duration).
-    private static func pauseInPlace(id: UUID) -> Bool {
-        guard let alarm = (try? AlarmManager.shared.alarms)?.first(where: { $0.id == id }) else { return false }
-        switch alarm.state {
-        case .paused:
-            return true
-        case .countdown:
-            return (try? AlarmManager.shared.pause(id: id)) != nil
-        default:
+    /// Paused payload: keep an AlarmKit alarm alive in its paused state rather than
+    /// cancelling it, so its Live Activity stays on the Lock Screen / Dynamic Island
+    /// showing Resume (TimerAlarmActivityWidget) — like the Clock app's timer. True
+    /// when an alarm for `id` is now paused at the payload's `pausedRemaining`.
+    /// - Running alarm → `AlarmManager.pause(id:)` in place.
+    /// - Already paused at the same remaining time → left alone.
+    /// - Paused at a *different* time (extended while paused), or no alarm at all →
+    ///   AlarmKit can't edit a paused alarm's duration, so a fresh alarm counting down
+    ///   the new remaining time is scheduled and paused straight away. Before this the
+    ///   paused card kept showing the pre-extend time until resume.
+    /// The remaining time each alarm was paused at is recorded per alarm id, since
+    /// `Alarm` doesn't expose its elapsed time. Resuming goes through the normal path:
+    /// a paused alarm doesn't match a fresh config, so it's cancelled and re-created.
+    private static func armPaused(_ payload: TimerPayload, id: UUID) async -> Bool {
+        guard let remaining = payload.pausedRemaining, remaining > 0 else { return false }
+        let existing = (try? AlarmManager.shared.alarms)?.first(where: { $0.id == id })
+        switch existing?.state {
+        case .paused?:
+            if let recorded = pausedRemaining(for: id), abs(recorded - remaining) < 1 { return true }
+            try? AlarmManager.shared.cancel(id: id)
+        case .countdown?:
+            if (try? AlarmManager.shared.pause(id: id)) != nil {
+                recordPausedRemaining(remaining, for: id)
+                return true
+            }
+            try? AlarmManager.shared.cancel(id: id)
+        case .some:
+            try? AlarmManager.shared.cancel(id: id)
+        case nil:
+            break
+        }
+        guard await scheduleAlarm(for: payload, id: id) == .scheduled else { return false }
+        guard (try? AlarmManager.shared.pause(id: id)) != nil else {
+            try? AlarmManager.shared.cancel(id: id)
             return false
         }
+        recordPausedRemaining(remaining, for: id)
+        return true
+    }
+
+    private static let pausedRemainingKey = "alarmPausedRemaining"
+
+    private static func pausedRemaining(for id: UUID) -> TimeInterval? {
+        (UserDefaults(suiteName: "group.com.lokesh.sharedTimer")?.dictionary(forKey: pausedRemainingKey) as? [String: Double])?[id.uuidString]
+    }
+
+    /// Also prunes entries for alarms AlarmKit no longer holds, so this stays tiny.
+    private static func recordPausedRemaining(_ remaining: TimeInterval, for id: UUID) {
+        guard let defaults = UserDefaults(suiteName: "group.com.lokesh.sharedTimer") else { return }
+        let live = Set(((try? AlarmManager.shared.alarms) ?? []).map(\.id.uuidString))
+        var map = (defaults.dictionary(forKey: pausedRemainingKey) as? [String: Double] ?? [:]).filter { live.contains($0.key) }
+        map[id.uuidString] = remaining
+        defaults.set(map, forKey: pausedRemainingKey)
     }
 
     /// True when `alarm` is already the pre-armed `.fixed` alarm for this occurrence.

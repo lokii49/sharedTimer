@@ -249,6 +249,31 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
+    @Test func extendingWhilePausedReplacesThePausedAlarmWithTheNewLength() async {
+        let payload = TimerPayload(label: "Paused extend", duration: 300)
+        created.append(payload)
+        let id = UUID(uuidString: payload.id)!
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let paused = payload.paused()
+        await AlarmController.rescheduleAwaiting(for: paused)
+        #expect(alarmsByID()[id]?.state == .paused)
+
+        // +2 min while paused: still paused, and the alarm now counts the new time.
+        let extended = paused.extended(by: 120)
+        await AlarmController.rescheduleAwaiting(for: extended)
+        let alarm = alarmsByID()[id]
+        #expect(alarm?.state == .paused)
+        #expect(abs((alarm?.countdownDuration?.preAlert ?? 0) - (extended.pausedRemaining ?? 0)) < 2)
+
+        // Unchanged paused payload: left alone (same alarm, still paused).
+        await AlarmController.rescheduleAwaiting(for: extended)
+        #expect(alarmsByID()[id]?.state == .paused)
+
+        await AlarmController.rescheduleAwaiting(for: extended.resumed())
+        #expect(alarmsByID()[id]?.state == .countdown)
+        await tearDown()
+    }
+
     /// Removes alarms left behind by an earlier run of this suite (before teardown
     /// was awaited): anything AlarmKit holds for this app that no stored timer owns.
     @Test func sweepStrayTestAlarms() async {
