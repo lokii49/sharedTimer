@@ -169,7 +169,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        if notification.request.content.categoryIdentifier == Self.extendedCategoryID {
+        if [Self.extendedCategoryID, LiveActivityActions.startedCategoryID].contains(notification.request.content.categoryIdentifier) {
             completionHandler([.banner, .list, .sound])
         } else {
             completionHandler([])

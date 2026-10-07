@@ -202,6 +202,7 @@ struct ContentView: View {
                 armAlerts(for: payload)
             }
             LiveActivityController.endFinished(timers.filter { !AlarmController.ownsAlert(for: $0) })
+            RecentTimersStore.seedIfNeeded(from: timers)
             RecentTimersSync.refresh()
             pullCloudChanges()
             // Cold-launch Quick Action: SceneDelegate's willConnectTo runs before this

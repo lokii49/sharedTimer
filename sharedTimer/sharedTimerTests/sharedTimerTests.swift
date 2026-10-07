@@ -620,4 +620,29 @@ struct sharedTimerTests {
         #expect(decoded.first?.payload().duration == 180)
     }
 
+    @Test func recentsSeedOnceFromStoredTimersNewestFirst() throws {
+        let defaults = try #require(UserDefaults(suiteName: "group.com.lokesh.sharedTimer"))
+        let original = defaults.data(forKey: "recentTimers")
+        let originalSeeded = defaults.object(forKey: "recentTimersSeeded")
+        defer {
+            if let original { defaults.set(original, forKey: "recentTimers") } else { defaults.removeObject(forKey: "recentTimers") }
+            defaults.set(originalSeeded, forKey: "recentTimersSeeded")
+        }
+        defaults.removeObject(forKey: "recentTimers")
+        defaults.removeObject(forKey: "recentTimersSeeded")
+
+        let now = Date()
+        let older = TimerPayload(id: "s1", label: "Tea", endDate: now.addingTimeInterval(-600), duration: 180)
+        let newer = TimerPayload(id: "s2", label: "Pasta", endDate: now.addingTimeInterval(300), duration: 480)
+        let countdown = TimerPayload(id: "s3", label: "Trip", endDate: now.addingTimeInterval(86400), duration: 86400, kind: .countdown)
+        RecentTimersStore.seedIfNeeded(from: [older, countdown, newer])
+        #expect(RecentTimersStore.all().map(\.label) == ["Pasta", "Tea"])
+
+        // Only once: clearing the list afterwards must not re-seed it.
+        RecentTimersStore.remove(id: "Pasta|480")
+        RecentTimersStore.remove(id: "Tea|180")
+        RecentTimersStore.seedIfNeeded(from: [older, newer])
+        #expect(RecentTimersStore.all().isEmpty)
+    }
+
 }

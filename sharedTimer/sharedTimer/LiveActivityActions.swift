@@ -21,6 +21,7 @@
 //
 
 import Foundation
+import UserNotifications
 
 enum LiveActivityActions {
 
@@ -108,8 +109,26 @@ enum LiveActivityActions {
         RecentTimersStore.record(payload)
         await RecentTimersSync.refresh()
         WatchSyncController.pushCurrentState()
+        announceStarted(payload)
         await refreshUI()
     }
+
+    /// A Control Center / Action button tap has no visible result of its own — the
+    /// app never opens. Confirm with a brief, silent banner ("Pasta started · ends
+    /// 1:05 PM"), replaced (same identifier) if the control is tapped again.
+    private static func announceStarted(_ payload: TimerPayload) {
+        let content = UNMutableNotificationContent()
+        content.title = "\(payload.label) started"
+        content.body = "\(RecentTimer.lengthText(payload.duration)) · ends \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+        content.sound = nil
+        content.categoryIdentifier = startedCategoryID
+        content.interruptionLevel = .active
+        let request = UNNotificationRequest(identifier: "recent-timer-started", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    /// Opts the start confirmation into a foreground banner too (AppDelegate.willPresent).
+    static let startedCategoryID = "SHAREDTIMER_TIMER_STARTED"
 
     // MARK: - Helpers
 

@@ -81,6 +81,24 @@ enum RecentTimersStore {
         save(Array(list.prefix(limit)))
     }
 
+    private static let seededKey = "recentTimersSeeded"
+
+    /// One-time backfill from the timers already in the store, so the first build with
+    /// recents doesn't start with an empty list (found on device: the only "recent" was
+    /// the Control's 5-minute default, while the user's own timers weren't listed).
+    /// Most recently started first. Flagged once, so clearing the chips later doesn't
+    /// bring them back.
+    static func seedIfNeeded(from payloads: [TimerPayload]) {
+        guard defaults?.bool(forKey: seededKey) != true else { return }
+        defaults?.set(true, forKey: seededKey)
+        let started = payloads
+            .filter { $0.kind == .timer && $0.sequence == nil }
+            .sorted { $0.endDate.addingTimeInterval(-$0.duration) < $1.endDate.addingTimeInterval(-$1.duration) }
+        for payload in started {
+            record(payload)  // oldest first, so the newest ends up at the front
+        }
+    }
+
     static func remove(id: String) {
         save(all().filter { $0.id != id })
     }
