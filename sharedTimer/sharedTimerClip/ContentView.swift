@@ -12,7 +12,7 @@ struct ContentView: View {
     var body: some View {
         Group {
             if let payload {
-                TimerClipView(payload: payload)
+                TimerClipView(payload: payload).id(payload.url().absoluteString)
             } else {
                 emptyState
             }
@@ -44,7 +44,7 @@ struct ContentView: View {
         let existing = TimerStore.loadAll().first { $0.id == parsed.id }
         // A newer re-shared link updates the copy we have (see TimerPayload.shouldAdopt).
         let adoptLink = existing?.shouldAdopt(parsed) ?? false
-        let stored = adoptLink ? parsed : (existing ?? parsed)
+        let stored = (adoptLink ? parsed : (existing ?? parsed)).advancedSequence()
         TimerStore.save(stored)
         // The full app may already own this id through AlarmKit (see
         // TimerStore.isAlarmKitArmed) — don't stack a second alert on top, unless the

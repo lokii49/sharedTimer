@@ -13,6 +13,7 @@
 import Foundation
 
 enum LiveActivityActions {
+    static func advanceAnnual(timerID: String, occurrenceEnd: Double) async {}
     static func setPaused(timerID: String, paused: Bool) async {}
     static func stop(timerID: String) async {}
     static func advanceSequence(timerID: String, phaseIndex: Int) async {}

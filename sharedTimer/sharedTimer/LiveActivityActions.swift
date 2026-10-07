@@ -44,17 +44,19 @@ enum LiveActivityActions {
             return await endSequence(timerID: timerID)
         }
         var updated = payload
+        updated.recurrence = nil
         updated.endDate = Date()
         updated.pausedRemaining = nil
         updated.updatedAt = Date()
         // A deliberate stop is already "acknowledged" — never let the in-app
         // vibration fallback buzz for it on next open. (save() clears this flag, so
         // set it after.)
+        if payload.recurrence != nil { await AlarmController.cancelSequenceAlarms(for: payload) }
         TimerStore.save(updated)
         TimerStore.acknowledgeFinish(id: updated.id)
         await AlarmController.rescheduleAwaiting(for: updated)
         LiveActivityController.end(id: updated.id)
-        CloudSyncController.pushUp(updated, action: "stopped")
+        await CloudSyncController.pushUpAwaiting(updated, action: "stopped")
         WatchSyncController.pushCurrentState()
         await refreshUI()
     }
@@ -70,8 +72,11 @@ enum LiveActivityActions {
         var advanced = payload.materializingPhase(globalIndex: tappedIndex + 1, startingAt: Date())
         // "Next" on a paused card starts the next phase running.
         advanced.pausedRemaining = nil
+        advanced.scheduledStartDate = nil
+        if advanced.sequence!.loopIndex >= advanced.sequence!.loopCount { advanced.endDate = Date() }
         TimerStore.save(advanced)
-        await AlarmController.rescheduleAwaiting(for: advanced)
+        await TimerArming.armAwaiting(advanced)
+        await CloudSyncController.pushUpAwaiting(advanced, action: "advanced")
         WatchSyncController.pushCurrentState()
         await refreshUI()
     }
@@ -84,12 +89,33 @@ enum LiveActivityActions {
         sequence.loopIndex = sequence.loopCount
         payload.sequence = sequence
         payload.pausedRemaining = nil
+        payload.scheduledStartDate = nil
+        payload.endDate = Date()
+        payload.updatedAt = payload.endDate
+        // A deliberate cancel never rings locally or on a receiving device. Repeat
+        // restores the original phase toggles from the preserved phase definitions.
+        payload.alarmEnabled = false
+        payload.vibrationEnabled = false
         TimerStore.save(payload)
+        TimerStore.acknowledgeFinish(id: timerID)
         NotificationScheduler.cancel(id: timerID)
         await AlarmController.cancelSequenceAlarms(for: payload)
         LiveActivityController.end(id: timerID)
+        await CloudSyncController.pushUpAwaiting(payload, action: "cancelled")
         WatchSyncController.pushCurrentState()
         await refreshUI()
+    }
+
+    static func advanceAnnual(timerID: String, occurrenceEnd: Double) async {
+        guard var payload = stored(timerID, projectAnnual: false), let recurrence = payload.recurrence,
+              occurrenceEnd.isFinite, abs(occurrenceEnd) <= 253_402_300_799,
+              payload.endDate.timeIntervalSince1970 <= occurrenceEnd + 1,
+              let next = recurrence.nextDate(after: max(Date(), Date(timeIntervalSince1970: occurrenceEnd))) else { return await refreshUI() }
+        payload.endDate = next
+        payload.duration = max(1, next.timeIntervalSinceNow)
+        payload.pausedRemaining = nil
+        payload.updatedAt = Date()
+        await commit(payload, action: "advanced")
     }
 
     /// Widget "Repeat" on a finished timer — same mutation as the app's Repeat.
@@ -135,20 +161,22 @@ enum LiveActivityActions {
 
     /// Every action goes through here first, so it also records the widget focus (see
     /// TimerStore.setWidgetFocus) before the mutation's save reloads the widgets.
-    private static func stored(_ timerID: String) -> TimerPayload? {
+    private static func stored(_ timerID: String, projectAnnual: Bool = true) -> TimerPayload? {
         TimerStore.setWidgetFocus(id: timerID)
-        return TimerStore.loadAll().first { $0.id == timerID }
+        guard let payload = TimerStore.loadAll().first(where: { $0.id == timerID }) else { return nil }
+        return projectAnnual ? payload.advancedRecurrence() : payload
     }
 
     private static func commit(_ updated: TimerPayload, action: String) async {
         TimerStore.save(updated)
         await TimerArming.armAwaiting(updated)
-        CloudSyncController.pushUp(updated, action: action)
+        await CloudSyncController.pushUpAwaiting(updated, action: action)
         WatchSyncController.pushCurrentState()
         await refreshUI()
     }
 
     private static func refreshUI() async {
+        await TimerSpotlightIndex.shared.refreshAwaiting()
         await MainActor.run {
             NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
         }

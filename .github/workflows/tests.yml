@@ -33,6 +33,13 @@ jobs:
           sudo xcode-select -s "$XCODE"
           xcodebuild -version
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Web fallback timing tests
+        run: node --test ../docs/tests/timer.test.cjs
+
       - name: Pick an iPhone simulator
         run: |
           UDID=$(xcrun simctl list devices available -j \
@@ -75,3 +82,49 @@ jobs:
         with:
           name: test-log
           path: sharedTimer/test.log
+
+  watch:
+    runs-on: macos-26
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: sharedTimer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: Pick a Watch simulator
+        run: |
+          WATCH_UDID=$(xcrun simctl list devices available -j \
+            | jq -r '[.devices | to_entries[] | select(.key | test("watchOS")) | .value[]][0].udid // empty')
+          if [ -z "$WATCH_UDID" ]; then
+            xcodebuild -downloadPlatform watchOS
+            WATCH_UDID=$(xcrun simctl list devices available -j \
+              | jq -r '[.devices | to_entries[] | select(.key | test("watchOS")) | .value[]][0].udid // empty')
+          fi
+          test -n "$WATCH_UDID"
+          echo "WATCH_UDID=$WATCH_UDID" >> "$GITHUB_ENV"
+
+      - name: Watch snapshot, sync, and layout tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project sharedTimer.xcodeproj \
+            -scheme sharedTimerWatch \
+            -destination "id=$WATCH_UDID" \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
+            | tee watch-test.log | grep -E "error:|✘|Test run with|\*\* TEST" || true
+          grep -qE "✔ Test run with [0-9]+ tests? .*passed" watch-test.log
+          grep -q "\*\* TEST SUCCEEDED \*\*" watch-test.log
+
+      - name: Upload Watch test log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-test-log
+          path: sharedTimer/watch-test.log

@@ -111,14 +111,11 @@ struct sharedTimerTests {
 
     // MARK: - TimerPayload.url() / .from(url:) round-trip
 
-    @Test func urlRoundTripPreservesCoreFieldsAndDropsSequence() {
+    @Test func urlRoundTripPreservesCoreFields() {
         let now = Date()
-        let phases = [SequencePhase(label: "Work", duration: 60)]
-        let seq = SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 0)
         let original = TimerPayload(
             id: "url-1", label: "Pasta", endDate: now, duration: 600,
-            kind: .countdown, alarmEnabled: false, vibrationEnabled: true, sequence: seq,
-            scheduledStartDate: now.addingTimeInterval(120)
+            kind: .countdown, alarmEnabled: false, vibrationEnabled: true
         )
 
         let decoded = try? #require(TimerPayload.from(url: original.url()))
@@ -132,8 +129,7 @@ struct sharedTimerTests {
         #expect(decoded?.kind == .countdown)
         #expect(decoded?.alarmEnabled == false)
         #expect(decoded?.vibrationEnabled == true)
-        // sequence AND scheduledStartDate are both sequence-only/main-app-only —
-        // neither is ever round-tripped through the share link (see CLAUDE.md).
+        // A plain timer stays plain; sequence round trips have their own coverage.
         #expect(decoded?.sequence == nil)
         #expect(decoded?.scheduledStartDate == nil)
     }
@@ -700,6 +696,153 @@ struct sharedTimerTests {
         let seq = TimerPayload(id: "s", label: "Work", endDate: t0, duration: 60, sequence: SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 0), updatedAt: t0)
         #expect(seq.advancedSequence(at: t1).updatedAt == t0)
         #expect(seq.steppedToNextPhase(at: t1).updatedAt == t1)
+    }
+
+    // MARK: - Siri timer selection and mutation safety
+
+    @Test func siriMissingSelectionReportsDeletedTimer() {
+        #expect(throws: TimerIntentError.timerNotFound) {
+            try TimerIntentActions.snapshot(nil)
+        }
+        #expect(throws: TimerIntentError.timerNotFound) {
+            try TimerIntentActions.updated(nil, mutation: .pause)
+        }
+    }
+
+    @Test func siriScheduledSequenceCanBeReadButNotChanged() throws {
+        let now = Date()
+        let pending = TimerPayload.composeSequence(label: "Later", phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1, startDate: now.addingTimeInterval(120))
+        let current = try TimerIntentActions.snapshot(pending, at: now)
+        #expect(current.status == .scheduled)
+        #expect(current.seconds == 180)
+        for mutation in [TimerIntentActions.Mutation.pause, .resume, .extend(minutes: 1)] {
+            #expect(throws: TimerIntentError.timerScheduled) {
+                try TimerIntentActions.updated(pending, mutation: mutation, at: now)
+            }
+        }
+    }
+
+    @Test func siriFinishedTimersCannotBeRevivedByMutation() throws {
+        let now = Date()
+        let finished = TimerPayload(id: "finished", label: "Done", endDate: now.addingTimeInterval(-10), duration: 60)
+        for payload in [finished, finished.paused(at: now)] {
+            let current = try TimerIntentActions.snapshot(payload, at: now)
+            #expect(current.status == .finished)
+            #expect(current.seconds == 0)
+            for mutation in [TimerIntentActions.Mutation.pause, .resume, .extend(minutes: 1)] {
+                #expect(throws: TimerIntentError.timerFinished) {
+                    try TimerIntentActions.updated(payload, mutation: mutation, at: now)
+                }
+            }
+        }
+    }
+
+    @Test func siriPauseAndResumeAreIdempotent() throws {
+        let now = Date()
+        let running = TimerPayload(id: "pasta", label: "Pasta", endDate: now.addingTimeInterval(90), duration: 120)
+        let paused = try TimerIntentActions.updated(running, mutation: .pause, at: now)
+        let pausedAgain = try TimerIntentActions.updated(paused, mutation: .pause, at: now.addingTimeInterval(30))
+        #expect(pausedAgain.pausedRemaining == 90)
+        #expect(pausedAgain.updatedAt == paused.updatedAt)
+        let resumed = try TimerIntentActions.updated(pausedAgain, mutation: .resume, at: now.addingTimeInterval(30))
+        let resumedAgain = try TimerIntentActions.updated(resumed, mutation: .resume, at: now.addingTimeInterval(40))
+        #expect(resumed.endDate == now.addingTimeInterval(120))
+        #expect(resumedAgain.endDate == resumed.endDate)
+        #expect(resumedAgain.updatedAt == resumed.updatedAt)
+    }
+
+    @Test func siriExtendPreservesPauseAndSupportsFractionalMinutes() throws {
+        let now = Date()
+        let running = TimerPayload(id: "extend", label: "Tea", endDate: now.addingTimeInterval(90), duration: 120)
+        let extended = try TimerIntentActions.updated(running, mutation: .extend(minutes: 1.5), at: now)
+        #expect(extended.endDate == now.addingTimeInterval(180))
+        #expect(extended.duration == running.duration)
+        #expect(extended.updatedAt == now)
+        let paused = running.paused(at: now)
+        let longerPause = try TimerIntentActions.updated(paused, mutation: .extend(minutes: 0.5), at: now.addingTimeInterval(300))
+        #expect(longerPause.isPaused)
+        #expect(longerPause.pausedRemaining == 120)
+        #expect(longerPause.endDate == paused.endDate)
+        let current = try TimerIntentActions.snapshot(longerPause, at: now.addingTimeInterval(300))
+        #expect(current.status == .paused)
+        #expect(current.seconds == 120)
+    }
+
+    @Test func siriExtendRejectsInvalidAndOverflowingDurations() {
+        let running = TimerPayload(label: "Tea", duration: 300)
+        for minutes in [0, -1, Double.nan, Double.infinity, -Double.infinity, Double.greatestFiniteMagnitude] {
+            #expect(throws: TimerIntentError.nonPositiveMinutes) {
+                try TimerIntentActions.updated(running, mutation: .extend(minutes: minutes))
+            }
+        }
+    }
+
+    @Test func siriActsOnCurrentSequencePhaseAfterBackgrounding() throws {
+        let now = Date()
+        let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
+        let seq = SequenceInfo(phases: phases, loopCount: 2, phaseIndex: 0, loopIndex: 0)
+        let stale = TimerPayload(id: "sequence", label: "Work", endDate: now.addingTimeInterval(-10), duration: 60, sequence: seq)
+        let current = try TimerIntentActions.snapshot(stale, at: now)
+        #expect(current.status == .running)
+        #expect(current.payload.label == "Rest")
+        #expect(current.seconds == 20)
+        let paused = try TimerIntentActions.updated(stale, mutation: .pause, at: now)
+        #expect(paused.label == "Rest")
+        #expect(paused.sequence?.phaseIndex == 1)
+        #expect(paused.pausedRemaining == 20)
+        let extended = try TimerIntentActions.updated(stale, mutation: .extend(minutes: 1), at: now)
+        #expect(extended.sequence?.phaseIndex == 1)
+        #expect(extended.endDate == now.addingTimeInterval(80))
+        let exhausted = try TimerIntentActions.snapshot(stale, at: now.addingTimeInterval(1000))
+        #expect(exhausted.status == .finished)
+    }
+
+    @Test func siriNameSearchPreservesDuplicateNamesAndPrefersExactMatches() {
+        let choices = [TimerChoice(id: "a", label: "Café"), TimerChoice(id: "b", label: "Cafe"), TimerChoice(id: "c", label: "Cafe break")]
+        #expect(TimerChoiceQuery.matches(" CAFE ", in: choices).map(\.id) == ["a", "b"])
+        #expect(TimerChoiceQuery.matches("break", in: choices).map(\.id) == ["c"])
+        #expect(TimerChoiceQuery.matches("missing", in: choices).isEmpty)
+        #expect(TimerChoiceQuery.matches(" ", in: choices) == choices)
+    }
+
+    @Test func siriSuggestionsCatchUpSequencesAndExcludeFinishedIncludingPausedZero() {
+        let now = Date()
+        let finished = TimerPayload(id: "finished", label: "Done", endDate: now.addingTimeInterval(-1), duration: 60)
+        let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
+        let stale = TimerPayload(id: "sequence", label: "Work", endDate: now.addingTimeInterval(-10), duration: 60, sequence: SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 0))
+        let paused = TimerPayload(id: "paused", label: "Tea", endDate: now.addingTimeInterval(-300), duration: 120, pausedRemaining: 90)
+        let choices = TimerChoiceQuery.choices(from: [finished, finished.paused(at: now), stale, paused], at: now)
+        #expect(choices.map(\.id) == ["paused", "sequence"])
+        #expect(choices.last?.label == "Rest")
+    }
+
+    @Test func siriEntityLookupKeepsFinishedWidgetSelectionAndUsesCurrentNames() async throws {
+        let defaults = try #require(UserDefaults(suiteName: "group.com.lokesh.sharedTimer"))
+        let original = defaults.data(forKey: "sharedTimers")
+        defer {
+            if let original { defaults.set(original, forKey: "sharedTimers") }
+            else { defaults.removeObject(forKey: "sharedTimers") }
+        }
+        let now = Date()
+        let finished = TimerPayload(id: "done", label: "Renamed", endDate: now.addingTimeInterval(-30), duration: 60)
+        defaults.set(try JSONEncoder().encode([finished]), forKey: "sharedTimers")
+        let resolved = try await TimerChoiceQuery().entities(for: ["deleted", "done"])
+        #expect(resolved == [TimerChoice(id: "done", label: "Renamed")])
+        let suggestions = try await TimerChoiceQuery().suggestedEntities()
+        #expect(suggestions.isEmpty)
+    }
+
+    @Test func siriCancelledSequenceStaysFinishedBeforeItsOldEndDate() throws {
+        let now = Date()
+        let phases = [SequencePhase(label: "Work", duration: 60)]
+        let cancelled = TimerPayload(id: "cancelled", label: "Work", endDate: now.addingTimeInterval(60), duration: 60, sequence: SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 1))
+        let current = try TimerIntentActions.snapshot(cancelled, at: now)
+        #expect(current.status == .finished)
+        #expect(current.seconds == 0)
+        #expect(TimerChoiceQuery.choices(from: [cancelled], at: now).isEmpty)
+        #expect(throws: TimerIntentError.timerFinished) {
+            try TimerIntentActions.updated(cancelled, mutation: .resume, at: now)
+        }
     }
 
 }

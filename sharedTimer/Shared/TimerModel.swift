@@ -11,7 +11,8 @@ enum TimerShareMode: String, Codable {
     case link
 }
 
-enum TimerKind: String, Codable {
+enum TimerKind: String, Codable, Identifiable {
+    var id: String { rawValue }
     case timer
     case countdown
 }
@@ -80,12 +81,12 @@ struct TimerPayload: Codable, Identifiable {
     /// alarm on. Defaults true for a newly composed timer, but decodes as false when
     /// absent (old links/stored timers) — see `init(from:)` for why.
     var vibrationEnabled: Bool
-    /// Non-nil only for a Pomodoro/Intermittent-Fasting style sequence. Absent from
-    /// share links/CloudKit/watch by design (main-app-only in v1) — see CLAUDE.md.
+    /// Phase definitions and current position, carried in versioned share links/CloudKit.
+    /// The Watch intentionally retains only the flattened current-phase mirror.
     var sequence: SequenceInfo?
     /// Non-nil only for a sequence-owning payload created with "Start later" — the
     /// picked start date/time for phase 0. Sequence-only, same as `sequence` itself
-    /// (absent from share links/CloudKit/watch by design) — `endDate` is computed at
+    /// (shared through links and CloudKit) — `endDate` is computed at
     /// creation time from this same as any other far-future endDate, so scheduling
     /// (AlarmKit/NotificationScheduler) needs no changes at all: this field is purely
     /// derived display state, never mutated after creation. `isPending(at:)` is the only
@@ -97,8 +98,10 @@ struct TimerPayload: Codable, Identifiable {
     /// the recipient already has, but only when it's actually newer (see
     /// `shouldAdopt(_:)`). nil = unknown (older stored data/links, CloudKit records).
     var updatedAt: Date?
+    /// Annual date/time anchor; absent on all older countdowns. Mutually exclusive with sequence.
+    var recurrence: AnnualRecurrence?
 
-    init(id: String = UUID().uuidString, label: String, duration: TimeInterval, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true, sequence: SequenceInfo? = nil, scheduledStartDate: Date? = nil) {
+    init(id: String = UUID().uuidString, label: String, duration: TimeInterval, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true, sequence: SequenceInfo? = nil, scheduledStartDate: Date? = nil, recurrence: AnnualRecurrence? = nil) {
         self.id = id
         self.label = label
         self.duration = duration
@@ -109,10 +112,11 @@ struct TimerPayload: Codable, Identifiable {
         self.vibrationEnabled = vibrationEnabled
         self.sequence = sequence
         self.scheduledStartDate = scheduledStartDate
+        self.recurrence = recurrence
         self.updatedAt = Date()
     }
 
-    init(id: String, label: String, endDate: Date, duration: TimeInterval, pausedRemaining: TimeInterval? = nil, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true, sequence: SequenceInfo? = nil, scheduledStartDate: Date? = nil, updatedAt: Date? = nil) {
+    init(id: String, label: String, endDate: Date, duration: TimeInterval, pausedRemaining: TimeInterval? = nil, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true, sequence: SequenceInfo? = nil, scheduledStartDate: Date? = nil, updatedAt: Date? = nil, recurrence: AnnualRecurrence? = nil) {
         self.id = id
         self.label = label
         self.endDate = endDate
@@ -124,10 +128,11 @@ struct TimerPayload: Codable, Identifiable {
         self.sequence = sequence
         self.scheduledStartDate = scheduledStartDate
         self.updatedAt = updatedAt
+        self.recurrence = recurrence
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, label, endDate, duration, pausedRemaining, kind, alarmEnabled, vibrationEnabled, sequence, scheduledStartDate, updatedAt
+        case id, label, endDate, duration, pausedRemaining, kind, alarmEnabled, vibrationEnabled, sequence, scheduledStartDate, updatedAt, recurrence
     }
 
     init(from decoder: Decoder) throws {
@@ -154,6 +159,10 @@ struct TimerPayload: Codable, Identifiable {
         scheduledStartDate = try container.decodeIfPresent(Date.self, forKey: .scheduledStartDate)
         // Brand new field — absent means "unknown", which never beats a known stamp.
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+        recurrence = try container.decodeIfPresent(AnnualRecurrence.self, forKey: .recurrence)
+        if let recurrence, (!recurrence.isValid || kind != .countdown || sequence != nil) {
+            throw DecodingError.dataCorruptedError(forKey: .recurrence, in: container, debugDescription: "Invalid annual countdown")
+        }
     }
 
     /// Whether `incoming` (e.g. the snapshot in a re-opened share link) should replace
@@ -234,6 +243,39 @@ struct TimerPayload: Codable, Identifiable {
         return copy
     }
 
+    /// The Edit sheet's change: rename, flip the Alarm/Vibrate toggles, and (countdowns
+    /// only, not while paused) move the target date. Sequences are never edited — their
+    /// label/toggles are the current phase's projection — so they come back unchanged.
+    /// A target date within 1s of the current `endDate` counts as unchanged, so an edit
+    /// that only renames an annual countdown can't re-anchor it from a clamped
+    /// occurrence (Feb 29 shown as Feb 28, or a DST-shifted time).
+    /// The countdown keeps its original start (`endDate - duration`, never later than
+    /// now) and only `duration` grows/shrinks, so the progress ring still means "elapsed
+    /// since created" — and a changed `duration` keeps the recipient's extend banner
+    /// (AppDelegate.notifyIfExtended) from announcing an edit as an extend.
+    func edited(label newLabel: String, alarmEnabled: Bool, vibrationEnabled: Bool,
+                targetDate: Date? = nil, at date: Date = Date()) -> TimerPayload {
+        guard sequence == nil else { return self }
+        var copy = self
+        let trimmed = newLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { copy.label = trimmed }
+        copy.alarmEnabled = alarmEnabled
+        copy.vibrationEnabled = vibrationEnabled
+        if kind == .countdown, !isPaused, let targetDate, abs(targetDate.timeIntervalSince(endDate)) >= 1 {
+            let start = min(endDate.addingTimeInterval(-duration), date)
+            var end = max(targetDate, date)
+            if let recurrence {
+                let anchor = AnnualRecurrence(date: targetDate, timeZone: TimeZone(identifier: recurrence.timeZoneID) ?? .current)
+                copy.recurrence = anchor
+                end = targetDate > date ? targetDate : (anchor.nextDate(after: date) ?? end)
+            }
+            copy.endDate = end
+            copy.duration = max(1, end.timeIntervalSince(start))
+        }
+        copy.updatedAt = date
+        return copy
+    }
+
     /// Restart a finished timer/countdown in place — same id, label and original
     /// `duration`, running again from now. Keeps the CloudLink and any shared link valid.
     /// For a sequence-owning payload, restarts the whole sequence at phase 0/loop 0
@@ -250,6 +292,9 @@ struct TimerPayload: Codable, Identifiable {
             copy.vibrationEnabled = first.vibrationEnabled
             copy.endDate = date.addingTimeInterval(first.duration)
             copy.sequence = seq
+        } else if let recurrence, let next = recurrence.nextDate(after: date) {
+            copy.endDate = next
+            copy.duration = max(1, next.timeIntervalSince(date))
         } else {
             copy.endDate = date.addingTimeInterval(duration)
         }
@@ -269,7 +314,7 @@ struct TimerPayload: Codable, Identifiable {
     /// reopening after missing several whole phases still lands on the right one.
     /// No-op for a plain (non-sequence) payload, a paused one, or one not yet expired.
     func advancedSequence(at date: Date = Date()) -> TimerPayload {
-        guard var seq = sequence, !seq.phases.isEmpty else { return self }
+        guard var seq = sequence, !seq.phases.isEmpty else { return advancedRecurrence(at: date) }
         var copy = self
         // Bounded by index (phases.count * loopCount), not by the clock, so a
         // malformed zero/negative-duration phase can never spin this forever.
@@ -388,8 +433,7 @@ struct TimerPayload: Codable, Identifiable {
     }
 
     /// Builds a sequence-owning payload (Pomodoro/Intermittent-Fasting style) from a
-    /// preset's phase list + loop count. Main-app-only in v1 — never round-tripped
-    /// through `url()`/`from(url:)` or CloudKit, so no back-compat concerns here.
+    /// preset's phase list + loop count. Links and CloudKit preserve the full sequence.
     /// `startDate` in the past (or omitted) means "start now" -- same clamp as `compose`.
     static func composeSequence(label: String, phases: [SequencePhase], loopCount: Int, startDate: Date? = nil) -> TimerPayload {
         precondition(!phases.isEmpty, "a sequence needs at least one phase")
@@ -450,6 +494,16 @@ struct TimerPayload: Codable, Identifiable {
         if let updatedAt {
             items.append(URLQueryItem(name: "upd", value: String(updatedAt.timeIntervalSince1970)))
         }
+        if let sequence, let data = TimerSequenceWire.encode(sequence),
+           let json = String(data: data, encoding: .utf8) {
+            items.append(URLQueryItem(name: "seq", value: json))
+            if let scheduledStartDate {
+                items.append(URLQueryItem(name: "start", value: String(scheduledStartDate.timeIntervalSince1970)))
+            }
+        }
+        if let recurrence, let data = AnnualRecurrence.encode(recurrence), let json = String(data: data, encoding: .utf8) {
+            items.append(URLQueryItem(name: "annual", value: json))
+        }
         components.queryItems = items
         return components.url!
     }
@@ -458,10 +512,10 @@ struct TimerPayload: Codable, Identifiable {
         guard let url,
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let items = components.queryItems,
-              let id = items.first(where: { $0.name == "id" })?.value,
+              let id = items.first(where: { $0.name == "id" })?.value, !id.isEmpty, id.utf8.count <= 512,
               let label = items.first(where: { $0.name == "label" })?.value,
               let endString = items.first(where: { $0.name == "end" })?.value,
-              let endInterval = Double(endString) else {
+              let endInterval = Double(endString), endInterval.isFinite, abs(endInterval) <= 253_402_300_799 else {
             return nil
         }
         let endDate = Date(timeIntervalSince1970: endInterval)
@@ -476,10 +530,28 @@ struct TimerPayload: Codable, Identifiable {
         // old link can't default to it. "1" turns it on; anything else (including "0"
         // or absent) is off.
         let vibrationEnabled = items.first(where: { $0.name == "vib" })?.value == "1"
-        // "Start later" is sequence-only and sequences are never shared -- a shared
-        // link's payload is never pending, same as it's never sequence-owning.
-        let updatedAt = items.first(where: { $0.name == "upd" })?.value.flatMap(Double.init).map(Date.init(timeIntervalSince1970:))
-        return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled, updatedAt: updatedAt)
+        guard duration.isFinite, duration > 0, duration <= 1_000_000_000_000,
+              pausedRemaining.map({ $0.isFinite && $0 >= 0 && $0 <= 1_000_000_000_000 }) ?? true else { return nil }
+        var sequence: SequenceInfo?
+        if let item = items.first(where: { $0.name == "seq" }) {
+            guard let json = item.value, let decoded = TimerSequenceWire.decode(Data(json.utf8)) else { return nil }
+            sequence = decoded
+        }
+        var recurrence: AnnualRecurrence?
+        if let item = items.first(where: { $0.name == "annual" }) {
+            guard kind == .countdown, sequence == nil, let json = item.value,
+                  let value = AnnualRecurrence.decode(Data(json.utf8)) else { return nil }
+            recurrence = value
+        }
+        var start: Date?
+        if sequence != nil, let value = items.first(where: { $0.name == "start" })?.value {
+            guard let seconds = Double(value), seconds.isFinite, abs(seconds) <= 253_402_300_799 else { return nil }
+            start = Date(timeIntervalSince1970: seconds)
+            // A scheduled sequence starts at phase zero, running (not paused).
+            if start! > Date(), (sequence!.loopIndex != 0 || sequence!.phaseIndex != 0 || pausedRemaining != nil) { return nil }
+        }
+        let updatedAt = items.first(where: { $0.name == "upd" })?.value.flatMap(Double.init).flatMap { $0.isFinite && abs($0) <= 253_402_300_799 ? Date(timeIntervalSince1970: $0) : nil }
+        return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled, sequence: sequence, scheduledStartDate: start, updatedAt: updatedAt, recurrence: recurrence).advancedSequence()
     }
 }
 

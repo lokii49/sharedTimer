@@ -3,15 +3,22 @@
 //  sharedTimer
 //
 
+import AppIntents
+import CoreSpotlight
 import SwiftUI
 import UIKit
 
 struct ContentView: View {
+    @State private var navigationPath: [String] = []
     @State private var timers: [TimerPayload] = TimerStore.loadAll()
-    @State private var showingNewTimer = false
     @State private var showingNewSequence = false
-    @State private var pendingNewTimerKind: TimerKind = .timer
+    @State private var pendingNewTimerKind: TimerKind?
     @State private var sharingPayload: TimerPayload?
+    @State private var editingPayload: TimerPayload?
+    @State private var showingWhatsNew = false
+    /// Set by any deep link (URL, Spotlight, Quick Action) this launch: the person came
+    /// for something specific, so the What's New tour stays out of the way.
+    @State private var deepLinkArrived = false
     @State private var incomingPayload: TimerPayload?
     @State private var showingNamePrompt = false
     @State private var nameInput: String = ""
@@ -31,7 +38,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 Group {
                     if timers.isEmpty {
@@ -82,19 +89,24 @@ struct ContentView: View {
                     checkForNewlyExpired(at: date)
                 }
             }
+            .navigationDestination(for: String.self) { timerID in
+                if let payload = timers.first(where: { $0.id == timerID }) {
+                    TimerDetailView(payload: payload, onUpdate: applyMutation, onSequenceAdvance: { apply($0, action: "sequenceAdvanced", rearm: $1) }, onDelete: delete, onShare: { payload in withDisplayName { sharingPayload = payload } })
+                } else {
+                    ContentUnavailableView("Timer unavailable", systemImage: "timer", description: Text("This timer has been deleted or has expired."))
+                }
+            }
             .navigationTitle("Timers")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
                             pendingNewTimerKind = .timer
-                            showingNewTimer = true
                         } label: {
                             Label("New Timer", systemImage: "timer")
                         }
                         Button {
                             pendingNewTimerKind = .countdown
-                            showingNewTimer = true
                         } label: {
                             Label("New Countdown", systemImage: "calendar")
                         }
@@ -105,12 +117,18 @@ struct ContentView: View {
                         }
                     } label: {
                         Image(systemName: "plus")
+                            .accessibilityLabel("New")
                     }
                 }
             }
-            .sheet(isPresented: $showingNewTimer) {
-                NewTimerSheet(initialKind: pendingNewTimerKind) { payload in
+            .sheet(item: $pendingNewTimerKind) { kind in
+                NewTimerSheet(initialKind: kind) { payload in
                     startNew(payload)
+                }
+            }
+            .sheet(item: $editingPayload) { payload in
+                EditTimerSheet(payload: payload) { edited in
+                    applyEdit(edited)
                 }
             }
             .sheet(isPresented: $showingNewSequence) {
@@ -123,7 +141,10 @@ struct ContentView: View {
                 // app already running, so this subscriber exists when SceneDelegate posts.
                 // Cold launch is handled separately in .onAppear (see openQuickAction).
                 guard let type = notification.object as? String else { return }
-                openQuickAction(type)
+                afterWhatsNewYields { openQuickAction(type) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .spotlightTimerOpened)) { notification in
+                if let identifier = notification.object as? String { afterWhatsNewYields { openSpotlightTimer(identifier) } }
             }
             .onReceive(NotificationCenter.default.publisher(for: .externalTimerStoreChange)) { _ in
                 // Watch-relayed mutation or CloudKit silent push landed while this view
@@ -150,7 +171,7 @@ struct ContentView: View {
                 AddSharedTimerSheet(
                     payload: payload,
                     onAdd: { accepted in
-                        apply(accepted)
+                        apply(accepted.advancedSequence())
                         incomingPayload = nil
                     },
                     onDismiss: { incomingPayload = nil }
@@ -179,14 +200,20 @@ struct ContentView: View {
                 alarmBanner
             }
         }
+        .onChange(of: TimerChoiceQuery.choices(from: timers)) { _, _ in
+            TimerShortcuts.updateAppShortcutParameters()
+            TimerSpotlightIndex.shared.requestRefresh()
+        }
         .onAppear {
+            TimerShortcuts.updateAppShortcutParameters()
+            TimerSpotlightIndex.shared.requestRefresh()
             timers = TimerStore.loadAll()
             // Re-derive every sequence's current phase from scratch before anything
             // else touches `timers` — correct no matter how long the app was closed
             // (even having missed several whole phases), and must run before
             // reconcileRepeat so a legitimately mid-sequence payload never reaches it
             // still reading as merely "finished" (see AlarmController.reconcileRepeat).
-            for index in timers.indices where timers[index].sequence != nil {
+            for index in timers.indices where timers[index].sequence != nil || timers[index].recurrence != nil {
                 let advanced = timers[index].advancedSequence()
                 if advanced.endDate != timers[index].endDate || advanced.sequence?.phaseIndex != timers[index].sequence?.phaseIndex {
                     timers[index] = advanced
@@ -205,6 +232,14 @@ struct ContentView: View {
             RecentTimersStore.seedIfNeeded(from: timers)
             RecentTimersSync.refresh()
             pullCloudChanges()
+            if SceneDelegate.pendingSpotlightIdentifier != nil || SceneDelegate.pendingShortcutType != nil {
+                deepLinkArrived = true
+            }
+            presentWhatsNewIfNeeded()
+            if let identifier = SceneDelegate.pendingSpotlightIdentifier {
+                SceneDelegate.pendingSpotlightIdentifier = nil
+                openSpotlightTimer(identifier)
+            }
             // Cold-launch Quick Action: SceneDelegate's willConnectTo runs before this
             // .onAppear (and before .onReceive's subscriber exists), so it buffers the
             // shortcut type in a static var instead of posting — drain it here.
@@ -226,6 +261,7 @@ struct ContentView: View {
                 vibration.stop()
             }
             guard newPhase == .active else { return }
+            TimerSpotlightIndex.shared.requestRefresh()
             // Re-read TimerStore first — a timer created while backgrounded (e.g. via
             // TimerIntents.swift's Siri intents) writes straight to the App Group and has
             // no CloudLink, so pullCloudChanges alone would never surface it here.
@@ -233,7 +269,7 @@ struct ContentView: View {
             // Same sequence re-derivation as onAppear, and for the same reason: must
             // run before reconcileRepeat, since a mid-sequence payload sitting
             // un-advanced also reads as `isFinished`.
-            for index in timers.indices where timers[index].sequence != nil {
+            for index in timers.indices where timers[index].sequence != nil || timers[index].recurrence != nil {
                 let advanced = timers[index].advancedSequence()
                 if advanced.endDate != timers[index].endDate || advanced.sequence?.phaseIndex != timers[index].sequence?.phaseIndex {
                     timers[index] = advanced
@@ -254,6 +290,7 @@ struct ContentView: View {
                 }
                 WatchSyncController.pushCurrentState()
             }
+            for payload in timers where payload.recurrence != nil { armAlerts(for: payload) }
             pullCloudChanges()
             // Opportunistic Live Activity keep-alive: there's no server here to push a
             // periodic refresh while the app isn't running, so a multi-day countdown's
@@ -265,11 +302,57 @@ struct ContentView: View {
             LiveActivityController.endFinished(timers.filter { !AlarmController.ownsAlert(for: $0) })
         }
         .onOpenURL { url in
-            handleIncoming(url: url)
+            afterWhatsNewYields {
+                if let timerID = TimerAppLink.timerID(from: url) {
+                    openTimerDetails(timerID)
+                } else {
+                    handleIncoming(url: url)
+                }
+            }
+        }
+        .onContinueUserActivity(CSSearchableItemActionType) { activity in
+            if let identifier = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String {
+                afterWhatsNewYields { openSpotlightTimer(identifier) }
+            }
         }
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
-            handleIncoming(url: activity.webpageURL)
+            afterWhatsNewYields { handleIncoming(url: activity.webpageURL) }
         }
+        .fullScreenCover(isPresented: $showingWhatsNew) {
+            WhatsNewView { showingWhatsNew = false }
+        }
+    }
+
+    /// A deep link beats the What's New tour: suppress it if it hasn't appeared yet, or
+    /// dismiss it first — presenting a sheet while the cover is still up (or on its way
+    /// down) silently drops the sheet.
+    private func afterWhatsNewYields(_ action: @escaping () -> Void) {
+        deepLinkArrived = true
+        guard showingWhatsNew else { return action() }
+        showingWhatsNew = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: action)
+    }
+
+    /// Cold launch only (onAppear). Waits a beat so a link delivered right after
+    /// launch can claim the screen first; the version is marked seen either way.
+    private func presentWhatsNewIfNeeded() {
+        guard WhatsNew.consumeLaunchPresentation() else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            if !deepLinkArrived { showingWhatsNew = true }
+        }
+    }
+
+    private func openSpotlightTimer(_ identifier: String) {
+        guard let timerID = TimerSpotlightIndex.timerID(from: identifier) else { return }
+        openTimerDetails(timerID)
+    }
+
+    private func openTimerDetails(_ timerID: String) {
+        timers = TimerStore.loadAll()
+        // Show the unavailable destination for a stale deleted result; never import
+        // or recreate a timer from search metadata.
+        navigationPath = [timerID]
+        TimerSpotlightIndex.shared.requestRefresh()
     }
 
     /// The empty room holds one deep-night sky, waiting.
@@ -340,6 +423,7 @@ struct ContentView: View {
         // withheld while pending, and without this it would only appear on the next
         // background/foreground cycle.
         let justStarted = timers.filter { pendingIDs.contains($0.id) && !$0.isPending(at: date) }
+        if !justStarted.isEmpty { TimerSpotlightIndex.shared.requestRefresh() }
         pendingIDs = Set(timers.filter { $0.isPending(at: date) }.map(\.id))
         for payload in justStarted where !AlarmController.ownsAlert(for: payload) {
             LiveActivityController.start(for: payload)
@@ -380,9 +464,9 @@ struct ContentView: View {
         // `advancedSequence` derives, and touching AlarmKit from this tick is what used
         // to cancel the just-presented alert out from under the user (confirmed on
         // device, back when every phase shared one alarm id).
-        for payload in finished where payload.sequence != nil {
+        for payload in finished where payload.sequence != nil || payload.recurrence != nil {
             let advanced = payload.advancedSequence(at: date)
-            apply(advanced, action: "sequenceAdvanced", rearm: !AlarmController.alarmKitOwnsAlert(for: payload))
+            apply(advanced, action: "sequenceAdvanced", rearm: payload.recurrence != nil || !AlarmController.alarmKitOwnsAlert(for: payload))
             if !advanced.isExpired {
                 armedIDs.insert(advanced.id)
             }
@@ -394,9 +478,7 @@ struct ContentView: View {
             // Hidden NavigationLink behind the card: a visible one draws the gray
             // disclosure chevron outside the sky, which breaks the full-bleed card.
             .background(
-                NavigationLink("") {
-                    TimerDetailView(payload: payload, onUpdate: applyMutation, onSequenceAdvance: { apply($0, action: "sequenceAdvanced", rearm: $1) }, onDelete: delete)
-                }
+                NavigationLink("", value: payload.id)
                 .opacity(0)
             )
         .listRowBackground(Color.clear)
@@ -448,13 +530,18 @@ struct ContentView: View {
             }
         }
         .contextMenu {
-            // Sequences aren't shareable in v1 — a recipient would only get a
-            // one-off snapshot of whichever phase happened to be current. See CLAUDE.md.
-            if payload.sequence == nil {
+            if payload.sequence.map(TimerSequenceWire.isValid) ?? true {
                 Button {
                     withDisplayName { sharingPayload = payload }
                 } label: {
                     Label("Share…", systemImage: "square.and.arrow.up")
+                }
+            }
+            if payload.sequence == nil {
+                Button {
+                    editingPayload = payload
+                } label: {
+                    Label("Edit…", systemImage: "pencil")
                 }
             }
             if payload.isFinished {
@@ -550,6 +637,16 @@ struct ContentView: View {
         applyMutation(payload.repeated(), action: "repeated")
     }
 
+    /// Edit sheet save. A countdown moved from finished to a future date is running
+    /// again — silence its in-app alert first (needs the pre-edit, finished copy still
+    /// in `timers`), the same cleanup `repeatTimer` does.
+    private func applyEdit(_ edited: TimerPayload) {
+        if timers.first(where: { $0.id == edited.id })?.isFinished == true && !edited.isFinished {
+            stopInAppAlertIfRinging(for: edited.id)
+        }
+        applyMutation(edited, action: "edited")
+    }
+
     /// "Start Now" on a pending sequence -- reuses `repeated(at:)` rather than adding a
     /// new model function: a pending sequence is already sitting at phase 0/loop 0
     /// (never advanced or stepped), so "reset to phase 0/loop 0, endDate = now +
@@ -602,7 +699,9 @@ struct ContentView: View {
         if rearm {
             armAlerts(for: updated)
         }
-        CloudSyncController.pushUp(updated, action: action)
+        // Advancing by the clock is a projection of the same shared schedule, not
+        // a user mutation. Pushing it could overwrite a remote pause/step/extend.
+        if action != "sequenceAdvanced" { CloudSyncController.pushUp(updated, action: action) }
         WatchSyncController.pushCurrentState()
         if let index = timers.firstIndex(where: { $0.id == updated.id }) {
             timers[index] = updated
@@ -632,7 +731,6 @@ struct ContentView: View {
         case "newCountdown": pendingNewTimerKind = .countdown
         default: return
         }
-        showingNewTimer = true
     }
 
     /// Universal link / App Clip handoff into the full app. A timer already in the local
@@ -676,7 +774,10 @@ struct ContentView: View {
                     // Already added (e.g. re-tapping the link after accepting once, or
                     // the sender re-opening their own link) — refresh in place instead of
                     // resurfacing a sheet that's already been dismissed.
-                    apply(authoritative)
+                    TimerStore.save(authoritative)
+                    armAlerts(for: authoritative)
+                    if let index = timers.firstIndex(where: { $0.id == authoritative.id }) { timers[index] = authoritative }
+                    WatchSyncController.pushCurrentState()
                 }
             }
         }

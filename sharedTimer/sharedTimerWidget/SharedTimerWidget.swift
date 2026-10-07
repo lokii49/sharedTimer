@@ -65,36 +65,6 @@ func nextRefresh(for payload: TimerPayload?) -> Date {
 
 // MARK: - Configurable single-timer widget
 
-/// Lightweight `AppEntity` wrapper so the widget-configuration UI can list timers by name;
-/// only carries what the picker needs, not the full `TimerPayload`.
-struct TimerChoice: AppEntity {
-    let id: String
-    let label: String
-
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Timer"
-    static var defaultQuery = TimerChoiceQuery()
-
-    var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "\(label)")
-    }
-}
-
-struct TimerChoiceQuery: EntityQuery {
-    func entities(for identifiers: [TimerChoice.ID]) async throws -> [TimerChoice] {
-        let all = TimerStore.loadAll()
-        return identifiers.compactMap { id in
-            all.first { $0.id == id }.map { TimerChoice(id: $0.id, label: $0.label) }
-        }
-    }
-
-    func suggestedEntities() async throws -> [TimerChoice] {
-        TimerStore.loadAll()
-            .filter { !$0.isExpired }
-            .sorted { $0.endDate < $1.endDate }
-            .map { TimerChoice(id: $0.id, label: $0.label) }
-    }
-}
-
 struct SelectTimerIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Choose Timer"
     static var description = IntentDescription("Pick which timer or countdown this widget shows.")

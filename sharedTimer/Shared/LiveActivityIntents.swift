@@ -166,3 +166,16 @@ struct EndSequenceIntent: LiveActivityIntent {
         return .result()
     }
 }
+
+/// Explicitly skip this anniversary, leaving the yearly series enabled.
+struct AdvanceAnnualCountdownIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Next Anniversary"
+    @Parameter(title: "Timer ID") var timerID: String
+    @Parameter(title: "Occurrence End") var occurrenceEnd: Double
+    init() { timerID = ""; occurrenceEnd = 0 }
+    init(timerID: String, occurrenceEnd: Double) { self.timerID = timerID; self.occurrenceEnd = occurrenceEnd }
+    func perform() async throws -> some IntentResult {
+        await LiveActivityActions.advanceAnnual(timerID: timerID, occurrenceEnd: occurrenceEnd)
+        return .result()
+    }
+}

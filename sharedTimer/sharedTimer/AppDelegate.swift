@@ -23,6 +23,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         application.registerForRemoteNotifications()
         CloudSyncController.registerSubscriptionsIfNeeded()
         WatchSyncController.activate()
+        TimerSpotlightIndex.shared.start()
         // Ask for AlarmKit permission now so the prompt isn't racing the first
         // .timer's schedule call (see AlarmController).
         AlarmController.requestAuthorizationIfNeeded()
@@ -182,7 +183,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         defer { completionHandler() }
-        let id = response.notification.request.identifier
+        let id = (response.notification.request.content.userInfo["timerID"] as? String) ?? response.notification.request.identifier
         guard response.notification.request.content.categoryIdentifier == NotificationScheduler.vibrationFinishCategoryID,
               let payload = TimerStore.loadAll().first(where: { $0.id == id }) else { return }
 

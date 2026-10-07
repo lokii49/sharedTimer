@@ -14,19 +14,22 @@ struct TimerDetailView: View {
     /// The tick's own sequence advance — (payload, rearm). See ContentView.apply.
     let onSequenceAdvance: (TimerPayload, Bool) -> Void
     let onDelete: (TimerPayload) -> Void
+    let onShare: (TimerPayload) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var participantCount: Int?
     @State private var attribution: (name: String, action: String)?
     @State private var hasBuzzedFinish = false
+    @State private var showingEdit = false
     @ObservedObject private var alarm = AlarmPlayer.shared
     @ObservedObject private var vibration = VibrationPlayer.shared
 
-    init(payload: TimerPayload, onUpdate: @escaping (TimerPayload, String) -> Void, onSequenceAdvance: @escaping (TimerPayload, Bool) -> Void, onDelete: @escaping (TimerPayload) -> Void) {
+    init(payload: TimerPayload, onUpdate: @escaping (TimerPayload, String) -> Void, onSequenceAdvance: @escaping (TimerPayload, Bool) -> Void, onDelete: @escaping (TimerPayload) -> Void, onShare: @escaping (TimerPayload) -> Void) {
         self._payload = State(initialValue: payload)
         self.onUpdate = onUpdate
         self.onSequenceAdvance = onSequenceAdvance
         self.onDelete = onDelete
+        self.onShare = onShare
     }
 
     var body: some View {
@@ -77,6 +80,10 @@ struct TimerDetailView: View {
                         Text(subtitle(done: done, pending: pending))
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.75))
+                        if let recurrence = payload.recurrence {
+                            Text("Repeats yearly · \(recurrence.timeZoneID)")
+                                .font(.caption).foregroundStyle(.white.opacity(0.75))
+                        }
                         if let statusLine {
                             Text(statusLine)
                                 .font(.caption)
@@ -124,6 +131,14 @@ struct TimerDetailView: View {
                         }
                     }
 
+                    if payload.recurrence != nil {
+                        Button("Next Year") {
+                            Task { await LiveActivityActions.advanceAnnual(timerID: payload.id, occurrenceEnd: payload.endDate.timeIntervalSince1970) }
+                        }
+                        .buttonStyle(.glassPill)
+                        .padding(.top, 12)
+                    }
+
                     Button {
                         onDelete(payload)
                         dismiss()
@@ -165,9 +180,9 @@ struct TimerDetailView: View {
                 // as there while AlarmKit owns the alert (see
                 // AlarmController.alarmKitOwnsAlert): the next phases are pre-armed, and
                 // touching AlarmKit here could race the alert it's presenting.
-                if payload.sequence != nil {
+                if payload.sequence != nil || payload.recurrence != nil {
                     let advanced = payload.advancedSequence()
-                    let rearm = !AlarmController.alarmKitOwnsAlert(for: payload)
+                    let rearm = payload.recurrence != nil || !AlarmController.alarmKitOwnsAlert(for: payload)
                     payload = advanced
                     onSequenceAdvance(advanced, rearm)
                     // Not exhausted -> a new phase just started and can finish again
@@ -179,13 +194,26 @@ struct TimerDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
-            // Sequences aren't shareable in v1 — see the row context-menu's identical gate.
             if payload.sequence == nil {
                 ToolbarItem(placement: .topBarTrailing) {
-                    ShareLink(item: payload.url()) {
+                    Button { showingEdit = true } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .accessibilityLabel("Edit")
+                }
+            }
+            if payload.sequence.map(TimerSequenceWire.isValid) ?? true {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { onShare(payload) } label: {
                         Image(systemName: "square.and.arrow.up")
                     }
+                    .accessibilityLabel("Share")
                 }
+            }
+        }
+        .sheet(isPresented: $showingEdit) {
+            EditTimerSheet(payload: payload) { edited in
+                applyEdit(edited)
             }
         }
         .onAppear {
@@ -238,6 +266,18 @@ struct TimerDetailView: View {
     private func extend(by interval: TimeInterval) {
         payload = payload.extended(by: interval)
         onUpdate(payload, "extended")
+    }
+
+    /// A countdown moved to a future date is running again: silence the finished
+    /// alert and let its new zero-crossing buzz, same as `repeatTimer`.
+    private func applyEdit(_ edited: TimerPayload) {
+        if payload.isFinished && !edited.isFinished {
+            alarm.stop()
+            vibration.stop()
+            hasBuzzedFinish = false
+        }
+        payload = edited
+        onUpdate(edited, "edited")
     }
 
     /// Restart a finished timer from its detail screen — stop any in-app alarm loop,

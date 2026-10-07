@@ -17,5 +17,8 @@ struct sharedTimerWatch_Watch_AppApp: App {
         WindowGroup {
             ContentView()
         }
+        .backgroundTask(.watchConnectivity) {
+            await WatchSyncController.shared.refreshInBackground()
+        }
     }
 }

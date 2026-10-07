@@ -12,6 +12,9 @@ struct NewTimerSheet: View {
     @State private var kind: TimerKind
     @State private var minutes: Double = 5
     @State private var targetDate: Date = Date().addingTimeInterval(86400)
+    @State private var repeatsYearly = false
+    @State private var countdownTimeZone = TimeZone.current
+    @State private var showingCalendarImport = false
     @State private var alarmEnabled = true
     @State private var vibrationEnabled = true
     @FocusState private var labelFocused: Bool
@@ -26,7 +29,15 @@ struct NewTimerSheet: View {
 
     /// Live preview of the sky this timer will get.
     private var previewPayload: TimerPayload {
-        TimerPayload.compose(label: label.isEmpty ? (kind == .timer ? "Timer" : "Countdown") : label,
+        composedPayload
+    }
+
+    private var composedPayload: TimerPayload {
+        if kind == .countdown && repeatsYearly {
+            return TimerPayload.composeAnnual(label: label, targetDate: targetDate, timeZone: countdownTimeZone,
+                                              alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
+        }
+        return TimerPayload.compose(label: label.isEmpty ? (kind == .timer ? "Timer" : "Countdown") : label,
                              kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
     }
 
@@ -75,6 +86,19 @@ struct NewTimerSheet: View {
                         .listRowBackground(Color.clear)
                 }
 
+                if kind == .countdown {
+                    Section {
+                        Button { showingCalendarImport = true } label: {
+                            Label("Import from Calendar", systemImage: "calendar")
+                        }
+                        Toggle("Repeat yearly", isOn: $repeatsYearly).tint(kind.accentColor)
+                    } footer: {
+                        if repeatsYearly {
+                            Text("Repeats at this date and time in \(countdownTimeZone.identifier). February 29 uses February 28 in non-leap years. Open Timer each year to keep future reminders scheduled.")
+                        }
+                    }
+                }
+
                 TimerFieldsView(
                     label: $label,
                     kind: $kind,
@@ -83,8 +107,17 @@ struct NewTimerSheet: View {
                     alarmEnabled: $alarmEnabled,
                     vibrationEnabled: $vibrationEnabled,
                     labelFocused: $labelFocused,
-                    kindLocked: true
+                    kindLocked: true, yearlyCountdown: repeatsYearly && kind == .countdown
                 )
+                .environment(\.timeZone, countdownTimeZone)
+            }
+            .sheet(isPresented: $showingCalendarImport) {
+                CalendarImportSheet { choice in
+                    label = choice.title
+                    targetDate = choice.date
+                    countdownTimeZone = choice.timeZone
+                    repeatsYearly = choice.repeatsYearly
+                }
             }
             .scrollContentBackground(.hidden)
             .background(Sky.room)
@@ -96,7 +129,7 @@ struct NewTimerSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Start") {
-                        onCreate(TimerPayload.compose(label: label, kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled))
+                        onCreate(composedPayload)
                         dismiss()
                     }
                     .fontWeight(.semibold)

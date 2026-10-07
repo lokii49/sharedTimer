@@ -26,8 +26,17 @@ enum NotificationScheduler {
     /// timers would fire the same alert N times.
     private static var hasReportedDenial = false
 
-    static func scheduleAlert(for payload: TimerPayload) {
-        guard !payload.isPaused else { return }
+    static let sequenceWindow = 8
+    private static let schedulingLock = NSLock()
+    private static var generations: [String: UUID] = [:]
+
+    static func scheduleAlert(for payload: TimerPayload, excludingSequenceIndices: Set<Int> = [], excludingAnnualDates: Set<Date> = []) {
+        cancel(id: payload.id)
+        guard !payload.isPaused, !requests(for: payload, excludingSequenceIndices: excludingSequenceIndices, excludingAnnualDates: excludingAnnualDates).isEmpty else { return }
+        let generation = UUID()
+        schedulingLock.lock()
+        generations[payload.id] = generation
+        schedulingLock.unlock()
         let center = UNUserNotificationCenter.current()
         // Check the *existing* status first: requestAuthorization's granted == false
         // covers both "already denied" and "just tapped Don't Allow on the prompt this
@@ -40,7 +49,7 @@ enum NotificationScheduler {
             }
             center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
                 guard granted else { return }
-                schedule(payload, center: center)
+                schedule(payload, generation: generation, excludingSequenceIndices: excludingSequenceIndices, excludingAnnualDates: excludingAnnualDates, center: center)
             }
         }
     }
@@ -54,32 +63,64 @@ enum NotificationScheduler {
         }
     }
 
-    static func cancel(id: String) {
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id])
+    static func requestIDs(id: String) -> [String] {
+        [id] + (0..<sequenceWindow).map { "\(id).phase.\($0)" }
     }
 
-    private static func schedule(_ payload: TimerPayload, center: UNUserNotificationCenter) {
-        guard payload.remaining > 0 else { return }
+    static func cancel(id: String) {
+        schedulingLock.lock()
+        defer { schedulingLock.unlock() }
+        generations.removeValue(forKey: id)
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: requestIDs(id: id))
+    }
 
-        let content = UNMutableNotificationContent()
-        content.title = payload.label
-        content.body = payload.kind == .countdown ? "Countdown complete!" : "Timer finished!"
-        // Alarm on -> the same loud tone as the foreground loop. Vibration-only (alarm
-        // off, vibration on) -> no sound at all, matching the silent AlarmKit path this
-        // is a fallback for. Both off -> the standard notification sound.
-        if payload.alarmEnabled {
-            content.sound = UNNotificationSound(named: UNNotificationSoundName("alarm.caf"))
-        } else if payload.vibrationEnabled {
-            content.sound = nil
+    /// Fixed slots keep cancellation bounded even when the current phase changes.
+    /// These requests work in Messages/Clip and as the main app's AlarmKit fallback.
+    static func requests(for payload: TimerPayload, at date: Date = Date(), excludingSequenceIndices: Set<Int> = [], excludingAnnualDates: Set<Date> = []) -> [UNNotificationRequest] {
+        let current = payload.advancedSequence(at: date)
+        guard !current.isPaused else { return [] }
+        let phases: [(SequencePhase, Date, Int?)]
+        if let recurrence = current.recurrence {
+            phases = current.upcomingAnnualDates(limit: 2, at: date).map {
+                (SequencePhase(label: current.label, kind: .countdown, duration: current.duration,
+                               alarmEnabled: current.alarmEnabled, vibrationEnabled: current.vibrationEnabled), $0, recurrence.year(of: $0))
+            }
+        } else if current.sequence != nil {
+            phases = current.upcomingSequencePhases(limit: sequenceWindow).map { ($0.phase, $0.endDate, $0.globalIndex) }
         } else {
-            content.sound = .default
+            phases = [(SequencePhase(label: current.label, kind: current.kind, duration: current.duration,
+                                     alarmEnabled: current.alarmEnabled, vibrationEnabled: current.vibrationEnabled), current.endDate, nil)]
         }
-        if !payload.alarmEnabled && payload.vibrationEnabled {
-            content.categoryIdentifier = vibrationFinishCategoryID
+        return phases.enumerated().compactMap { slot, occurrence in
+            let (phase, end, index) = occurrence
+            if current.recurrence != nil && excludingAnnualDates.contains(end) { return nil }
+            if current.sequence != nil, let index, excludingSequenceIndices.contains(index) { return nil }
+            let remaining = end.timeIntervalSince(date)
+            guard remaining > 0 else { return nil }
+            let content = UNMutableNotificationContent()
+            content.title = phase.label
+            content.body = current.recurrence != nil ? "Anniversary reached!" : index == nil ? (phase.kind == .countdown ? "Countdown complete!" : "Timer finished!") : "Sequence phase finished!"
+            content.userInfo["timerID"] = current.id
+            if let index { content.userInfo[current.recurrence != nil ? "annualYear" : "sequenceGlobalIndex"] = index }
+            if phase.alarmEnabled {
+                content.sound = UNNotificationSound(named: UNNotificationSoundName("alarm.caf"))
+            } else if phase.vibrationEnabled {
+                content.sound = nil
+                content.categoryIdentifier = vibrationFinishCategoryID
+            } else {
+                content.sound = .default
+            }
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, remaining), repeats: false)
+            let identifier = index == nil ? current.id : "\(current.id).phase.\(slot)"
+            return UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
         }
+    }
 
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, payload.remaining), repeats: false)
-        let request = UNNotificationRequest(identifier: payload.id, content: content, trigger: trigger)
-        center.add(request)
+    private static func schedule(_ payload: TimerPayload, generation: UUID, excludingSequenceIndices: Set<Int>, excludingAnnualDates: Set<Date>, center: UNUserNotificationCenter) {
+        let pending = requests(for: payload, excludingSequenceIndices: excludingSequenceIndices, excludingAnnualDates: excludingAnnualDates)
+        schedulingLock.lock()
+        defer { schedulingLock.unlock() }
+        guard generations[payload.id] == generation else { return }
+        for request in pending { center.add(request) }
     }
 }

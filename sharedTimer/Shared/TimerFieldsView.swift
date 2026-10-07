@@ -22,6 +22,13 @@ struct TimerFieldsView: View {
     /// is hidden instead (the navigation title already names the kind). Defaults false
     /// for the Messages compose sheet, which never pre-picks a kind.
     var kindLocked: Bool = false
+    var yearlyCountdown: Bool = false
+    /// False in the main app's Edit sheet: a running timer's time changes through
+    /// +1:00/Extend, so the length wheel and presets are hidden there.
+    var showsTimerLength: Bool = true
+    /// True when editing a paused countdown — moving the target of a paused countdown
+    /// has no meaning until it resumes (resume re-derives the end from the time left).
+    var targetDateDisabled: Bool = false
 
     private let presets: [Double] = [1, 3, 5, 10, 15, 30, 60]
     private let datePresets: [(String, TimeInterval)] = [
@@ -60,51 +67,62 @@ struct TimerFieldsView: View {
         }
 
         if kind == .timer {
-            Section {
-                HStack(spacing: 0) {
-                    wheelColumn(hoursBinding, range: 0...23, unit: "hours")
-                    wheelColumn(minutesBinding, range: 0...59, unit: "min")
-                    wheelColumn(secondsBinding, range: 0...59, unit: "sec")
-                }
-                .frame(height: 160)
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(presets, id: \.self) { m in
-                            Button("\(Int(m)) min") {
-                                minutes = m
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .tint(Int(minutes) == Int(m) ? kind.accentColor : nil)
-                        }
-                    }
-                }
-            } footer: {
-                Text("Ends at \(Date().addingTimeInterval(minutes * 60).formatted(date: .omitted, time: .shortened))")
+            if showsTimerLength {
+                timerLengthSection
             }
         } else {
-            Section {
-                DatePicker(
-                    "Target date",
-                    selection: $targetDate,
-                    in: Date()...,
-                    displayedComponents: [.date, .hourAndMinute]
-                )
+            countdownDateSection
+        }
+    }
 
+    private var timerLengthSection: some View {
+        Section {
+            HStack(spacing: 0) {
+                wheelColumn(hoursBinding, range: 0...23, unit: "hours")
+                wheelColumn(minutesBinding, range: 0...59, unit: "min")
+                wheelColumn(secondsBinding, range: 0...59, unit: "sec")
+            }
+            .frame(height: 160)
+
+            ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(datePresets, id: \.0) { title, offset in
-                        Button(title) {
-                            targetDate = Date().addingTimeInterval(offset)
+                    ForEach(presets, id: \.self) { m in
+                        Button("\(Int(m)) min") {
+                            minutes = m
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
+                        .tint(Int(minutes) == Int(m) ? kind.accentColor : nil)
                     }
                 }
-            } footer: {
-                Text("Counting down to \(TimeFormat.targetDate(targetDate))")
             }
+        } footer: {
+            Text("Ends at \(Date().addingTimeInterval(minutes * 60).formatted(date: .omitted, time: .shortened))")
         }
+    }
+
+    private var countdownDateSection: some View {
+        Section {
+            DatePicker(
+                "Target date",
+                selection: $targetDate,
+                in: Date()...,
+                displayedComponents: [.date, .hourAndMinute]
+            )
+
+            HStack(spacing: 8) {
+                ForEach(datePresets, id: \.0) { title, offset in
+                    Button(title) {
+                        targetDate = Date().addingTimeInterval(offset)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+        } footer: {
+            Text(targetDateDisabled ? "Resume to change the date." : "Counting down to \(TimeFormat.targetDate(targetDate))")
+        }
+        .disabled(targetDateDisabled)
     }
 
     /// Either toggle alone reaches AlarmKit's full-screen Stop/Repeat panel now — a
@@ -112,11 +130,12 @@ struct TimerFieldsView: View {
     /// alarm toggle picks the loud tone; vibration-only (alarm off) plays no audible
     /// sound (a silent asset), same full-screen/lock-screen presence either way.
     private var alarmFootnote: String {
+        let action = yearlyCountdown ? "Next Year" : "Repeat"
         if alarmEnabled {
-            return "Rings full-screen with Stop and Repeat, even when the app is closed or the phone is on silent."
+            return "Rings full-screen with Stop and \(action), even when the app is closed or the phone is on silent."
         }
         if vibrationEnabled {
-            return "Buzzes full-screen with Stop and Repeat, no sound, even when the app is closed or the phone is on silent."
+            return "Buzzes full-screen with Stop and \(action), no sound, even when the app is closed or the phone is on silent."
         }
         return "A quiet notification instead — no ringing."
     }

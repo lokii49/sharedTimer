@@ -11,6 +11,7 @@ import UIKit
 struct ShareTimerSheet: View {
     let payload: TimerPayload
     @Environment(\.dismiss) private var dismiss
+    @State private var preparedURL: URL?
 
     var body: some View {
         NavigationStack {
@@ -18,12 +19,16 @@ struct ShareTimerSheet: View {
                 SkyCard(payload: payload, date: Date())
                     .padding(.horizontal, 20)
 
-                ShareLink(item: payload.url()) {
-                    Label("Share Link", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity)
+                if let preparedURL {
+                    ShareLink(item: preparedURL) {
+                        Label("Share Link", systemImage: "square.and.arrow.up")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassPill)
+                    .padding(.horizontal, 20)
+                } else {
+                    ProgressView("Preparing link…")
                 }
-                .buttonStyle(.glassPill)
-                .padding(.horizontal, 20)
 
                 Spacer()
             }
@@ -37,6 +42,17 @@ struct ShareTimerSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .task {
+            let current = (TimerStore.loadAll().first { $0.id == payload.id } ?? payload).advancedSequence()
+            let shareURL: URL? = await withCheckedContinuation { continuation in
+                CloudSyncController.createShare(for: current) { continuation.resume(returning: $0) }
+            }
+            var components = URLComponents(url: current.url(), resolvingAgainstBaseURL: false)!
+            if let shareURL {
+                components.queryItems = (components.queryItems ?? []) + [URLQueryItem(name: "ckshare", value: shareURL.absoluteString)]
+            }
+            preparedURL = components.url ?? current.url()
+        }
     }
 }
 
@@ -54,10 +70,13 @@ struct AddSharedTimerSheet: View {
                     .padding(.horizontal, 20)
 
                 VStack(spacing: 6) {
-                    Text("Shared timer from a link")
+                    Text(payload.recurrence != nil ? "Shared yearly countdown from a link" : payload.sequence == nil ? "Shared timer from a link" : "Shared sequence from a link")
                         .font(.subheadline)
                         .foregroundStyle(Sky.roomInk)
-                    if payload.kind == .timer {
+                    if let sequence = payload.sequence {
+                        Text("\(sequence.phases.count) phases · \(sequence.loopCount) loops")
+                            .font(.footnote).foregroundStyle(Sky.roomInk)
+                    } else if payload.kind == .timer {
                         Text("Ends at \(payload.endDate.formatted(date: .omitted, time: .shortened))")
                             .font(.footnote)
                             .foregroundStyle(Sky.roomInk)

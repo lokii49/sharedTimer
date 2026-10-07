@@ -7,6 +7,7 @@ import SwiftUI
 import UIKit
 
 struct TimerRunningView: View {
+    static let storeChange = Notification.Name("SharedTimerMessagesStoreChange")
     @State private var payload: TimerPayload
     let onNewTimer: () -> Void
     let onUpdate: (TimerPayload, String) -> Void
@@ -30,6 +31,7 @@ struct TimerRunningView: View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let remaining = payload.remaining
             let done = payload.isExpired
+            let pending = payload.isPending(at: context.date)
 
             ZStack {
                 Sky.gradient(for: payload, at: context.date)
@@ -42,7 +44,12 @@ struct TimerRunningView: View {
                         Text(payload.label)
                             .skyLabel(12)
                             .foregroundStyle(.white.opacity(0.85))
-                        Text(TimeFormat.display(remaining))
+                        if payload.recurrence != nil { Text("Repeats yearly").font(.caption).foregroundStyle(.white.opacity(0.6)) }
+                        if let caption = payload.sequenceCaption {
+                            Text(pending ? Sky.pendingSequenceCaption(payload.sequence!) : caption)
+                                .font(.caption).foregroundStyle(.white.opacity(0.6))
+                        }
+                        Text(pending ? Sky.pendingStartText(for: payload.scheduledStartDate!, at: context.date) : TimeFormat.display(remaining))
                             .skyDigits(52, weight: .thin)
                             .foregroundStyle(.white)
                             .lineLimit(1)
@@ -64,7 +71,7 @@ struct TimerRunningView: View {
 
                     Spacer()
 
-                    if done && (alarm.isPlaying || vibration.isVibrating) {
+                    if alarm.isPlaying || vibration.isVibrating {
                         Button("Stop") {
                             alarm.stop()
                             vibration.stop()
@@ -72,7 +79,7 @@ struct TimerRunningView: View {
                         .buttonStyle(.glassPill)
                     }
 
-                    if !done {
+                    if !done && !pending {
                         HStack(spacing: 10) {
                             Button(payload.isPaused ? "Resume" : "Pause") {
                                 togglePause()
@@ -113,15 +120,28 @@ struct TimerRunningView: View {
             .onChange(of: done) { _, isExpired in
                 guard isExpired, !hasBuzzedFinish else { return }
                 hasBuzzedFinish = true
-                alarm.start()
+                if payload.alarmEnabled { alarm.start() }
                 // Independent of the alarm path — vibration has its own toggle.
                 if payload.vibrationEnabled {
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                     vibration.start()
                 }
+                if payload.sequence != nil || payload.recurrence != nil {
+                    payload = payload.advancedSequence(at: context.date)
+                    onUpdate(payload, "sequenceAdvanced")
+                    hasBuzzedFinish = payload.isExpired
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Self.storeChange)) { _ in
+            if let stored = TimerStore.loadAll().first(where: { $0.id == payload.id }) {
+                payload = stored.advancedSequence()
+                hasBuzzedFinish = payload.isExpired
+                if payload.isPaused { alarm.stop(); vibration.stop() }
             }
         }
         .onAppear {
+            payload = payload.advancedSequence()
             hasBuzzedFinish = payload.isExpired
             CloudSyncController.fetchParticipantCount(for: payload) { participantCount = $0 }
         }
@@ -135,6 +155,7 @@ struct TimerRunningView: View {
     }
 
     private func subtitle(done: Bool) -> String {
+        if payload.isPending(), let sequence = payload.sequence { return Sky.pendingFirstPhaseText(sequence) ?? "Scheduled" }
         if done {
             return "Finished \(payload.endDate.formatted(date: .omitted, time: .shortened))"
         }

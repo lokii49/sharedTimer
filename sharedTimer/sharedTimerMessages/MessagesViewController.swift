@@ -42,7 +42,7 @@ class MessagesViewController: MSMessagesAppViewController {
             // A newer re-shared plain link updates the copy we have (CloudKit-linked
             // timers stay with sync) — same rule as the main app's handleIncoming.
             let adoptLink = existing.map { CloudLinkStore.get(timerID: payload.id) == nil && $0.shouldAdopt(payload) } ?? false
-            let stored = adoptLink ? payload : (existing ?? payload)
+            let stored = (adoptLink ? payload : (existing ?? payload)).advancedSequence()
             TimerStore.save(stored)
             // Opening the bubble only (re-)arms when the main app isn't already
             // handling this id through AlarmKit — otherwise this would stack a
@@ -60,6 +60,24 @@ class MessagesViewController: MSMessagesAppViewController {
             }
             presentRunningView(payload: stored)
             acceptShareIfNeeded(from: conversation.selectedMessage?.url, localPayloadID: stored.id)
+            if CloudLinkStore.get(timerID: stored.id) != nil {
+                CloudSyncController.pullChanges { updated, deletedIDs in
+                    for payload in updated {
+                        TimerStore.save(payload)
+                        if !TimerStore.isAlarmKitArmed(id: payload.id) {
+                            NotificationScheduler.scheduleAlert(for: payload)
+                            if payload.isPaused { LiveActivityController.update(for: payload) }
+                            else { LiveActivityController.start(for: payload) }
+                        }
+                    }
+                    for id in deletedIDs {
+                        TimerStore.delete(id: id)
+                        NotificationScheduler.cancel(id: id)
+                        LiveActivityController.end(id: id)
+                    }
+                    NotificationCenter.default.post(name: TimerRunningView.storeChange, object: nil)
+                }
+            }
         } else {
             presentComposeView()
         }
@@ -85,6 +103,7 @@ class MessagesViewController: MSMessagesAppViewController {
             guard let authoritative else { return }
             DispatchQueue.main.async {
                 TimerStore.save(authoritative)
+                NotificationCenter.default.post(name: TimerRunningView.storeChange, object: nil)
                 guard !TimerStore.isAlarmKitArmed(id: authoritative.id) else { return }
                 NotificationScheduler.cancel(id: authoritative.id)
                 if authoritative.isPaused {
@@ -121,21 +140,25 @@ class MessagesViewController: MSMessagesAppViewController {
                 CloudSyncController.pushDelete(id: deleted.id)
                 self?.presentComposeView()
             }
-        ))
+        ).id(payload.url().absoluteString))
         presentRoot(root)
     }
 
     private func persist(_ payload: TimerPayload, action: String) {
         TimerStore.save(payload)
-        NotificationScheduler.cancel(id: payload.id)
-        if payload.isPaused {
-            LiveActivityController.update(for: payload)
-        } else {
-            NotificationScheduler.scheduleAlert(for: payload)
-            LiveActivityController.start(for: payload)
+        if action != "sequenceAdvanced" || !TimerStore.isAlarmKitArmed(id: payload.id) {
+            NotificationScheduler.cancel(id: payload.id)
+            if payload.isPaused {
+                LiveActivityController.update(for: payload)
+            } else {
+                NotificationScheduler.scheduleAlert(for: payload)
+                LiveActivityController.start(for: payload)
+            }
         }
-        CloudSyncController.pushUp(payload, action: action)
-        stageAttributionText(for: payload, action: action)
+        if action != "sequenceAdvanced" {
+            CloudSyncController.pushUp(payload, action: action)
+            stageAttributionText(for: payload, action: action)
+        }
     }
 
     /// Stages — never sends — a one-line "Sam paused Pasta — 5:22 left" into the

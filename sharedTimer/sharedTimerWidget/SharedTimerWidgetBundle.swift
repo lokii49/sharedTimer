@@ -11,6 +11,7 @@ struct SharedTimerWidgetBundle: WidgetBundle {
     var body: some Widget {
         SharedTimerWidget()
         SharedTimerCountdownWidget()
+        LockScreenTimerWidget()
         TimerLiveActivityWidget()
         TimerAlarmActivityWidget()
         StartRecentTimerControl()

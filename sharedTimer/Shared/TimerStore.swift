@@ -10,6 +10,10 @@ import WidgetKit
 /// extension code must only ever call `loadAll` — writing from inside a timeline provider
 /// would trigger a reload from within that same reload's render pass.
 enum TimerStore {
+    /// Optional process-local observer installed only by the main app. Enqueue work
+    /// here; callbacks run under the write lock and must never read/write the store.
+    static var didPersist: (() -> Void)?
+
     private static let appGroupID = "group.com.lokesh.sharedTimer"
     private static let key = "sharedTimers"
     private static let acknowledgedFinishKey = "sharedTimerAcknowledgedFinishIDs"
@@ -18,6 +22,12 @@ enum TimerStore {
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: appGroupID)
+    }
+
+    /// True once any timer was ever saved on this install (the key stays, as `[]`, after
+    /// every timer is deleted) — tells an update from a fresh install for What's New.
+    static var hasStoredData: Bool {
+        defaults?.object(forKey: key) != nil
     }
 
     static func save(_ payload: TimerPayload) {
@@ -71,7 +81,7 @@ enum TimerStore {
         defaults?.set(Array(ids), forKey: key)
     }
 
-    /// Ids whose finish alert the main app currently has armed through AlarmKit.
+    /// Ids with a current or upcoming sequence-phase alert armed through AlarmKit.
     /// Written only by `AlarmController` (main app — AlarmKit itself is unavailable in
     /// extensions); read by the Messages extension and App Clip, which can't see
     /// AlarmKit's own state. Opening a shared timer there must not arm a second
@@ -148,7 +158,7 @@ enum TimerStore {
         // forward first (pure/idempotent, doesn't mutate what's actually stored) so
         // the prune decision reflects whether the whole sequence is really done.
         let trimmed = payloads.filter {
-            let projected = $0.sequence != nil ? $0.advancedSequence() : $0
+            let projected = $0.advancedSequence()
             return projected.isPaused || projected.endDate > cutoff
         }
         guard let data = try? JSONEncoder().encode(trimmed) else { return }
@@ -157,5 +167,6 @@ enum TimerStore {
         // it keeps showing its last timeline entry until whatever refresh date it computed
         // last, which for a far-out countdown can be hours away.
         WidgetCenter.shared.reloadAllTimelines()
+        didPersist?()
     }
 }

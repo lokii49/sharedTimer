@@ -89,7 +89,7 @@ enum WatchSyncController {
                     replyHandler([:]); return
                 }
                 let all = TimerStore.loadAll()
-                guard let existing = all.first(where: { $0.id == id }) else { replyHandler([:]); return }
+                guard let existing = all.first(where: { $0.id == id })?.advancedRecurrence() else { replyHandler([:]); return }
                 // The watch has no pending-state awareness at all (its TimerModel copy
                 // doesn't even carry scheduledStartDate) -- it would show Pause/+1:00
                 // for a still-pending timer with no way to know that's meaningless.

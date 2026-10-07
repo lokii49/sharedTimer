@@ -136,15 +136,28 @@ enum CloudSyncController {
     static func createShare(for payload: TimerPayload, timeout: TimeInterval = 4, completion: @escaping (URL?) -> Void) {
         var didComplete = false
         let completeOnce: (URL?) -> Void = { url in
-            guard !didComplete else { return }
-            didComplete = true
-            completion(url)
+            DispatchQueue.main.async {
+                guard !didComplete else { return }
+                didComplete = true
+                completion(url)
+            }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
-            if !didComplete {
-                log("createShare(\(payload.id)) timed out after \(timeout)s")
-            }
             completeOnce(nil)
+        }
+
+        // Reuse a timer's existing share (owner or participant); CloudKit permits
+        // only one share per root record. A failed lookup falls back to the snapshot.
+        if let link = CloudLinkStore.get(timerID: payload.id) {
+            fetchRecord(for: payload) { record, database in
+                let zone = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
+                let shareID = record?.share?.recordID ?? link.shareRecordName.map { CKRecord.ID(recordName: $0, zoneID: zone) }
+                guard let shareID else { return completeOnce(nil) }
+                database.fetch(withRecordID: shareID) { share, _ in
+                    completeOnce((share as? CKShare)?.url)
+                }
+            }
+            return
         }
 
         ensureZoneExists { ok in
@@ -289,8 +302,8 @@ enum CloudSyncController {
     /// this device's field values on top — last-writer-wins on endDate/pausedRemaining.
     /// `action` is a short human-readable verb ("paused", "resumed", "extended") written
     /// alongside this device's DisplayNameStore name for the "who did what" surfaces.
-    static func pushUp(_ payload: TimerPayload, action: String) {
-        guard let link = CloudLinkStore.get(timerID: payload.id) else { return }
+    static func pushUp(_ payload: TimerPayload, action: String, completion: @escaping () -> Void = {}) {
+        guard let link = CloudLinkStore.get(timerID: payload.id) else { return completion() }
         let scope: SyncScope = link.isOwner ? .owner : .participant
         let zoneID = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
         let recordID = CKRecord.ID(recordName: link.recordName, zoneID: zoneID)
@@ -301,29 +314,39 @@ enum CloudSyncController {
             // pullChanges reconciles this locally; nothing to push to here.
             guard let record else {
                 if let error { log("pushUp(\(payload.id)) fetch failed: \(error)") }
+                completion()
                 return
             }
             applyFields(from: payload, to: record)
             applyAttribution(action: action, to: record)
-            save(record, to: database, retryOnConflict: true)
+            save(record, to: database, retryOnConflict: true, completion: completion)
         }
     }
 
-    private static func save(_ record: CKRecord, to database: CKDatabase, retryOnConflict: Bool) {
+    /// Intents must keep the process alive through the fetch/save (including a conflict
+    /// retry). Network failure remains best-effort, like other local timer mutations.
+    static func pushUpAwaiting(_ payload: TimerPayload, action: String) async {
+        await withCheckedContinuation { continuation in
+            pushUp(payload, action: action) { continuation.resume() }
+        }
+    }
+
+    private static func save(_ record: CKRecord, to database: CKDatabase, retryOnConflict: Bool, completion: @escaping () -> Void) {
         let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
         operation.savePolicy = .changedKeys
         operation.modifyRecordsResultBlock = { result in
-            guard case .failure(let error) = result else { return }
+            guard case .failure(let error) = result else { return completion() }
             guard retryOnConflict,
                   let conflict = serverRecordChangedError(from: error, for: record.recordID),
                   let serverRecord = conflict.serverRecord else {
                 log("pushUp save(\(record.recordID.recordName)) failed, not retrying: \(error)")
+                completion()
                 return
             }
-            for key in record.allKeys() {
+            for key in Set(record.allKeys()).union(record.changedKeys()) {
                 serverRecord[key] = record[key]
             }
-            save(serverRecord, to: database, retryOnConflict: false)
+            save(serverRecord, to: database, retryOnConflict: false, completion: completion)
         }
         database.add(operation)
     }
@@ -536,7 +559,7 @@ enum CloudSyncController {
 
     // MARK: - Payload <-> CKRecord
 
-    private static func applyFields(from payload: TimerPayload, to record: CKRecord) {
+    static func applyFields(from payload: TimerPayload, to record: CKRecord) {
         record["label"] = payload.label as CKRecordValue
         record["endDate"] = payload.endDate as CKRecordValue
         record["duration"] = payload.duration as CKRecordValue
@@ -544,13 +567,32 @@ enum CloudSyncController {
         record["kind"] = payload.kind.rawValue as CKRecordValue
         record["alarmEnabled"] = payload.alarmEnabled as CKRecordValue
         record["vibrationEnabled"] = payload.vibrationEnabled as CKRecordValue
+        record["recurrenceData"] = payload.recurrence.flatMap(AnnualRecurrence.encode) as CKRecordValue?
+        record["sequenceData"] = payload.sequence.flatMap(TimerSequenceWire.encode) as CKRecordValue?
+        record["scheduledStartDate"] = payload.scheduledStartDate as CKRecordValue?
+        record["updatedAt"] = payload.updatedAt as CKRecordValue?
     }
 
-    private static func makePayload(from record: CKRecord) -> TimerPayload? {
+    static func makePayload(from record: CKRecord) -> TimerPayload? {
         guard let label = record["label"] as? String,
               let endDate = record["endDate"] as? Date,
               let duration = record["duration"] as? TimeInterval,
               let kindRaw = record["kind"] as? String else { return nil }
+        var sequence: SequenceInfo?
+        if let value = record["sequenceData"] {
+            guard let data = value as? Data, let decoded = TimerSequenceWire.decode(data) else { return nil }
+            sequence = decoded
+        }
+        var recurrence: AnnualRecurrence?
+        if let value = record["recurrenceData"] {
+            guard kindRaw == "countdown", sequence == nil, let data = value as? Data,
+                  let decoded = AnnualRecurrence.decode(data) else { return nil }
+            recurrence = decoded
+        }
+        guard duration.isFinite, duration > 0, duration <= 1_000_000_000_000,
+              endDate.timeIntervalSince1970.isFinite, abs(endDate.timeIntervalSince1970) <= 253_402_300_799 else { return nil }
+        let paused = record["pausedRemaining"] as? TimeInterval
+        guard paused.map({ $0.isFinite && $0 >= 0 && $0 <= 1_000_000_000_000 }) ?? true else { return nil }
         return TimerPayload(
             id: record.recordID.recordName,
             label: label,
@@ -563,8 +605,11 @@ enum CloudSyncController {
             // Absent on records written before the toggle -> vibration OFF, not on —
             // see TimerModel.swift's matching decode for why (vibration-on now also
             // means a full-screen AlarmKit takeover).
-            vibrationEnabled: (record["vibrationEnabled"] as? Bool) ?? false
-        )
+            vibrationEnabled: (record["vibrationEnabled"] as? Bool) ?? false,
+            sequence: sequence,
+            scheduledStartDate: sequence == nil ? nil : record["scheduledStartDate"] as? Date,
+            updatedAt: record["updatedAt"] as? Date, recurrence: recurrence
+        ).advancedSequence()
     }
 
     // MARK: - Attribution

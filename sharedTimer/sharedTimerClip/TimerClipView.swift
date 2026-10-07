@@ -9,6 +9,7 @@ import UIKit
 /// The App Clip's whole job: one shared timer, full-bleed under its own sky.
 struct TimerClipView: View {
     let payload: TimerPayload
+    @State private var current: TimerPayload?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hasAlarmed = false
     @ObservedObject private var alarm = AlarmPlayer.shared
@@ -16,8 +17,10 @@ struct TimerClipView: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
+            let payload = (current ?? self.payload).advancedSequence(at: context.date)
             let remaining = payload.remaining
             let done = payload.isExpired
+            let pending = payload.isPending(at: context.date)
             let phase = reduceMotion ? 0 : sin(context.date.timeIntervalSinceReferenceDate / 19)
 
             ZStack {
@@ -41,13 +44,18 @@ struct TimerClipView: View {
                         Text(payload.label)
                             .skyLabel(13)
                             .foregroundStyle(.white.opacity(0.85))
-                        Text(TimeFormat.display(remaining))
+                        if payload.recurrence != nil { Text("Repeats yearly").font(.caption).foregroundStyle(.white.opacity(0.6)) }
+                        if let caption = payload.sequenceCaption {
+                            Text(pending ? Sky.pendingSequenceCaption(payload.sequence!) : caption)
+                                .font(.caption).foregroundStyle(.white.opacity(0.6))
+                        }
+                        Text(pending ? Sky.pendingStartText(for: payload.scheduledStartDate!, at: context.date) : TimeFormat.display(remaining))
                             .skyDigits(64, weight: .thin)
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.4)
                             .padding(.horizontal, 24)
-                        Text(subtitle(done: done))
+                        Text(subtitle(payload: payload, done: done))
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.75))
                     }
@@ -61,7 +69,7 @@ struct TimerClipView: View {
                     .font(.footnote)
                     .foregroundStyle(.white.opacity(0.6))
 
-                    if done && (alarm.isPlaying || vibration.isVibrating) {
+                    if alarm.isPlaying || vibration.isVibrating {
                         Button("Stop") {
                             alarm.stop()
                             vibration.stop()
@@ -76,11 +84,30 @@ struct TimerClipView: View {
             // TimelineView localizes invalidation to this closure (see ContentView's
             // TimerDetailView for the same pattern) — `done` is recomputed fresh every
             // tick, so the zero-crossing has to be caught in here.
+            .onChange(of: payload.sequenceGlobalIndex) { _, _ in
+                let before = current ?? self.payload
+                if !hasAlarmed && !before.isPending() {
+                    if before.alarmEnabled { alarm.start() }
+                    if before.vibrationEnabled { vibration.start() }
+                }
+                current = payload
+                TimerStore.save(payload)
+                if !TimerStore.isAlarmKitArmed(id: payload.id) { NotificationScheduler.scheduleAlert(for: payload) }
+                hasAlarmed = done
+            }
+            .onChange(of: payload.endDate) { _, _ in
+                guard payload.recurrence != nil else { return }
+                let before = current ?? self.payload
+                if before.alarmEnabled { alarm.start() }
+                if before.vibrationEnabled { vibration.start() }
+                current = payload
+                TimerStore.save(payload)
+                if !TimerStore.isAlarmKitArmed(id: payload.id) { NotificationScheduler.scheduleAlert(for: payload) }
+            }
             .onChange(of: done) { _, isExpired in
-                guard isExpired, !hasAlarmed else { return }
+                guard payload.sequence == nil, isExpired, !hasAlarmed else { return }
                 hasAlarmed = true
-                alarm.start()
-                // Independent of the alarm path — vibration has its own toggle.
+                if payload.alarmEnabled { alarm.start() }
                 if payload.vibrationEnabled {
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                     vibration.start()
@@ -88,7 +115,8 @@ struct TimerClipView: View {
             }
         }
         .onAppear {
-            hasAlarmed = payload.isExpired
+            current = payload.advancedSequence()
+            hasAlarmed = current!.isExpired
         }
         .onDisappear {
             alarm.stop()
@@ -96,7 +124,8 @@ struct TimerClipView: View {
         }
     }
 
-    private func subtitle(done: Bool) -> String {
+    private func subtitle(payload: TimerPayload, done: Bool) -> String {
+        if payload.isPending(), let sequence = payload.sequence { return Sky.pendingFirstPhaseText(sequence) ?? "Scheduled" }
         if done {
             return "Finished \(payload.endDate.formatted(date: .omitted, time: .shortened))"
         }
