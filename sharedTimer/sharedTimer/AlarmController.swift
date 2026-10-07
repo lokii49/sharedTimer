@@ -153,6 +153,10 @@ enum AlarmController {
             await performSequenceReschedule(for: payload)
             return
         }
+        if payload.isPaused, payload.remaining > 0, ownsAlert(for: payload), pauseInPlace(id: alarmID(for: payload.id)) {
+            TimerStore.setAlarmKitArmed(id: payload.id, true)
+            return
+        }
         await cancelAlarm(id: payload.id)
         // Pessimistic until AlarmKit actually accepts the alarm below — every early
         // return leaves no AlarmKit alarm armed, so extensions must arm their own.
@@ -209,7 +213,14 @@ enum AlarmController {
 
         let window = (payload.isPaused || payload.remaining <= 0) ? [] : payload.upcomingSequencePhases(limit: sequenceWindow)
         let now = Date()
+        let currentID = phaseAlarmID(timerID: payload.id, globalIndex: current)
         var kept: Set<UUID> = []
+        // Paused: keep the current phase's alarm alive in AlarmKit's paused state (its
+        // Live Activity shows Resume); every later pre-armed phase is cancelled below,
+        // since their fixed dates no longer hold — resuming re-arms the whole window.
+        if payload.isPaused, payload.remaining > 0, ownsAlert(for: payload), pauseInPlace(id: currentID) {
+            kept.insert(currentID)
+        }
         var toSchedule: [(occurrence: ScheduledPhase, projected: TimerPayload, id: UUID, fixedAt: Date?)] = []
         for (offset, occurrence) in window.enumerated() {
             let id = phaseAlarmID(timerID: payload.id, globalIndex: occurrence.globalIndex)
@@ -243,8 +254,7 @@ enum AlarmController {
             try? AlarmManager.shared.cancel(id: id)
         }
 
-        let currentID = window.first.map { phaseAlarmID(timerID: payload.id, globalIndex: $0.globalIndex) }
-        var currentArmed = currentID.map { kept.contains($0) } ?? false
+        var currentArmed = kept.contains(currentID)
         for entry in toSchedule {
             let result = await scheduleAlarm(for: entry.projected, id: entry.id, fixedAt: entry.fixedAt)
             if entry.id == currentID {
@@ -264,6 +274,26 @@ enum AlarmController {
         if !window.isEmpty, !ownsAlert(for: payload) {
             // Current phase has both toggles off: a quiet notification, never AlarmKit.
             NotificationScheduler.scheduleAlert(for: payload)
+        }
+    }
+
+    /// Paused payload: pause its live AlarmKit alarm in place rather than cancelling
+    /// it, so the alarm's Live Activity stays on the Lock Screen / Dynamic Island in
+    /// its Paused mode with a Resume button (TimerAlarmActivityWidget) — the same way
+    /// the Clock app's timer behaves. True when an alarm for `id` is now paused.
+    /// Resuming goes through the normal path: the paused alarm doesn't match a fresh
+    /// config, so it's cancelled and re-created from the payload's `pausedRemaining`.
+    /// Known gap: extending while paused leaves the paused card showing the
+    /// pre-extend time until resume (AlarmKit can't edit a paused alarm's duration).
+    private static func pauseInPlace(id: UUID) -> Bool {
+        guard let alarm = (try? AlarmManager.shared.alarms)?.first(where: { $0.id == id }) else { return false }
+        switch alarm.state {
+        case .paused:
+            return true
+        case .countdown:
+            return (try? AlarmManager.shared.pause(id: id)) != nil
+        default:
+            return false
         }
     }
 
@@ -379,11 +409,26 @@ enum AlarmController {
         let countdown = AlarmPresentation.Countdown(
             title: LocalizedStringResource(stringLiteral: payload.label)
         )
-        let presentation = AlarmPresentation(alert: alert, countdown: countdown)
+        // A Paused presentation is what lets `AlarmManager.pause(id:)` keep the alarm
+        // (and its Live Activity, now with a Resume button) alive while the timer is
+        // paused, instead of the alarm being cancelled — see `performReschedule`. No
+        // `pauseButton` on Countdown: that would let the system pause the alarm without
+        // running any of our code, desyncing TimerStore; our own Live Activity buttons
+        // (LiveActivityIntents.swift) drive pause/resume instead.
+        let paused = AlarmPresentation.Paused(
+            title: LocalizedStringResource(stringLiteral: payload.label),
+            resumeButton: AlarmButton(text: "Resume", textColor: .white, systemImageName: "play.fill")
+        )
+        let presentation = AlarmPresentation(alert: alert, countdown: countdown, paused: paused)
 
         let attributes = AlarmAttributes<TimerAlarmMetadata>(
             presentation: presentation,
-            metadata: TimerAlarmMetadata(timerID: payload.id, label: payload.label, kind: payload.kind),
+            metadata: TimerAlarmMetadata(
+                timerID: payload.id, label: payload.label, kind: payload.kind,
+                sequenceCaption: payload.sequenceCaption,
+                phaseIndex: payload.sequenceGlobalIndex,
+                isFinalPhase: payload.sequence == nil ? nil : isFinalSequencePhase
+            ),
             tintColor: payload.kind.accentColor
         )
 

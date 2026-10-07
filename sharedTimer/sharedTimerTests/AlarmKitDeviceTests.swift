@@ -137,18 +137,21 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
-    @Test func pausedSequenceDisarmsFromCurrentOnward() async {
+    @Test func pausedSequenceKeepsCurrentPausedAndDisarmsTheRest() async {
         let payload = sequence(loops: 2, end: Date().addingTimeInterval(60))
         created.append(payload)
         await AlarmController.rescheduleAwaiting(for: payload)
         #expect(alarmsByID()[AlarmController.phaseAlarmID(timerID: payload.id, globalIndex: 0)] != nil)
 
+        // Pause keeps phase 0 alive in AlarmKit's paused state; only the pre-armed
+        // future phases are dropped.
         await AlarmController.rescheduleAwaiting(for: payload.paused())
         let alarms = alarmsByID()
-        for id in phaseIDs(payload, 0..<4) {
+        #expect(alarms[AlarmController.phaseAlarmID(timerID: payload.id, globalIndex: 0)]?.state == .paused)
+        for id in phaseIDs(payload, 1..<4) {
             #expect(alarms[id] == nil)
         }
-        #expect(TimerStore.isAlarmKitArmed(id: payload.id) == false)
+        #expect(TimerStore.isAlarmKitArmed(id: payload.id))
         await tearDown()
     }
 
@@ -219,6 +222,25 @@ final class AlarmKitDeviceTests {
         await waitUntil { alarmsByID()[id] == nil }
         #expect(alarmsByID()[id] == nil)
         #expect(TimerStore.isAlarmKitArmed(id: payload.id) == false)
+        await tearDown()
+    }
+
+    @Test func pausingKeepsTheAlarmPausedAndResumeRearmsIt() async {
+        let payload = TimerPayload(label: "Pause me", duration: 300)
+        created.append(payload)
+        let id = UUID(uuidString: payload.id)!
+        await AlarmController.rescheduleAwaiting(for: payload)
+        #expect(alarmsByID()[id]?.state == .countdown)
+
+        // Paused: kept in AlarmKit's paused state (its Live Activity shows Resume),
+        // not cancelled.
+        let paused = payload.paused()
+        await AlarmController.rescheduleAwaiting(for: paused)
+        #expect(alarmsByID()[id]?.state == .paused)
+        #expect(TimerStore.isAlarmKitArmed(id: payload.id))
+
+        await AlarmController.rescheduleAwaiting(for: paused.resumed())
+        #expect(alarmsByID()[id]?.state == .countdown)
         await tearDown()
     }
 

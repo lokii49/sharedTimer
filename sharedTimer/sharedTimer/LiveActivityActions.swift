@@ -1,0 +1,109 @@
+//
+//  LiveActivityActions.swift
+//  sharedTimer
+//
+//  The real work behind every `LiveActivityIntent` in Shared/LiveActivityIntents.swift
+//  — Lock Screen / Dynamic Island buttons and the AlarmKit alert's Next/Cancel. The
+//  system runs those intents in this (the app's) process, so they can reach
+//  TimerStore, AlarmController and the sync controllers. The widget target compiles a
+//  no-op stub with the same name instead (sharedTimerWidget/LiveActivityActions.swift).
+//
+//  Every action follows the same rules, each learned on device (see CLAUDE.md):
+//  - Await the rescheduling (`TimerArming.armAwaiting` / `rescheduleAwaiting`), never
+//    the fire-and-forget `reschedule` — the system may tear the intent down the instant
+//    `perform()` returns, before a detached Task gets to talk to AlarmKit.
+//  - The mutation bypasses ContentView's own mutation path (it writes straight to
+//    TimerStore), so post `.externalTimerStoreChange` — or a foregrounded app keeps
+//    showing stale state. And post it from the main actor: `perform()` runs off the
+//    main thread, and NotificationCenter delivers on the posting thread, so posting
+//    there made ContentView's `@State` write happen off-main (undefined behavior that
+//    looked like "the button did nothing").
+//
+
+import Foundation
+
+enum LiveActivityActions {
+
+    static func togglePause(timerID: String) async {
+        guard let payload = stored(timerID), !payload.isFinished, !payload.isPending() else { return await refreshUI() }
+        let updated = payload.isPaused ? payload.resumed() : payload.paused()
+        await commit(updated, action: updated.isPaused ? "paused" : "resumed")
+    }
+
+    /// Ends a plain timer/countdown right now, without alerting — it reads Finished
+    /// in the app (Repeat available), it isn't deleted. On a sequence (only reachable
+    /// from the custom Live Activity, where there's no Next/Cancel pair) it ends the
+    /// whole sequence, same as `endSequence`.
+    static func stop(timerID: String) async {
+        guard let payload = stored(timerID), !payload.isFinished else { return await refreshUI() }
+        if payload.sequence != nil {
+            return await endSequence(timerID: timerID)
+        }
+        var updated = payload
+        updated.endDate = Date()
+        updated.pausedRemaining = nil
+        // A deliberate stop is already "acknowledged" — never let the in-app
+        // vibration fallback buzz for it on next open. (save() clears this flag, so
+        // set it after.)
+        TimerStore.save(updated)
+        TimerStore.acknowledgeFinish(id: updated.id)
+        await AlarmController.rescheduleAwaiting(for: updated)
+        LiveActivityController.end(id: updated.id)
+        CloudSyncController.pushUp(updated, action: "stopped")
+        WatchSyncController.pushCurrentState()
+        await refreshUI()
+    }
+
+    /// "Next" on a sequence phase's alert or Live Activity. `phaseIndex` is the global
+    /// index of the phase whose alert/card carried the button (-1 = the stored phase —
+    /// also what 1.0.3-scheduled alarms decode to). Uses `materializingPhase`, never
+    /// `advancedSequence` — see AdvanceSequenceIntent's doc comment.
+    static func advanceSequence(timerID: String, phaseIndex: Int) async {
+        guard let payload = stored(timerID), let storedIndex = payload.sequenceGlobalIndex else { return await refreshUI() }
+        let tappedIndex = phaseIndex >= 0 ? phaseIndex : storedIndex
+        guard tappedIndex >= storedIndex else { return await refreshUI() }
+        var advanced = payload.materializingPhase(globalIndex: tappedIndex + 1, startingAt: Date())
+        // "Next" on a paused card starts the next phase running.
+        advanced.pausedRemaining = nil
+        TimerStore.save(advanced)
+        await AlarmController.rescheduleAwaiting(for: advanced)
+        WatchSyncController.pushCurrentState()
+        await refreshUI()
+    }
+
+    /// "Cancel" on the final phase — marks the sequence exhausted (`loopIndex =
+    /// loopCount`, the convention `advancedSequence` uses when one runs out on its
+    /// own) and tears down every phase alarm, including the one ringing now.
+    static func endSequence(timerID: String) async {
+        guard var payload = stored(timerID), var sequence = payload.sequence else { return await refreshUI() }
+        sequence.loopIndex = sequence.loopCount
+        payload.sequence = sequence
+        payload.pausedRemaining = nil
+        TimerStore.save(payload)
+        NotificationScheduler.cancel(id: timerID)
+        await AlarmController.cancelSequenceAlarms(for: payload)
+        LiveActivityController.end(id: timerID)
+        WatchSyncController.pushCurrentState()
+        await refreshUI()
+    }
+
+    // MARK: - Helpers
+
+    private static func stored(_ timerID: String) -> TimerPayload? {
+        TimerStore.loadAll().first { $0.id == timerID }
+    }
+
+    private static func commit(_ updated: TimerPayload, action: String) async {
+        TimerStore.save(updated)
+        await TimerArming.armAwaiting(updated)
+        CloudSyncController.pushUp(updated, action: action)
+        WatchSyncController.pushCurrentState()
+        await refreshUI()
+    }
+
+    private static func refreshUI() async {
+        await MainActor.run {
+            NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
+        }
+    }
+}

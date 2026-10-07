@@ -31,6 +31,17 @@ struct TimerLiveActivityWidget: Widget {
                         .frame(maxWidth: 96, alignment: .trailing)
                         .foregroundStyle(.white)
                 }
+                DynamicIslandExpandedRegion(.bottom) {
+                    HStack {
+                        Spacer()
+                        LiveActivityControls(
+                            timerID: context.attributes.timerID,
+                            isPaused: context.state.pausedRemaining != nil,
+                            secondary: .stop,
+                            size: 38
+                        )
+                    }
+                }
             } compactLeading: {
                 Image(systemName: context.attributes.kind.symbolName)
                     .foregroundStyle(context.attributes.kind.accentColor)
@@ -70,14 +81,25 @@ private struct LockScreenTimerView: View {
                     .frame(maxWidth: 150, alignment: .trailing)
                     .foregroundStyle(.white)
             }
-            if state.pausedRemaining != nil {
-                Text("Paused")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.7))
-            } else if attributes.kind == .countdown {
-                Text(TimeFormat.targetDate(state.endDate))
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.7))
+            HStack(alignment: .center) {
+                if state.pausedRemaining != nil {
+                    Text("Paused")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.7))
+                } else if attributes.kind == .countdown {
+                    Text(TimeFormat.targetDate(state.endDate))
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                Spacer(minLength: 8)
+                // ✕ ends a plain timer; on a sequence (only both-toggles-off phases
+                // land on this custom Live Activity) it ends the whole sequence — see
+                // LiveActivityActions.stop.
+                LiveActivityControls(
+                    timerID: attributes.timerID,
+                    isPaused: state.pausedRemaining != nil,
+                    secondary: .stop
+                )
             }
         }
     }

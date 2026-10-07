@@ -278,7 +278,8 @@ were changed blind.
 Ranked by value vs. effort. Most of these build on intents and infrastructure that already
 exist.
 
-- **Interactive widgets and Live Activity buttons:** Pause / +1 min / Repeat via
+- **Live Activity buttons: done (1.0.4).** Pause/Resume + ✕, with Next/Cancel on sequence phases, on both Live Activities; pause keeps the AlarmKit alarm alive in its paused state. Device check: tap each button from the Lock Screen and the expanded Dynamic Island, with the app closed and open. **Still open:** buttons on the home-screen widget —
+  *(original item:)* Pause / +1 min / Repeat via
   `Button(intent:)` on the home-screen widget and the custom Live Activity. Reuses
   `TimerStore` plus a `LiveActivityIntent` (same pattern as `AdvanceSequenceIntent`).
 - **Control Center control and Action button** (`ControlWidget`, iOS 18+): "Start 5-min
