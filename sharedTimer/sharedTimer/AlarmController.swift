@@ -119,8 +119,10 @@ enum AlarmController {
 
     /// Cancels any existing alert (AlarmKit alarm + local notification) for this timer,
     /// then schedules the right one for its current state. Safe from any thread and
-    /// safe to call repeatedly — work is serialized per timer id and a call that a
-    /// newer reschedule for the same id has overtaken is dropped.
+    /// safe to call repeatedly — work is serialized per timer id. Nothing is dropped:
+    /// every call runs, chained after the previous one for that id. Ordering is only as
+    /// strong as the order calls reach `Serializer` (each hops through its own `Task`),
+    /// which in practice matches call order but isn't guaranteed — see ROADMAP.md.
     static func reschedule(for payload: TimerPayload) {
         // Cancel the notification synchronously so a .timer that just switched away
         // from the notification path can't leave a stale one armed.

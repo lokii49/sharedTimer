@@ -585,17 +585,6 @@ struct ContentView: View {
         }
     }
 
-    /// Universal link / App Clip handoff into the full app. A timer already in the local
-    /// store updates silently (matches the Messages extension); a genuinely new one surfaces
-    /// the add-confirmation sheet instead of merging straight in.
-    ///
-    /// A `ckshare` query param means the sender's Messages extension successfully created
-    /// a live-synced timer — accept it in the background and upgrade the stored copy to
-    /// the authoritative cloud record once that resolves. This runs on EVERY open of the
-    /// link, not just the first — re-tapping the same link (including the sender checking
-    /// their own sent link) must still (re-)establish CloudLink, or later pause/resume/
-    /// extend on this device silently has nothing to push to. Absence of the param (or a
-    /// failed accept) leaves the plain-link snapshot exactly as it was — no regression.
     private func openQuickAction(_ type: String) {
         switch type {
         case "newTimer": pendingNewTimerKind = .timer
@@ -605,6 +594,18 @@ struct ContentView: View {
         showingNewTimer = true
     }
 
+    /// Universal link / App Clip handoff into the full app. A timer already in the local
+    /// store is left as-is (the link's snapshot may be older than what's stored — the link
+    /// carries no recency marker; same in the Messages extension); a genuinely new one
+    /// surfaces the add-confirmation sheet instead of merging straight in.
+    ///
+    /// A `ckshare` query param means the sender's Messages extension successfully created
+    /// a live-synced timer — accept it in the background and upgrade the stored copy to
+    /// the authoritative cloud record once that resolves. This runs on EVERY open of the
+    /// link, not just the first — re-tapping the same link (including the sender checking
+    /// their own sent link) must still (re-)establish CloudLink, or later pause/resume/
+    /// extend on this device silently has nothing to push to. Absence of the param (or a
+    /// failed accept) leaves the plain-link snapshot exactly as it was — no regression.
     private func handleIncoming(url: URL?) {
         guard let parsed = TimerPayload.from(url: url) else { return }
         let alreadyKnown = timers.contains(where: { $0.id == parsed.id })

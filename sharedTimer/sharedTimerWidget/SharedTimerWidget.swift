@@ -267,7 +267,11 @@ struct TimerListProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TimerListEntry>) -> Void) {
         let payloads = activeSorted()
-        completion(Timeline(entries: [TimerListEntry(date: .now, payloads: payloads)], policy: .after(nextRefresh(for: payloads.first))))
+        // Earliest refresh any listed timer needs, not just `payloads.first`'s: a paused
+        // payload keeps its stale endDate and can sort first, which would key the whole
+        // list's refresh to the paused fallback and miss a running timer's expiry.
+        let refresh = payloads.map { nextRefresh(for: $0) }.min() ?? nextRefresh(for: nil)
+        completion(Timeline(entries: [TimerListEntry(date: .now, payloads: payloads)], policy: .after(refresh)))
     }
 
     private func activeSorted() -> [TimerPayload] {

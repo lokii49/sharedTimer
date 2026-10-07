@@ -385,7 +385,8 @@ enum CloudSyncController {
         }
     }
 
-    private static func pullChanges(scope: SyncScope, completion: @escaping ([TimerPayload], [String]) -> Void) {
+    /// `isRetry` bounds the `.changeTokenExpired` recovery below to a single re-run.
+    private static func pullChanges(scope: SyncScope, isRetry: Bool = false, completion: @escaping ([TimerPayload], [String]) -> Void) {
         let database = scope.database
         let tokenKey = "dbChangeToken.\(scope.rawValue)"
 
@@ -395,12 +396,25 @@ enum CloudSyncController {
 
         dbOp.recordZoneWithIDChangedBlock = { zoneID in changedZoneIDs.append(zoneID) }
         dbOp.recordZoneWithIDWasDeletedBlock = { zoneID in deletedZoneIDs.append(zoneID) }
-        dbOp.changeTokenUpdatedBlock = { token in saveToken(token, key: tokenKey) }
+        // Deliberately no `changeTokenUpdatedBlock` save: the database token is only
+        // persisted once every changed zone's records have actually been fetched (see
+        // below). Saving it any earlier meant a failed zone fetch was never retried —
+        // the next pull started *after* the change that named that zone, so those
+        // records were silently skipped forever.
         dbOp.fetchDatabaseChangesResultBlock = { result in
+            let databaseToken: CKServerChangeToken
             switch result {
             case .success(let value):
-                saveToken(value.serverChangeToken, key: tokenKey)
+                databaseToken = value.serverChangeToken
             case .failure(let error):
+                // An expired token fails every fetch that reuses it, so without this
+                // reset live sync dies silently and permanently for this scope.
+                if !isRetry, (error as? CKError)?.code == .changeTokenExpired {
+                    log("pullChanges(\(scope.rawValue)) database token expired — refetching from scratch")
+                    clearToken(key: tokenKey)
+                    pullChanges(scope: scope, isRetry: true, completion: completion)
+                    return
+                }
                 log("pullChanges(\(scope.rawValue)) fetchDatabaseChanges failed: \(error)")
                 completion([], [])
                 return
@@ -418,17 +432,25 @@ enum CloudSyncController {
             }
 
             guard !changedZoneIDs.isEmpty else {
+                saveToken(databaseToken, key: tokenKey)
                 completion([], deletedIDs)
                 return
             }
-            fetchZoneChanges(changedZoneIDs, database: database) { updated, deleted in
+            fetchZoneChanges(changedZoneIDs, database: database) { updated, deleted, complete in
+                if complete {
+                    saveToken(databaseToken, key: tokenKey)
+                }
                 completion(updated, deletedIDs + deleted)
             }
         }
         database.add(dbOp)
     }
 
-    private static func fetchZoneChanges(_ zoneIDs: [CKRecordZone.ID], database: CKDatabase, completion: @escaping ([TimerPayload], [String]) -> Void) {
+    /// `complete` is false when any zone's changes couldn't be fetched (other than the
+    /// zone itself being gone) — the caller then keeps its old database token so the
+    /// next pull reports those zones again. A zone whose own token expired is retried
+    /// once immediately from a nil token, same recovery as the database level.
+    private static func fetchZoneChanges(_ zoneIDs: [CKRecordZone.ID], database: CKDatabase, isRetry: Bool = false, completion: @escaping ([TimerPayload], [String], _ complete: Bool) -> Void) {
         var configs: [CKRecordZone.ID: CKFetchRecordZoneChangesOperation.ZoneConfiguration] = [:]
         for zoneID in zoneIDs {
             configs[zoneID] = CKFetchRecordZoneChangesOperation.ZoneConfiguration(
@@ -439,6 +461,8 @@ enum CloudSyncController {
         let operation = CKFetchRecordZoneChangesOperation(recordZoneIDs: zoneIDs, configurationsByRecordZoneID: configs)
         var updated: [TimerPayload] = []
         var deletedIDs: [String] = []
+        var expiredZoneIDs: [CKRecordZone.ID] = []
+        var complete = true
 
         operation.recordWasChangedBlock = { recordID, result in
             switch result {
@@ -459,15 +483,40 @@ enum CloudSyncController {
             if let token { saveToken(token, key: zoneTokenKey(zoneID)) }
         }
         operation.recordZoneFetchResultBlock = { zoneID, result in
-            if case .success(let value) = result {
+            switch result {
+            case .success(let value):
                 saveToken(value.serverChangeToken, key: zoneTokenKey(zoneID))
+            case .failure(let error):
+                switch (error as? CKError)?.code {
+                case .changeTokenExpired?:
+                    clearToken(key: zoneTokenKey(zoneID))
+                    expiredZoneIDs.append(zoneID)
+                case .zoneNotFound?, .userDeletedZone?:
+                    // Gone for good — nothing left to fetch, so this doesn't hold back
+                    // the database token (that would refetch a dead zone forever).
+                    break
+                default:
+                    complete = false
+                }
+                log("fetchZoneChanges: zone \(zoneID.zoneName) failed: \(error)")
             }
         }
         operation.fetchRecordZoneChangesResultBlock = { result in
             if case .failure(let error) = result {
                 log("fetchZoneChanges overall failed: \(error)")
+                complete = false
             }
-            completion(updated, deletedIDs)
+            guard !expiredZoneIDs.isEmpty else {
+                completion(updated, deletedIDs, complete)
+                return
+            }
+            guard !isRetry else {
+                completion(updated, deletedIDs, false)
+                return
+            }
+            fetchZoneChanges(expiredZoneIDs, database: database, isRetry: true) { retryUpdated, retryDeleted, retryComplete in
+                completion(updated + retryUpdated, deletedIDs + retryDeleted, complete && retryComplete)
+            }
         }
         database.add(operation)
     }
@@ -589,6 +638,10 @@ enum CloudSyncController {
     private static func saveToken(_ token: CKServerChangeToken, key: String) {
         guard let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) else { return }
         groupDefaults?.set(data, forKey: key)
+    }
+
+    private static func clearToken(key: String) {
+        groupDefaults?.removeObject(forKey: key)
     }
 
     // MARK: - Logging

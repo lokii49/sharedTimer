@@ -30,7 +30,8 @@ struct TimerPayload: Codable, Identifiable {
     /// When true, finishing also repeats the device vibration in the foreground
     /// until stopped — the compose-sheet "Vibrate" toggle. Independent of
     /// `alarmEnabled`: it can vibrate with the alarm off, or stay silent with the
-    /// alarm on. Defaults true so every pre-toggle timer/link keeps buzzing.
+    /// alarm on. Defaults true for a newly composed timer, but decodes as false when
+    /// absent (old links/stored timers) — see `init(from:)` for why.
     let vibrationEnabled: Bool
 
     init(id: String = UUID().uuidString, label: String, duration: TimeInterval, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true) {

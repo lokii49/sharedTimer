@@ -65,7 +65,8 @@ struct TimerPayload: Codable, Identifiable {
     /// When true, finishing also repeats the device vibration in the foreground
     /// until stopped — the compose-sheet "Vibrate" toggle. Independent of
     /// `alarmEnabled`: it can vibrate with the alarm off, or stay silent with the
-    /// alarm on. Defaults true so every pre-toggle timer/link keeps buzzing.
+    /// alarm on. Defaults true for a newly composed timer, but decodes as false when
+    /// absent (old links/stored timers) — see `init(from:)` for why.
     var vibrationEnabled: Bool
     /// Non-nil only for a Pomodoro/Intermittent-Fasting style sequence. Absent from
     /// share links/CloudKit/watch by design (main-app-only in v1) — see CLAUDE.md.
