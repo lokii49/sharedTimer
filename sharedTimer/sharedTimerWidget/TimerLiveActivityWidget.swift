@@ -10,7 +10,7 @@ import SwiftUI
 struct TimerLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TimerActivityAttributes.self) { context in
-            LockScreenTimerView(attributes: context.attributes, state: context.state)
+            LockScreenTimerView(attributes: context.attributes, state: context.state, isFinished: isFinished(context))
                 .padding()
                 .background(Sky.gradient(endDate: context.state.endDate, pausedRemaining: context.state.pausedRemaining))
                 .activityBackgroundTint(Color.clear)
@@ -34,12 +34,14 @@ struct TimerLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
                         Spacer()
+                        if !isFinished(context) {
                         LiveActivityControls(
                             timerID: context.attributes.timerID,
                             isPaused: context.state.pausedRemaining != nil,
                             secondary: .stop,
                             size: 38
                         )
+                        }
                     }
                 }
             } compactLeading: {
@@ -60,9 +62,17 @@ struct TimerLiveActivityWidget: Widget {
 
 /// Lock Screen banner under the timer's sky: small-caps label leading, thin live
 /// countdown trailing — the same light-as-time language as everywhere else.
+/// Past its end (or marked stale by the system at `staleDate` = endDate): render the
+/// finished state instead of a 0:00 that would otherwise sit there for hours, since the
+/// app may not be running to end the activity. See LiveActivityController.endFinished.
+private func isFinished(_ context: ActivityViewContext<TimerActivityAttributes>) -> Bool {
+    context.state.pausedRemaining == nil && (context.isStale || context.state.endDate <= Date())
+}
+
 private struct LockScreenTimerView: View {
     let attributes: TimerActivityAttributes
     let state: TimerActivityAttributes.ContentState
+    let isFinished: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -82,7 +92,11 @@ private struct LockScreenTimerView: View {
                     .foregroundStyle(.white)
             }
             HStack(alignment: .center) {
-                if state.pausedRemaining != nil {
+                if isFinished {
+                    Text("Finished")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.85))
+                } else if state.pausedRemaining != nil {
                     Text("Paused")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.7))
@@ -95,11 +109,13 @@ private struct LockScreenTimerView: View {
                 // ✕ ends a plain timer; on a sequence (only both-toggles-off phases
                 // land on this custom Live Activity) it ends the whole sequence — see
                 // LiveActivityActions.stop.
-                LiveActivityControls(
-                    timerID: attributes.timerID,
-                    isPaused: state.pausedRemaining != nil,
-                    secondary: .stop
-                )
+                if !isFinished {
+                    LiveActivityControls(
+                        timerID: attributes.timerID,
+                        isPaused: state.pausedRemaining != nil,
+                        secondary: .stop
+                    )
+                }
             }
         }
     }

@@ -565,4 +565,18 @@ struct sharedTimerTests {
         #expect(AlarmController.phaseAlarmID(timerID: "other", globalIndex: 0) != ids[0])
     }
 
+    // MARK: - CloudLinkStore left-share tombstones (1.0.4, deleted shared timer reappearing)
+
+    @Test func leftShareMarkIsSetAndClearedOnRejoin() {
+        let id = "left-\(UUID().uuidString)"
+        defer { CloudLinkStore.clearLeft(timerID: id) }
+
+        #expect(CloudLinkStore.hasLeft(timerID: id) == false)
+        CloudLinkStore.markLeft(timerID: id)
+        #expect(CloudLinkStore.hasLeft(timerID: id))
+        CloudLinkStore.markLeft(timerID: id)  // idempotent
+        CloudLinkStore.clearLeft(timerID: id)
+        #expect(CloudLinkStore.hasLeft(timerID: id) == false)
+    }
+
 }

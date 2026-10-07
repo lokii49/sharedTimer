@@ -253,6 +253,7 @@ enum CloudSyncController {
 
             // The sharer re-opening their own link — already owns it, nothing to accept.
             guard metadata.participantRole != .owner else {
+                CloudLinkStore.clearLeft(timerID: payload.id)
                 CloudLinkStore.set(link)
                 completion(payload)
                 return
@@ -262,6 +263,8 @@ enum CloudSyncController {
             acceptOp.acceptSharesResultBlock = { result in
                 switch result {
                 case .success:
+                    // Opening the link again is an explicit re-join.
+                    CloudLinkStore.clearLeft(timerID: payload.id)
                     CloudLinkStore.set(link)
                     completion(payload)
                 case .failure(let error):
@@ -344,7 +347,10 @@ enum CloudSyncController {
     static func pushDelete(id: String) {
         guard let link = CloudLinkStore.get(timerID: id) else { return }
         defer { CloudLinkStore.remove(timerID: id) }
-        guard link.isOwner else { return }
+        guard link.isOwner else {
+            CloudLinkStore.markLeft(timerID: id)
+            return
+        }
 
         let zoneID = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
         let recordID = CKRecord.ID(recordName: link.recordName, zoneID: zoneID)
@@ -381,7 +387,9 @@ enum CloudSyncController {
         }
 
         group.notify(queue: .main) {
-            completion(updated, deletedIDs)
+            // A share this device left (participant delete) keeps reporting changes —
+            // don't resurrect it. See CloudLinkStore.markLeft.
+            completion(updated.filter { !CloudLinkStore.hasLeft(timerID: $0.id) }, deletedIDs)
         }
     }
 

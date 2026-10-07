@@ -201,6 +201,7 @@ struct ContentView: View {
             for payload in timers where !payload.isExpired {
                 armAlerts(for: payload)
             }
+            LiveActivityController.endFinished(timers.filter { !AlarmController.ownsAlert(for: $0) })
             pullCloudChanges()
             // Cold-launch Quick Action: SceneDelegate's willConnectTo runs before this
             // .onAppear (and before .onReceive's subscriber exists), so it buffers the
@@ -259,6 +260,7 @@ struct ContentView: View {
             // The custom Live Activity only runs where AlarmKit doesn't own one —
             // both toggles off, for either kind (see armAlerts).
             LiveActivityController.refreshAll(from: timers.filter { !AlarmController.ownsAlert(for: $0) })
+            LiveActivityController.endFinished(timers.filter { !AlarmController.ownsAlert(for: $0) })
         }
         .onOpenURL { url in
             handleIncoming(url: url)
@@ -354,6 +356,10 @@ struct ContentView: View {
         // shouldVibrateInApp key on auth state, not alarm-dismissed state, for exactly
         // this reason).
         let finished = timers.filter { justFinished.contains($0.id) }
+        // Plain timers only: a sequence's custom Live Activity carries on into the next
+        // phase (armAlerts below updates it in place). Exhausted sequences are ended on
+        // the next launch/foreground pass.
+        LiveActivityController.endFinished(finished.filter { $0.sequence == nil && !AlarmController.ownsAlert(for: $0) })
         if finished.contains(where: { AlarmController.shouldSoundInAppAlarm(for: $0) }) {
             alarm.start()
         }

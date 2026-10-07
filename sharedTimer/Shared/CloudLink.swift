@@ -71,6 +71,31 @@ enum CloudLinkStore {
         persist(links)
     }
 
+    // MARK: - Left shares (participant-side tombstones)
+
+    private static let leftKey = "cloudLinksLeft"
+
+    /// A participant deleting a shared timer only drops its local copy + CloudLink —
+    /// it never touches the shared record (that would delete it for everyone). But the
+    /// shared database still reports that record's later changes, so without this the
+    /// timer reappeared the next time the owner paused/extended it.
+    /// `CloudSyncController.pullChanges` skips records for these ids; re-accepting the
+    /// share (opening its link again) clears the mark.
+    static func markLeft(timerID: String) {
+        var ids = Set(defaults?.stringArray(forKey: leftKey) ?? [])
+        guard ids.insert(timerID).inserted else { return }
+        defaults?.set(Array(ids), forKey: leftKey)
+    }
+
+    static func hasLeft(timerID: String) -> Bool {
+        (defaults?.stringArray(forKey: leftKey) ?? []).contains(timerID)
+    }
+
+    static func clearLeft(timerID: String) {
+        guard let ids = defaults?.stringArray(forKey: leftKey), ids.contains(timerID) else { return }
+        defaults?.set(ids.filter { $0 != timerID }, forKey: leftKey)
+    }
+
     static func all() -> [String: CloudLink] {
         guard let data = defaults?.data(forKey: key),
               let decoded = try? JSONDecoder().decode([String: CloudLink].self, from: data) else {

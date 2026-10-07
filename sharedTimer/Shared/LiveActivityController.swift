@@ -54,6 +54,22 @@ enum LiveActivityController {
     /// case would make a dismissed Live Activity reappear on every foreground. Call
     /// opportunistically (e.g. app foregrounding) — there's no server here to push
     /// this on a schedule while the app isn't running.
+    /// Ends the Live Activity of every finished payload: its final state lingers on
+    /// the Lock Screen for a few minutes (so a glance still shows "Finished"), then
+    /// the system removes it. Called when the app sees a finish — the live zero
+    /// crossing and on every launch/foreground — since nothing can run at the finish
+    /// moment itself while the app is closed (the staleDate covers that gap).
+    static func endFinished(_ payloads: [TimerPayload]) {
+        for payload in payloads where payload.isFinished && !payload.isPaused {
+            let dismissal = max(Date(), payload.endDate).addingTimeInterval(5 * 60)
+            Task {
+                for activity in Activity<TimerActivityAttributes>.activities where activity.attributes.timerID == payload.id {
+                    await activity.end(content(for: payload), dismissalPolicy: .after(dismissal))
+                }
+            }
+        }
+    }
+
     static func refreshAll(from payloads: [TimerPayload]) {
         for payload in payloads where !payload.isPaused && !payload.isFinished {
             update(for: payload)
@@ -63,7 +79,10 @@ enum LiveActivityController {
     private static func content(for payload: TimerPayload) -> ActivityContent<TimerActivityAttributes.ContentState> {
         ActivityContent(
             state: TimerActivityAttributes.ContentState(endDate: payload.endDate, pausedRemaining: payload.pausedRemaining),
-            staleDate: nil
+            // Stale at the finish moment: when the app isn't running to end it, the
+            // system still re-renders the card as stale, and TimerLiveActivityWidget
+            // shows "Finished" (no buttons) instead of a frozen 0:00 for hours.
+            staleDate: payload.isPaused ? nil : payload.endDate
         )
     }
 }
