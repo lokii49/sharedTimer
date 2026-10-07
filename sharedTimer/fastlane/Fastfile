@@ -57,6 +57,99 @@ platform :ios do
   # WITHOUT re-selecting the build (re-`select_build` on an already-attached build is
   # what threw 'pre-release build could not be added'). Mirrors the tail of deliver's
   # own flow (deliver/lib/deliver/submit_for_review.rb). Idempotent.
+  # App Store Connect doesn't carry the App Clip Default Experience (header image,
+  # subtitle, action) over to a new version, and submitting without one fails with
+  # "missing a required relationship 'appClipDefaultExperience'". Create this version's
+  # experience from the most recent earlier version's, as a template, so it keeps
+  # whatever was last set on the website. No-op when the version already has one.
+  private_lane :ensure_app_clip_default_experience do
+    app = Spaceship::ConnectAPI::App.find(APP_BUNDLE_ID)
+    version = app.get_edit_app_store_version(platform: Spaceship::ConnectAPI::Platform::IOS)
+    next unless version # submit_editable_version reports the missing version
+
+    clip = Spaceship::ConnectAPI.get_app_clips(app_id: app.id).to_models.first
+    next UI.message("No App Clip on this app — nothing to set.") unless clip
+
+    body = Spaceship::ConnectAPI.tunes_request_client.get(
+      "v1/appClips/#{clip.id}/appClipDefaultExperiences",
+      { include: "releaseWithAppStoreVersion", limit: 50 }
+    ).body
+    version_strings = (body["included"] || [])
+      .select { |item| item["type"] == "appStoreVersions" }
+      .to_h { |item| [item["id"], item.dig("attributes", "versionString")] }
+    experiences = body["data"].map do |experience|
+      version_id = experience.dig("relationships", "releaseWithAppStoreVersion", "data", "id")
+      { id: experience["id"], version_id: version_id, version_string: version_strings[version_id] }
+    end
+
+    if experiences.any? { |experience| experience[:version_id] == version.id }
+      UI.message("#{version.version_string} already has an App Clip Default Experience.")
+      next
+    end
+
+    template = experiences
+      .select { |experience| experience[:version_string] }
+      .max_by { |experience| Gem::Version.new(experience[:version_string]) }
+    UI.user_error!(
+      "No earlier App Clip Default Experience to copy. Set one for " \
+      "#{version.version_string} on the App Store Connect website (App Clip section), " \
+      "then run `fastlane resubmit`."
+    ) unless template
+
+    created = Spaceship::ConnectAPI::AppClipDefaultExperience.create(
+      app_clip_id: clip.id,
+      app_store_version_id: version.id,
+      template_default_experience_id: template[:id]
+    )
+    localizations = Spaceship::ConnectAPI
+      .get_app_clip_default_experience_localizations(app_clip_default_experience_id: created.id)
+      .to_models
+    UI.success(
+      "Copied the #{template[:version_string]} App Clip Default Experience to " \
+      "#{version.version_string} (#{localizations.map(&:locale).join(', ')})."
+    )
+  end
+
+  # `upload_to_app_store` uploads the binary but can't attach it: Apple is still
+  # processing it (typically 5–30 min), so submitting straight after the upload fails
+  # with "No build attached". Wait for this project's build number to become VALID,
+  # then attach it. Never re-selects an already-attached build — that throws
+  # "pre-release build could not be added".
+  private_lane :attach_processed_build do
+    platform = Spaceship::ConnectAPI::Platform::IOS
+    app = Spaceship::ConnectAPI::App.find(APP_BUNDLE_ID)
+    version = app.get_edit_app_store_version(platform: platform)
+    next unless version # submit_editable_version reports the missing version
+    if version.build
+      UI.message("Build #{version.build.version} already attached to #{version.version_string}.")
+      next
+    end
+
+    states = Spaceship::ConnectAPI::Build::ProcessingState
+    build_number = get_build_number(xcodeproj: "sharedTimer.xcodeproj")
+    build = nil
+    120.times do # 30s apart: up to an hour
+      build = Spaceship::ConnectAPI::Build.all(
+        app_id: app.id, version: version.version_string, build_number: build_number, platform: platform
+      ).first
+      state = build&.processing_state
+      break if state == states::VALID
+      UI.user_error!(
+        "Build #{build_number} processing ended #{state}. Apple emails the reason " \
+        "(ITMS-…); fix it, bump the build number, and run `fastlane release` again."
+      ) if [states::INVALID, states::FAILED].include?(state)
+      UI.message("Waiting for build #{build_number} to finish processing (#{state || 'not visible yet'})...")
+      sleep(30)
+    end
+    UI.user_error!(
+      "Build #{build_number} still isn't processed after an hour. Run `fastlane resubmit` " \
+      "later; it picks up from here."
+    ) unless build&.processing_state == states::VALID
+
+    version.select_build(build_id: build.id)
+    UI.success("Attached build #{build_number} to #{version.version_string}.")
+  end
+
   private_lane :submit_editable_version do
     platform = Spaceship::ConnectAPI::Platform::IOS
     app = Spaceship::ConnectAPI::App.find(APP_BUNDLE_ID)
@@ -107,6 +200,8 @@ platform :ios do
        "Connect (required by hand every version). Idempotent — no-ops if already in review."
   lane :resubmit do
     auth
+    ensure_app_clip_default_experience
+    attach_processed_build
     submit_editable_version
   end
 
@@ -124,9 +219,9 @@ platform :ios do
       xcargs: "-allowProvisioningUpdates"
     )
 
-    # Upload + select build + metadata, but DON'T submit here — the submit is split out
-    # so an App Clip Default Experience gap (which must be fixed by hand in App Store
-    # Connect) doesn't bury the successful upload under a stack trace.
+    # Upload + metadata, but DON'T submit here: the build still has to finish
+    # processing, and the steps after it get their own readable error instead of being
+    # buried under the upload's output.
     upload_to_app_store(
       force: true,
       skip_metadata: false,
@@ -141,14 +236,13 @@ platform :ios do
     )
 
     begin
+      ensure_app_clip_default_experience
+      attach_processed_build
       submit_editable_version
     rescue => e
       UI.error("Upload succeeded, but submitting for review failed:")
       UI.error(e.message)
-      UI.important(
-        "Fix it in App Store Connect (for this app: App Clip → set the Default Experience " \
-        "— header image, subtitle, action), then run `fastlane resubmit`."
-      )
+      UI.important("Fix the cause above, then run `fastlane resubmit` (it skips steps already done).")
       raise
     end
   end
