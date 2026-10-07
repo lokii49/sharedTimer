@@ -21,22 +21,54 @@ enum TimerStore {
     }
 
     static func save(_ payload: TimerPayload) {
-        var all = loadAll()
-        all.removeAll { $0.id == payload.id }
-        all.append(payload)
-        persist(all)
-        // Any prior "Stop" on this id was about the finish event it stopped — a fresh
-        // mutation (repeat, extend past finish, a new share of the same id) means a
-        // future finish should be free to alert again.
-        clearAcknowledgedFinish(id: payload.id)
+        withWriteLock {
+            var all = loadAll()
+            all.removeAll { $0.id == payload.id }
+            all.append(payload)
+            persist(all)
+            // Any prior "Stop" on this id was about the finish event it stopped — a
+            // fresh mutation (repeat, extend past finish, a new share of the same id)
+            // means a future finish should be free to alert again.
+            clearAcknowledgedFinish(id: payload.id)
+        }
     }
 
     static func delete(id: String) {
-        var all = loadAll()
-        all.removeAll { $0.id == id }
-        persist(all)
-        clearAcknowledgedFinish(id: id)
-        setAlarmKitArmed(id: id, false)
+        withWriteLock {
+            var all = loadAll()
+            all.removeAll { $0.id == id }
+            persist(all)
+            clearAcknowledgedFinish(id: id)
+            updateIDSet(alarmKitArmedKey, id: id, member: false)
+        }
+    }
+
+    /// Every read-modify-write of this store runs under an exclusive `flock` on a
+    /// lock file in the App Group container. The app, the Messages extension, the
+    /// App Clip and in-app intents can all write concurrently (separate processes,
+    /// or separate threads of one), and an unguarded load → mutate → persist let one
+    /// writer silently drop another's change. Not re-entrant: helpers called from
+    /// inside (`clearAcknowledgedFinish`, `updateIDSet`) never take it themselves.
+    /// Falls back to running unlocked if the container is unavailable. Readers
+    /// (`loadAll`, the widget) don't lock — each `set` of a key is atomic already.
+    private static func withWriteLock(_ body: () -> Void) {
+        guard let url = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: appGroupID)?
+            .appendingPathComponent("TimerStore.lock") else { return body() }
+        let fd = open(url.path, O_CREAT | O_RDWR, 0o644)
+        guard fd >= 0 else { return body() }
+        defer { close(fd) }
+        flock(fd, LOCK_EX)
+        defer { flock(fd, LOCK_UN) }
+        body()
+    }
+
+    /// Adds/removes `id` in a string-set key. Caller holds the write lock.
+    private static func updateIDSet(_ key: String, id: String, member: Bool) {
+        var ids = Set(defaults?.stringArray(forKey: key) ?? [])
+        let changed = member ? ids.insert(id).inserted : ids.remove(id) != nil
+        guard changed else { return }
+        defaults?.set(Array(ids), forKey: key)
     }
 
     /// Ids whose finish alert the main app currently has armed through AlarmKit.
@@ -47,10 +79,7 @@ enum TimerStore {
     /// (double alert, and the "too many Live Activities" bug). Plain App Group data, no
     /// AlarmKit import — this file still compiles into the Widget.
     static func setAlarmKitArmed(id: String, _ armed: Bool) {
-        var ids = Set(defaults?.stringArray(forKey: alarmKitArmedKey) ?? [])
-        let changed = armed ? ids.insert(id).inserted : ids.remove(id) != nil
-        guard changed else { return }
-        defaults?.set(Array(ids), forKey: alarmKitArmedKey)
+        withWriteLock { updateIDSet(alarmKitArmedKey, id: id, member: armed) }
     }
 
     /// The timer the user last acted on from a widget / Live Activity button. An
@@ -76,18 +105,16 @@ enum TimerStore {
     /// "don't auto-buzz when the app is next opened/foregrounded for this finish."
     /// Checked by `AlarmController.shouldVibrateInApp`.
     static func acknowledgeFinish(id: String) {
-        var ids = Set(defaults?.stringArray(forKey: acknowledgedFinishKey) ?? [])
-        ids.insert(id)
-        defaults?.set(Array(ids), forKey: acknowledgedFinishKey)
+        withWriteLock { updateIDSet(acknowledgedFinishKey, id: id, member: true) }
     }
 
     static func isFinishAcknowledged(id: String) -> Bool {
         (defaults?.stringArray(forKey: acknowledgedFinishKey) ?? []).contains(id)
     }
 
+    /// Caller holds the write lock.
     private static func clearAcknowledgedFinish(id: String) {
-        guard let ids = defaults?.stringArray(forKey: acknowledgedFinishKey), ids.contains(id) else { return }
-        defaults?.set(ids.filter { $0 != id }, forKey: acknowledgedFinishKey)
+        updateIDSet(acknowledgedFinishKey, id: id, member: false)
     }
 
     static func loadAll() -> [TimerPayload] {

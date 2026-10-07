@@ -118,10 +118,8 @@ enum AlarmController {
 
     /// Cancels any existing alert (AlarmKit alarm + local notification) for this timer,
     /// then schedules the right one for its current state. Safe from any thread and
-    /// safe to call repeatedly — work is serialized per timer id. Nothing is dropped:
-    /// every call runs, chained after the previous one for that id. Ordering is only as
-    /// strong as the order calls reach `Serializer` (each hops through its own `Task`),
-    /// which in practice matches call order but isn't guaranteed — see ROADMAP.md.
+    /// safe to call repeatedly — work is serialized per timer id, in call order (see
+    /// `enqueue`). Nothing is dropped: every call runs, chained after the previous one.
     static func reschedule(for payload: TimerPayload) {
         // Cancel the notification synchronously so a .timer that just switched away
         // from the notification path can't leave a stale one armed.
@@ -567,16 +565,25 @@ enum AlarmController {
 
     // MARK: - Per-id serialization
 
-    private static func enqueue(_ id: String, _ work: @escaping @Sendable () async -> Void) {
-        Task { await Serializer.shared.run(id, work) }
+    /// Queues `work` behind everything already queued for `id`, in *call* order: the
+    /// chaining happens synchronously under a lock at call time. The previous version
+    /// hopped each call through its own unstructured `Task` before reaching an actor,
+    /// and the order those Tasks reach it isn't specified — a `reschedule` quickly
+    /// followed by `clear` (a fast change-then-delete) could run in reverse and leave
+    /// an alarm armed for a deleted timer.
+    @discardableResult
+    private static func enqueue(_ id: String, _ work: @escaping @Sendable () async -> Void) -> Task<Void, Never> {
+        Serializer.shared.enqueue(id, work)
     }
 
-    private actor Serializer {
+    private final class Serializer: @unchecked Sendable {
         static let shared = Serializer()
+        private let lock = NSLock()
         private var tail: [String: Task<Void, Never>] = [:]
 
-        @discardableResult
-        func run(_ id: String, _ work: @escaping @Sendable () async -> Void) -> Task<Void, Never> {
+        func enqueue(_ id: String, _ work: @escaping @Sendable () async -> Void) -> Task<Void, Never> {
+            lock.lock()
+            defer { lock.unlock() }
             let previous = tail[id]
             let task = Task {
                 await previous?.value
@@ -585,18 +592,20 @@ enum AlarmController {
             tail[id] = task
             Task { [weak self] in
                 await task.value
-                await self?.clear(id, ifTail: task)
+                self?.clear(id, ifTail: task)
             }
             return task
         }
 
-        /// Queues `work` behind whatever is already running for `id`, and returns only
-        /// once it has finished — for `rescheduleAwaiting`.
+        /// Same queue as `enqueue`, but returns only once `work` has finished — for
+        /// `rescheduleAwaiting`.
         func runAndWait(_ id: String, _ work: @escaping @Sendable () async -> Void) async {
-            await run(id, work).value
+            await enqueue(id, work).value
         }
 
         private func clear(_ id: String, ifTail task: Task<Void, Never>) {
+            lock.lock()
+            defer { lock.unlock() }
             if tail[id] == task { tail[id] = nil }
         }
     }
