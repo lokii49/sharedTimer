@@ -107,13 +107,18 @@ struct TimerSpotlightTests {
         }
     }
 
-    private func awaitResults(title: String, domain: String, count: Int, description: String? = nil) async throws -> [CSSearchableItem] {
+    /// Journaling completing doesn't mean the search engine has caught up, so poll —
+    /// against a time budget rather than a try count, since one query can itself take
+    /// seconds on a busy machine. Returns as soon as the expected state is visible.
+    private func awaitResults(title: String, domain: String, count: Int, description: String? = nil,
+                              timeout: Duration = .seconds(30)) async throws -> [CSSearchableItem] {
+        let deadline = ContinuousClock.now + timeout
         var results: [CSSearchableItem] = []
-        for _ in 0..<40 {
+        repeat {
             results = try await query(title: title).filter { $0.domainIdentifier == domain }
             if results.count == count, description == nil || results.first?.attributeSet.contentDescription?.contains(description!) == true { return results }
             try await Task.sleep(for: .milliseconds(250))
-        }
+        } while ContinuousClock.now < deadline
         return results
     }
 

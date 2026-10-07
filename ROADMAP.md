@@ -1,20 +1,28 @@
 # Timer Roadmap
 
-Status as of 2026-10-07 (1.0.3 merged to main via #5; 1.0.4 complete on branch `1.0.4`, not yet merged). Goal: beat the real App Store competitors (ShareTimer, ShareMyTimer,
+Status as of 2026-10-07 (1.0.4 merged to main via #6 and submitted for App Store review). Goal: beat the real App Store competitors (ShareTimer, ShareMyTimer,
 Synced Timer Plus, TimeTo) by closing the live-sync gap and leaning into the one thing none of
 them have — a real native iMessage extension — instead of routing sharing through a plain link
 or QR code.
 
 ## Status at a glance (2026-10-07)
 
-**Release:** 1.0.4 (build 7) is feature-complete on branch `1.0.4`. Version is bumped, App Store release notes are written, CI is green, and all 51 tests pass on the simulator and on an iPhone 14 Pro (iOS 26.7).
+**Release:** 1.0.4 (build 7) is **Waiting for Review** on App Store Connect (submitted 2026-10-07). PR #6 merged to `main`, CI green, the new `t.html` is live on GitHub Pages, and the production CloudKit schema is deployed. Automatic release is off.
 
-**Working-tree follow-up (2026-10-07):** the first Phase 7 Siri expansion is implemented locally on `1.0.4`: Pause, Resume, Extend, and Time Remaining. All of it ships in 1.0.4 (decided 2026-10-07); not yet committed. Spotlight indexing of individual timers is also implemented, with live update/delete reconciliation and direct detail-screen routing. Lock Screen circular/rectangular widgets with native remaining-time rings and a configurable Watch complication / Smart Stack widget are also implemented. Shared sequences now preserve full phase/loop state through URLs and CloudKit, with phase-aware Messages/App Clip/web recipients. Yearly countdowns, Calendar import, and web `.ics` export are also implemented locally. All 51 unit tests, 12 shared-sequence tests, 16 annual/Calendar tests, 6 Spotlight tests, 8 widget tests, and 25 AlarmKit integration tests pass on the network-connected iPhone 14 Pro, plus five UI tests for timer links, sequence import, annual controls, the creation form, and Calendar access. Nineteen web timing/export tests also pass. Spoken Siri invocation, a visual Spotlight result tap, and two-account propagation still need manual verification.
+1.0.4 ships everything below: the hardening fixes, Live Activity / widget controls, recents and the Control Center control, plus Edit, yearly countdowns with Calendar import, shared sequences, Lock Screen widgets, the Watch complication / Smart Stack, the extra Siri intents, Spotlight indexing and the "Sunrise Walk" What's New tour.
+
+**Verified:** 135 unit tests on the simulator; 102 regular plus 27 AlarmKit device tests on the iPhone 14 Pro; UI tests for edit, What's New, links, sequences, annual flows and Calendar access; 19 web tests; the update path on an iPhone 13 upgraded from App Store 1.0.3.
 
 **Remaining release steps:**
-1. Merge `1.0.4` → `main` (PR).
-2. Archive and upload (fastlane / App Store Connect).
-3. Submit.
+1. ~~Merge `1.0.4` → `main` (PR #6).~~ Done.
+2. ~~Archive and upload build 7.~~ Done.
+3. ~~Submit for review.~~ Done. Waiting for Review.
+4. After approval: release manually in App Store Connect.
+5. Then reinstall Timer from the App Store on the iPhone 13 (it runs a development build against the development CloudKit environment until then).
+
+**Release tooling (2026-10-07):** `fastlane release` is now fully automated. It copies the previous version's App Clip Default Experience, waits for the build to finish processing and attaches it, then submits; `fastlane resubmit` resumes from any step. No manual App Store Connect visit per version.
+
+**CI (2026-10-07):** the real-Spotlight-index test is skipped on GitHub-hosted runners (the system search daemon there can take minutes per query; it failed once at 668s while the same commit passed in a parallel run). It still runs locally and on device, and its polling is now time-budgeted (30s) instead of a fixed try count.
 
 ### Fixed in 1.0.4
 
@@ -244,7 +252,7 @@ pending sequence 2 minutes out with a 1-minute phase 0, confirm nothing shows fo
 and the alarm rings at +3, not +4); that a pending sequence never leaks into the watch app via
 `WatchSyncController`'s flattened phase-0 view (guard is code-reviewed, not device-tested).
 
-## 1.0.4 — Hardening (complete on branch `1.0.4`; see "Status at a glance")
+## 1.0.4 — Hardening (in 1.0.4, submitted for review; see "Status at a glance")
 
 From a full code audit on 2026-10-07. Build + the 26 `sharedTimerTests` (Swift Testing) pass;
 nothing below has been verified on a device yet.
