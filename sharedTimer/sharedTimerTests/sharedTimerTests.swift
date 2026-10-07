@@ -645,4 +645,15 @@ struct sharedTimerTests {
         #expect(RecentTimersStore.all().isEmpty)
     }
 
+    // MARK: - TimeFormat.targetDate (1.0.4, wrong year on non-Gregorian calendars)
+
+    @Test func targetDateIsGregorianWhateverTheUserCalendar() {
+        var components = DateComponents()
+        components.year = 2026; components.month = 10; components.day = 7; components.hour = 12
+        let date = Calendar(identifier: .gregorian).date(from: components)!
+        // The formatter is pinned, so the device calendar can't leak in; assert the
+        // exact output a Buddhist/Japanese-calendar device would previously have broken.
+        #expect(TimeFormat.targetDate(date) == "2026-10-07")
+    }
+
 }

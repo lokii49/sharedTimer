@@ -516,24 +516,21 @@ enum TimeFormat {
         interval >= calendarThreshold ? compactCalendar(interval, at: now) : "\(max(0, Int(interval)) / 86400)d"
     }
 
-    /// Fixed-width zero-padded digits for a widget where the numbers are the whole point:
-    /// "HH:MM:SS" under the calendar threshold, "YY:MM:DD" beyond it. Always exactly 8
-    /// characters, so a big font sized for it doesn't jitter as the value changes.
-    static func bigDigits(_ interval: TimeInterval, at now: Date = Date()) -> String {
-        if interval >= calendarThreshold {
-            let comps = Calendar.current.dateComponents([.year, .month, .day], from: now, to: now.addingTimeInterval(max(0, interval)))
-            return String(format: "%02d:%02d:%02d", max(0, comps.year ?? 0), max(0, comps.month ?? 0), max(0, comps.day ?? 0))
-        }
-        let total = max(0, Int(interval))
-        return String(format: "%02d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
+    /// "2026-08-11" target date, e.g. for countdown rows and share text.
+    /// Always Gregorian + POSIX (same as docs/t.html's `formatTargetDate`): a fixed
+    /// "yyyy-MM-dd" format on the user's own calendar printed e.g. 2569 under the
+    /// Buddhist calendar or a Japanese era year.
+    static func targetDate(_ date: Date) -> String {
+        targetDateFormatter.string(from: date)
     }
 
-    /// "2026-08-11" target date, e.g. for countdown rows and share text.
-    static func targetDate(_ date: Date) -> String {
+    private static let targetDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
-    }
+        return formatter
+    }()
 }
 
 extension TimerKind {

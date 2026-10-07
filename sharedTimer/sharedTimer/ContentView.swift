@@ -503,12 +503,34 @@ struct ContentView: View {
     }
 
     private func delete(_ payload: TimerPayload) {
+        stopInAppAlertIfRinging(for: payload.id)
         TimerStore.delete(id: payload.id)
         AlarmController.clear(payload)
         LiveActivityController.end(id: payload.id)
         CloudSyncController.pushDelete(id: payload.id)
         WatchSyncController.pushCurrentState()
         timers.removeAll { $0.id == payload.id }
+    }
+
+    /// Deleting (locally, or remotely via CloudKit) a timer whose in-app alarm /
+    /// vibration loop is sounding used to leave it — and the "Time's up" banner —
+    /// running for a timer that no longer exists. Stops them when the deleted timer is
+    /// finished and no other finished-and-still-ringing timer remains to justify them.
+    private func stopInAppAlertIfRinging(for id: String) {
+        guard alarm.isPlaying || vibration.isVibrating,
+              timers.first(where: { $0.id == id })?.isFinished == true else { return }
+        let othersFinished = timers.contains { $0.id != id && $0.isExpired && !TimerStore.isFinishAcknowledged(id: $0.id) && armedRecently($0) }
+        if !othersFinished {
+            alarm.stop()
+            vibration.stop()
+        }
+        armedIDs.remove(id)
+    }
+
+    /// Finished within the last minute — the window in which another timer could
+    /// plausibly be the one actually ringing.
+    private func armedRecently(_ payload: TimerPayload) -> Bool {
+        payload.endDate > Date().addingTimeInterval(-60)
     }
 
     private func togglePause(_ payload: TimerPayload) {
@@ -669,6 +691,7 @@ struct ContentView: View {
                     }
                 }
                 for id in deletedIDs {
+                    stopInAppAlertIfRinging(for: id)
                     TimerStore.delete(id: id)
                     AlarmController.clear(id: id)
                     LiveActivityController.end(id: id)
