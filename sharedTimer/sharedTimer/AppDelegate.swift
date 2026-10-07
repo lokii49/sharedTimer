@@ -23,6 +23,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         application.registerForRemoteNotifications()
         CloudSyncController.registerSubscriptionsIfNeeded()
         WatchSyncController.activate()
+        TimerSpotlightIndex.shared.start()
         // Ask for AlarmKit permission now so the prompt isn't racing the first
         // .timer's schedule call (see AlarmController).
         AlarmController.requestAuthorizationIfNeeded()
@@ -64,14 +65,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 // either toggle is on (either kind), local notification only when both
                 // are off, and the custom Live Activity only for that both-off case
                 // (AlarmKit runs its own whenever it owns the alert).
-                AlarmController.reschedule(for: payload)
-                if !AlarmController.ownsAlert(for: payload) {
-                    if payload.isPaused {
-                        LiveActivityController.update(for: payload)
-                    } else {
-                        LiveActivityController.start(for: payload)
-                    }
-                }
+                TimerArming.arm(payload)
                 if let existing {
                     self.notifyIfExtended(existing: existing, updated: payload)
                 }
@@ -176,7 +170,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        if notification.request.content.categoryIdentifier == Self.extendedCategoryID {
+        if [Self.extendedCategoryID, LiveActivityActions.startedCategoryID].contains(notification.request.content.categoryIdentifier) {
             completionHandler([.banner, .list, .sound])
         } else {
             completionHandler([])
@@ -189,7 +183,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         defer { completionHandler() }
-        let id = response.notification.request.identifier
+        let id = (response.notification.request.content.userInfo["timerID"] as? String) ?? response.notification.request.identifier
         guard response.notification.request.content.categoryIdentifier == NotificationScheduler.vibrationFinishCategoryID,
               let payload = TimerStore.loadAll().first(where: { $0.id == id }) else { return }
 
@@ -201,13 +195,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             TimerStore.acknowledgeFinish(id: id)
         case "REPEAT_ACTION":
             // Same mutation sequence as ContentView.repeatTimer()/armAlerts: repeat,
-            // save, reschedule, and (alarm is off here by construction — this category
-            // only appears on a vibration-only notification) restart the custom Live
-            // Activity too.
+            // save, then TimerArming (AlarmKit if it's authorized by now, else the
+            // notification fallback this category came from).
             let updated = payload.repeated()
             TimerStore.save(updated)
-            AlarmController.reschedule(for: updated)
-            LiveActivityController.start(for: updated)
+            TimerArming.arm(updated)
             CloudSyncController.pushUp(updated, action: "repeated")
             WatchSyncController.pushCurrentState()
             NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)

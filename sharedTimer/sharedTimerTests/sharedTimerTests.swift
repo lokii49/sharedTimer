@@ -111,14 +111,11 @@ struct sharedTimerTests {
 
     // MARK: - TimerPayload.url() / .from(url:) round-trip
 
-    @Test func urlRoundTripPreservesCoreFieldsAndDropsSequence() {
+    @Test func urlRoundTripPreservesCoreFields() {
         let now = Date()
-        let phases = [SequencePhase(label: "Work", duration: 60)]
-        let seq = SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 0)
         let original = TimerPayload(
             id: "url-1", label: "Pasta", endDate: now, duration: 600,
-            kind: .countdown, alarmEnabled: false, vibrationEnabled: true, sequence: seq,
-            scheduledStartDate: now.addingTimeInterval(120)
+            kind: .countdown, alarmEnabled: false, vibrationEnabled: true
         )
 
         let decoded = try? #require(TimerPayload.from(url: original.url()))
@@ -132,8 +129,7 @@ struct sharedTimerTests {
         #expect(decoded?.kind == .countdown)
         #expect(decoded?.alarmEnabled == false)
         #expect(decoded?.vibrationEnabled == true)
-        // sequence AND scheduledStartDate are both sequence-only/main-app-only —
-        // neither is ever round-tripped through the share link (see CLAUDE.md).
+        // A plain timer stays plain; sequence round trips have their own coverage.
         #expect(decoded?.sequence == nil)
         #expect(decoded?.scheduledStartDate == nil)
     }
@@ -464,6 +460,389 @@ struct sharedTimerTests {
 
         #expect(decoded.scheduledStartDate == nil)
         #expect(decoded.isPending() == false)
+    }
+
+    // MARK: - TimerStore AlarmKit-armed registry (1.0.4, Messages/Clip double-arm fix)
+
+    @Test func alarmKitArmedRegistrySetsClearsAndIsClearedByDelete() {
+        let id = "armed-registry-\(UUID().uuidString)"
+        defer { TimerStore.setAlarmKitArmed(id: id, false) }
+
+        #expect(TimerStore.isAlarmKitArmed(id: id) == false)
+        TimerStore.setAlarmKitArmed(id: id, true)
+        #expect(TimerStore.isAlarmKitArmed(id: id) == true)
+        TimerStore.setAlarmKitArmed(id: id, false)
+        #expect(TimerStore.isAlarmKitArmed(id: id) == false)
+
+        // Deleting a timer must drop it too, or an extension opening a re-shared link
+        // with the same id would wrongly skip arming its own alert.
+        TimerStore.setAlarmKitArmed(id: id, true)
+        TimerStore.delete(id: id)
+        #expect(TimerStore.isAlarmKitArmed(id: id) == false)
+    }
+
+    // MARK: - Sequence pre-armed window (1.0.4, Stop-stalls-sequence fix)
+
+    private func pomodoro(loops: Int, phaseIndex: Int = 0, loopIndex: Int = 0, endDate: Date) -> TimerPayload {
+        let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
+        let seq = SequenceInfo(phases: phases, loopCount: loops, phaseIndex: phaseIndex, loopIndex: loopIndex)
+        let current = phases[phaseIndex]
+        return TimerPayload(id: "win-\(UUID().uuidString)", label: current.label, endDate: endDate, duration: current.duration, kind: .timer, sequence: seq)
+    }
+
+    @Test func upcomingPhaseEndDatesMatchAdvancedSequenceChain() {
+        let now = Date()
+        let payload = pomodoro(loops: 3, endDate: now.addingTimeInterval(60))
+        let window = payload.upcomingSequencePhases(limit: 8)
+
+        // Pre-armed alarm dates must equal what the stored payload later re-derives to,
+        // or the no-rearm foreground advance would drift from what AlarmKit rings at.
+        var derived = payload
+        for occurrence in window {
+            #expect(derived.endDate == occurrence.endDate)
+            #expect(derived.sequenceGlobalIndex == occurrence.globalIndex)
+            derived = derived.advancedSequence(at: occurrence.endDate.addingTimeInterval(0.5))
+        }
+    }
+
+    @Test func upcomingPhasesRespectsLimitWrapsLoopsAndFlagsOnlyTheLastAsFinal() {
+        let now = Date()
+        let payload = pomodoro(loops: 2, phaseIndex: 1, loopIndex: 0, endDate: now.addingTimeInterval(30))
+
+        let window = payload.upcomingSequencePhases(limit: 8)
+        // Rest(loop0), Work(loop1), Rest(loop1) — only 3 occurrences left of 4.
+        #expect(window.map(\.globalIndex) == [1, 2, 3])
+        #expect(window.map(\.phase.label) == ["Rest", "Work", "Rest"])
+        #expect(window.map(\.isFinal) == [false, false, true])
+        #expect(window.map(\.endDate) == [now.addingTimeInterval(30), now.addingTimeInterval(90), now.addingTimeInterval(120)])
+
+        #expect(payload.upcomingSequencePhases(limit: 2).count == 2)
+    }
+
+    @Test func upcomingPhasesIsEmptyWhenPausedExhaustedOrPlain() {
+        let now = Date()
+        let running = pomodoro(loops: 2, endDate: now.addingTimeInterval(60))
+        #expect(running.paused(at: now).upcomingSequencePhases(limit: 8).isEmpty)
+
+        var exhausted = running
+        exhausted.sequence?.loopIndex = 2
+        #expect(exhausted.upcomingSequencePhases(limit: 8).isEmpty)
+
+        #expect(TimerPayload(label: "Plain", duration: 60).upcomingSequencePhases(limit: 8).isEmpty)
+    }
+
+    @Test func materializingPhaseSkipsAheadAndExhaustsLikeSteppedToNextPhase() {
+        let now = Date()
+        let payload = pomodoro(loops: 2, endDate: now)
+
+        // "Next" tapped on phase occurrence 1's pre-armed alert while the stored payload
+        // still sits on occurrence 0 (user had tapped Stop on it) -> start occurrence 2.
+        let skipped = payload.materializingPhase(globalIndex: 2, startingAt: now)
+        #expect(skipped.sequence?.phaseIndex == 0)
+        #expect(skipped.sequence?.loopIndex == 1)
+        #expect(skipped.label == "Work")
+        #expect(skipped.endDate == now.addingTimeInterval(60))
+
+        let onFinal = pomodoro(loops: 1, phaseIndex: 1, endDate: now)
+        let pastEnd = onFinal.materializingPhase(globalIndex: 2, startingAt: now.addingTimeInterval(5))
+        let stepped = onFinal.steppedToNextPhase(at: now.addingTimeInterval(5))
+        #expect(pastEnd.sequence == stepped.sequence)
+        #expect(pastEnd.label == stepped.label)
+        #expect(pastEnd.endDate == stepped.endDate)
+    }
+
+    @Test func phaseAlarmIDsAreStableAndDistinct() {
+        let timerID = UUID().uuidString
+        let ids = (0..<16).map { AlarmController.phaseAlarmID(timerID: timerID, globalIndex: $0) }
+        #expect(Set(ids).count == 16)
+        #expect(ids == (0..<16).map { AlarmController.phaseAlarmID(timerID: timerID, globalIndex: $0) })
+        // Never collides with the legacy single-id alarm (the timer's own UUID).
+        #expect(!ids.contains(UUID(uuidString: timerID)!))
+        #expect(AlarmController.phaseAlarmID(timerID: "other", globalIndex: 0) != ids[0])
+    }
+
+    // MARK: - CloudLinkStore left-share tombstones (1.0.4, deleted shared timer reappearing)
+
+    @Test func leftShareMarkIsSetAndClearedOnRejoin() {
+        let id = "left-\(UUID().uuidString)"
+        defer { CloudLinkStore.clearLeft(timerID: id) }
+
+        #expect(CloudLinkStore.hasLeft(timerID: id) == false)
+        CloudLinkStore.markLeft(timerID: id)
+        #expect(CloudLinkStore.hasLeft(timerID: id))
+        CloudLinkStore.markLeft(timerID: id)  // idempotent
+        CloudLinkStore.clearLeft(timerID: id)
+        #expect(CloudLinkStore.hasLeft(timerID: id) == false)
+    }
+
+    // MARK: - RecentTimersStore (1.0.4 quick start)
+
+    @Test func recentsDedupeMoveToFrontCapAndSkipCountdownsAndSequences() throws {
+        let defaults = try #require(UserDefaults(suiteName: "group.com.lokesh.sharedTimer"))
+        let original = defaults.data(forKey: "recentTimers")
+        defer {
+            if let original { defaults.set(original, forKey: "recentTimers") } else { defaults.removeObject(forKey: "recentTimers") }
+        }
+        defaults.removeObject(forKey: "recentTimers")
+
+        for i in 1...8 {
+            RecentTimersStore.record(TimerPayload.compose(label: "T\(i)", kind: .timer, minutes: Double(i), targetDate: Date()))
+        }
+        #expect(RecentTimersStore.all().map(\.label) == ["T8", "T7", "T6", "T5", "T4", "T3"])
+
+        // Same label + length again moves to the front instead of duplicating.
+        RecentTimersStore.record(TimerPayload.compose(label: "T5", kind: .timer, minutes: 5, targetDate: Date(), alarmEnabled: false))
+        #expect(RecentTimersStore.all().map(\.label) == ["T5", "T8", "T7", "T6", "T4", "T3"])
+        #expect(RecentTimersStore.all().first?.alarmEnabled == false)
+
+        RecentTimersStore.record(TimerPayload.compose(label: "Trip", kind: .countdown, minutes: 0, targetDate: Date().addingTimeInterval(86400)))
+        RecentTimersStore.record(TimerPayload.composeSequence(label: "Pomodoro", phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1))
+        #expect(RecentTimersStore.all().first?.label == "T5")
+
+        RecentTimersStore.remove(id: "T5|300")
+        #expect(RecentTimersStore.all().first?.label == "T8")
+    }
+
+    @Test func recentLengthTextAndLenientDecode() throws {
+        #expect(RecentTimer.lengthText(8 * 60) == "8m")
+        #expect(RecentTimer.lengthText(90 * 60) == "1h 30m")
+        #expect(RecentTimer.lengthText(45) == "45s")
+        #expect(RecentTimer.lengthText(3600) == "1h")
+
+        // Missing toggles (an older/newer schema) must not drop the entry.
+        let json = #"[{"label":"Tea","duration":180}]"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode([RecentTimer].self, from: json)
+        #expect(decoded.first?.title == "Tea 3m")
+        #expect(decoded.first?.payload().duration == 180)
+    }
+
+    @Test func recentsSeedOnceFromStoredTimersNewestFirst() throws {
+        let defaults = try #require(UserDefaults(suiteName: "group.com.lokesh.sharedTimer"))
+        let original = defaults.data(forKey: "recentTimers")
+        let originalSeeded = defaults.object(forKey: "recentTimersSeeded")
+        defer {
+            if let original { defaults.set(original, forKey: "recentTimers") } else { defaults.removeObject(forKey: "recentTimers") }
+            defaults.set(originalSeeded, forKey: "recentTimersSeeded")
+        }
+        defaults.removeObject(forKey: "recentTimers")
+        defaults.removeObject(forKey: "recentTimersSeeded")
+
+        let now = Date()
+        let older = TimerPayload(id: "s1", label: "Tea", endDate: now.addingTimeInterval(-600), duration: 180)
+        let newer = TimerPayload(id: "s2", label: "Pasta", endDate: now.addingTimeInterval(300), duration: 480)
+        let countdown = TimerPayload(id: "s3", label: "Trip", endDate: now.addingTimeInterval(86400), duration: 86400, kind: .countdown)
+        RecentTimersStore.seedIfNeeded(from: [older, countdown, newer])
+        #expect(RecentTimersStore.all().map(\.label) == ["Pasta", "Tea"])
+
+        // Only once: clearing the list afterwards must not re-seed it.
+        RecentTimersStore.remove(id: "Pasta|480")
+        RecentTimersStore.remove(id: "Tea|180")
+        RecentTimersStore.seedIfNeeded(from: [older, newer])
+        #expect(RecentTimersStore.all().isEmpty)
+    }
+
+    // MARK: - TimeFormat.targetDate (1.0.4, wrong year on non-Gregorian calendars)
+
+    @Test func targetDateIsGregorianWhateverTheUserCalendar() {
+        var components = DateComponents()
+        components.year = 2026; components.month = 10; components.day = 7; components.hour = 12
+        let date = Calendar(identifier: .gregorian).date(from: components)!
+        // The formatter is pinned, so the device calendar can't leak in; assert the
+        // exact output a Buddhist/Japanese-calendar device would previously have broken.
+        #expect(TimeFormat.targetDate(date) == "2026-10-07")
+    }
+
+    // MARK: - updatedAt / re-shared links (1.0.4)
+
+    @Test func updatedAtRoundTripsThroughLinkAndOldLinksDecodeUnknown() {
+        let stamp = Date(timeIntervalSince1970: 1_800_000_000)
+        let payload = TimerPayload(id: "upd-1", label: "Pasta", endDate: stamp.addingTimeInterval(480), duration: 480, updatedAt: stamp)
+        let decoded = TimerPayload.from(url: payload.url())
+        #expect(decoded?.updatedAt == stamp)
+
+        // A pre-1.0.4 link has no `upd`.
+        var components = URLComponents(url: payload.url(), resolvingAgainstBaseURL: false)!
+        components.queryItems?.removeAll { $0.name == "upd" }
+        #expect(TimerPayload.from(url: components.url)?.updatedAt == nil)
+    }
+
+    @Test func shouldAdoptOnlyStrictlyNewerStampedSnapshots() {
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        let stored = TimerPayload(id: "a", label: "Pasta", endDate: t0.addingTimeInterval(480), duration: 480, updatedAt: t0)
+        let newer = TimerPayload(id: "a", label: "Pasta", endDate: t0.addingTimeInterval(540), duration: 480, updatedAt: t0.addingTimeInterval(60))
+        let older = TimerPayload(id: "a", label: "Pasta", endDate: t0.addingTimeInterval(420), duration: 480, updatedAt: t0.addingTimeInterval(-60))
+        let unstamped = TimerPayload(id: "a", label: "Pasta", endDate: t0.addingTimeInterval(999), duration: 480)
+        let otherID = TimerPayload(id: "b", label: "Pasta", endDate: t0, duration: 480, updatedAt: t0.addingTimeInterval(600))
+
+        #expect(stored.shouldAdopt(newer))
+        #expect(!stored.shouldAdopt(older))
+        #expect(!stored.shouldAdopt(stored))
+        #expect(!stored.shouldAdopt(unstamped))          // an old link never rolls state back
+        #expect(unstamped.shouldAdopt(newer))            // stamped beats unknown
+        #expect(!stored.shouldAdopt(otherID))
+    }
+
+    @Test func userMutationsStampUpdatedAtButRederivationDoesNot() {
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        let base = TimerPayload(id: "m", label: "Tea", endDate: t0.addingTimeInterval(180), duration: 180, updatedAt: t0)
+        let t1 = t0.addingTimeInterval(30)
+        #expect(base.paused(at: t1).updatedAt == t1)
+        #expect(base.paused(at: t1).resumed(at: t1.addingTimeInterval(5)).updatedAt == t1.addingTimeInterval(5))
+        #expect(base.repeated(at: t1).updatedAt == t1)
+        let beforeExtend = Date()  // extended(by:) has no date parameter — stamps "now"
+        #expect((base.extended(by: 60).updatedAt ?? .distantPast) >= beforeExtend)
+
+        let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
+        let seq = TimerPayload(id: "s", label: "Work", endDate: t0, duration: 60, sequence: SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 0), updatedAt: t0)
+        #expect(seq.advancedSequence(at: t1).updatedAt == t0)
+        #expect(seq.steppedToNextPhase(at: t1).updatedAt == t1)
+    }
+
+    // MARK: - Siri timer selection and mutation safety
+
+    @Test func siriMissingSelectionReportsDeletedTimer() {
+        #expect(throws: TimerIntentError.timerNotFound) {
+            try TimerIntentActions.snapshot(nil)
+        }
+        #expect(throws: TimerIntentError.timerNotFound) {
+            try TimerIntentActions.updated(nil, mutation: .pause)
+        }
+    }
+
+    @Test func siriScheduledSequenceCanBeReadButNotChanged() throws {
+        let now = Date()
+        let pending = TimerPayload.composeSequence(label: "Later", phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1, startDate: now.addingTimeInterval(120))
+        let current = try TimerIntentActions.snapshot(pending, at: now)
+        #expect(current.status == .scheduled)
+        #expect(current.seconds == 180)
+        for mutation in [TimerIntentActions.Mutation.pause, .resume, .extend(minutes: 1)] {
+            #expect(throws: TimerIntentError.timerScheduled) {
+                try TimerIntentActions.updated(pending, mutation: mutation, at: now)
+            }
+        }
+    }
+
+    @Test func siriFinishedTimersCannotBeRevivedByMutation() throws {
+        let now = Date()
+        let finished = TimerPayload(id: "finished", label: "Done", endDate: now.addingTimeInterval(-10), duration: 60)
+        for payload in [finished, finished.paused(at: now)] {
+            let current = try TimerIntentActions.snapshot(payload, at: now)
+            #expect(current.status == .finished)
+            #expect(current.seconds == 0)
+            for mutation in [TimerIntentActions.Mutation.pause, .resume, .extend(minutes: 1)] {
+                #expect(throws: TimerIntentError.timerFinished) {
+                    try TimerIntentActions.updated(payload, mutation: mutation, at: now)
+                }
+            }
+        }
+    }
+
+    @Test func siriPauseAndResumeAreIdempotent() throws {
+        let now = Date()
+        let running = TimerPayload(id: "pasta", label: "Pasta", endDate: now.addingTimeInterval(90), duration: 120)
+        let paused = try TimerIntentActions.updated(running, mutation: .pause, at: now)
+        let pausedAgain = try TimerIntentActions.updated(paused, mutation: .pause, at: now.addingTimeInterval(30))
+        #expect(pausedAgain.pausedRemaining == 90)
+        #expect(pausedAgain.updatedAt == paused.updatedAt)
+        let resumed = try TimerIntentActions.updated(pausedAgain, mutation: .resume, at: now.addingTimeInterval(30))
+        let resumedAgain = try TimerIntentActions.updated(resumed, mutation: .resume, at: now.addingTimeInterval(40))
+        #expect(resumed.endDate == now.addingTimeInterval(120))
+        #expect(resumedAgain.endDate == resumed.endDate)
+        #expect(resumedAgain.updatedAt == resumed.updatedAt)
+    }
+
+    @Test func siriExtendPreservesPauseAndSupportsFractionalMinutes() throws {
+        let now = Date()
+        let running = TimerPayload(id: "extend", label: "Tea", endDate: now.addingTimeInterval(90), duration: 120)
+        let extended = try TimerIntentActions.updated(running, mutation: .extend(minutes: 1.5), at: now)
+        #expect(extended.endDate == now.addingTimeInterval(180))
+        #expect(extended.duration == running.duration)
+        #expect(extended.updatedAt == now)
+        let paused = running.paused(at: now)
+        let longerPause = try TimerIntentActions.updated(paused, mutation: .extend(minutes: 0.5), at: now.addingTimeInterval(300))
+        #expect(longerPause.isPaused)
+        #expect(longerPause.pausedRemaining == 120)
+        #expect(longerPause.endDate == paused.endDate)
+        let current = try TimerIntentActions.snapshot(longerPause, at: now.addingTimeInterval(300))
+        #expect(current.status == .paused)
+        #expect(current.seconds == 120)
+    }
+
+    @Test func siriExtendRejectsInvalidAndOverflowingDurations() {
+        let running = TimerPayload(label: "Tea", duration: 300)
+        for minutes in [0, -1, Double.nan, Double.infinity, -Double.infinity, Double.greatestFiniteMagnitude] {
+            #expect(throws: TimerIntentError.nonPositiveMinutes) {
+                try TimerIntentActions.updated(running, mutation: .extend(minutes: minutes))
+            }
+        }
+    }
+
+    @Test func siriActsOnCurrentSequencePhaseAfterBackgrounding() throws {
+        let now = Date()
+        let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
+        let seq = SequenceInfo(phases: phases, loopCount: 2, phaseIndex: 0, loopIndex: 0)
+        let stale = TimerPayload(id: "sequence", label: "Work", endDate: now.addingTimeInterval(-10), duration: 60, sequence: seq)
+        let current = try TimerIntentActions.snapshot(stale, at: now)
+        #expect(current.status == .running)
+        #expect(current.payload.label == "Rest")
+        #expect(current.seconds == 20)
+        let paused = try TimerIntentActions.updated(stale, mutation: .pause, at: now)
+        #expect(paused.label == "Rest")
+        #expect(paused.sequence?.phaseIndex == 1)
+        #expect(paused.pausedRemaining == 20)
+        let extended = try TimerIntentActions.updated(stale, mutation: .extend(minutes: 1), at: now)
+        #expect(extended.sequence?.phaseIndex == 1)
+        #expect(extended.endDate == now.addingTimeInterval(80))
+        let exhausted = try TimerIntentActions.snapshot(stale, at: now.addingTimeInterval(1000))
+        #expect(exhausted.status == .finished)
+    }
+
+    @Test func siriNameSearchPreservesDuplicateNamesAndPrefersExactMatches() {
+        let choices = [TimerChoice(id: "a", label: "Café"), TimerChoice(id: "b", label: "Cafe"), TimerChoice(id: "c", label: "Cafe break")]
+        #expect(TimerChoiceQuery.matches(" CAFE ", in: choices).map(\.id) == ["a", "b"])
+        #expect(TimerChoiceQuery.matches("break", in: choices).map(\.id) == ["c"])
+        #expect(TimerChoiceQuery.matches("missing", in: choices).isEmpty)
+        #expect(TimerChoiceQuery.matches(" ", in: choices) == choices)
+    }
+
+    @Test func siriSuggestionsCatchUpSequencesAndExcludeFinishedIncludingPausedZero() {
+        let now = Date()
+        let finished = TimerPayload(id: "finished", label: "Done", endDate: now.addingTimeInterval(-1), duration: 60)
+        let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
+        let stale = TimerPayload(id: "sequence", label: "Work", endDate: now.addingTimeInterval(-10), duration: 60, sequence: SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 0))
+        let paused = TimerPayload(id: "paused", label: "Tea", endDate: now.addingTimeInterval(-300), duration: 120, pausedRemaining: 90)
+        let choices = TimerChoiceQuery.choices(from: [finished, finished.paused(at: now), stale, paused], at: now)
+        #expect(choices.map(\.id) == ["paused", "sequence"])
+        #expect(choices.last?.label == "Rest")
+    }
+
+    @Test func siriEntityLookupKeepsFinishedWidgetSelectionAndUsesCurrentNames() async throws {
+        let defaults = try #require(UserDefaults(suiteName: "group.com.lokesh.sharedTimer"))
+        let original = defaults.data(forKey: "sharedTimers")
+        defer {
+            if let original { defaults.set(original, forKey: "sharedTimers") }
+            else { defaults.removeObject(forKey: "sharedTimers") }
+        }
+        let now = Date()
+        let finished = TimerPayload(id: "done", label: "Renamed", endDate: now.addingTimeInterval(-30), duration: 60)
+        defaults.set(try JSONEncoder().encode([finished]), forKey: "sharedTimers")
+        let resolved = try await TimerChoiceQuery().entities(for: ["deleted", "done"])
+        #expect(resolved == [TimerChoice(id: "done", label: "Renamed")])
+        let suggestions = try await TimerChoiceQuery().suggestedEntities()
+        #expect(suggestions.isEmpty)
+    }
+
+    @Test func siriCancelledSequenceStaysFinishedBeforeItsOldEndDate() throws {
+        let now = Date()
+        let phases = [SequencePhase(label: "Work", duration: 60)]
+        let cancelled = TimerPayload(id: "cancelled", label: "Work", endDate: now.addingTimeInterval(60), duration: 60, sequence: SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 1))
+        let current = try TimerIntentActions.snapshot(cancelled, at: now)
+        #expect(current.status == .finished)
+        #expect(current.seconds == 0)
+        #expect(TimerChoiceQuery.choices(from: [cancelled], at: now).isEmpty)
+        #expect(throws: TimerIntentError.timerFinished) {
+            try TimerIntentActions.updated(cancelled, mutation: .resume, at: now)
+        }
     }
 
 }

@@ -89,7 +89,7 @@ enum WatchSyncController {
                     replyHandler([:]); return
                 }
                 let all = TimerStore.loadAll()
-                guard let existing = all.first(where: { $0.id == id }) else { replyHandler([:]); return }
+                guard let existing = all.first(where: { $0.id == id })?.advancedRecurrence() else { replyHandler([:]); return }
                 // The watch has no pending-state awareness at all (its TimerModel copy
                 // doesn't even carry scheduledStartDate) -- it would show Pause/+1:00
                 // for a still-pending timer with no way to know that's meaningless.
@@ -109,14 +109,7 @@ enum WatchSyncController {
                 // either toggle is on (either kind), local notification only when both
                 // are off, custom Live Activity only for that both-off case (AlarmKit
                 // runs its own whenever it owns the alert).
-                AlarmController.reschedule(for: updated)
-                if !AlarmController.ownsAlert(for: updated) {
-                    if updated.isPaused {
-                        LiveActivityController.update(for: updated)
-                    } else {
-                        LiveActivityController.start(for: updated)
-                    }
-                }
+                TimerArming.arm(updated)
                 CloudSyncController.pushUp(updated, action: action)
                 pushCurrentState()
                 NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)

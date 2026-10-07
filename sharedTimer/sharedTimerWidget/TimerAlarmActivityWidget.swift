@@ -29,9 +29,18 @@ struct TimerAlarmActivityWidget: Widget {
                     .font(.headline)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
-                alarmCountdownText(context.state)
-                    .font(.title2.weight(.medium))
-                    .monospacedDigit()
+                if let caption = context.attributes.metadata?.sequenceCaption {
+                    Text(caption)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                HStack(alignment: .center) {
+                    alarmCountdownText(context.state)
+                        .font(.title2.weight(.medium))
+                        .monospacedDigit()
+                    Spacer(minLength: 8)
+                    alarmControls(context)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
@@ -51,6 +60,17 @@ struct TimerAlarmActivityWidget: Widget {
                         .monospacedDigit()
                         .foregroundStyle(.white)
                 }
+                DynamicIslandExpandedRegion(.bottom) {
+                    HStack {
+                        if let caption = context.attributes.metadata?.sequenceCaption {
+                            Text(caption)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        alarmControls(context, size: 38)
+                    }
+                }
             } compactLeading: {
                 Image(systemName: kind.symbolName)
                     .foregroundStyle(kind.accentColor)
@@ -68,6 +88,32 @@ struct TimerAlarmActivityWidget: Widget {
             .keylineTint(kind.accentColor)
         }
     }
+}
+
+/// Pause/Resume + Stop (Next/Cancel for a sequence phase). Hidden while alerting —
+/// the full-screen alert carries its own Stop/Repeat/Next/Cancel — and for an alarm
+/// scheduled before 1.0.4 that has no metadata to address a timer with.
+@ViewBuilder
+private func alarmControls(_ context: ActivityViewContext<AlarmAttributes<TimerAlarmMetadata>>, size: CGFloat = 44) -> some View {
+    if let metadata = context.attributes.metadata {
+        switch context.state.mode {
+        case .countdown, .paused:
+            let isPaused: Bool = { if case .paused = context.state.mode { return true } else { return false } }()
+            LiveActivityControls(
+                timerID: metadata.timerID,
+                isPaused: isPaused,
+                secondary: secondaryAction(for: metadata),
+                size: size
+            )
+        default:
+            EmptyView()
+        }
+    }
+}
+
+private func secondaryAction(for metadata: TimerAlarmMetadata) -> LiveActivitySecondaryAction {
+    guard let phaseIndex = metadata.phaseIndex else { return .stop }
+    return metadata.isFinalPhase == true ? .cancelSequence : .next(phaseIndex: phaseIndex)
 }
 
 @ViewBuilder

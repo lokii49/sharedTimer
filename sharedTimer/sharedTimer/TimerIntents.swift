@@ -2,10 +2,9 @@
 //  TimerIntents.swift
 //  sharedTimer
 //
-//  Siri / Shortcuts support — see CLAUDE.md's Phase 3 (partial) plan. Main app target
-//  only: this reuses ContentView's own creation path (TimerPayload.compose ->
-//  TimerStore.save -> NotificationScheduler -> LiveActivityController), the same
-//  sequence NewTimerSheet and MessagesViewController.send already use elsewhere.
+//  Siri / Shortcuts support. Main app target only: start intents create timers;
+//  existing-timer intents use TimerIntentActions to reload, validate, mutate, arm
+//  and sync. TimerChoice is shared with the widget's configuration picker.
 //
 //  Deliberately doesn't share the created timer — there's no background-intent API that
 //  can address a specific iMessage contact and insert text the way MessagesViewController
@@ -28,8 +27,9 @@ struct StartTimerIntent: AppIntent {
     /// TimerPayload.compose computes duration as max(1, minutes * 60) — zero/negative
     /// minutes would silently yield a 1s, instantly-expired timer instead of an error.
     /// Same failure shape StartCountdownIntent guards against below.
+    @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard minutes > 0 else {
+        guard minutes.isFinite, minutes > 0, (minutes * 60).isFinite else {
             throw TimerIntentError.nonPositiveMinutes
         }
         let payload = TimerPayload.compose(label: label, kind: .timer, minutes: minutes, targetDate: Date(), alarmEnabled: alarm, vibrationEnabled: vibrate)
@@ -40,11 +40,11 @@ struct StartTimerIntent: AppIntent {
         // Awaited, not the fire-and-forget `reschedule`: Siri can cold-launch the
         // process just to run this intent and tear it down the instant `perform()`
         // returns, same class of bug `AdvanceSequenceIntent` had — see CLAUDE.md.
-        await AlarmController.rescheduleAwaiting(for: payload)
-        if !AlarmController.ownsAlert(for: payload) {
-            LiveActivityController.start(for: payload)
-        }
-        return .result(dialog: "Started \(label) for \(Int(minutes)) minutes.")
+        await TimerArming.armAwaiting(payload)
+        RecentTimersStore.record(payload)
+        RecentTimersSync.refresh()
+        await announceExternalChange()
+        return .result(dialog: "Started \(payload.label) for \(RecentTimer.lengthText(payload.duration)).")
     }
 }
 
@@ -60,6 +60,7 @@ struct StartCountdownIntent: AppIntent {
     /// for .countdown — a past/near-now date would silently yield a 1s, instantly-expired
     /// countdown. NewTimerSheet/TimerComposeView dodge this with a date picker defaulted
     /// 24h out; a Siri/Shortcuts caller has no such guardrail, so reject it explicitly.
+    @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard targetDate > Date() else {
             throw TimerIntentError.pastTargetDate
@@ -71,133 +72,111 @@ struct StartCountdownIntent: AppIntent {
         // AlarmController picks; same arming sequence as ContentView.armAlerts.
         // Awaited, not the fire-and-forget `reschedule` -- same Siri-teardown risk as
         // StartTimerIntent above.
-        await AlarmController.rescheduleAwaiting(for: payload)
-        if !AlarmController.ownsAlert(for: payload) {
-            LiveActivityController.start(for: payload)
-        }
-        return .result(dialog: "Counting down to \(label).")
+        await TimerArming.armAwaiting(payload)
+        await announceExternalChange()
+        return .result(dialog: "Counting down to \(payload.label).")
     }
 }
 
-/// AlarmKit `secondaryIntent` for a sequence phase's alarm — paired with
-/// `secondaryButtonBehavior: .custom` on its `AlarmPresentation.Alert` (see
-/// `AlarmController.scheduleAlarm`), not `stopIntent`: those are distinct parameters
-/// on `AlarmConfiguration`, and the earlier version of this wired to `stopIntent`
-/// instead, which made AlarmKit silently skip the interactive alert entirely — see
-/// CLAUDE.md. A `LiveActivityIntent` runs in-process without opening any UI, same
-/// mechanism Live Activity buttons use elsewhere on iOS: when the user taps "Next" on
-/// a mid-sequence phase's fired alert, this advances to the next phase and arms its
-/// alert without the app ever coming to the foreground.
-///
-/// Must call `AlarmController.rescheduleAwaiting`, not the fire-and-forget
-/// `reschedule` — confirmed on device that calling `reschedule` and returning
-/// immediately never actually armed the next phase's alarm: `reschedule` only kicks
-/// off a detached Task and returns, which is fine while the app process stays alive on
-/// its own, but here the system may tear down this intent's execution the instant
-/// `perform()` returns, before that detached Task gets to run `AlarmManager.schedule`
-/// at all. `rescheduleAwaiting` runs the same work inline and is awaited here instead.
-///
-/// Uses `TimerPayload.steppedToNextPhase()`, not `advancedSequence()` — confirmed on
-/// device that reusing the date-based re-derivation function here made "Next" look
-/// like it randomly ended the sequence: it chains the next phase's duration off the
-/// stale original boundary, so any real delay between the alert firing and the tap
-/// (trivially reached with short phase durations) makes it walk through, or exhaust,
-/// several phases in one call. `steppedToNextPhase` always lands on exactly the next
-/// phase, timed from the moment of the tap.
-struct AdvanceSequenceIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Advance Sequence"
-
-    @Parameter(title: "Timer ID") var timerID: String
-
-    init() { self.timerID = "" }
-    init(timerID: String) { self.timerID = timerID }
-
-    func perform() async throws -> some IntentResult {
-        var all = TimerStore.loadAll()
-        guard let index = all.firstIndex(where: { $0.id == timerID }) else { return .result() }
-        let advanced = all[index].steppedToNextPhase()
-        all[index] = advanced
-        TimerStore.save(advanced)
-        await AlarmController.rescheduleAwaiting(for: advanced)
-        // A `LiveActivityIntent` runs in-process when the app happens to already be
-        // foreground — same process as ContentView's own `@State timers` array, which
-        // this mutation bypasses entirely (it writes straight to `TimerStore`).
-        // Without this, tapping "Next" while the app is the frontmost app looks like it
-        // does nothing: TimerStore/AlarmKit are correctly updated, but ContentView (and
-        // an open TimerDetailView) keep showing the stale pre-advance phase until the
-        // app backgrounds and refocuses, which is what naturally reloads from
-        // TimerStore and hid this bug when a different app was frontmost instead.
-        // `.externalTimerStoreChange` already exists for exactly this class of problem
-        // (a watch/CloudKit mutation landing while foregrounded) and both call sites
-        // that need to react to it already listen — see ContentView.swift.
-        //
-        // Confirmed on device: `perform()` runs off the main thread (SwiftUI logged
-        // "Publishing changes from background threads is not allowed"). Posting on the
-        // default queue delivered `.onReceive`'s closure — which sets `@State
-        // timers` — on that same background thread, undefined behavior for SwiftUI
-        // state; this, not a failure of the intent to run at all, was the real cause
-        // of "Next looks like nothing happened" while the app was frontmost. Must post
-        // from the main actor.
-        await MainActor.run {
-            NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
-        }
-        return .result()
+/// A Siri/Shortcuts start writes straight to TimerStore, outside ContentView's own
+/// mutation path — push it to the watch, and tell a foregrounded app to reload (from
+/// the main actor; see CLAUDE.md's `.externalTimerStoreChange` notes).
+private func announceExternalChange() async {
+    await TimerSpotlightIndex.shared.refreshAwaiting()
+    WatchSyncController.pushCurrentState()
+    await MainActor.run {
+        TimerShortcuts.updateAppShortcutParameters()
+        NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
     }
 }
 
-/// AlarmKit `secondaryIntent` for the final phase of the final loop's alert — the
-/// "Cancel" version of the button `AdvanceSequenceIntent` above wires to "Next" for
-/// every other phase (see `AlarmController.scheduleAlarm`'s alert-construction
-/// comment: `AlarmPresentation.Alert` has exactly one `secondaryButton` slot, so this
-/// one button dynamically switches label + intent based on whether there's a next
-/// phase to advance to). Marks the whole sequence exhausted — `loopIndex = loopCount`,
-/// the same convention `TimerPayload.advancedSequence(at:)` already uses when a
-/// sequence runs out on its own — rather than scheduling anything new.
-struct EndSequenceIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "End Sequence"
-
-    @Parameter(title: "Timer ID") var timerID: String
-
-    init() { self.timerID = "" }
-    init(timerID: String) { self.timerID = timerID }
-
-    func perform() async throws -> some IntentResult {
-        var all = TimerStore.loadAll()
-        guard let index = all.firstIndex(where: { $0.id == timerID }),
-              var sequence = all[index].sequence else { return .result() }
-        sequence.loopIndex = sequence.loopCount
-        all[index].sequence = sequence
-        TimerStore.save(all[index])
-        await NotificationScheduler.cancel(id: timerID)
-        await AlarmController.cancelSequenceAlarm(id: timerID)
-        // Same in-process-when-frontmost reasoning as AdvanceSequenceIntent above, and
-        // the same fix: `perform()` runs off the main thread, so this must post from
-        // the main actor or the `.onReceive` handler's `@State` write is undefined
-        // behavior (confirmed on device via SwiftUI's "Publishing changes from
-        // background threads" warning).
-        await MainActor.run {
-            NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
-        }
-        return .result()
-    }
-}
-
-enum TimerIntentError: LocalizedError {
+enum TimerIntentError: LocalizedError, Equatable {
     case pastTargetDate
     case nonPositiveMinutes
+    case timerNotFound
+    case timerScheduled
+    case timerFinished
 
     var errorDescription: String? {
         switch self {
         case .pastTargetDate: return "That date has already passed — pick one in the future."
-        case .nonPositiveMinutes: return "Minutes has to be more than zero."
+        case .nonPositiveMinutes: return "Enter a finite number of minutes greater than zero."
+        case .timerNotFound: return "That timer is no longer available. Choose another timer."
+        case .timerScheduled: return "That sequence has not started yet. You can change it after it starts."
+        case .timerFinished: return "That timer has finished. Repeat it in the app to start it again."
         }
     }
 }
 
-/// Static phrases only — AppShortcutPhrase interpolation accepts \(.applicationName) plus
-/// resolvable AppEnum/AppEntity parameters; free-text (label) and numeric (minutes)
-/// parameters can't be spoken-phrase-filled. Siri prompts for them after the static
-/// phrase matches, or they come from the Shortcuts app editor.
+struct PauseTimerIntent: AppIntent {
+    static let title: LocalizedStringResource = "Pause Timer"
+    static let description = IntentDescription("Pause a timer, countdown, or the current sequence phase.")
+    @Parameter(title: "Timer") var timer: TimerChoice
+    static var parameterSummary: some ParameterSummary { Summary("Pause \(\.$timer)") }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let payload = try await TimerIntentActions.perform(timerID: timer.id, mutation: .pause)
+        return .result(dialog: "\(payload.label) is paused with \(TimerIntentActions.spokenTime(payload.remaining)) left.")
+    }
+}
+
+struct ResumeTimerIntent: AppIntent {
+    static let title: LocalizedStringResource = "Resume Timer"
+    static let description = IntentDescription("Resume a paused timer, countdown, or sequence phase.")
+    @Parameter(title: "Timer") var timer: TimerChoice
+    static var parameterSummary: some ParameterSummary { Summary("Resume \(\.$timer)") }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let payload = try await TimerIntentActions.perform(timerID: timer.id, mutation: .resume)
+        return .result(dialog: "\(payload.label) is running with \(TimerIntentActions.spokenTime(payload.remaining)) left.")
+    }
+}
+
+struct ExtendTimerIntent: AppIntent {
+    static let title: LocalizedStringResource = "Extend Timer"
+    static let description = IntentDescription("Add time to a running or paused timer, countdown, or current sequence phase.")
+    @Parameter(title: "Timer") var timer: TimerChoice
+    @Parameter(title: "Minutes", requestValueDialog: "How many minutes would you like to add?") var minutes: Double
+    static var parameterSummary: some ParameterSummary { Summary("Extend \(\.$timer) by \(\.$minutes) minutes") }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let payload = try await TimerIntentActions.perform(timerID: timer.id, mutation: .extend(minutes: minutes))
+        if payload.isPaused {
+            return .result(dialog: "Added \(TimerIntentActions.spokenTime(minutes * 60)) to \(payload.label). It is still paused with \(TimerIntentActions.spokenTime(payload.remaining)) left.")
+        }
+        return .result(dialog: "Added \(TimerIntentActions.spokenTime(minutes * 60)) to \(payload.label). \(TimerIntentActions.spokenTime(payload.remaining)) left.")
+    }
+}
+
+struct GetTimerRemainingIntent: AppIntent {
+    static let title: LocalizedStringResource = "Get Time Remaining"
+    static let description = IntentDescription("Read a timer's remaining time. Returns seconds for use in other Shortcut actions; for sequences this is the current phase.")
+    @Parameter(title: "Timer") var timer: TimerChoice
+    static var parameterSummary: some ParameterSummary { Summary("Get time remaining on \(\.$timer)") }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<Double> {
+        let current = try TimerIntentActions.read(timerID: timer.id)
+        let time = TimerIntentActions.spokenTime(current.seconds)
+        switch current.status {
+        case .scheduled:
+            let start = current.payload.scheduledStartDate!.formatted(date: .abbreviated, time: .shortened)
+            return .result(value: current.seconds, dialog: "\(current.payload.label) is scheduled to start \(start).")
+        case .finished:
+            return .result(value: 0, dialog: "\(current.payload.label) has finished.")
+        case .paused:
+            return .result(value: current.seconds, dialog: "\(current.payload.label) is paused with \(time) left.")
+        case .running:
+            return .result(value: current.seconds, dialog: "\(current.payload.label) has \(time) left.")
+        }
+    }
+}
+
+/// Entity parameters can be spoken in the phrase; Siri asks for numeric minutes
+/// separately, or they can be configured in the Shortcuts editor.
 struct TimerShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
@@ -211,6 +190,30 @@ struct TimerShortcuts: AppShortcutsProvider {
             phrases: ["Start a countdown in \(.applicationName)"],
             shortTitle: "Start Countdown",
             systemImageName: "calendar"
+        )
+        AppShortcut(
+            intent: PauseTimerIntent(),
+            phrases: ["Pause a timer in \(.applicationName)", "Pause \(\.$timer) in \(.applicationName)"],
+            shortTitle: "Pause Timer",
+            systemImageName: "pause.fill"
+        )
+        AppShortcut(
+            intent: ResumeTimerIntent(),
+            phrases: ["Resume a timer in \(.applicationName)", "Resume \(\.$timer) in \(.applicationName)"],
+            shortTitle: "Resume Timer",
+            systemImageName: "play.fill"
+        )
+        AppShortcut(
+            intent: ExtendTimerIntent(),
+            phrases: ["Extend a timer in \(.applicationName)", "Extend \(\.$timer) in \(.applicationName)"],
+            shortTitle: "Extend Timer",
+            systemImageName: "plus.circle"
+        )
+        AppShortcut(
+            intent: GetTimerRemainingIntent(),
+            phrases: ["How long is left in \(.applicationName)", "How long is left on \(\.$timer) in \(.applicationName)"],
+            shortTitle: "Time Remaining",
+            systemImageName: "clock"
         )
     }
 }

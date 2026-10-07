@@ -30,6 +30,7 @@
   }
   body.done .clock { opacity: 0.55; }
   .sub { font-size: 14px; opacity: 0.75; margin: 0; }
+  .calendar { color: #fff; font-size: 14px; padding: 12px 18px; border: 1px solid #ffffff40; border-radius: 24px; text-decoration: none; margin-top: 18px; }
   .hint { position: fixed; bottom: 22px; font-size: 11px; opacity: 0.45; }
 </style>
 </head>
@@ -37,6 +38,8 @@
   <p class="label" id="label">Timer</p>
   <p class="clock" id="clock">--:--</p>
   <p class="sub" id="status">loading&hellip;</p>
+  <p class="sub" id="phase" hidden></p>
+  <a class="calendar" id="calendar" hidden download="countdown.ics">Add to Calendar</a>
   <p class="hint">Shared with Timer for iMessage</p>
 
 <script>
@@ -84,6 +87,171 @@
       `linear-gradient(160deg, ${stops[0]}, ${stops[1]} 55%, ${stops[2]} 120%)`;
   }
 
+  // Same version/limits as TimerSequenceWire.swift. Unknown or malformed sequence
+  // metadata is rejected, rather than presenting a misleading single-phase timer.
+  function decodeSequence(json) {
+    if (json === null) return null;
+    if (new TextEncoder().encode(json).length > 65536) throw new Error("Sequence too large");
+    const envelope = JSON.parse(json);
+    const s = envelope.sequence;
+    if (envelope.version !== 1 || !s || !Array.isArray(s.phases) || s.phases.length < 1 || s.phases.length > 64 ||
+        !Number.isInteger(s.loopCount) || s.loopCount < 1 || s.loopCount > 99 ||
+        !Number.isInteger(s.phaseIndex) || s.phaseIndex < 0 || s.phaseIndex >= s.phases.length ||
+        !Number.isInteger(s.loopIndex) || s.loopIndex < 0 || s.loopIndex > s.loopCount ||
+        s.phases.some(p => typeof p.label !== "string" || !p.label.trim() || new TextEncoder().encode(p.label).length > 512 ||
+          !Number.isFinite(p.duration) || p.duration < 1 || p.duration > 31536000 ||
+          !["timer", "countdown"].includes(p.kind) || typeof p.alarmEnabled !== "boolean" || typeof p.vibrationEnabled !== "boolean")) {
+      throw new Error("Invalid sequence");
+    }
+    return s;
+  }
+
+  // Project directly from the original shared boundary on every tick. Late opens,
+  // skipped phases, and pauses never depend on how many ticks the page received.
+  function sequenceAt(sequence, end, paused, now) {
+    let index = sequence.loopIndex * sequence.phases.length + sequence.phaseIndex;
+    const total = sequence.loopCount * sequence.phases.length;
+    let boundary = end;
+    if (!Number.isFinite(paused)) {
+      while (index < total && boundary <= now) {
+        index += 1;
+        if (index < total) boundary += sequence.phases[index % sequence.phases.length].duration;
+      }
+    }
+    return { index, total, end: boundary, phase: sequence.phases[Math.min(index, total - 1) % sequence.phases.length] };
+  }
+
+  const annualCache = new Map();
+  const zoneFormatters = new Map();
+  function zonedParts(ms, timeZone) {
+    // Foundation uses GMT+0530-style identifiers for fixed-offset Calendar events.
+    const fixed = /^(?:GMT|UTC)([+-])(\d{2}):?(\d{2})$/.exec(timeZone);
+    if (fixed && Number(fixed[2]) <= 18 && Number(fixed[3]) < 60 && (Number(fixed[2]) < 18 || Number(fixed[3]) === 0)) {
+      const offset = (Number(fixed[2]) * 60 + Number(fixed[3])) * 60000 * (fixed[1] === '-' ? -1 : 1);
+      const d = new Date(ms + offset);
+      return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate(),
+        hour: d.getUTCHours(), minute: d.getUTCMinutes(), second: d.getUTCSeconds() };
+    }
+    if (!zoneFormatters.has(timeZone)) zoneFormatters.set(timeZone, new Intl.DateTimeFormat('en-US', { timeZone, calendar: 'gregory', numberingSystem: 'latn',
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }));
+    const parts = zoneFormatters.get(timeZone).formatToParts(new Date(ms));
+    return Object.fromEntries(parts.filter(p => p.type !== 'literal').map(p => [p.type, Number(p.value)]));
+  }
+  function wallMilliseconds(p) { return Date.UTC(p.year, p.month - 1, p.day, p.hour || 0, p.minute || 0, p.second || 0); }
+  function zoneOffset(ms, zone) { return wallMilliseconds(zonedParts(ms, zone)) - Math.floor(ms / 1000) * 1000; }
+  function decodeAnnual(json) {
+    if (json === null) return null;
+    if (new TextEncoder().encode(json).length > 2048) throw new Error('Invalid anniversary');
+    const e = JSON.parse(json), r = e.recurrence;
+    if (e.version !== 1 || !r || !Number.isInteger(r.month) || r.month < 1 || r.month > 12 ||
+        !Number.isInteger(r.day) || r.day < 1 || r.day > [31,29,31,30,31,30,31,31,30,31,30,31][r.month - 1] ||
+        !Number.isInteger(r.hour) || r.hour < 0 || r.hour > 23 || !Number.isInteger(r.minute) || r.minute < 0 || r.minute > 59 ||
+        !Number.isInteger(r.second) || r.second < 0 || r.second > 59 || typeof r.timeZoneID !== 'string' ||
+        new TextEncoder().encode(r.timeZoneID).length > 128) throw new Error('Invalid anniversary');
+    zonedParts(Date.now(), r.timeZoneID); // Intl also rejects unknown zones.
+    return r;
+  }
+  function annualDate(r, year) {
+    const key = JSON.stringify(r) + year;
+    if (annualCache.has(key)) return annualCache.get(key);
+    const day = Math.min(r.day, new Date(Date.UTC(year, r.month, 0)).getUTCDate());
+    const target = Date.UTC(year, r.month - 1, day, r.hour, r.minute, r.second);
+    const offsets = [...new Set([-36,-12,0,12,36].map(h => zoneOffset(target + h * 3600000, r.timeZoneID)))];
+    // Earliest repeated autumn time; a missing spring time moves to the first
+    // valid wall-clock minute, matching Calendar.nextDate(.nextTime, .first).
+    for (let minute = 0; minute <= 180; minute++) {
+      const wall = target + minute * 60000 - (minute ? r.second * 1000 : 0);
+      const matches = offsets.map(offset => wall - offset).filter(ms => wallMilliseconds(zonedParts(ms, r.timeZoneID)) === wall);
+      if (matches.length) { const result = Math.min(...matches) / 1000; annualCache.set(key, result); return result; }
+    }
+    throw new Error('Invalid anniversary time');
+  }
+  function nextAnnual(r, after) {
+    const year = zonedParts(after * 1000, r.timeZoneID).year;
+    for (let y = year; y <= year + 2; y++) { const date = annualDate(r, y); if (date > after) return date; }
+    throw new Error('Invalid anniversary date');
+  }
+  function icsDate(ms, zone) {
+    const p = zone ? zonedParts(ms, zone) : { year: new Date(ms).getUTCFullYear(), month: new Date(ms).getUTCMonth() + 1,
+      day: new Date(ms).getUTCDate(), hour: new Date(ms).getUTCHours(), minute: new Date(ms).getUTCMinutes(), second: new Date(ms).getUTCSeconds() };
+    const pad = n => String(n).padStart(2, '0');
+    return `${p.year}${pad(p.month)}${pad(p.day)}T${pad(p.hour)}${pad(p.minute)}${pad(p.second)}${zone ? '' : 'Z'}`;
+  }
+  function icsEscape(text) { return String(text).replace(/\\/g, '\\\\').replace(/\r\n|\r|\n/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,'); }
+  function foldICS(line) {
+    let result = '', bytes = 0;
+    for (const char of line) {
+      const size = new TextEncoder().encode(char).length;
+      if (bytes + size > 75) { result += '\r\n '; bytes = 1; }
+      result += char; bytes += size;
+    }
+    return result;
+  }
+  function icsOffset(ms) {
+    const minutes = Math.abs(ms / 60000);
+    return `${ms < 0 ? '-' : '+'}${String(Math.floor(minutes / 60)).padStart(2,'0')}${String(minutes % 60).padStart(2,'0')}`;
+  }
+  // Explicit transition dates make the exported IANA time zone self-contained.
+  // Thirty years of current rules cover ordinary Calendar imports; calendar apps
+  // may refresh IANA rules if governments change them after export.
+  function icsTimeZone(zone, year) {
+    const start = Date.UTC(year - 1, 0, 1), end = Date.UTC(year + 30, 0, 1);
+    let offset = zoneOffset(start, zone);
+    const lines = ['BEGIN:VTIMEZONE', `TZID:${zone}`, `X-LIC-LOCATION:${zone}`, 'BEGIN:STANDARD',
+      `DTSTART:${icsDate(start + offset).replace(/Z$/, '')}`, `TZOFFSETFROM:${icsOffset(offset)}`, `TZOFFSETTO:${icsOffset(offset)}`, 'END:STANDARD'];
+    for (let day = start + 86400000; day <= end; day += 86400000) {
+      const next = zoneOffset(day, zone);
+      if (next === offset) continue;
+      let low = day - 86400000, high = day;
+      while (high - low > 1000) { const mid = Math.floor((low + high) / 2000) * 1000; if (zoneOffset(mid, zone) === offset) low = mid; else high = mid; }
+      const type = next > offset ? 'DAYLIGHT' : 'STANDARD';
+      lines.push(`BEGIN:${type}`, `DTSTART:${icsDate(high + offset).replace(/Z$/, '')}`, `TZOFFSETFROM:${icsOffset(offset)}`, `TZOFFSETTO:${icsOffset(next)}`, `END:${type}`);
+      offset = next;
+    }
+    return [...lines, 'END:VTIMEZONE'];
+  }
+  function calendarICS(title, end, recurrence, id = '') {
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Shared Timer//Countdown//EN', 'CALSCALE:GREGORIAN'];
+    if (recurrence) lines.push(...icsTimeZone(recurrence.timeZoneID, zonedParts(end * 1000, recurrence.timeZoneID).year));
+    lines.push('BEGIN:VEVENT', `UID:${icsEscape(id || String(end))}@sharedtimer`, `DTSTAMP:${icsDate(Date.now())}`, `SUMMARY:${icsEscape(title)}`);
+    if (recurrence) {
+      const year = zonedParts(end * 1000, recurrence.timeZoneID).year;
+      const original = annualDate(recurrence, year);
+      const exactTime = ms => { const p = zonedParts(ms * 1000, recurrence.timeZoneID);
+        return p.hour === recurrence.hour && p.minute === recurrence.minute && p.second === recurrence.second; };
+      let seriesStart = original;
+      for (let y = year + 1; !exactTime(seriesStart) && y <= year + 2; y++) seriesStart = annualDate(recurrence, y);
+      lines.push(`DTSTART;TZID=${recurrence.timeZoneID}:${icsDate(seriesStart * 1000, recurrence.timeZoneID)}`);
+      const exclusions = new Set(), additions = new Set();
+      if (Math.abs(original - end) >= 1) { exclusions.add(icsDate(original * 1000)); additions.add(icsDate(end * 1000)); }
+      else if (seriesStart !== original) additions.add(icsDate(end * 1000));
+      // RFC 5545 skips nonexistent recurrence times. Include the native app's
+      // first valid time explicitly, instead of losing that year's anniversary.
+      for (let y = year; y <= year + 30; y++) {
+        const actual = annualDate(recurrence, y);
+        if (actual < seriesStart) continue;
+        const day = Math.min(recurrence.day, new Date(Date.UTC(y, recurrence.month, 0)).getUTCDate());
+        const nominal = Date.UTC(y, recurrence.month - 1, day, recurrence.hour, recurrence.minute, recurrence.second);
+        const offsets = [...new Set([-36,-12,0,12,36].map(h => zoneOffset(nominal + h * 3600000, recurrence.timeZoneID)))];
+        const repeated = offsets.filter(offset => wallMilliseconds(zonedParts(nominal - offset, recurrence.timeZoneID)) === nominal).length > 1;
+        if (exactTime(actual) && !repeated) continue;
+        // Use UTC for repeated autumn times as well: some Calendar readers choose
+        // the second occurrence despite RFC 5545 specifying the first.
+        for (const offset of offsets) {
+          const candidate = nominal - offset;
+          if (candidate !== actual * 1000) exclusions.add(icsDate(candidate));
+        }
+        additions.add(icsDate(actual * 1000));
+      }
+      const monthDay = recurrence.month === 2 && recurrence.day === 29 ? -1 : recurrence.day;
+      lines.push(`RRULE:FREQ=YEARLY;BYMONTH=${recurrence.month};BYMONTHDAY=${monthDay}`);
+      for (const date of exclusions) lines.push(`EXDATE:${date}`);
+      for (const date of additions) lines.push(`RDATE:${date}`);
+    } else lines.push(`DTSTART:${icsDate(end * 1000)}`);
+    lines.push('DURATION:PT1M', 'END:VEVENT', 'END:VCALENDAR');
+    return lines.map(foldICS).join('\r\n') + '\r\n';
+  }
+
   const labelEl = document.getElementById("label");
   const clockEl = document.getElementById("clock");
   const statusEl = document.getElementById("status");
@@ -115,37 +283,63 @@
     return "night";
   }
 
-  if (isFinite(pausedSeconds)) {
-    clockEl.textContent = formatRemaining(pausedSeconds);
-    statusEl.textContent = "Paused";
-    paintSky("mist", 0);
-  } else if (!isFinite(endSeconds)) {
-    clockEl.textContent = "--:--";
-    statusEl.textContent = "No timer data in this link.";
-  } else {
-    const endMs = endSeconds * 1000;
-    const family = familyFor(isFinite(duration) ? duration : Math.max(1, (endMs - Date.now()) / 1000));
-
-    function tick() {
-      const remaining = (endMs - Date.now()) / 1000;
-      if (remaining <= 0) {
-        clockEl.textContent = "00:00";
-        document.body.classList.add("done");
-        statusEl.textContent = "Time's up";
-        paintSky("over", 0);
-        clearInterval(timer);
-        return;
-      }
-      clockEl.textContent = formatRemaining(remaining);
-      statusEl.textContent = kind === "countdown"
-        ? formatTargetDate(endMs)
-        : "counting down";
-      const drain = isFinite(duration) && duration > 0 ? 1 - remaining / duration : 0;
-      paintSky(family, drain);
+  const phaseEl = document.getElementById("phase");
+  const startParam = qs("start");
+  const startSeconds = startParam === null ? NaN : Number(startParam);
+  let recurrence = null;
+  let sequence = null;
+  let invalidSequence = false;
+  try { sequence = decodeSequence(qs("seq")); recurrence = decodeAnnual(qs("annual"));
+    if (recurrence && (sequence || kind !== "countdown")) throw new Error("Invalid anniversary");
+  } catch (_) { invalidSequence = true; }
+  if (sequence && startParam !== null && (!Number.isFinite(startSeconds) || Math.abs(startSeconds) > 253402300799 ||
+      (startSeconds > Date.now() / 1000 && (sequence.phaseIndex !== 0 || sequence.loopIndex !== 0 || Number.isFinite(pausedSeconds))))) {
+    invalidSequence = true;
+  }
+  let timer = null;
+  const calendarEl = document.getElementById("calendar");
+  let exportEnd = null, exportURL = null;
+  function tick() {
+    const now = Date.now() / 1000;
+    if (invalidSequence || !Number.isFinite(endSeconds)) {
+      clockEl.textContent = "--:--";
+      statusEl.textContent = invalidSequence ? "This timer link is invalid or needs a newer app." : "No timer data in this link.";
+      return false;
     }
-
-    tick();
-    const timer = setInterval(tick, 1000);
+    const annualEnd = recurrence && !Number.isFinite(pausedSeconds) && endSeconds <= now ? nextAnnual(recurrence, now) : endSeconds;
+    const projected = sequence ? sequenceAt(sequence, endSeconds, pausedSeconds, now) : null;
+    const pending = sequence && Number.isFinite(startSeconds) && startSeconds > now;
+    const remaining = pending ? startSeconds - now : (Number.isFinite(pausedSeconds) ? Math.max(0, pausedSeconds) : (projected ? projected.end : annualEnd) - now);
+    const done = projected ? projected.index >= projected.total || remaining <= 0 : remaining <= 0;
+    if (projected) {
+      phaseEl.hidden = false;
+      phaseEl.textContent = done ? "Sequence complete" : pending
+        ? `${sequence.phases.length} phases · ${sequence.loopCount} loops`
+        : `Phase ${projected.index % sequence.phases.length + 1} of ${sequence.phases.length} · Loop ${Math.floor(projected.index / sequence.phases.length) + 1} of ${sequence.loopCount}`;
+      labelEl.textContent = projected.phase.label;
+    }
+    if (recurrence) { phaseEl.hidden = false; phaseEl.textContent = `Repeats yearly · ${recurrence.timeZoneID}`; }
+    if (kind === "countdown" && !sequence && !Number.isFinite(pausedSeconds)) {
+      calendarEl.hidden = false;
+      if (exportEnd !== annualEnd) {
+        if (exportURL) URL.revokeObjectURL(exportURL);
+        exportURL = URL.createObjectURL(new Blob([calendarICS(label, annualEnd, recurrence, qs("id"))], { type: "text/calendar;charset=utf-8" }));
+        calendarEl.href = exportURL; exportEnd = annualEnd;
+      }
+    }
+    document.body.classList.toggle("done", done);
+    clockEl.textContent = formatRemaining(remaining);
+    statusEl.textContent = done ? "Time's up" : pending
+      ? `Starts ${new Date(startSeconds * 1000).toLocaleString()}`
+      : Number.isFinite(pausedSeconds) ? "Paused" : sequence ? "counting down"
+      : kind === "countdown" ? formatTargetDate(annualEnd * 1000) : "counting down";
+    const currentDuration = projected ? projected.phase.duration : (Number.isFinite(duration) && duration > 0 ? duration : Math.max(1, endSeconds - now));
+    const family = done ? "over" : Number.isFinite(pausedSeconds) ? "mist" : familyFor(currentDuration);
+    paintSky(family, done || pending || Number.isFinite(pausedSeconds) ? 0 : 1 - remaining / Math.max(1, currentDuration));
+    return !done && !Number.isFinite(pausedSeconds);
+  }
+  if (tick()) {
+    timer = setInterval(() => { if (!tick()) { clearInterval(timer); timer = null; } }, 1000);
   }
 </script>
 </body>

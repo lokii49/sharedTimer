@@ -3,15 +3,22 @@
 //  sharedTimer
 //
 
+import AppIntents
+import CoreSpotlight
 import SwiftUI
 import UIKit
 
 struct ContentView: View {
+    @State private var navigationPath: [String] = []
     @State private var timers: [TimerPayload] = TimerStore.loadAll()
-    @State private var showingNewTimer = false
     @State private var showingNewSequence = false
-    @State private var pendingNewTimerKind: TimerKind = .timer
+    @State private var pendingNewTimerKind: TimerKind?
     @State private var sharingPayload: TimerPayload?
+    @State private var editingPayload: TimerPayload?
+    @State private var showingWhatsNew = false
+    /// Set by any deep link (URL, Spotlight, Quick Action) this launch: the person came
+    /// for something specific, so the What's New tour stays out of the way.
+    @State private var deepLinkArrived = false
     @State private var incomingPayload: TimerPayload?
     @State private var showingNamePrompt = false
     @State private var nameInput: String = ""
@@ -31,7 +38,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 Group {
                     if timers.isEmpty {
@@ -82,19 +89,24 @@ struct ContentView: View {
                     checkForNewlyExpired(at: date)
                 }
             }
+            .navigationDestination(for: String.self) { timerID in
+                if let payload = timers.first(where: { $0.id == timerID }) {
+                    TimerDetailView(payload: payload, onUpdate: applyMutation, onSequenceAdvance: { apply($0, action: "sequenceAdvanced", rearm: $1) }, onDelete: delete, onShare: { payload in withDisplayName { sharingPayload = payload } })
+                } else {
+                    ContentUnavailableView("Timer unavailable", systemImage: "timer", description: Text("This timer has been deleted or has expired."))
+                }
+            }
             .navigationTitle("Timers")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
                             pendingNewTimerKind = .timer
-                            showingNewTimer = true
                         } label: {
                             Label("New Timer", systemImage: "timer")
                         }
                         Button {
                             pendingNewTimerKind = .countdown
-                            showingNewTimer = true
                         } label: {
                             Label("New Countdown", systemImage: "calendar")
                         }
@@ -105,12 +117,18 @@ struct ContentView: View {
                         }
                     } label: {
                         Image(systemName: "plus")
+                            .accessibilityLabel("New")
                     }
                 }
             }
-            .sheet(isPresented: $showingNewTimer) {
-                NewTimerSheet(initialKind: pendingNewTimerKind) { payload in
-                    apply(payload)
+            .sheet(item: $pendingNewTimerKind) { kind in
+                NewTimerSheet(initialKind: kind) { payload in
+                    startNew(payload)
+                }
+            }
+            .sheet(item: $editingPayload) { payload in
+                EditTimerSheet(payload: payload) { edited in
+                    applyEdit(edited)
                 }
             }
             .sheet(isPresented: $showingNewSequence) {
@@ -123,7 +141,10 @@ struct ContentView: View {
                 // app already running, so this subscriber exists when SceneDelegate posts.
                 // Cold launch is handled separately in .onAppear (see openQuickAction).
                 guard let type = notification.object as? String else { return }
-                openQuickAction(type)
+                afterWhatsNewYields { openQuickAction(type) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .spotlightTimerOpened)) { notification in
+                if let identifier = notification.object as? String { afterWhatsNewYields { openSpotlightTimer(identifier) } }
             }
             .onReceive(NotificationCenter.default.publisher(for: .externalTimerStoreChange)) { _ in
                 // Watch-relayed mutation or CloudKit silent push landed while this view
@@ -150,7 +171,7 @@ struct ContentView: View {
                 AddSharedTimerSheet(
                     payload: payload,
                     onAdd: { accepted in
-                        apply(accepted)
+                        apply(accepted.advancedSequence())
                         incomingPayload = nil
                     },
                     onDismiss: { incomingPayload = nil }
@@ -179,14 +200,20 @@ struct ContentView: View {
                 alarmBanner
             }
         }
+        .onChange(of: TimerChoiceQuery.choices(from: timers)) { _, _ in
+            TimerShortcuts.updateAppShortcutParameters()
+            TimerSpotlightIndex.shared.requestRefresh()
+        }
         .onAppear {
+            TimerShortcuts.updateAppShortcutParameters()
+            TimerSpotlightIndex.shared.requestRefresh()
             timers = TimerStore.loadAll()
             // Re-derive every sequence's current phase from scratch before anything
             // else touches `timers` — correct no matter how long the app was closed
             // (even having missed several whole phases), and must run before
             // reconcileRepeat so a legitimately mid-sequence payload never reaches it
             // still reading as merely "finished" (see AlarmController.reconcileRepeat).
-            for index in timers.indices where timers[index].sequence != nil {
+            for index in timers.indices where timers[index].sequence != nil || timers[index].recurrence != nil {
                 let advanced = timers[index].advancedSequence()
                 if advanced.endDate != timers[index].endDate || advanced.sequence?.phaseIndex != timers[index].sequence?.phaseIndex {
                     timers[index] = advanced
@@ -201,7 +228,18 @@ struct ContentView: View {
             for payload in timers where !payload.isExpired {
                 armAlerts(for: payload)
             }
+            LiveActivityController.endFinished(timers.filter { !AlarmController.ownsAlert(for: $0) })
+            RecentTimersStore.seedIfNeeded(from: timers)
+            RecentTimersSync.refresh()
             pullCloudChanges()
+            if SceneDelegate.pendingSpotlightIdentifier != nil || SceneDelegate.pendingShortcutType != nil {
+                deepLinkArrived = true
+            }
+            presentWhatsNewIfNeeded()
+            if let identifier = SceneDelegate.pendingSpotlightIdentifier {
+                SceneDelegate.pendingSpotlightIdentifier = nil
+                openSpotlightTimer(identifier)
+            }
             // Cold-launch Quick Action: SceneDelegate's willConnectTo runs before this
             // .onAppear (and before .onReceive's subscriber exists), so it buffers the
             // shortcut type in a static var instead of posting — drain it here.
@@ -223,6 +261,7 @@ struct ContentView: View {
                 vibration.stop()
             }
             guard newPhase == .active else { return }
+            TimerSpotlightIndex.shared.requestRefresh()
             // Re-read TimerStore first — a timer created while backgrounded (e.g. via
             // TimerIntents.swift's Siri intents) writes straight to the App Group and has
             // no CloudLink, so pullCloudChanges alone would never surface it here.
@@ -230,7 +269,7 @@ struct ContentView: View {
             // Same sequence re-derivation as onAppear, and for the same reason: must
             // run before reconcileRepeat, since a mid-sequence payload sitting
             // un-advanced also reads as `isFinished`.
-            for index in timers.indices where timers[index].sequence != nil {
+            for index in timers.indices where timers[index].sequence != nil || timers[index].recurrence != nil {
                 let advanced = timers[index].advancedSequence()
                 if advanced.endDate != timers[index].endDate || advanced.sequence?.phaseIndex != timers[index].sequence?.phaseIndex {
                     timers[index] = advanced
@@ -251,6 +290,7 @@ struct ContentView: View {
                 }
                 WatchSyncController.pushCurrentState()
             }
+            for payload in timers where payload.recurrence != nil { armAlerts(for: payload) }
             pullCloudChanges()
             // Opportunistic Live Activity keep-alive: there's no server here to push a
             // periodic refresh while the app isn't running, so a multi-day countdown's
@@ -259,13 +299,60 @@ struct ContentView: View {
             // The custom Live Activity only runs where AlarmKit doesn't own one —
             // both toggles off, for either kind (see armAlerts).
             LiveActivityController.refreshAll(from: timers.filter { !AlarmController.ownsAlert(for: $0) })
+            LiveActivityController.endFinished(timers.filter { !AlarmController.ownsAlert(for: $0) })
         }
         .onOpenURL { url in
-            handleIncoming(url: url)
+            afterWhatsNewYields {
+                if let timerID = TimerAppLink.timerID(from: url) {
+                    openTimerDetails(timerID)
+                } else {
+                    handleIncoming(url: url)
+                }
+            }
+        }
+        .onContinueUserActivity(CSSearchableItemActionType) { activity in
+            if let identifier = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String {
+                afterWhatsNewYields { openSpotlightTimer(identifier) }
+            }
         }
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
-            handleIncoming(url: activity.webpageURL)
+            afterWhatsNewYields { handleIncoming(url: activity.webpageURL) }
         }
+        .fullScreenCover(isPresented: $showingWhatsNew) {
+            WhatsNewView { showingWhatsNew = false }
+        }
+    }
+
+    /// A deep link beats the What's New tour: suppress it if it hasn't appeared yet, or
+    /// dismiss it first — presenting a sheet while the cover is still up (or on its way
+    /// down) silently drops the sheet.
+    private func afterWhatsNewYields(_ action: @escaping () -> Void) {
+        deepLinkArrived = true
+        guard showingWhatsNew else { return action() }
+        showingWhatsNew = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: action)
+    }
+
+    /// Cold launch only (onAppear). Waits a beat so a link delivered right after
+    /// launch can claim the screen first; the version is marked seen either way.
+    private func presentWhatsNewIfNeeded() {
+        guard WhatsNew.consumeLaunchPresentation() else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            if !deepLinkArrived { showingWhatsNew = true }
+        }
+    }
+
+    private func openSpotlightTimer(_ identifier: String) {
+        guard let timerID = TimerSpotlightIndex.timerID(from: identifier) else { return }
+        openTimerDetails(timerID)
+    }
+
+    private func openTimerDetails(_ timerID: String) {
+        timers = TimerStore.loadAll()
+        // Show the unavailable destination for a stale deleted result; never import
+        // or recreate a timer from search metadata.
+        navigationPath = [timerID]
+        TimerSpotlightIndex.shared.requestRefresh()
     }
 
     /// The empty room holds one deep-night sky, waiting.
@@ -336,6 +423,7 @@ struct ContentView: View {
         // withheld while pending, and without this it would only appear on the next
         // background/foreground cycle.
         let justStarted = timers.filter { pendingIDs.contains($0.id) && !$0.isPending(at: date) }
+        if !justStarted.isEmpty { TimerSpotlightIndex.shared.requestRefresh() }
         pendingIDs = Set(timers.filter { $0.isPending(at: date) }.map(\.id))
         for payload in justStarted where !AlarmController.ownsAlert(for: payload) {
             LiveActivityController.start(for: payload)
@@ -354,6 +442,10 @@ struct ContentView: View {
         // shouldVibrateInApp key on auth state, not alarm-dismissed state, for exactly
         // this reason).
         let finished = timers.filter { justFinished.contains($0.id) }
+        // Plain timers only: a sequence's custom Live Activity carries on into the next
+        // phase (armAlerts below updates it in place). Exhausted sequences are ended on
+        // the next launch/foreground pass.
+        LiveActivityController.endFinished(finished.filter { $0.sequence == nil && !AlarmController.ownsAlert(for: $0) })
         if finished.contains(where: { AlarmController.shouldSoundInAppAlarm(for: $0) }) {
             alarm.start()
         }
@@ -366,17 +458,15 @@ struct ContentView: View {
         // pre-advance (just-ended) phase; advance now, after, so the next phase's own
         // zero-crossing is still detected on a later tick (re-adds its id to
         // `armedIDs` unless the whole sequence just ran out).
-        // Skip entirely while AlarmKit itself is presenting this payload's alert —
-        // `apply` -> `armAlerts` -> `AlarmController.reschedule` unconditionally
-        // cancels the current alarm before deciding whether to reschedule, so
-        // advancing here would cancel AlarmKit's own alert out from under the user
-        // within this tick, before they can act on its Stop/Next buttons (confirmed on
-        // device). Left un-advanced, it stays correctly stale until the user acts on
-        // the alert (secondaryIntent's own advance) or next foregrounds the app, both
-        // already-correct paths per the re-derivation guarantee.
-        for payload in finished where payload.sequence != nil && !AlarmController.alarmKitOwnsAlert(for: payload) {
+        // While AlarmKit itself is presenting this payload's alert, advance and persist
+        // but don't re-arm: the following phases are already pre-armed (see
+        // AlarmController.performSequenceReschedule) at exactly the dates
+        // `advancedSequence` derives, and touching AlarmKit from this tick is what used
+        // to cancel the just-presented alert out from under the user (confirmed on
+        // device, back when every phase shared one alarm id).
+        for payload in finished where payload.sequence != nil || payload.recurrence != nil {
             let advanced = payload.advancedSequence(at: date)
-            apply(advanced, action: "sequenceAdvanced")
+            apply(advanced, action: "sequenceAdvanced", rearm: payload.recurrence != nil || !AlarmController.alarmKitOwnsAlert(for: payload))
             if !advanced.isExpired {
                 armedIDs.insert(advanced.id)
             }
@@ -388,9 +478,7 @@ struct ContentView: View {
             // Hidden NavigationLink behind the card: a visible one draws the gray
             // disclosure chevron outside the sky, which breaks the full-bleed card.
             .background(
-                NavigationLink("") {
-                    TimerDetailView(payload: payload, onUpdate: applyMutation, onDelete: delete)
-                }
+                NavigationLink("", value: payload.id)
                 .opacity(0)
             )
         .listRowBackground(Color.clear)
@@ -442,13 +530,18 @@ struct ContentView: View {
             }
         }
         .contextMenu {
-            // Sequences aren't shareable in v1 — a recipient would only get a
-            // one-off snapshot of whichever phase happened to be current. See CLAUDE.md.
-            if payload.sequence == nil {
+            if payload.sequence.map(TimerSequenceWire.isValid) ?? true {
                 Button {
                     withDisplayName { sharingPayload = payload }
                 } label: {
                     Label("Share…", systemImage: "square.and.arrow.up")
+                }
+            }
+            if payload.sequence == nil {
+                Button {
+                    editingPayload = payload
+                } label: {
+                    Label("Edit…", systemImage: "pencil")
                 }
             }
             if payload.isFinished {
@@ -493,22 +586,38 @@ struct ContentView: View {
     /// AlarmController.ownsAlert. Paused/expired payloads are handled inside
     /// `reschedule`.
     private func armAlerts(for payload: TimerPayload) {
-        AlarmController.reschedule(for: payload)
-        guard !AlarmController.ownsAlert(for: payload) else { return }
-        if payload.isPaused {
-            LiveActivityController.update(for: payload)
-        } else {
-            LiveActivityController.start(for: payload)
-        }
+        TimerArming.arm(payload)
     }
 
     private func delete(_ payload: TimerPayload) {
+        stopInAppAlertIfRinging(for: payload.id)
         TimerStore.delete(id: payload.id)
-        AlarmController.clear(id: payload.id)
+        AlarmController.clear(payload)
         LiveActivityController.end(id: payload.id)
         CloudSyncController.pushDelete(id: payload.id)
         WatchSyncController.pushCurrentState()
         timers.removeAll { $0.id == payload.id }
+    }
+
+    /// Deleting (locally, or remotely via CloudKit) a timer whose in-app alarm /
+    /// vibration loop is sounding used to leave it — and the "Time's up" banner —
+    /// running for a timer that no longer exists. Stops them when the deleted timer is
+    /// finished and no other finished-and-still-ringing timer remains to justify them.
+    private func stopInAppAlertIfRinging(for id: String) {
+        guard alarm.isPlaying || vibration.isVibrating,
+              timers.first(where: { $0.id == id })?.isFinished == true else { return }
+        let othersFinished = timers.contains { $0.id != id && $0.isExpired && !TimerStore.isFinishAcknowledged(id: $0.id) && armedRecently($0) }
+        if !othersFinished {
+            alarm.stop()
+            vibration.stop()
+        }
+        armedIDs.remove(id)
+    }
+
+    /// Finished within the last minute — the window in which another timer could
+    /// plausibly be the one actually ringing.
+    private func armedRecently(_ payload: TimerPayload) -> Bool {
+        payload.endDate > Date().addingTimeInterval(-60)
     }
 
     private func togglePause(_ payload: TimerPayload) {
@@ -526,6 +635,16 @@ struct ContentView: View {
         vibration.stop()
         armedIDs.remove(payload.id)
         applyMutation(payload.repeated(), action: "repeated")
+    }
+
+    /// Edit sheet save. A countdown moved from finished to a future date is running
+    /// again — silence its in-app alert first (needs the pre-edit, finished copy still
+    /// in `timers`), the same cleanup `repeatTimer` does.
+    private func applyEdit(_ edited: TimerPayload) {
+        if timers.first(where: { $0.id == edited.id })?.isFinished == true && !edited.isFinished {
+            stopInAppAlertIfRinging(for: edited.id)
+        }
+        applyMutation(edited, action: "edited")
     }
 
     /// "Start Now" on a pending sequence -- reuses `repeated(at:)` rather than adding a
@@ -573,10 +692,16 @@ struct ContentView: View {
         showingNamePrompt = true
     }
 
-    private func apply(_ updated: TimerPayload, action: String = "updated") {
+    /// `rearm: false` only for the foreground tick's sequence advance while AlarmKit is
+    /// presenting the just-finished phase's alert — see checkForNewlyExpired.
+    private func apply(_ updated: TimerPayload, action: String = "updated", rearm: Bool = true) {
         TimerStore.save(updated)
-        armAlerts(for: updated)
-        CloudSyncController.pushUp(updated, action: action)
+        if rearm {
+            armAlerts(for: updated)
+        }
+        // Advancing by the clock is a projection of the same shared schedule, not
+        // a user mutation. Pushing it could overwrite a remote pause/step/extend.
+        if action != "sequenceAdvanced" { CloudSyncController.pushUp(updated, action: action) }
         WatchSyncController.pushCurrentState()
         if let index = timers.firstIndex(where: { $0.id == updated.id }) {
             timers[index] = updated
@@ -585,9 +710,33 @@ struct ContentView: View {
         }
     }
 
+    /// A newly created plain timer/countdown (sheet, recent chip, Quick Action): apply it
+    /// and remember it in RecentTimersStore (timers only — see that file).
+    private func startNew(_ payload: TimerPayload) {
+        apply(payload)
+        RecentTimersStore.record(payload)
+        RecentTimersSync.refresh()
+    }
+
+    private func openQuickAction(_ type: String) {
+        if type.hasPrefix(RecentTimersSync.quickActionPrefix) {
+            let id = String(type.dropFirst(RecentTimersSync.quickActionPrefix.count))
+            if let recent = RecentTimersStore.all().first(where: { $0.id == id }) {
+                startNew(recent.payload())
+            }
+            return
+        }
+        switch type {
+        case "newTimer": pendingNewTimerKind = .timer
+        case "newCountdown": pendingNewTimerKind = .countdown
+        default: return
+        }
+    }
+
     /// Universal link / App Clip handoff into the full app. A timer already in the local
-    /// store updates silently (matches the Messages extension); a genuinely new one surfaces
-    /// the add-confirmation sheet instead of merging straight in.
+    /// store is left as-is (the link's snapshot may be older than what's stored — the link
+    /// carries no recency marker; same in the Messages extension); a genuinely new one
+    /// surfaces the add-confirmation sheet instead of merging straight in.
     ///
     /// A `ckshare` query param means the sender's Messages extension successfully created
     /// a live-synced timer — accept it in the background and upgrade the stored copy to
@@ -596,19 +745,16 @@ struct ContentView: View {
     /// their own sent link) must still (re-)establish CloudLink, or later pause/resume/
     /// extend on this device silently has nothing to push to. Absence of the param (or a
     /// failed accept) leaves the plain-link snapshot exactly as it was — no regression.
-    private func openQuickAction(_ type: String) {
-        switch type {
-        case "newTimer": pendingNewTimerKind = .timer
-        case "newCountdown": pendingNewTimerKind = .countdown
-        default: return
-        }
-        showingNewTimer = true
-    }
-
     private func handleIncoming(url: URL?) {
         guard let parsed = TimerPayload.from(url: url) else { return }
-        let alreadyKnown = timers.contains(where: { $0.id == parsed.id })
-        if !alreadyKnown {
+        if let stored = timers.first(where: { $0.id == parsed.id }) {
+            // A re-shared plain link carrying newer state (the sender extended/paused
+            // and sent it again) updates the copy we have. CloudKit-linked timers are
+            // already kept current by sync — never let a link snapshot override that.
+            if CloudLinkStore.get(timerID: parsed.id) == nil, stored.shouldAdopt(parsed) {
+                apply(parsed, action: "updatedFromLink")
+            }
+        } else {
             incomingPayload = parsed
         }
 
@@ -628,7 +774,10 @@ struct ContentView: View {
                     // Already added (e.g. re-tapping the link after accepting once, or
                     // the sender re-opening their own link) — refresh in place instead of
                     // resurfacing a sheet that's already been dismissed.
-                    apply(authoritative)
+                    TimerStore.save(authoritative)
+                    armAlerts(for: authoritative)
+                    if let index = timers.firstIndex(where: { $0.id == authoritative.id }) { timers[index] = authoritative }
+                    WatchSyncController.pushCurrentState()
                 }
             }
         }
@@ -649,6 +798,7 @@ struct ContentView: View {
                     }
                 }
                 for id in deletedIDs {
+                    stopInAppAlertIfRinging(for: id)
                     TimerStore.delete(id: id)
                     AlarmController.clear(id: id)
                     LiveActivityController.end(id: id)
@@ -662,850 +812,4 @@ struct ContentView: View {
             }
         }
     }
-}
-
-private struct NewTimerSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var label: String = ""
-    @State private var kind: TimerKind
-    @State private var minutes: Double = 5
-    @State private var targetDate: Date = Date().addingTimeInterval(86400)
-    @State private var alarmEnabled = true
-    @State private var vibrationEnabled = true
-    @FocusState private var labelFocused: Bool
-
-    let onCreate: (TimerPayload) -> Void
-
-    init(initialKind: TimerKind = .timer, onCreate: @escaping (TimerPayload) -> Void) {
-        self._kind = State(initialValue: initialKind)
-        self.onCreate = onCreate
-    }
-
-    /// Live preview of the sky this timer will get.
-    private var previewPayload: TimerPayload {
-        TimerPayload.compose(label: label.isEmpty ? (kind == .timer ? "Timer" : "Countdown") : label,
-                             kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    SkyCard(payload: previewPayload, date: Date())
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                }
-
-                TimerFieldsView(
-                    label: $label,
-                    kind: $kind,
-                    minutes: $minutes,
-                    targetDate: $targetDate,
-                    alarmEnabled: $alarmEnabled,
-                    vibrationEnabled: $vibrationEnabled,
-                    labelFocused: $labelFocused,
-                    kindLocked: true
-                )
-            }
-            .scrollContentBackground(.hidden)
-            .background(Sky.room)
-            .navigationTitle(kind == .timer ? "New Timer" : "New Countdown")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Start") {
-                        onCreate(TimerPayload.compose(label: label, kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled))
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                }
-            }
-        }
-    }
-}
-
-/// A starting point the sequence compose sheet seeds itself from — Pomodoro and
-/// Intermittent Fasting are just worked examples of the underlying concept (phases
-/// that run back-to-back, looping as a whole); "Custom" starts from a single blank
-/// phase. Once picked, a template only supplies initial values — the user is free to
-/// rename, add, remove, reorder, or edit every phase from there (see CLAUDE.md).
-private struct SequenceTemplate: Equatable {
-    /// The row label in "Start from" — always a real name, even for Custom.
-    let name: String
-    /// The name seeded into the "Sequence name" field — distinct from `name` only for
-    /// Custom: an empty seed forces the user to actually name it (Start/Save are
-    /// disabled on a blank name) instead of quietly saving/starting something titled
-    /// "Custom".
-    let seedName: String
-    let blurb: String
-    let phases: [SequencePhase]
-    let defaultLoopCount: Int
-}
-
-private let sequenceTemplates: [SequenceTemplate] = [
-    SequenceTemplate(
-        name: "Custom",
-        seedName: "",
-        blurb: "Start from scratch and add whatever phases you like.",
-        phases: [SequencePhase(label: "Phase 1", duration: 5 * 60)],
-        defaultLoopCount: 1
-    ),
-    SequenceTemplate(
-        name: "Pomodoro",
-        seedName: "Pomodoro",
-        blurb: "Work, then rest, on repeat.",
-        phases: [
-            SequencePhase(label: "Work", kind: .timer, duration: 25 * 60),
-            SequencePhase(label: "Rest", kind: .timer, duration: 5 * 60)
-        ],
-        defaultLoopCount: 4
-    ),
-    SequenceTemplate(
-        name: "Intermittent Fasting",
-        seedName: "Intermittent Fasting",
-        blurb: "Fast, then eat, day after day.",
-        phases: [
-            SequencePhase(label: "Fast", kind: .timer, duration: 16 * 3600),
-            SequencePhase(label: "Eat", kind: .timer, duration: 8 * 3600)
-        ],
-        defaultLoopCount: 7
-    )
-]
-
-/// Stable per-row identity for the phase list, independent of `SequencePhase` itself
-/// (which carries no `id` — adding one would mean a Codable back-compat decode and a
-/// 4-way cross-target diff for a value that's main-app-only in v1). `ForEach` keyed on
-/// array index breaks the moment rows are insertable/deletable/reorderable: deleting a
-/// middle phase would make SwiftUI reuse rows positionally, leaving stale text in
-/// `TextField`s and jumping focus.
-private struct DraftPhase: Identifiable {
-    let id = UUID()
-    var phase: SequencePhase
-}
-
-/// Which starting point currently seeded the draft — a built-in template (by index
-/// into the fixed `sequenceTemplates` array) or one of the user's saved sequences (by
-/// id). Needed instead of a bare `Int` the moment saved sequences join the list: that
-/// list is mutable (deleting a saved sequence shifts every index after it), so an index
-/// alone can't safely identify "which one is selected" across an edit.
-private enum SequenceSource: Equatable {
-    case builtin(index: Int)
-    case saved(id: String)
-}
-
-/// The seed values a `SequenceSource` currently resolves to — same shape whether it
-/// came from a built-in template or a saved sequence, so `isPristine`/`select` don't
-/// need to know which.
-private struct SequenceSeed: Equatable {
-    let name: String
-    let phases: [SequencePhase]
-    let loopCount: Int
-}
-
-/// Compose sheet for a free-form sequence: start from a template or a saved sequence
-/// (or from scratch), then add/remove/reorder/edit phases, set the loop count, and
-/// optionally save the result for reuse.
-private struct NewSequenceSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var source: SequenceSource = .builtin(index: 0)
-    @State private var savedSequences: [SavedSequence] = SavedSequenceStore.loadAll()
-    @State private var sequenceName: String
-    @State private var draftPhases: [DraftPhase]
-    @State private var loopCount: Int
-    @State private var startLater = false
-    @State private var scheduledStart: Date = Date().addingTimeInterval(3600)
-
-    let onCreate: (TimerPayload) -> Void
-
-    init(onCreate: @escaping (TimerPayload) -> Void) {
-        self.onCreate = onCreate
-        let first = sequenceTemplates[0]
-        self._sequenceName = State(initialValue: first.seedName)
-        self._draftPhases = State(initialValue: first.phases.map(DraftPhase.init))
-        self._loopCount = State(initialValue: first.defaultLoopCount)
-    }
-
-    /// A sequence needs at least one phase (`composeSequence` preconditions on it) and
-    /// a name — an editable list lets the user delete down to empty, so Start (and
-    /// Save) must be gateable rather than crash.
-    private var canCreate: Bool {
-        !draftPhases.isEmpty && !sequenceName.trimmingCharacters(in: .whitespaces).isEmpty
-    }
-
-    private func seed(for source: SequenceSource) -> SequenceSeed? {
-        switch source {
-        case .builtin(let index):
-            guard sequenceTemplates.indices.contains(index) else { return nil }
-            let template = sequenceTemplates[index]
-            return SequenceSeed(name: template.seedName, phases: template.phases, loopCount: template.defaultLoopCount)
-        case .saved(let id):
-            guard let saved = savedSequences.first(where: { $0.id == id }) else { return nil }
-            return SequenceSeed(name: saved.name, phases: saved.phases, loopCount: saved.loopCount)
-        }
-    }
-
-    /// True as long as nothing has diverged from the given seed's values — used to
-    /// decide whether switching "Start from" is still safe to apply. Once the user has
-    /// touched the name, phases, or loop count, switching must leave the draft alone
-    /// instead of silently discarding their edits.
-    private func isPristine(against seed: SequenceSeed) -> Bool {
-        sequenceName == seed.name && loopCount == seed.loopCount && draftPhases.map(\.phase) == seed.phases
-    }
-
-    private func select(_ newSource: SequenceSource) {
-        guard newSource != source else { return }
-        let wasPristine = seed(for: source).map(isPristine(against:)) ?? false
-        source = newSource
-        guard wasPristine, let newSeed = seed(for: newSource) else { return }
-        sequenceName = newSeed.name
-        draftPhases = newSeed.phases.map(DraftPhase.init)
-        loopCount = newSeed.loopCount
-    }
-
-    /// Phases with any blank label defaulted, the same way "Add Phase" names a new one
-    /// — shared by Start and Save so neither construction path can skip it.
-    private func normalizedPhases() -> [SequencePhase] {
-        draftPhases.enumerated().map { index, draft in
-            var phase = draft.phase
-            if phase.label.trimmingCharacters(in: .whitespaces).isEmpty {
-                phase.label = "Phase \(index + 1)"
-            }
-            return phase
-        }
-    }
-
-    /// Overwrites the saved sequence currently selected, or creates a new one — never
-    /// both, so tapping Save repeatedly on the same draft updates one entry instead of
-    /// piling up duplicates.
-    private func saveSequence() {
-        let name = sequenceName.trimmingCharacters(in: .whitespaces)
-        let phases = normalizedPhases()
-        if case .saved(let id) = source, let index = savedSequences.firstIndex(where: { $0.id == id }) {
-            savedSequences[index] = SavedSequence(id: id, name: name, phases: phases, loopCount: loopCount)
-        } else {
-            let new = SavedSequence(name: name, phases: phases, loopCount: loopCount)
-            savedSequences.append(new)
-            source = .saved(id: new.id)
-        }
-        SavedSequenceStore.saveAll(savedSequences)
-        // Match what was actually saved (trimmed name, defaulted phase labels) — otherwise
-        // `isPristine` compares the un-normalized draft against the normalized seed and
-        // reads as diverged even right after a save, silently blocking the next reseed.
-        sequenceName = name
-        draftPhases = phases.map(DraftPhase.init)
-    }
-
-    private func deleteSaved(at offsets: IndexSet) {
-        let removedIDs = offsets.map { savedSequences[$0].id }
-        savedSequences.remove(atOffsets: offsets)
-        SavedSequenceStore.saveAll(savedSequences)
-        if case .saved(let id) = source, removedIDs.contains(id) {
-            select(.builtin(index: 0))
-        }
-    }
-
-    @ViewBuilder
-    private func startFromRow(name: String, subtitle: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        // No .buttonStyle(.plain) here on purpose: the default Form/List button style gives
-        // the whole row cell — including the insets above/below the text, which a `Button`
-        // label's own .contentShape only covers to its own frame — a tap target, not just
-        // the rendered content. .plain drops back to content-only hit-testing.
-        Button(action: action) {
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(name)
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(.tint)
-                }
-            }
-        }
-        .foregroundStyle(.primary)
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    ForEach(sequenceTemplates.indices, id: \.self) { index in
-                        startFromRow(
-                            name: sequenceTemplates[index].name,
-                            subtitle: sequenceTemplates[index].blurb,
-                            isSelected: source == .builtin(index: index)
-                        ) {
-                            select(.builtin(index: index))
-                        }
-                    }
-                    if !savedSequences.isEmpty {
-                        ForEach(savedSequences) { saved in
-                            startFromRow(
-                                name: saved.name,
-                                subtitle: "\(saved.phases.count) phase\(saved.phases.count == 1 ? "" : "s") · \(saved.loopCount)×",
-                                isSelected: source == .saved(id: saved.id)
-                            ) {
-                                select(.saved(id: saved.id))
-                            }
-                        }
-                        .onDelete(perform: deleteSaved)
-                    }
-                } header: {
-                    Text("Start from")
-                } footer: {
-                    Text("A sequence runs each phase below back-to-back, then loops the whole thing.")
-                }
-
-                Section {
-                    TextField("Sequence name", text: $sequenceName)
-                }
-
-                Section {
-                    ForEach($draftPhases) { $draft in
-                        NavigationLink {
-                            PhaseEditView(phase: $draft.phase)
-                        } label: {
-                            HStack {
-                                Image(systemName: draft.phase.kind == .timer ? "timer" : "calendar")
-                                    .foregroundStyle(draft.phase.kind.accentColor)
-                                VStack(alignment: .leading) {
-                                    Text(draft.phase.label.isEmpty ? "Untitled phase" : draft.phase.label)
-                                    Text(TimeFormat.daysHours(draft.phase.duration))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                            }
-                            .contentShape(Rectangle())
-                        }
-                    }
-                    .onDelete { draftPhases.remove(atOffsets: $0) }
-                    .onMove { draftPhases.move(fromOffsets: $0, toOffset: $1) }
-                } header: {
-                    Text("Phases")
-                } footer: {
-                    if draftPhases.isEmpty {
-                        Text("Add at least one phase to start this sequence.")
-                    }
-                }
-
-                Section {
-                    Button {
-                        draftPhases.append(DraftPhase(phase: SequencePhase(label: "Phase \(draftPhases.count + 1)", duration: 5 * 60)))
-                    } label: {
-                        Label("Add Phase", systemImage: "plus.circle")
-                    }
-                }
-
-                Section {
-                    Stepper("Repeat \(loopCount) time\(loopCount == 1 ? "" : "s")", value: $loopCount, in: 1...99)
-                } footer: {
-                    Text("Runs \(draftPhases.count) phase\(draftPhases.count == 1 ? "" : "s") per loop, \(loopCount) time\(loopCount == 1 ? "" : "s") total.")
-                }
-
-                Section {
-                    // Root `.tint(.white)` (ContentView) leaves an untinted Toggle a
-                    // plain white switch, inconsistent with every other toggle in the
-                    // app (Alarm/Vibrate, PhaseEditView) which all pin to a kind accent.
-                    // A sequence mixes phase kinds, so there's no single "the" kind here
-                    // — use phase 0's, same accent PhaseEditView already shows for it.
-                    Toggle("Start later", isOn: $startLater)
-                        .tint(draftPhases.first?.phase.kind.accentColor ?? .orange)
-                    if startLater {
-                        DatePicker(
-                            "Start date",
-                            selection: $scheduledStart,
-                            in: Date()...,
-                            displayedComponents: [.date, .hourAndMinute]
-                        )
-                    }
-                } footer: {
-                    Text(startLater
-                         ? "Starts \(scheduledStart.formatted(date: .abbreviated, time: .shortened))."
-                         : "Starts right away.")
-                }
-
-                Section {
-                    Button {
-                        saveSequence()
-                    } label: {
-                        if case .saved = source {
-                            Label("Update Saved Sequence", systemImage: "square.and.arrow.down")
-                        } else {
-                            Label("Save as New Sequence", systemImage: "square.and.arrow.down")
-                        }
-                    }
-                    .disabled(!canCreate)
-                } footer: {
-                    Text("Save this sequence to select and start it again later without rebuilding it.")
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(Sky.room)
-            .navigationTitle("New Sequence")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Start") {
-                        onCreate(TimerPayload.composeSequence(
-                            label: sequenceName.trimmingCharacters(in: .whitespaces),
-                            phases: normalizedPhases(),
-                            loopCount: loopCount,
-                            startDate: startLater ? scheduledStart : nil
-                        ))
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(!canCreate)
-                }
-            }
-        }
-    }
-}
-
-/// Hours/minutes wheel for a single phase's duration — the same compact-wheel pattern
-/// `TimerFieldsView` uses for a plain timer, sized for phases from a few minutes
-/// (Pomodoro) to many hours (Intermittent Fasting). Floors at 1 minute: a zero-duration
-/// phase would make `advancedSequence` blow straight through it on every tick.
-private struct PhaseDurationPicker: View {
-    @Binding var duration: TimeInterval
-
-    private var hoursBinding: Binding<Int> {
-        Binding(
-            get: { Int(duration) / 3600 },
-            set: { newHours in
-                let minutes = (Int(duration) % 3600) / 60
-                duration = max(60, TimeInterval(newHours * 3600 + minutes * 60))
-            }
-        )
-    }
-
-    private var minutesBinding: Binding<Int> {
-        Binding(
-            get: { (Int(duration) % 3600) / 60 },
-            set: { newMinutes in
-                let hours = Int(duration) / 3600
-                duration = max(60, TimeInterval(hours * 3600 + newMinutes * 60))
-            }
-        )
-    }
-
-    var body: some View {
-        HStack(spacing: 0) {
-            Picker("Hours", selection: hoursBinding) {
-                ForEach(0..<24) { h in Text("\(h) hr").tag(h) }
-            }
-            .pickerStyle(.wheel)
-            .frame(maxWidth: .infinity)
-
-            Picker("Minutes", selection: minutesBinding) {
-                ForEach(0..<60) { m in Text("\(m) min").tag(m) }
-            }
-            .pickerStyle(.wheel)
-            .frame(maxWidth: .infinity)
-        }
-        .frame(height: 120)
-    }
-}
-
-/// Drill-in editor for one phase of a sequence: label, duration, cosmetic look
-/// (`SequencePhase.kind` is icon/tint only — never date-anchored, since a phase
-/// re-runs on every loop, see `TimerModel.swift`), and its own alarm/vibrate toggles.
-private struct PhaseEditView: View {
-    @Binding var phase: SequencePhase
-
-    var body: some View {
-        Form {
-            Section {
-                TextField("Label", text: $phase.label)
-
-                Picker("Look", selection: $phase.kind) {
-                    Text("Timer").tag(TimerKind.timer)
-                    Text("Countdown").tag(TimerKind.countdown)
-                }
-                .pickerStyle(.segmented)
-            }
-
-            Section {
-                PhaseDurationPicker(duration: $phase.duration)
-            } footer: {
-                Text("How long this phase runs each time it comes up.")
-            }
-
-            Section {
-                Toggle("Alarm", isOn: $phase.alarmEnabled)
-                    .tint(phase.kind.accentColor)
-                Toggle("Vibrate", isOn: $phase.vibrationEnabled)
-                    .tint(phase.kind.accentColor)
-            } header: {
-                Text("When this phase ends")
-            } footer: {
-                Text(phase.alarmEnabled || phase.vibrationEnabled
-                     ? "Rings or buzzes full-screen with Stop and Repeat, even when the app is closed or the phone is on silent."
-                     : "A quiet notification instead — no ringing.")
-            }
-        }
-        .navigationTitle(phase.label.isEmpty ? "Phase" : phase.label)
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-/// Tap-through detail: the timer's sky, full-bleed and slowly swaying, with the time
-/// glowing in the middle and frosted controls floating at the bottom.
-private struct TimerDetailView: View {
-    @State private var payload: TimerPayload
-    let onUpdate: (TimerPayload, String) -> Void
-    let onDelete: (TimerPayload) -> Void
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var participantCount: Int?
-    @State private var attribution: (name: String, action: String)?
-    @State private var hasBuzzedFinish = false
-    @ObservedObject private var alarm = AlarmPlayer.shared
-    @ObservedObject private var vibration = VibrationPlayer.shared
-
-    init(payload: TimerPayload, onUpdate: @escaping (TimerPayload, String) -> Void, onDelete: @escaping (TimerPayload) -> Void) {
-        self._payload = State(initialValue: payload)
-        self.onUpdate = onUpdate
-        self.onDelete = onDelete
-    }
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let remaining = payload.remaining
-            let done = payload.isExpired
-            let pending = payload.isPending(at: context.date)
-            // The sway: gradient anchors drift on a slow sine, one step per second,
-            // smoothed by the animation below — the sky never sits perfectly still.
-            let phase = reduceMotion ? 0 : sin(context.date.timeIntervalSinceReferenceDate / 19)
-            let colors = Sky.colors(for: payload, at: context.date)
-
-            ZStack {
-                LinearGradient(
-                    colors: colors,
-                    startPoint: UnitPoint(x: 0.15 + 0.1 * phase, y: 0),
-                    endPoint: UnitPoint(x: 0.85 - 0.1 * phase, y: 1)
-                )
-                .ignoresSafeArea()
-                .animation(.linear(duration: 1), value: phase)
-                // Same "not live yet" muting as SkyCard's row treatment.
-                .saturation(pending ? 0.35 : 1)
-                .brightness(pending ? -0.1 : 0)
-
-                VStack {
-                    Spacer()
-
-                    VStack(spacing: 10) {
-                        Text(payload.label)
-                            .skyLabel(13)
-                            .foregroundStyle(.white.opacity(0.85))
-                        // "Phase 1 of 2 · Loop 1 of 7" would misread as already running.
-                        if pending, let sequence = payload.sequence {
-                            Text(Sky.pendingSequenceCaption(sequence))
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.6))
-                        } else if let caption = payload.sequenceCaption {
-                            Text(caption)
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.6))
-                        }
-                        Text(pending ? (payload.scheduledStartDate.map { Sky.pendingStartText(for: $0, at: context.date) } ?? "") : TimeFormat.display(remaining))
-                            .skyDigits(72, weight: .thin)
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.4)
-                            .padding(.horizontal, 24)
-                        Text(subtitle(done: done, pending: pending))
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.75))
-                        if let statusLine {
-                            Text(statusLine)
-                                .font(.caption)
-                                .foregroundStyle(.white.opacity(0.55))
-                        }
-                    }
-
-                    Spacer()
-
-                    if pending {
-                        // Pause/Extend don't mean anything before the scheduled start
-                        // actually begins; Delete (below, unconditional) is Cancel.
-                        Button("Start Now") {
-                            startEarly()
-                        }
-                        .buttonStyle(.glassPill)
-                    } else if !done {
-                        HStack(spacing: 12) {
-                            Button("+1:00") {
-                                extend(by: 60)
-                            }
-                            .buttonStyle(.glassPill)
-
-                            Button(payload.isPaused ? "Resume" : "Pause") {
-                                togglePause()
-                            }
-                            .buttonStyle(.glassPill)
-                        }
-                    } else {
-                        HStack(spacing: 12) {
-                            if alarm.isPlaying || vibration.isVibrating {
-                                Button("Stop") {
-                                    alarm.stop()
-                                    vibration.stop()
-                                    // Same acknowledgment the notification's own "Stop"
-                                    // action writes — keeps the two Stop paths consistent.
-                                    TimerStore.acknowledgeFinish(id: payload.id)
-                                }
-                                .buttonStyle(.glassPill)
-                            }
-                            Button("Repeat") {
-                                repeatTimer()
-                            }
-                            .buttonStyle(.glassPill)
-                        }
-                    }
-
-                    Button {
-                        onDelete(payload)
-                        dismiss()
-                    } label: {
-                        Text("Delete")
-                            .font(.footnote.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.55))
-                    }
-                    .padding(.top, 18)
-                    .padding(.bottom, 28)
-                }
-            }
-            // TimelineView localizes invalidation to this closure — a modifier attached
-            // outside it (below) only re-evaluates on @State changes, never on the tick
-            // that actually crosses zero. `done` is recomputed fresh every tick, so
-            // .onChange has to live in here to see the flip.
-            .onChange(of: done) { _, isExpired in
-                guard isExpired, !hasBuzzedFinish else { return }
-                hasBuzzedFinish = true
-                // ContentView's own root-level check also catches this zero-crossing
-                // while this screen is pushed, but AlarmPlayer/VibrationPlayer.start()
-                // no-op when already running, so calling again here is free — don't
-                // rely on the (unverified) assumption that the ancestor TimelineView
-                // keeps ticking behind an active NavigationStack push.
-                // Only sound/vibrate the in-app loop where the app itself owns the
-                // alert (see AlarmController.shouldSoundInAppAlarm/shouldVibrateInApp,
-                // and checkForNewlyExpired for why this can't key on alarm-dismissed
-                // state).
-                if AlarmController.shouldSoundInAppAlarm(for: payload) {
-                    alarm.start()
-                }
-                if AlarmController.shouldVibrateInApp(for: payload) {
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    vibration.start()
-                }
-                // This view holds its own @State copy, seeded once when pushed, so it
-                // needs the same advance-and-reseed ContentView's checkForNewlyExpired
-                // does — nothing else refreshes it on a plain tick. Same skip as there
-                // while AlarmKit owns the alert (see AlarmController.alarmKitOwnsAlert):
-                // `onUpdate` -> ... -> `reschedule` would cancel AlarmKit's own
-                // just-fired alert out from under the user before they can act on it.
-                if payload.sequence != nil && !AlarmController.alarmKitOwnsAlert(for: payload) {
-                    let advanced = payload.advancedSequence()
-                    payload = advanced
-                    onUpdate(advanced, "sequenceAdvanced")
-                    // Not exhausted -> a new phase just started and can finish again
-                    // later; let it re-buzz on that future zero-crossing.
-                    hasBuzzedFinish = advanced.isExpired
-                }
-            }
-        }
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbar {
-            // Sequences aren't shareable in v1 — see the row context-menu's identical gate.
-            if payload.sequence == nil {
-                ToolbarItem(placement: .topBarTrailing) {
-                    ShareLink(item: payload.url()) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                }
-            }
-        }
-        .onAppear {
-            hasBuzzedFinish = payload.isExpired
-            CloudSyncController.fetchParticipantCount(for: payload) { participantCount = $0 }
-            CloudSyncController.fetchAttribution(for: payload) { attribution = $0 }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .externalTimerStoreChange)) { _ in
-            // This view holds its own @State copy of payload (seeded once when pushed),
-            // so a watch-relayed pause or CloudKit push landing while this exact screen is
-            // open would otherwise sit invisible until the user backs out and re-enters —
-            // ContentView's own reload (TimerStore.loadAll() into its `timers` array)
-            // doesn't touch this already-pushed view's local copy at all.
-            guard let fresh = TimerStore.loadAll().first(where: { $0.id == payload.id }) else { return }
-            payload = fresh
-        }
-    }
-
-    private func subtitle(done: Bool, pending: Bool = false) -> String {
-        // The big digits above already show the start date/time -- repeating it here
-        // ("Starts Sun, 3:00 PM") is the exact duplication SkyCard's redesign fixed.
-        // What phase 0 actually is fills this slot instead, same as SkyCard's endText.
-        if pending, let sequence = payload.sequence, let phaseText = Sky.pendingFirstPhaseText(sequence) {
-            return phaseText
-        }
-        if done {
-            return "Finished \(payload.endDate.formatted(date: .omitted, time: .shortened))"
-        }
-        if payload.isPaused {
-            return "Paused"
-        }
-        if payload.kind == .countdown {
-            return TimeFormat.targetDate(payload.endDate)
-        }
-        return "ends at \(payload.endDate.formatted(date: .omitted, time: .shortened))"
-    }
-
-    private func togglePause() {
-        payload = payload.isPaused ? payload.resumed() : payload.paused()
-        onUpdate(payload, payload.isPaused ? "paused" : "resumed")
-    }
-
-    /// Row's own `startEarly` action, mirrored here the same way `togglePause`/`extend`
-    /// mirror the row's -- see the row's `startEarly` doc comment for why `repeated()`.
-    private func startEarly() {
-        payload = payload.repeated()
-        onUpdate(payload, "startedEarly")
-    }
-
-    private func extend(by interval: TimeInterval) {
-        payload = payload.extended(by: interval)
-        onUpdate(payload, "extended")
-    }
-
-    /// Restart a finished timer from its detail screen — stop any in-app alarm loop,
-    /// re-arm the finish handler, and run the standard mutation path (which reschedules
-    /// the AlarmKit alarm / notification and Live Activity).
-    private func repeatTimer() {
-        alarm.stop()
-        vibration.stop()
-        hasBuzzedFinish = false
-        payload = payload.repeated()
-        onUpdate(payload, "repeated")
-    }
-
-    /// "2 watching" / "Sam paused" — whichever cloud status has resolved so far; nil
-    /// (renders nothing) until the on-demand fetches in .onAppear land, and permanently
-    /// nil for a purely local timer.
-    private var statusLine: String? {
-        var parts: [String] = []
-        if let participantCount, participantCount > 1 {
-            parts.append("\(participantCount) watching")
-        }
-        if let attribution, attribution.name != DisplayNameStore.name {
-            parts.append("\(attribution.name) \(attribution.action)")
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-}
-
-/// Sheet shown from a row's context-menu Share action. `ShareLink` inside `.contextMenu`
-/// is unreliable, so this presents the timer's sky with the real `ShareLink` on it.
-private struct ShareTimerSheet: View {
-    let payload: TimerPayload
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 22) {
-                SkyCard(payload: payload, date: Date())
-                    .padding(.horizontal, 20)
-
-                ShareLink(item: payload.url()) {
-                    Label("Share Link", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glassPill)
-                .padding(.horizontal, 20)
-
-                Spacer()
-            }
-            .padding(.top, 26)
-            .background(Sky.room)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.medium])
-    }
-}
-
-/// Confirmation sheet for a timer arriving via universal link while the full app is
-/// already installed — its sky, then what it is, then the choice.
-private struct AddSharedTimerSheet: View {
-    let payload: TimerPayload
-    let onAdd: (TimerPayload) -> Void
-    let onDismiss: () -> Void
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 18) {
-                SkyCard(payload: payload, date: Date())
-                    .padding(.horizontal, 20)
-
-                VStack(spacing: 6) {
-                    Text("Shared timer from a link")
-                        .font(.subheadline)
-                        .foregroundStyle(Sky.roomInk)
-                    if payload.kind == .timer {
-                        Text("Ends at \(payload.endDate.formatted(date: .omitted, time: .shortened))")
-                            .font(.footnote)
-                            .foregroundStyle(Sky.roomInk)
-                    } else {
-                        Text("Counting down to \(TimeFormat.targetDate(payload.endDate))")
-                            .font(.footnote)
-                            .foregroundStyle(Sky.roomInk)
-                    }
-                }
-
-                Spacer()
-
-                Button {
-                    onAdd(payload)
-                } label: {
-                    Text("Add to My Timers")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glassPill)
-                .padding(.horizontal, 20)
-
-                Button("Not Now") {
-                    onDismiss()
-                }
-                .font(.footnote)
-                .foregroundStyle(Sky.roomInk)
-                .padding(.bottom, 16)
-            }
-            .padding(.top, 26)
-            .background(Sky.room)
-            .navigationBarTitleDisplayMode(.inline)
-        }
-        .presentationDetents([.medium])
-    }
-}
-
-#Preview {
-    ContentView()
 }

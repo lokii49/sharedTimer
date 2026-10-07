@@ -12,12 +12,14 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject private var sync = WatchSyncController.shared
 
+    @State private var path: [String] = []
+
     private var active: [TimerPayload] {
         sync.timers.filter { !$0.isExpired }.sorted { $0.endDate < $1.endDate }
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if active.isEmpty {
                     emptyState
@@ -33,8 +35,13 @@ struct ContentView: View {
             .navigationDestination(for: String.self) { id in
                 if let payload = sync.timers.first(where: { $0.id == id }) {
                     TimerDetailView(payload: payload)
+                } else {
+                    Text("Timer unavailable").foregroundStyle(.secondary)
                 }
             }
+        }
+        .onOpenURL { url in
+            if let id = WatchTimerLink.id(from: url) { path = [id] }
         }
     }
 

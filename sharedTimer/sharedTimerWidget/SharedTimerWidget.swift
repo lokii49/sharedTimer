@@ -65,36 +65,6 @@ func nextRefresh(for payload: TimerPayload?) -> Date {
 
 // MARK: - Configurable single-timer widget
 
-/// Lightweight `AppEntity` wrapper so the widget-configuration UI can list timers by name;
-/// only carries what the picker needs, not the full `TimerPayload`.
-struct TimerChoice: AppEntity {
-    let id: String
-    let label: String
-
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Timer"
-    static var defaultQuery = TimerChoiceQuery()
-
-    var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "\(label)")
-    }
-}
-
-struct TimerChoiceQuery: EntityQuery {
-    func entities(for identifiers: [TimerChoice.ID]) async throws -> [TimerChoice] {
-        let all = TimerStore.loadAll()
-        return identifiers.compactMap { id in
-            all.first { $0.id == id }.map { TimerChoice(id: $0.id, label: $0.label) }
-        }
-    }
-
-    func suggestedEntities() async throws -> [TimerChoice] {
-        TimerStore.loadAll()
-            .filter { !$0.isExpired }
-            .sorted { $0.endDate < $1.endDate }
-            .map { TimerChoice(id: $0.id, label: $0.label) }
-    }
-}
-
 struct SelectTimerIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Choose Timer"
     static var description = IntentDescription("Pick which timer or countdown this widget shows.")
@@ -118,7 +88,11 @@ struct ConfigurableTimerProvider: AppIntentTimelineProvider {
     }
 
     /// A configured timer is shown as-is (even paused or just-finished) — the user picked
-    /// it specifically. Only fall back to "nearest active" when unconfigured or deleted.
+    /// it specifically. Unconfigured (or deleted): the timer last acted on from a
+    /// widget/Live Activity button, while it's paused/running or finished within the
+    /// last hour (so Resume/Repeat stay where the user tapped); else the soonest
+    /// running timer; else the soonest paused one. Paused timers used to be skipped
+    /// entirely, so tapping Pause on the widget turned it into "No Timers".
     private func resolve(_ configuration: SelectTimerIntent) -> TimerPayload? {
         let all = TimerStore.loadAll()
         // `advancedSequence()` is a pure function on an already-loaded value — this
@@ -128,7 +102,15 @@ struct ConfigurableTimerProvider: AppIntentTimelineProvider {
         if let id = configuration.timer?.id, let match = all.first(where: { $0.id == id }) {
             return match.advancedSequence()
         }
-        return all.filter { !$0.isExpired && !$0.isPaused }.sorted { $0.endDate < $1.endDate }.first?.advancedSequence()
+        let current = all.map { $0.advancedSequence() }
+        if let focusID = TimerStore.widgetFocusID,
+           let focused = current.first(where: { $0.id == focusID }),
+           !focused.isFinished || focused.endDate > Date().addingTimeInterval(-3600) {
+            return focused
+        }
+        let running = current.filter { !$0.isFinished && !$0.isPaused }.sorted { $0.endDate < $1.endDate }
+        let paused = current.filter { $0.isPaused && !$0.isFinished }.sorted { $0.remaining < $1.remaining }
+        return running.first ?? paused.first
     }
 }
 
@@ -196,16 +178,29 @@ struct BigCountdownWidgetView: View {
             Spacer(minLength: 0)
 
             remainingText(endDate: payload.endDate, pausedRemaining: payload.pausedRemaining)
+                // Shimmers while a tapped button's update is in flight (pause/resume
+                // only lands after the app runs the intent and the timeline reloads).
+                .invalidatableContent()
                 .font(.system(size: isSmall ? 34 : 46, weight: .regular))
                 .monospacedDigit()
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
                 .foregroundStyle(.white)
 
-            Text(footerText(for: payload))
-                .skyLabel(isSmall ? 9.5 : 10.5)
-                .foregroundStyle(.white.opacity(0.85))
-                .lineLimit(1)
+            if isSmall {
+                // Small: the buttons take the footer's place.
+                WidgetTimerControls(payload: payload, size: 34)
+                    .padding(.top, 4)
+            } else {
+                HStack(alignment: .center) {
+                    Text(footerText(for: payload))
+                        .skyLabel(10.5)
+                        .foregroundStyle(.white.opacity(0.85))
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    WidgetTimerControls(payload: payload, size: 36)
+                }
+            }
         }
         .padding(isSmall ? 2 : 4)
     }
@@ -267,7 +262,11 @@ struct TimerListProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TimerListEntry>) -> Void) {
         let payloads = activeSorted()
-        completion(Timeline(entries: [TimerListEntry(date: .now, payloads: payloads)], policy: .after(nextRefresh(for: payloads.first))))
+        // Earliest refresh any listed timer needs, not just `payloads.first`'s: a paused
+        // payload keeps its stale endDate and can sort first, which would key the whole
+        // list's refresh to the paused fallback and miss a running timer's expiry.
+        let refresh = payloads.map { nextRefresh(for: $0) }.min() ?? nextRefresh(for: nil)
+        completion(Timeline(entries: [TimerListEntry(date: .now, payloads: payloads)], policy: .after(refresh)))
     }
 
     private func activeSorted() -> [TimerPayload] {
@@ -350,6 +349,9 @@ struct TimerListWidgetView: View {
             Spacer(minLength: 6)
 
             remainingText(endDate: payload.endDate, pausedRemaining: payload.pausedRemaining)
+                // Shimmers while a tapped button's update is in flight (pause/resume
+                // only lands after the app runs the intent and the timeline reloads).
+                .invalidatableContent()
                 .font(.system(size: 22, weight: .medium))
                 .monospacedDigit()
                 .minimumScaleFactor(0.5)
@@ -357,6 +359,11 @@ struct TimerListWidgetView: View {
                 .multilineTextAlignment(.trailing)
                 .foregroundStyle(.white)
                 .frame(maxWidth: 92, alignment: .trailing)
+
+            // Pause/Resume only — no Stop on the list, so it can't be mis-tapped.
+            if !payload.isPending() {
+                PauseToggle(timerID: payload.id, isPaused: payload.isPaused, size: 28)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
