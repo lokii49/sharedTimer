@@ -194,10 +194,11 @@ enum AlarmController {
     /// "Next") left nothing armed for the following phase until the app next ran — a
     /// locked phone never rang again for the rest of the sequence.
     ///
-    /// - Only occurrences at or after the current index are ever cancelled, so the
-    ///   alert for the phase that *just* finished (index current-1 once advanced) is
-    ///   never touched — that's what lets onAppear/scenePhase re-arm right after the app
-    ///   was opened from a ringing phase alert without killing it.
+    /// - An earlier occurrence's alarm is never cancelled while it's *alerting*, so the
+    ///   alert for the phase that just finished (index current-1 once advanced) is never
+    ///   touched — that's what lets onAppear/scenePhase re-arm right after the app was
+    ///   opened from a ringing phase alert without killing it. Earlier occurrences still
+    ///   counting down/scheduled/paused are stale (e.g. skipped by "Next") and cancelled.
     /// - An existing alarm whose `.fixed` date and preAlert already match is kept, not
     ///   cancelled and re-created, so re-arming an unchanged sequence is a no-op for
     ///   AlarmKit (no Live Activity flicker). Matching uses a 1s tolerance — AlarmKit
@@ -250,6 +251,13 @@ enum AlarmController {
         if current < total {
             stale += (current..<total).map { phaseAlarmID(timerID: payload.id, globalIndex: $0) }
         }
+        // Earlier occurrences are over as far as the model is concerned — cancel any
+        // still counting down / scheduled / paused (e.g. "Next" tapped on the Live
+        // Activity mid-phase left the skipped phase's alarm running: two cards, and it
+        // would still have rung). Only one actually *alerting* is left alone: that's
+        // the just-finished phase's alert the user hasn't dismissed yet.
+        stale += (0..<min(current, total)).map { phaseAlarmID(timerID: payload.id, globalIndex: $0) }
+            .filter { existing[$0].map { $0.state != .alerting } ?? false }
         for id in stale where existing[id] != nil && !kept.contains(id) {
             try? AlarmManager.shared.cancel(id: id)
         }

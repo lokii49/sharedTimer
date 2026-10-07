@@ -25,6 +25,9 @@ final class AlarmKitDeviceTests {
 
     private func tearDown() async {
         for payload in created {
+            if TimerStore.loadAll().contains(where: { $0.id == payload.id }) {
+                TimerStore.delete(id: payload.id)
+            }
             await AlarmController.cancelSequenceAlarms(for: payload)
             if let id = UUID(uuidString: payload.id) { try? AlarmManager.shared.cancel(id: id) }
         }
@@ -108,24 +111,26 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
-    @Test func advancingOnlyCancelsFromTheNewCurrentPhaseOnward() async {
+    @Test func nextFromTheCardCancelsTheSkippedPhaseAndRearmsTheRest() async {
         let start = Date()
         let payload = sequence(loops: 3, end: start.addingTimeInterval(60))
         created.append(payload)
         await AlarmController.rescheduleAwaiting(for: payload)
+        #expect(alarmsByID()[AlarmController.phaseAlarmID(timerID: payload.id, globalIndex: 0)]?.state == .countdown)
 
-        // Extend by 2 min while on occurrence 2 (as if the app advanced there): every
-        // occurrence >= 2 moves, occurrences 0/1 must be left exactly as they were.
-        let onTwo = payload.materializingPhase(globalIndex: 2, startingAt: start).extended(by: 120)
-        let untouched = alarmsByID().filter { phaseIDs(payload, 0..<2).contains($0.key) }
-        await AlarmController.rescheduleAwaiting(for: onTwo)
+        // "Next" tapped on the Live Activity mid-phase, through the real action path:
+        // occurrence 0 is still counting down (not alerting), so it must go — on
+        // device it lingered as a second Lock Screen card.
+        TimerStore.save(payload)
+        await LiveActivityActions.advanceSequence(timerID: payload.id, phaseIndex: 0)
+        let onOne = try? #require(TimerStore.loadAll().first { $0.id == payload.id })
+        #expect(onOne?.sequenceGlobalIndex == 1)
+        guard let onOne else { await tearDown(); return }
         let alarms = alarmsByID()
 
-        for (id, alarm) in untouched {
-            #expect(alarms[id]?.schedule == alarm.schedule, "an earlier occurrence was touched")
-        }
-        let window = onTwo.upcomingSequencePhases(limit: AlarmController.sequenceWindow)
-        #expect(window.first?.globalIndex == 2)
+        #expect(alarms[AlarmController.phaseAlarmID(timerID: payload.id, globalIndex: 0)] == nil, "skipped phase's alarm still armed")
+        #expect(alarms[AlarmController.phaseAlarmID(timerID: payload.id, globalIndex: 1)]?.state == .countdown)
+        let window = onOne.upcomingSequencePhases(limit: AlarmController.sequenceWindow)
         for occurrence in window.dropFirst() {
             let alarm = alarms[AlarmController.phaseAlarmID(timerID: payload.id, globalIndex: occurrence.globalIndex)]
             guard case .fixed(let date)? = alarm?.schedule else {
