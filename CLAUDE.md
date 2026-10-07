@@ -20,7 +20,7 @@ xcodebuild -scheme sharedTimer -destination 'platform=iOS Simulator,name=iPhone 
 
 Schemes: `sharedTimer` (main app), `sharedTimerClip` (App Clip), `sharedTimerMessages` (iMessage extension), `sharedTimerWidget` (widget/Live Activity — embedded, not independently runnable). Prefer opening the project in Xcode and running on a simulator/device for anything involving notifications, Live Activities, or the Messages extension — those don't function meaningfully under plain `xcodebuild test`.
 
-`sharedTimerTests` and `sharedTimerClipTests` are empty boilerplate (no test methods). `sharedTimerUITests` has the two default launch tests only. There is no meaningful automated test coverage right now — verify behavior manually in the simulator.
+`sharedTimerTests` has 26 Swift Testing (`import Testing`) tests covering `TimerModel` (URL round-trip + back-compat, JSON decode, sequence math) and `TimerStore` decode/prune — run with `-only-testing:sharedTimerTests` and grep for `Test run with`, since xcodebuild's XCTest summary line misleadingly reports "Executed 0 tests". `sharedTimerClipTests` is empty boilerplate; `sharedTimerUITests` has the two default launch tests only. Nothing covers AlarmKit/CloudKit/notifications/Live Activities — verify those manually on a simulator/device.
 
 ## Architecture
 

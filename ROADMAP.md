@@ -1,6 +1,6 @@
 # Timer Roadmap
 
-Status as of 2026-08-21. Goal: beat the real App Store competitors (ShareTimer, ShareMyTimer,
+Status as of 2026-10-07 (1.0.3 merged to main via #5; 1.0.4 in progress). Goal: beat the real App Store competitors (ShareTimer, ShareMyTimer,
 Synced Timer Plus, TimeTo) by closing the live-sync gap and leaning into the one thing none of
 them have — a real native iMessage extension — instead of routing sharing through a plain link
 or QR code.
@@ -144,7 +144,7 @@ edge-to-edge like it is on the Home Screen. If so, the fix is `.contentMarginsDi
 `content(for:)` — but that flag also changes Home Screen rendering, so don't apply it without
 checking both.
 
-## Phase 5 — Sequence timers (shipped 1.0.2; scheduled-start added post-1.0.2, device-verification pending)
+## Phase 5 — Sequence timers (shipped 1.0.2; scheduled-start shipped 1.0.3, device-verification pending)
 
 Not part of the original competitor-gap analysis above — a separate differentiator added on
 its own track once the core sync/reach/StandBy phases were in.
@@ -164,7 +164,7 @@ its own track once the core sync/reach/StandBy phases were in.
   final one — after confirming on device that AlarmKit's `stopIntent` and its built-in
   `.countdown` secondary-button behavior can't do either job.
 
-**Built (post-1.0.2, this branch — 1.0.3):**
+**Built (1.0.3, merged to main 2026-10-07):**
 - "Start later" — `NewSequenceSheet` can schedule a sequence's phase 0 to begin at a future
   picked time (`TimerPayload.scheduledStartDate`, sequence-only, never shared/synced). The
   finish alert is still armed at creation, not deferred, since nothing can run in the
@@ -183,6 +183,103 @@ schedule transition timing after these changes (previously spot-checked once —
 pending sequence 2 minutes out with a 1-minute phase 0, confirm nothing shows for 2 minutes
 and the alarm rings at +3, not +4); that a pending sequence never leaks into the watch app via
 `WatchSyncController`'s flattened phase-0 view (guard is code-reviewed, not device-tested).
+
+## 1.0.4 — Hardening (in progress, branch `1.0.4`)
+
+From a full code audit on 2026-10-07. Build + the 26 `sharedTimerTests` (Swift Testing) pass;
+nothing below has been verified on a device yet.
+
+**Fixed (a1e6653):**
+- **CloudKit sync could die permanently.** `pullChanges(scope:)`/`fetchZoneChanges` didn't
+  handle `CKError.changeTokenExpired`. The stale token stayed saved, so every later pull failed
+  the same way and live sync stopped silently. Now the token is cleared and the fetch reruns
+  once from nil, at both the database and zone level, in both `CloudSyncController` copies.
+- **The database change token was saved too early** (`changeTokenUpdatedBlock` and the
+  success path), before the zone fetch finished. A failed zone fetch was never retried. The
+  token is now only saved once every changed zone has been fetched.
+  `zoneNotFound`/`userDeletedZone` don't hold the token back.
+- **Timer-list widget refresh** was keyed to `payloads.first`. A paused payload's stale
+  `endDate` can sort first, which gave a 15-min fallback that missed a running timer's
+  expiry. It now uses the earliest refresh any listed timer needs.
+- **Comments that no longer matched the code:**
+  - `vibrationEnabled`'s doc said "defaults true" (it decodes as false).
+  - `AlarmController.reschedule` claimed overtaken calls are "dropped".
+  - `handleIncoming`'s doc was attached to `openQuickAction` and claimed known timers update.
+
+**To verify on device:** with two iCloud accounts, force a token reset by deleting the
+`dbChangeToken.*` / `zoneChangeToken.*` App Group keys. Then confirm the next pull still
+delivers changes and doesn't duplicate or resurrect anything (see the zombie gap below).
+
+### Bugs / gaps found, not yet fixed
+
+Ordered by severity. Each needs a device, a second account, or a product decision, so none
+were changed blind.
+
+| # | Sev | Where | Gap | Repro / fix direction |
+|---|-----|-------|-----|------------------------|
+| 1 | High | `AlarmController.scheduleAlarm`, sequence flow | **A sequence stalls if the user taps the primary Stop mid-sequence.** The next phase's alarm is only armed by "Next" or by the app returning to the foreground. If the app is never reopened, no later phase ever alerts. If the app stays foreground, the tick skips the advance (`alarmKitOwnsAlert`), so nothing is armed for the next phase there either. | Pomodoro with 1-min phases → tap Stop (not Next) on phase 1 → lock the phone → phase 2 never rings. Fix: schedule every remaining phase's AlarmKit alarm up front with `.fixed(date)` (one alarm id per phase+loop, derived from the timer id), and rebuild the set on pause/extend/repeat. AlarmKit's per-app alarm cap needs checking first (Intermittent Fasting ×7 = 14 alarms). |
+| 2 | High | `sharedTimerMessages/MessagesViewController.swift:41-44`, `sharedTimerClip/ContentView.swift:46` | **Double alerts and duplicate Live Activities when a timer exists in both the main app and Messages.** Every open of the message bubble re-arms a notification and starts the custom Live Activity. If the main app owns the same id through AlarmKit, the user gets an AlarmKit alarm *plus* a notification, and AlarmKit's Live Activity *plus* ours: the "too many Live Activities" bug, through a different door. The main app's `armAlerts` cancels the notification (same id) but never ends a stray custom Live Activity. | Create a timer with Alarm on in the main app, share it, then open the bubble in Messages on the same device. Fix: the main app writes "AlarmKit-armed ids" to the App Group, and the extension/Clip skip arming those. Also, `armAlerts` should call `LiveActivityController.end(id:)` whenever `ownsAlert` is true. |
+| 3 | Med | `CloudSyncController.pushDelete` (`:346`) + `pullChanges` | **A timer a participant deleted comes back.** Participant delete only removes the local `CloudLink`, but the shared-database subscription still delivers that record. The next remote change (or the new token-reset refetch above) calls `TimerStore.save` and it reappears. | Participant deletes a shared timer, the owner then extends it, and the timer is back on the participant's list. Fix: keep a tombstone set of deleted ids in the App Group and skip them in the pull handlers (`ContentView.pullCloudChanges`, `AppDelegate`). Or leave the share (`CKShare` participant removal) on delete. |
+| 4 | Med | `LiveActivityController.swift:66` | **The custom Live Activity is never ended or marked stale at finish** (`staleDate: nil`, no `end` on expiry). A "0:00" activity sits on the Lock Screen until the system kills it (up to 8h + 4h). | Turn both toggles off, run a 1-min timer, and look at the Lock Screen 10 min later. Fix: `staleDate: payload.endDate`. When the app sees a finish (`checkForNewlyExpired`, foreground), call `end(..., dismissalPolicy: .after(endDate + 15min))`. |
+| 5 | Med | `ContentView.handleIncoming` (`:611`), `MessagesViewController.swift:41` | **A re-shared link for a timer that's already known is ignored.** A sender who extends a timer and sends a fresh *plain* (non-CloudKit) link can't update the recipient's copy. | Needs a recency field on the wire (e.g. `rev` = last-modified epoch). Prefer the link only when it's newer. Update `docs/t.html` in lockstep. |
+| 6 | Low | `AlarmController.enqueue` (`:364`) | **Per-id ordering isn't guaranteed.** Each call hops through its own unstructured `Task` before reaching the `Serializer` actor, and arrival order isn't specified. A `reschedule` followed by a `clear` (fast delete) could run in reverse and leave an alarm armed for a deleted timer. | Hard to repro. Fix: make the call sites `async`, or put a monotonically increasing generation per id and skip stale work inside `run`. |
+| 7 | Low | `TimerStore.save`/`persist` (`:21`, `:82`) | **Read-modify-write across processes isn't atomic.** The app, Messages extension, intents, and AlarmKit intents can each `loadAll` → mutate → write, so a concurrent write from another process can be lost. | Rare. Fix: `NSFileCoordinator`, or store one key per timer id instead of a single array. |
+| 8 | Low | `TimeFormat.bigDigits` (`TimerModel.swift:467`) | **Breaks its own "always 8 characters" contract** for 100–167h: it prints `120:00:00` under the 7-day calendar threshold. | Big countdown widget with a 5-day countdown. Fix: switch to `DD:HH:MM` above 99h (needs a design call). Apply to all 4 copies. |
+| 9 | Low | `TimeFormat.targetDate` (`TimerModel.swift:477`) | **Wrong year on a non-Gregorian calendar.** It uses a `DateFormatter` with a fixed `yyyy-MM-dd` and no calendar/locale (a Buddhist calendar shows 2569), and builds a new formatter per call. | Set Gregorian + `en_US_POSIX`, or switch to `Date.ISO8601FormatStyle().year().month().day()`. Apply to all copies. |
+| 10 | Low | `TimerIntents.swift` | **Intents skip the watch and the foreground UI.** `StartTimerIntent`/`StartCountdownIntent` don't call `WatchSyncController.pushCurrentState()` or post `.externalTimerStoreChange` (the CLAUDE.md rule). The sequence intents don't push to the watch either. The dialog also prints `Int(minutes)`, so 0.5 min reads as "0 minutes". | Run "Start a timer" from Shortcuts with the app open in Slide Over or Split View, or with a watch paired. |
+| 11 | Low | `ContentView.delete` (`:505`), pull-delete path | **Deleting a ringing timer leaves the in-app `AlarmPlayer`/`VibrationPlayer` loop going**, along with the "Time's up" banner, until the user taps Stop. | Fix: stop the players when the deleted id is among those currently alerting. |
+| 12 | — | Docs | ~~CLAUDE.md said `sharedTimerTests` was empty~~ — fixed alongside this roadmap. | — |
+
+## Phase 6 — Reliability & engineering (next)
+
+1. **Close gaps #1 and #2.** These are the two that can make a user miss an alarm or get
+   double alerts.
+2. **A local Swift package (`SharedTimerKit`)** for `TimerModel`/`TimerStore`/`Sky`/
+   `NotificationScheduler`/etc., replacing the copy-paste and `diff` discipline. It would
+   be linked by the app, Clip, Messages, and Widget; the watch stays separate on purpose.
+   That removes a whole class of drift bugs. The App Clip size budget needs checking.
+3. **CI:** a GitHub Actions `xcodebuild test` on PRs (macOS runner, iOS sim) running the
+   existing 26 tests. Add tests for `advancedSequence` edge cases, CloudKit
+   `makePayload`/`applyFields` round-trips, and `AlarmController` routing (extract the pure
+   decision part from AlarmKit calls).
+4. **Split `ContentView.swift`** (1.5k lines) into `TimerListView`, `TimerDetailView`,
+   `NewSequenceSheet`, and `TimerMutations` (the `apply`/`armAlerts` funnel), so the
+   AppDelegate/Watch/Intent copies of the arming sequence can call one shared function
+   instead of each reimplementing it.
+
+## Phase 7 — Features (good to have)
+
+Ranked by value vs. effort. Most of these build on intents and infrastructure that already
+exist.
+
+- **Interactive widgets and Live Activity buttons:** Pause / +1 min / Repeat via
+  `Button(intent:)` on the home-screen widget and the custom Live Activity. Reuses
+  `TimerStore` plus a `LiveActivityIntent` (same pattern as `AdvanceSequenceIntent`).
+- **Control Center control and Action button** (`ControlWidget`, iOS 18+): "Start 5-min
+  timer" or a last-used preset. Small, high-visibility work.
+- **Quick-start presets / recents:** one-tap chips for recently used durations and labels
+  in the "+" sheet and the Quick Actions, with dynamic `UIApplicationShortcutItems`.
+- **More Siri / App Intents:** Pause/Resume/Extend/"How long is left on X?" intents over
+  the existing `TimerChoice` `AppEntity`, plus Spotlight indexing of timers.
+- **Watch complication / Smart Stack widget:** deferred since Phase 3. Needs the Xcode
+  target wizard first.
+- **Lock Screen accessory widgets** (`.accessoryCircular`/`.accessoryRectangular`) with a
+  progress ring.
+- **Shared sequences:** adds the sequence to the URL/CloudKit wire format (and a `t.html`
+  fallback that shows the current phase). This is the biggest product differentiator left,
+  but it needs gap #1's per-phase alarm design first.
+- **Recurring countdowns:** yearly birthdays and anniversaries, re-armed on finish. Import
+  the target from Calendar (EventKit) and export an `.ics` from `t.html`.
+- **Edit a running timer:** rename it or change its target date, instead of
+  delete-and-recreate.
+- **Sound picker:** a few bundled `.caf` tones beyond `alarm.caf`, kept as a local
+  preference (not on the wire).
+- **Localization and accessibility pass:** all strings are hard-coded English (including
+  the `LocalizedStringResource(stringLiteral:)` alarm titles). Add VoiceOver labels and
+  values for the SkyCard digits and progress, and Dynamic Type checks on the detail screen.
+- **`t.html` polish:** an "Open in Timer" / App Store smart banner, and live updates via a
+  public CloudKit JS read for shared timers. That's a large job, so only take it on if web
+  recipients turn out to matter.
 
 ## Process for each remaining phase
 
