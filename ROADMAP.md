@@ -251,7 +251,18 @@ were changed blind.
    - `rescheduleAwaiting` now goes through the per-id serializer (narrows gap #6).
 5. **CI.** `.github/workflows/tests.yml`: GitHub-hosted `macos-26`, ad-hoc-signed simulator build (no certificates needed), runs the unit tests plus Clip/Messages builds.
 
-**Device checks still needed** (none could be run here):
+**Verified on a physical device (iPhone 14 Pro, iOS 26.7, 2026-10-07):** all 32 unit tests, plus 9 new `AlarmKitDeviceTests` against the real `AlarmManager`. They confirm:
+- The 8-occurrence window is armed, and nothing beyond it.
+- The current phase has no schedule; future phases are `.fixed(end_k)` with `preAlert = duration` and state `.scheduled`.
+- Re-arming an unchanged sequence keeps the same alarm set.
+- Advancing or extending leaves earlier occurrences untouched and re-arms later ones at the new dates.
+- Pausing disarms.
+- A pending sequence pins phase 0 to `.fixed(start + d0)`.
+- `clear(_:)` and `cancelSequenceAlarms` remove every phase alarm.
+- The legacy 1.0.3 single-id alarm is cancelled on the first reschedule.
+- A plain timer keeps its single id, and the registry (`isAlarmKitArmed`) tracks it.
+
+**Still needs eyes and hands on the device** (visual/interactive; can't be automated from here):
 - **(a)** Pomodoro with 1-min phases. Tap **Stop** (not Next) on phase 1 and lock the phone.
   - Phase 2 rings on time, and so do the phases after it.
   - No Live Activity or Dynamic Island appears for a future phase before its own countdown window, even with several `.fixed` alarms pending at once.
@@ -259,7 +270,7 @@ were changed blind.
 - **(c)** With the app foregrounded while a phase alert rings, the alert stays up and the list advances to the next phase.
   - Also open the app *by tapping* a ringing phase alert: it must stay up.
 - **(d)** Stop on phase k, then tap **Next** on phase k+1's alert. Phase k+2 starts from the tap, not phase k+1 again.
-- **(e)** A sequence created on 1.0.3 (legacy single alarm id) upgrades cleanly: its old alarm is cancelled and the window is armed on first open.
+- **(e)** ~~Legacy 1.0.3 alarm migration~~: covered by `legacySingleIDAlarmIsCancelledOnFirstSequenceReschedule` on device.
 - **(f)** Several long sequences at once (e.g. 3× Intermittent Fasting = up to 24 pre-armed alarms). Watch for `maximumLimitReached` in the console. Once the cap is hit, a plain timer silently falls back to a notification.
 
 ## Phase 7 — Features (good to have)
