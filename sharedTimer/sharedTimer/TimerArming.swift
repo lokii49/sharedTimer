@@ -34,7 +34,13 @@ enum TimerArming {
     }
 
     private static func armLiveActivity(for payload: TimerPayload) {
-        guard !AlarmController.ownsAlert(for: payload) else { return }
+        guard !AlarmController.ownsAlert(for: payload) else {
+            // Not ours to run here — but the Messages extension may have started one for
+            // this same id before the main app armed AlarmKit; end it so the two don't
+            // double up. A no-op when there's none.
+            LiveActivityController.end(id: payload.id)
+            return
+        }
         if payload.isPaused {
             LiveActivityController.update(for: payload)
         } else {

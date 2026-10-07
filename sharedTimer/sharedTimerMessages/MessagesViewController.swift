@@ -40,8 +40,17 @@ class MessagesViewController: MSMessagesAppViewController {
         if let payload = TimerPayload.from(url: conversation.selectedMessage?.url) {
             let stored = TimerStore.loadAll().first { $0.id == payload.id } ?? payload
             TimerStore.save(stored)
-            NotificationScheduler.scheduleAlert(for: stored)
-            LiveActivityController.start(for: stored)
+            // Opening the bubble only (re-)arms when the main app isn't already
+            // handling this id through AlarmKit — otherwise this would stack a
+            // notification + custom Live Activity on top of AlarmKit's own alert and
+            // Live Activity (see TimerStore.isAlarmKitArmed). Mutations made here
+            // (`persist`) still arm unconditionally: the extension can't reach AlarmKit
+            // to move that alarm, so its own notification is the only alert guaranteed
+            // to match the new state until the main app next reconciles.
+            if !TimerStore.isAlarmKitArmed(id: stored.id) {
+                NotificationScheduler.scheduleAlert(for: stored)
+                LiveActivityController.start(for: stored)
+            }
             presentRunningView(payload: stored)
             acceptShareIfNeeded(from: conversation.selectedMessage?.url, localPayloadID: stored.id)
         } else {
@@ -69,6 +78,7 @@ class MessagesViewController: MSMessagesAppViewController {
             guard let authoritative else { return }
             DispatchQueue.main.async {
                 TimerStore.save(authoritative)
+                guard !TimerStore.isAlarmKitArmed(id: authoritative.id) else { return }
                 NotificationScheduler.cancel(id: authoritative.id)
                 if authoritative.isPaused {
                     LiveActivityController.update(for: authoritative)

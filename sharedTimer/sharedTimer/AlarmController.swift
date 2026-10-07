@@ -155,6 +155,9 @@ enum AlarmController {
 
     private static func performReschedule(for payload: TimerPayload) async {
         await cancelAlarm(id: payload.id)
+        // Pessimistic until AlarmKit actually accepts the alarm below — every early
+        // return leaves no AlarmKit alarm armed, so extensions must arm their own.
+        TimerStore.setAlarmKitArmed(id: payload.id, false)
 
         guard !payload.isPaused, payload.remaining > 0 else { return }
 
@@ -163,7 +166,9 @@ enum AlarmController {
             NotificationScheduler.scheduleAlert(for: payload)
             return
         }
-        if await scheduleAlarm(for: payload) == false {
+        if await scheduleAlarm(for: payload) {
+            TimerStore.setAlarmKitArmed(id: payload.id, true)
+        } else {
             // AlarmKit unavailable / denied / at capacity. A local notification is
             // a weaker alarm (one-shot, obeys the silent switch) but beats
             // finishing a timer in silence — same philosophy as
@@ -175,6 +180,7 @@ enum AlarmController {
     /// Full teardown for a deleted timer.
     static func clear(id: String) {
         NotificationScheduler.cancel(id: id)
+        TimerStore.setAlarmKitArmed(id: id, false)
         enqueue(id) { await cancelAlarm(id: id) }
     }
 
@@ -344,6 +350,7 @@ enum AlarmController {
     /// would silently revive the very sequence this just ended, on next app open.
     static func cancelSequenceAlarm(id: String) async {
         await cancelAlarm(id: id)
+        TimerStore.setAlarmKitArmed(id: id, false)
     }
 
     /// AlarmKit keys alarms by UUID; TimerPayload.id is a String (a UUID string for

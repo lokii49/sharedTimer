@@ -466,4 +466,23 @@ struct sharedTimerTests {
         #expect(decoded.isPending() == false)
     }
 
+    // MARK: - TimerStore AlarmKit-armed registry (1.0.4, Messages/Clip double-arm fix)
+
+    @Test func alarmKitArmedRegistrySetsClearsAndIsClearedByDelete() {
+        let id = "armed-registry-\(UUID().uuidString)"
+        defer { TimerStore.setAlarmKitArmed(id: id, false) }
+
+        #expect(TimerStore.isAlarmKitArmed(id: id) == false)
+        TimerStore.setAlarmKitArmed(id: id, true)
+        #expect(TimerStore.isAlarmKitArmed(id: id) == true)
+        TimerStore.setAlarmKitArmed(id: id, false)
+        #expect(TimerStore.isAlarmKitArmed(id: id) == false)
+
+        // Deleting a timer must drop it too, or an extension opening a re-shared link
+        // with the same id would wrongly skip arming its own alert.
+        TimerStore.setAlarmKitArmed(id: id, true)
+        TimerStore.delete(id: id)
+        #expect(TimerStore.isAlarmKitArmed(id: id) == false)
+    }
+
 }

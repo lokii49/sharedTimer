@@ -13,6 +13,7 @@ enum TimerStore {
     private static let appGroupID = "group.com.lokesh.sharedTimer"
     private static let key = "sharedTimers"
     private static let acknowledgedFinishKey = "sharedTimerAcknowledgedFinishIDs"
+    private static let alarmKitArmedKey = "sharedTimerAlarmKitArmedIDs"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: appGroupID)
@@ -34,6 +35,25 @@ enum TimerStore {
         all.removeAll { $0.id == id }
         persist(all)
         clearAcknowledgedFinish(id: id)
+        setAlarmKitArmed(id: id, false)
+    }
+
+    /// Ids whose finish alert the main app currently has armed through AlarmKit.
+    /// Written only by `AlarmController` (main app — AlarmKit itself is unavailable in
+    /// extensions); read by the Messages extension and App Clip, which can't see
+    /// AlarmKit's own state. Opening a shared timer there must not arm a second
+    /// notification + custom Live Activity on top of the main app's AlarmKit alarm
+    /// (double alert, and the "too many Live Activities" bug). Plain App Group data, no
+    /// AlarmKit import — this file still compiles into the Widget.
+    static func setAlarmKitArmed(id: String, _ armed: Bool) {
+        var ids = Set(defaults?.stringArray(forKey: alarmKitArmedKey) ?? [])
+        let changed = armed ? ids.insert(id).inserted : ids.remove(id) != nil
+        guard changed else { return }
+        defaults?.set(Array(ids), forKey: alarmKitArmedKey)
+    }
+
+    static func isAlarmKitArmed(id: String) -> Bool {
+        (defaults?.stringArray(forKey: alarmKitArmedKey) ?? []).contains(id)
     }
 
     /// "Stop" tapped on the vibration-only finish notification (see AppDelegate's

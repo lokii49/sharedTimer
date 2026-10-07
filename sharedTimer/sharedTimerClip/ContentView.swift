@@ -43,7 +43,11 @@ struct ContentView: View {
         guard let parsed = TimerPayload.from(url: url) else { return }
         let stored = TimerStore.loadAll().first { $0.id == parsed.id } ?? parsed
         TimerStore.save(stored)
-        NotificationScheduler.scheduleAlert(for: stored)
+        // The full app may already own this id through AlarmKit (see
+        // TimerStore.isAlarmKitArmed) — don't stack a second alert on top.
+        if !TimerStore.isAlarmKitArmed(id: stored.id) {
+            NotificationScheduler.scheduleAlert(for: stored)
+        }
         payload = stored
     }
 
