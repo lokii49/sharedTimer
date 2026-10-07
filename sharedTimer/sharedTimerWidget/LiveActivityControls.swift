@@ -112,14 +112,22 @@ private struct PauseToggleStyle: ToggleStyle {
     let size: CGFloat
 
     func makeBody(configuration: Configuration) -> some View {
-        // configuration.isOn is the optimistic state — already flipped on tap.
-        Image(systemName: configuration.isOn ? "play.fill" : "pause.fill")
-            .font(.system(size: size * 0.38, weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(width: size, height: size)
-            .background(.white.opacity(0.18), in: Circle())
-            .contentShape(Circle())
-            .accessibilityLabel(configuration.isOn ? "Resume" : "Pause")
+        // A custom style has to route the tap through `configuration.isOn` itself —
+        // drawn without this Button, the toggle rendered but taps did nothing (found
+        // on device). In a widget, toggling the binding is what fires the intent;
+        // `configuration.isOn` is the optimistic state, already flipped on tap.
+        Button {
+            configuration.isOn.toggle()
+        } label: {
+            Image(systemName: configuration.isOn ? "play.fill" : "pause.fill")
+                .font(.system(size: size * 0.38, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: size, height: size)
+                .background(.white.opacity(0.18), in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(configuration.isOn ? "Resume" : "Pause")
     }
 }
 
