@@ -31,10 +31,7 @@ struct LiveActivityControls: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Button(intent: ToggleTimerPauseIntent(timerID: timerID)) {
-                symbol(isPaused ? "play.fill" : "pause.fill")
-            }
-            .accessibilityLabel(isPaused ? "Resume" : "Pause")
+            PauseToggle(timerID: timerID, isPaused: isPaused, size: size)
 
             switch secondary {
             case .stop:
@@ -93,6 +90,36 @@ struct WidgetTimerControls: View {
     private var secondary: LiveActivitySecondaryAction {
         guard let sequence = payload.sequence, let index = payload.sequenceGlobalIndex else { return .stop }
         return index == sequence.phases.count * sequence.loopCount - 1 ? .cancelSequence : .next(phaseIndex: index)
+    }
+}
+
+/// Pause ⇄ Resume as a toggle (isOn = paused) — see SetTimerPausedIntent for why a
+/// toggle and not a button: WidgetKit redraws it the instant it's tapped.
+struct PauseToggle: View {
+    let timerID: String
+    let isPaused: Bool
+    var size: CGFloat = 44
+
+    var body: some View {
+        Toggle(isOn: isPaused, intent: SetTimerPausedIntent(timerID: timerID)) {
+            Text(isPaused ? "Resume" : "Pause")
+        }
+        .toggleStyle(PauseToggleStyle(size: size))
+    }
+}
+
+private struct PauseToggleStyle: ToggleStyle {
+    let size: CGFloat
+
+    func makeBody(configuration: Configuration) -> some View {
+        // configuration.isOn is the optimistic state — already flipped on tap.
+        Image(systemName: configuration.isOn ? "play.fill" : "pause.fill")
+            .font(.system(size: size * 0.38, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .background(.white.opacity(0.18), in: Circle())
+            .contentShape(Circle())
+            .accessibilityLabel(configuration.isOn ? "Resume" : "Pause")
     }
 }
 

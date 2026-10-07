@@ -13,7 +13,7 @@
 import Foundation
 
 enum LiveActivityActions {
-    static func togglePause(timerID: String) async {}
+    static func setPaused(timerID: String, paused: Bool) async {}
     static func stop(timerID: String) async {}
     static func advanceSequence(timerID: String, phaseIndex: Int) async {}
     static func endSequence(timerID: String) async {}

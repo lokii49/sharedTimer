@@ -386,15 +386,7 @@ struct TimerListWidgetView: View {
 
             // Pause/Resume only — no Stop on the list, so it can't be mis-tapped.
             if !payload.isPending() {
-                Button(intent: ToggleTimerPauseIntent(timerID: payload.id)) {
-                    Image(systemName: payload.isPaused ? "play.fill" : "pause.fill")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 28, height: 28)
-                        .background(.white.opacity(0.18), in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(payload.isPaused ? "Resume \(payload.label)" : "Pause \(payload.label)")
+                PauseToggle(timerID: payload.id, isPaused: payload.isPaused, size: 28)
             }
         }
         .padding(.horizontal, 12)

@@ -16,18 +16,29 @@
 import AppIntents
 import Foundation
 
-/// Lock-screen / Dynamic Island Pause ⇄ Resume button, on both the AlarmKit Live
-/// Activity (TimerAlarmActivityWidget) and the custom one (TimerLiveActivityWidget).
-struct ToggleTimerPauseIntent: LiveActivityIntent {
+/// Pause ⇄ Resume on the Live Activities and home-screen widgets. A `SetValueIntent`
+/// driving a `Toggle(isOn:intent:)` (see PauseToggle) rather than a button, on purpose:
+/// WidgetKit flips a toggle's on-screen state optimistically the instant it's tapped,
+/// while a `Button(intent:)` only redraws once `perform()` has finished in the app
+/// (possibly cold-launched for it) and the timeline has reloaded — a visible lag
+/// reported on device. `value` is the new paused state; setting it is idempotent.
+struct SetTimerPausedIntent: SetValueIntent, LiveActivityIntent {
     static var title: LocalizedStringResource = "Pause or Resume Timer"
 
     @Parameter(title: "Timer ID") var timerID: String
+    @Parameter(title: "Paused") var value: Bool
 
-    init() { self.timerID = "" }
-    init(timerID: String) { self.timerID = timerID }
+    init() {
+        self.timerID = ""
+        self.value = false
+    }
+    init(timerID: String) {
+        self.timerID = timerID
+        self.value = false
+    }
 
     func perform() async throws -> some IntentResult {
-        await LiveActivityActions.togglePause(timerID: timerID)
+        await LiveActivityActions.setPaused(timerID: timerID, paused: value)
         return .result()
     }
 }

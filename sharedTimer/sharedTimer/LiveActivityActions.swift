@@ -24,10 +24,13 @@ import Foundation
 
 enum LiveActivityActions {
 
-    static func togglePause(timerID: String) async {
-        guard let payload = stored(timerID), !payload.isFinished, !payload.isPending() else { return await refreshUI() }
-        let updated = payload.isPaused ? payload.resumed() : payload.paused()
-        await commit(updated, action: updated.isPaused ? "paused" : "resumed")
+    /// Idempotent: the toggle sends the desired state, so a double tap or a stale
+    /// card can't flip it the wrong way.
+    static func setPaused(timerID: String, paused: Bool) async {
+        guard let payload = stored(timerID), !payload.isFinished, !payload.isPending(),
+              payload.isPaused != paused else { return await refreshUI() }
+        let updated = paused ? payload.paused() : payload.resumed()
+        await commit(updated, action: paused ? "paused" : "resumed")
     }
 
     /// Ends a plain timer/countdown right now, without alerting — it reads Finished
