@@ -5,3 +5,4 @@
 • Fixed a shared timer you deleted coming back, and a second alert when opening a shared timer from Messages.
 • Finished timers no longer leave a 0:00 card on the Lock Screen.
 • Shared timers stay in sync more reliably.
+• Re-sending a timer link now updates the timer for people who already have it, plus other reliability fixes.
