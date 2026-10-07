@@ -1,6 +1,6 @@
 //
 //  CloudLink.swift
-//  sharedTimer
+//  Shared
 //
 //  Maps a local `TimerPayload.id` to the CloudKit record/zone it's backed by, when that
 //  timer is cloud-synced. Deliberately NOT a field on `TimerPayload` — the payload's
@@ -12,8 +12,8 @@
 //  absence is a normal, handled state everywhere this is read (see CloudSyncController),
 //  the same way `TimerPayload`'s own tolerant decode treats a missing `kind` as `.timer`.
 //
-//  Duplicated verbatim into every target that needs it (sharedTimer, sharedTimerMessages)
-//  — see CLAUDE.md. Not present in sharedTimerClip or sharedTimerWidget: neither target
+//  Lives in Shared/, compiled by sharedTimer and sharedTimerMessages only (target
+//  membership exceptions in the project — see CLAUDE.md). Not present in sharedTimerClip or sharedTimerWidget: neither target
 //  ever resolves a timer's cloud identity.
 //
 

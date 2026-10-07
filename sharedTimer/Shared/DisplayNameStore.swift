@@ -1,6 +1,6 @@
 //
 //  DisplayNameStore.swift
-//  sharedTimer
+//  Shared
 //
 //  Self-declared display name for CloudKit attribution — see CLAUDE.md's Phase 2 plan.
 //  CKShare accepted via a public .readWrite link never returns participant
@@ -10,7 +10,7 @@
 //  reasoning CloudLink.swift documents for keeping cloud identity out of the wire
 //  format shared with docs/t.html.
 //
-//  Duplicated verbatim into sharedTimer and sharedTimerMessages — the two targets that
+//  Lives in Shared/, compiled by sharedTimer and sharedTimerMessages — the two targets that
 //  mutate shared timers. Not present in sharedTimerClip or sharedTimerWidget.
 //
 

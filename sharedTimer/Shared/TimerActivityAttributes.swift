@@ -1,6 +1,6 @@
 //
 //  TimerActivityAttributes.swift
-//  sharedTimerMessages
+//  Shared
 //
 
 import ActivityKit

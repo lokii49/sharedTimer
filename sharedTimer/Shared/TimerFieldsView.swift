@@ -1,6 +1,6 @@
 //
 //  TimerFieldsView.swift
-//  sharedTimerMessages
+//  Shared
 //
 
 import SwiftUI

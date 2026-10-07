@@ -1,6 +1,6 @@
 //
 //  LiveActivityController.swift
-//  sharedTimerMessages
+//  Shared
 //
 
 import ActivityKit

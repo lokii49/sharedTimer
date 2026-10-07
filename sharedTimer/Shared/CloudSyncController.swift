@@ -1,6 +1,6 @@
 //
 //  CloudSyncController.swift
-//  sharedTimer
+//  Shared
 //
 //  Live sync for shared timers, on top of the local TimerStore/App-Group model — see
 //  CLAUDE.md's Phase 1 roadmap plan. One CKShare per timer, rooted at a custom "Timer"
@@ -11,8 +11,8 @@
 //  Two structural invariants a future edit must not violate:
 //
 //  1. NEVER call anything in this file from inside TimerStore.swift. TimerStore is
-//     duplicated into the Widget target, which must never touch the network from a
-//     timeline-provider render pass. This file is duplicated only into sharedTimer and
+//     compiled into the Widget target, which must never touch the network from a
+//     timeline-provider render pass. This file is compiled only into sharedTimer and
 //     sharedTimerMessages — the two targets that actually mutate timers a person is
 //     looking at.
 //  2. Push-up is always an explicit, separate call at each mutation call site (see

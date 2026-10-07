@@ -1,11 +1,11 @@
 //
 //  TimerAlarmMetadata.swift
-//  sharedTimerWidget
+//  Shared
 //
 //  Payload carried on an AlarmKit alarm so the alarm's Live Activity / alert can name
 //  the timer it belongs to, and so a fired alarm can be traced back to its TimerPayload.
-//  Verbatim copy in sharedTimer (the app that schedules the alarm) — keep the two in
-//  sync, same rule as the other duplicated model files.
+//  Lives in Shared/, compiled by sharedTimer (schedules the alarm) and sharedTimerWidget
+//  (renders the AlarmAttributes Live Activity) only.
 //
 
 import AlarmKit

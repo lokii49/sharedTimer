@@ -161,6 +161,39 @@
 			);
 			target = AB0000040000000000000000 /* sharedTimerWidget */;
 		};
+		5A0000020000000000000000 /* Exceptions for "Shared" folder in "sharedTimerClip" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				CloudLink.swift,
+				CloudSyncController.swift,
+				DisplayNameStore.swift,
+				LiveActivityController.swift,
+				TimerActivityAttributes.swift,
+				TimerAlarmMetadata.swift,
+				TimerFieldsView.swift,
+			);
+			target = 470A5022302896F0006EB758 /* sharedTimerClip */;
+		};
+		5A0000030000000000000000 /* Exceptions for "Shared" folder in "sharedTimerMessages" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				TimerAlarmMetadata.swift,
+			);
+			target = 470A5001302889C0006EB758 /* sharedTimerMessages */;
+		};
+		5A0000040000000000000000 /* Exceptions for "Shared" folder in "sharedTimerWidget" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AlarmPlayer.swift,
+				CloudLink.swift,
+				CloudSyncController.swift,
+				DisplayNameStore.swift,
+				LiveActivityController.swift,
+				NotificationScheduler.swift,
+				TimerFieldsView.swift,
+			);
+			target = AB0000040000000000000000 /* sharedTimerWidget */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -226,6 +259,16 @@
 				AB0000030000000000000000 /* Exceptions for "sharedTimerWidget" folder in "sharedTimerWidget" target */,
 			);
 			path = sharedTimerWidget;
+			sourceTree = "<group>";
+		};
+		5A0000010000000000000000 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				5A0000020000000000000000 /* Exceptions for "Shared" folder in "sharedTimerClip" target */,
+				5A0000030000000000000000 /* Exceptions for "Shared" folder in "sharedTimerMessages" target */,
+				5A0000040000000000000000 /* Exceptions for "Shared" folder in "sharedTimerWidget" target */,
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -315,6 +358,7 @@
 		470A4FC930288982006EB758 = {
 			isa = PBXGroup;
 			children = (
+				5A0000010000000000000000 /* Shared */,
 				470A4FD430288982006EB758 /* sharedTimer */,
 				470A4FE430288983006EB758 /* sharedTimerTests */,
 				470A4FEE30288983006EB758 /* sharedTimerUITests */,
@@ -381,6 +425,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				470A4FD430288982006EB758 /* sharedTimer */,
+				5A0000010000000000000000 /* Shared */,
 			);
 			name = sharedTimer;
 			packageProductDependencies = (
@@ -449,6 +494,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				470A5006302889C0006EB758 /* sharedTimerMessages */,
+				5A0000010000000000000000 /* Shared */,
 			);
 			name = sharedTimerMessages;
 			packageProductDependencies = (
@@ -471,6 +517,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				470A5024302896F0006EB758 /* sharedTimerClip */,
+				5A0000010000000000000000 /* Shared */,
 			);
 			name = sharedTimerClip;
 			packageProductDependencies = (
@@ -607,6 +654,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				AB0000020000000000000000 /* sharedTimerWidget */,
+				5A0000010000000000000000 /* Shared */,
 			);
 			name = sharedTimerWidget;
 			packageProductDependencies = (

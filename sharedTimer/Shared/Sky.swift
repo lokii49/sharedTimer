@@ -1,6 +1,6 @@
 //
 //  Sky.swift
-//  sharedTimerMessages
+//  Shared
 //
 //  "Horizon" — time as light. Every timer renders as a living gradient sky that drains
 //  toward sunrise as the clock runs: a short timer burns like an ember, an hours-long one
@@ -8,8 +8,8 @@
 //  Paused timers hold in a green mist; finished ones go overcast. The sky IS the state —
 //  you feel how much time is left before you read it.
 //
-//  Duplicated verbatim into each target that needs it, the same way TimerModel.swift is —
-//  see CLAUDE.md. The app chrome is dark-first (skies need a dark room); text placed ON a
+//  Lives in Shared/, compiled by every target that needs it, the same way TimerModel.swift
+//  is — see CLAUDE.md. The app chrome is dark-first (skies need a dark room); text placed ON a
 //  sky is always white — the fresh ends of every family are deep enough to carry it.
 //
 

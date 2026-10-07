@@ -8,8 +8,8 @@ import Foundation
 /// A reusable sequence blueprint — phases + loop count a user has chosen to keep for
 /// starting again later, distinct from a running `TimerPayload.sequence` instance.
 /// Main-app-only, same as sequences themselves (see CLAUDE.md): never carried through
-/// `TimerPayload.url()`, CloudKit, or the watch app, so this file is intentionally not
-/// duplicated into any other target.
+/// `TimerPayload.url()`, CloudKit, or the watch app, so this file intentionally lives in
+/// sharedTimer/, not in Shared/.
 struct SavedSequence: Codable, Identifiable, Equatable {
     let id: String
     var name: String

@@ -1,6 +1,6 @@
 //
 //  NotificationScheduler.swift
-//  sharedTimerClip
+//  Shared
 //
 
 import Foundation
@@ -11,7 +11,7 @@ enum NotificationScheduler {
     /// gives it lock-screen "Repeat"/"Stop" actions, the closest available parity with
     /// AlarmKit's panel for a payload AlarmKit never touches. Registered + handled in
     /// the main app's AppDelegate only (same target scope AlarmKit itself has); setting
-    /// it here in every copy is harmless — an unregistered category just renders with
+    /// it in every target that compiles this is harmless — an unregistered category just renders with
     /// no action buttons, so Messages/Clip notifications degrade silently.
     static let vibrationFinishCategoryID = "SHAREDTIMER_VIBRATION_FINISH"
 

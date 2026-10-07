@@ -1,6 +1,6 @@
 //
 //  AlarmPlayer.swift
-//  sharedTimerMessages
+//  Shared
 //
 
 import AudioToolbox

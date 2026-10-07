@@ -3,7 +3,7 @@
 //  sharedTimer
 //
 //  AlarmKit bridge — MAIN APP TARGET ONLY. This deliberately breaks CLAUDE.md's
-//  "duplicate shared logic into every target" rule: AlarmKit is unavailable in app
+//  "shared logic lives in Shared/" rule: AlarmKit is unavailable in app
 //  extensions, so sharedTimerClip and sharedTimerMessages cannot schedule an alarm at
 //  all and stay on NotificationScheduler's local-notification path. Same "explicit call
 //  at every mutation site, never folded into TimerStore" invariant as
