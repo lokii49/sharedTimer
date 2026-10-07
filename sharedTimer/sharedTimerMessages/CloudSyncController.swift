@@ -504,7 +504,12 @@ enum CloudSyncController {
         operation.fetchRecordZoneChangesResultBlock = { result in
             if case .failure(let error) = result {
                 log("fetchZoneChanges overall failed: \(error)")
-                complete = false
+                // Per-zone failures can also surface here as an overall .partialFailure;
+                // those were already classified in recordZoneFetchResultBlock (a dead
+                // zone must not pin the database token), so only other errors count.
+                if (error as? CKError)?.code != .partialFailure {
+                    complete = false
+                }
             }
             guard !expiredZoneIDs.isEmpty else {
                 completion(updated, deletedIDs, complete)

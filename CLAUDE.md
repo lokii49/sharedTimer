@@ -12,9 +12,9 @@ Requires Xcode + a Mac. From `sharedTimer/`:
 
 ```
 xcodebuild -project sharedTimer.xcodeproj -list          # list targets/schemes
-xcodebuild -scheme sharedTimer -destination 'platform=iOS Simulator,name=iPhone 16' build
-xcodebuild -scheme sharedTimer -destination 'platform=iOS Simulator,name=iPhone 16' test
-xcodebuild -scheme sharedTimer -destination 'platform=iOS Simulator,name=iPhone 16' \
+xcodebuild -scheme sharedTimer -destination 'platform=iOS Simulator,name=iPhone 17' build
+xcodebuild -scheme sharedTimer -destination 'platform=iOS Simulator,name=iPhone 17' test
+xcodebuild -scheme sharedTimer -destination 'platform=iOS Simulator,name=iPhone 17' \
   -only-testing:sharedTimerUITests/sharedTimerUITests/testExample test
 ```
 
@@ -43,11 +43,12 @@ diff sharedTimer/TimerModel.swift "sharedTimerWatch Watch App/TimerModel.swift"
 
 `TimerFieldsView.swift`'s `kindLocked` (default `false`) collapses the "Timer/Countdown" `Picker` to a read-only row: the main app's `NewTimerSheet` always passes `true` since the "+" menu (or a Quick Action) already asked timer-vs-countdown before the sheet opened — re-showing the picker there just re-asked an answered question. `sharedTimerMessages`'s `TimerComposeView` leaves it at the default, since its single compose flow never pre-picks a kind.
 
-`CloudSyncController.swift` carries three non-obvious CloudKit gotchas, each cost real debugging time to find and each is easy to silently reintroduce:
+`CloudSyncController.swift` carries four non-obvious CloudKit gotchas, each cost real debugging time to find and each is easy to silently reintroduce:
 
 - **Never use `CKContainer.default()`.** It's documented to resolve the container from the `com.apple.developer.icloud-container-identifiers` entitlement array, but that lookup was observed to fail specifically inside the Messages extension's sandbox — even with the entitlement correct in the source file, Xcode's Signing & Capabilities, and the Developer Portal App ID capability — silently falling back to CloudKit's own undocumented last-resort default (`"iCloud." + bundle identifier`, e.g. `iCloud.com.lokesh.sharedTimer.sharedTimerMessages`, which isn't a real container) and failing every operation with `CKError "Bad Container"` (5/1014). Use the explicit `private static let container = CKContainer(identifier: "iCloud.com.lokesh.sharedTimer")` instead, everywhere.
 - **`CKShare.url` is never populated on the local object you constructed and passed to `CKModifyRecordsOperation`**, even after a successful save — `modifyRecordsResultBlock` only reports overall success/failure, it never updates the records you passed in. The server-assigned fields (including the share URL) only exist on the record `perRecordSaveBlock` hands back; read `.url` from that saved instance, not the original `share` variable. Same split applies to per-record *failures*: the overall operation can report `.success` while a specific record (e.g. the share, if its root record already has one attached — CloudKit allows only one share per record) failed — that's only visible in `perRecordSaveBlock`, never in `modifyRecordsResultBlock`.
 - **`ensureZoneExists` does not cache "already created" locally.** It used to (a flag in App Group `UserDefaults`, set once after the first success), but that cache goes stale the moment the target container changes — e.g. exactly the `CKContainer.default()` fix above, where the flag stayed `true` from whatever container `.default()` used to resolve to, silently skipping zone creation against the *new* container forever after and producing `CKError "Zone Not Found"` (26/2036) that looks like an unrelated fresh bug. `CKModifyRecordZonesOperation` saving a zone that already exists is a documented safe no-op, so it always actually calls through now. Don't reintroduce the cache.
+- **The database change token is saved only after every changed zone's records were fetched** — never in `changeTokenUpdatedBlock`/the db op's success path. Saving it earlier meant a failed zone fetch was never retried (the next pull started past the change that named that zone). `CKError.changeTokenExpired` (db or zone level) clears that token and refetches once from nil; without it the stale token fails every pull forever and sync silently dies. `zoneNotFound`/`userDeletedZone` (and an overall `.partialFailure` wrapping them) must not hold the db token back.
 
 `AlarmPlayer.swift` (loops the bundled `alarm.caf` via `AVAudioPlayer` on a `.playback`-category session, so it ignores the silent switch like a native alarm) is the same verbatim-copy pattern, in `sharedTimer`/`sharedTimerMessages`/`sharedTimerClip` only — the three targets with a foreground countdown view and their own `NotificationScheduler.swift`. Each of those `NotificationScheduler.swift` copies also points `content.sound` at `alarm.caf` instead of `.default`, so a resting notification uses the same tone as the foreground loop:
 
