@@ -46,6 +46,7 @@ enum LiveActivityActions {
         var updated = payload
         updated.endDate = Date()
         updated.pausedRemaining = nil
+        updated.updatedAt = Date()
         // A deliberate stop is already "acknowledged" — never let the in-app
         // vibration fallback buzz for it on next open. (save() clears this flag, so
         // set it after.)

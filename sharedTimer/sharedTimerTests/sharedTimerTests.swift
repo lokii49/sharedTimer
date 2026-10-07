@@ -656,4 +656,50 @@ struct sharedTimerTests {
         #expect(TimeFormat.targetDate(date) == "2026-10-07")
     }
 
+    // MARK: - updatedAt / re-shared links (1.0.4)
+
+    @Test func updatedAtRoundTripsThroughLinkAndOldLinksDecodeUnknown() {
+        let stamp = Date(timeIntervalSince1970: 1_800_000_000)
+        let payload = TimerPayload(id: "upd-1", label: "Pasta", endDate: stamp.addingTimeInterval(480), duration: 480, updatedAt: stamp)
+        let decoded = TimerPayload.from(url: payload.url())
+        #expect(decoded?.updatedAt == stamp)
+
+        // A pre-1.0.4 link has no `upd`.
+        var components = URLComponents(url: payload.url(), resolvingAgainstBaseURL: false)!
+        components.queryItems?.removeAll { $0.name == "upd" }
+        #expect(TimerPayload.from(url: components.url)?.updatedAt == nil)
+    }
+
+    @Test func shouldAdoptOnlyStrictlyNewerStampedSnapshots() {
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        let stored = TimerPayload(id: "a", label: "Pasta", endDate: t0.addingTimeInterval(480), duration: 480, updatedAt: t0)
+        let newer = TimerPayload(id: "a", label: "Pasta", endDate: t0.addingTimeInterval(540), duration: 480, updatedAt: t0.addingTimeInterval(60))
+        let older = TimerPayload(id: "a", label: "Pasta", endDate: t0.addingTimeInterval(420), duration: 480, updatedAt: t0.addingTimeInterval(-60))
+        let unstamped = TimerPayload(id: "a", label: "Pasta", endDate: t0.addingTimeInterval(999), duration: 480)
+        let otherID = TimerPayload(id: "b", label: "Pasta", endDate: t0, duration: 480, updatedAt: t0.addingTimeInterval(600))
+
+        #expect(stored.shouldAdopt(newer))
+        #expect(!stored.shouldAdopt(older))
+        #expect(!stored.shouldAdopt(stored))
+        #expect(!stored.shouldAdopt(unstamped))          // an old link never rolls state back
+        #expect(unstamped.shouldAdopt(newer))            // stamped beats unknown
+        #expect(!stored.shouldAdopt(otherID))
+    }
+
+    @Test func userMutationsStampUpdatedAtButRederivationDoesNot() {
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        let base = TimerPayload(id: "m", label: "Tea", endDate: t0.addingTimeInterval(180), duration: 180, updatedAt: t0)
+        let t1 = t0.addingTimeInterval(30)
+        #expect(base.paused(at: t1).updatedAt == t1)
+        #expect(base.paused(at: t1).resumed(at: t1.addingTimeInterval(5)).updatedAt == t1.addingTimeInterval(5))
+        #expect(base.repeated(at: t1).updatedAt == t1)
+        let beforeExtend = Date()  // extended(by:) has no date parameter — stamps "now"
+        #expect((base.extended(by: 60).updatedAt ?? .distantPast) >= beforeExtend)
+
+        let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
+        let seq = TimerPayload(id: "s", label: "Work", endDate: t0, duration: 60, sequence: SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 0), updatedAt: t0)
+        #expect(seq.advancedSequence(at: t1).updatedAt == t0)
+        #expect(seq.steppedToNextPhase(at: t1).updatedAt == t1)
+    }
+
 }

@@ -91,6 +91,12 @@ struct TimerPayload: Codable, Identifiable {
     /// derived display state, never mutated after creation. `isPending(at:)` is the only
     /// thing that reads it. See CLAUDE.md.
     var scheduledStartDate: Date?
+    /// When a person last changed this timer (create, pause, resume, extend, repeat,
+    /// stop, phase step) — not touched by pure re-derivation (`advancedSequence`).
+    /// Carried in share links as `upd` so a re-shared *plain* link can update a copy
+    /// the recipient already has, but only when it's actually newer (see
+    /// `shouldAdopt(_:)`). nil = unknown (older stored data/links, CloudKit records).
+    var updatedAt: Date?
 
     init(id: String = UUID().uuidString, label: String, duration: TimeInterval, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true, sequence: SequenceInfo? = nil, scheduledStartDate: Date? = nil) {
         self.id = id
@@ -103,9 +109,10 @@ struct TimerPayload: Codable, Identifiable {
         self.vibrationEnabled = vibrationEnabled
         self.sequence = sequence
         self.scheduledStartDate = scheduledStartDate
+        self.updatedAt = Date()
     }
 
-    init(id: String, label: String, endDate: Date, duration: TimeInterval, pausedRemaining: TimeInterval? = nil, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true, sequence: SequenceInfo? = nil, scheduledStartDate: Date? = nil) {
+    init(id: String, label: String, endDate: Date, duration: TimeInterval, pausedRemaining: TimeInterval? = nil, kind: TimerKind = .timer, alarmEnabled: Bool = true, vibrationEnabled: Bool = true, sequence: SequenceInfo? = nil, scheduledStartDate: Date? = nil, updatedAt: Date? = nil) {
         self.id = id
         self.label = label
         self.endDate = endDate
@@ -116,10 +123,11 @@ struct TimerPayload: Codable, Identifiable {
         self.vibrationEnabled = vibrationEnabled
         self.sequence = sequence
         self.scheduledStartDate = scheduledStartDate
+        self.updatedAt = updatedAt
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, label, endDate, duration, pausedRemaining, kind, alarmEnabled, vibrationEnabled, sequence, scheduledStartDate
+        case id, label, endDate, duration, pausedRemaining, kind, alarmEnabled, vibrationEnabled, sequence, scheduledStartDate, updatedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -144,6 +152,18 @@ struct TimerPayload: Codable, Identifiable {
         sequence = try container.decodeIfPresent(SequenceInfo.self, forKey: .sequence)
         // Brand new field, no prior default to preserve — absent simply means "not pending."
         scheduledStartDate = try container.decodeIfPresent(Date.self, forKey: .scheduledStartDate)
+        // Brand new field — absent means "unknown", which never beats a known stamp.
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+    }
+
+    /// Whether `incoming` (e.g. the snapshot in a re-opened share link) should replace
+    /// this stored copy of the same timer: only when it's stamped strictly newer. An
+    /// unstamped incoming never wins (an old link must not roll back newer local
+    /// state); a stamped incoming beats an unstamped stored copy.
+    func shouldAdopt(_ incoming: TimerPayload) -> Bool {
+        guard incoming.id == id, let incomingStamp = incoming.updatedAt else { return false }
+        guard let stamp = updatedAt else { return true }
+        return incomingStamp > stamp
     }
 
     var isPaused: Bool {
@@ -190,6 +210,7 @@ struct TimerPayload: Codable, Identifiable {
         guard !isPaused else { return self }
         var copy = self
         copy.pausedRemaining = max(0, endDate.timeIntervalSince(date))
+        copy.updatedAt = date
         return copy
     }
 
@@ -198,6 +219,7 @@ struct TimerPayload: Codable, Identifiable {
         var copy = self
         copy.endDate = date.addingTimeInterval(pausedRemaining)
         copy.pausedRemaining = nil
+        copy.updatedAt = date
         return copy
     }
 
@@ -208,6 +230,7 @@ struct TimerPayload: Codable, Identifiable {
         } else {
             copy.endDate = copy.endDate.addingTimeInterval(interval)
         }
+        copy.updatedAt = Date()
         return copy
     }
 
@@ -236,6 +259,7 @@ struct TimerPayload: Codable, Identifiable {
         // calls repeated() on a still-pending payload, but isPending() must never lie
         // about a payload this function just started).
         copy.scheduledStartDate = nil
+        copy.updatedAt = date
         return copy
     }
 
@@ -304,6 +328,7 @@ struct TimerPayload: Codable, Identifiable {
         guard var seq = sequence, !seq.phases.isEmpty else { return self }
         var copy = self
         let count = seq.phases.count
+        copy.updatedAt = date
         guard globalIndex < count * seq.loopCount else {
             seq.loopIndex = seq.loopCount
             copy.sequence = seq
@@ -376,7 +401,7 @@ struct TimerPayload: Codable, Identifiable {
             endDate: (effectiveStart ?? Date()).addingTimeInterval(first.duration),
             duration: first.duration, kind: first.kind,
             alarmEnabled: first.alarmEnabled, vibrationEnabled: first.vibrationEnabled,
-            sequence: seq, scheduledStartDate: effectiveStart
+            sequence: seq, scheduledStartDate: effectiveStart, updatedAt: Date()
         )
     }
 
@@ -420,6 +445,11 @@ struct TimerPayload: Codable, Identifiable {
         // also triggering a full-screen AlarmKit takeover, so a pre-existing link
         // silently inheriting "on" would surprise whoever shared it.
         items.append(URLQueryItem(name: "vib", value: vibrationEnabled ? "1" : "0"))
+        // Last-change stamp so a re-shared link can update an existing copy — see
+        // `shouldAdopt`. Absent on links from before 1.0.4 (decodes as nil = unknown).
+        if let updatedAt {
+            items.append(URLQueryItem(name: "upd", value: String(updatedAt.timeIntervalSince1970)))
+        }
         components.queryItems = items
         return components.url!
     }
@@ -448,7 +478,8 @@ struct TimerPayload: Codable, Identifiable {
         let vibrationEnabled = items.first(where: { $0.name == "vib" })?.value == "1"
         // "Start later" is sequence-only and sequences are never shared -- a shared
         // link's payload is never pending, same as it's never sequence-owning.
-        return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
+        let updatedAt = items.first(where: { $0.name == "upd" })?.value.flatMap(Double.init).map(Date.init(timeIntervalSince1970:))
+        return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled, updatedAt: updatedAt)
     }
 }
 

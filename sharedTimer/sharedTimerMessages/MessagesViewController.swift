@@ -38,7 +38,11 @@ class MessagesViewController: MSMessagesAppViewController {
 
     private func presentView(for conversation: MSConversation) {
         if let payload = TimerPayload.from(url: conversation.selectedMessage?.url) {
-            let stored = TimerStore.loadAll().first { $0.id == payload.id } ?? payload
+            let existing = TimerStore.loadAll().first { $0.id == payload.id }
+            // A newer re-shared plain link updates the copy we have (CloudKit-linked
+            // timers stay with sync) — same rule as the main app's handleIncoming.
+            let adoptLink = existing.map { CloudLinkStore.get(timerID: payload.id) == nil && $0.shouldAdopt(payload) } ?? false
+            let stored = adoptLink ? payload : (existing ?? payload)
             TimerStore.save(stored)
             // Opening the bubble only (re-)arms when the main app isn't already
             // handling this id through AlarmKit — otherwise this would stack a
@@ -47,7 +51,10 @@ class MessagesViewController: MSMessagesAppViewController {
             // (`persist`) still arm unconditionally: the extension can't reach AlarmKit
             // to move that alarm, so its own notification is the only alert guaranteed
             // to match the new state until the main app next reconciles.
-            if !TimerStore.isAlarmKitArmed(id: stored.id) {
+            // An adopted newer link changes the timing, which the main app's AlarmKit
+            // alarm doesn't know yet — arm our own alert like any Messages mutation.
+            if adoptLink || !TimerStore.isAlarmKitArmed(id: stored.id) {
+                NotificationScheduler.cancel(id: stored.id)
                 NotificationScheduler.scheduleAlert(for: stored)
                 LiveActivityController.start(for: stored)
             }

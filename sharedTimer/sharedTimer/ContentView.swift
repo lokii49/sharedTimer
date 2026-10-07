@@ -649,8 +649,14 @@ struct ContentView: View {
     /// failed accept) leaves the plain-link snapshot exactly as it was — no regression.
     private func handleIncoming(url: URL?) {
         guard let parsed = TimerPayload.from(url: url) else { return }
-        let alreadyKnown = timers.contains(where: { $0.id == parsed.id })
-        if !alreadyKnown {
+        if let stored = timers.first(where: { $0.id == parsed.id }) {
+            // A re-shared plain link carrying newer state (the sender extended/paused
+            // and sent it again) updates the copy we have. CloudKit-linked timers are
+            // already kept current by sync — never let a link snapshot override that.
+            if CloudLinkStore.get(timerID: parsed.id) == nil, stored.shouldAdopt(parsed) {
+                apply(parsed, action: "updatedFromLink")
+            }
+        } else {
             incomingPayload = parsed
         }
 

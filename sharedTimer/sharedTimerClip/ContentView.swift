@@ -41,11 +41,16 @@ struct ContentView: View {
 
     private func handle(url: URL?) {
         guard let parsed = TimerPayload.from(url: url) else { return }
-        let stored = TimerStore.loadAll().first { $0.id == parsed.id } ?? parsed
+        let existing = TimerStore.loadAll().first { $0.id == parsed.id }
+        // A newer re-shared link updates the copy we have (see TimerPayload.shouldAdopt).
+        let adoptLink = existing?.shouldAdopt(parsed) ?? false
+        let stored = adoptLink ? parsed : (existing ?? parsed)
         TimerStore.save(stored)
         // The full app may already own this id through AlarmKit (see
-        // TimerStore.isAlarmKitArmed) — don't stack a second alert on top.
-        if !TimerStore.isAlarmKitArmed(id: stored.id) {
+        // TimerStore.isAlarmKitArmed) — don't stack a second alert on top, unless the
+        // link just changed the timing.
+        if adoptLink || !TimerStore.isAlarmKitArmed(id: stored.id) {
+            NotificationScheduler.cancel(id: stored.id)
             NotificationScheduler.scheduleAlert(for: stored)
         }
         payload = stored
