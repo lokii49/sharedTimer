@@ -9,6 +9,8 @@ or QR code.
 
 **Release:** 1.0.4 (build 7) is feature-complete on branch `1.0.4`. Version is bumped, App Store release notes are written, CI is green, and all 51 tests pass on the simulator and on an iPhone 14 Pro (iOS 26.7).
 
+**Working-tree follow-up (2026-10-07):** the first Phase 7 Siri expansion is implemented locally on `1.0.4`: Pause, Resume, Extend, and Time Remaining. All of it ships in 1.0.4 (decided 2026-10-07); not yet committed. Spotlight indexing of individual timers is also implemented, with live update/delete reconciliation and direct detail-screen routing. Lock Screen circular/rectangular widgets with native remaining-time rings and a configurable Watch complication / Smart Stack widget are also implemented. Shared sequences now preserve full phase/loop state through URLs and CloudKit, with phase-aware Messages/App Clip/web recipients. Yearly countdowns, Calendar import, and web `.ics` export are also implemented locally. All 51 unit tests, 12 shared-sequence tests, 16 annual/Calendar tests, 6 Spotlight tests, 8 widget tests, and 25 AlarmKit integration tests pass on the network-connected iPhone 14 Pro, plus five UI tests for timer links, sequence import, annual controls, the creation form, and Calendar access. Nineteen web timing/export tests also pass. Spoken Siri invocation, a visual Spotlight result tap, and two-account propagation still need manual verification.
+
 **Remaining release steps:**
 1. Merge `1.0.4` → `main` (PR).
 2. Archive and upload (fastlane / App Store Connect).
@@ -60,19 +62,13 @@ or QR code.
 **Known limitations (platform, by design):**
 - An extend/pause made *inside Messages* can't move the main app's AlarmKit alarm until the app next opens. No AlarmKit in extensions.
 - The pre-armed sequence window only refills when the app runs. A sequence left untouched for more than 8 phases runs out of pre-armed alarms.
-- Phases with both toggles off aren't pre-armed.
+- Sequence phases not covered by AlarmKit (including both toggles off) use an eight-phase notification window. Either window still needs the app to run to refill it.
 - Pause/Resume from a widget updates after a short delay. iOS redraws a widget only after the intent completes; the optimistic-toggle approach doesn't pause (see CLAUDE.md).
 
-**Features not started** (Phase 7, by value for effort):
-1. More Siri / App Intents (pause, resume, extend, "how long is left").
-2. Lock Screen accessory widgets with a progress ring.
-3. Watch complication / Smart Stack (needs the Xcode target wizard first).
-4. Shared sequences.
-5. Recurring countdowns + Calendar import.
-6. Edit a running timer.
-7. Sound picker.
-8. Localization + accessibility pass.
-9. `t.html` polish.
+**Remaining feature backlog** (Phase 7, by value for effort):
+1. Sound picker.
+2. Localization + accessibility pass.
+3. `t.html` polish.
 
 ## Phase 1 — CloudKit live sync (shipped)
 
@@ -137,7 +133,7 @@ available in the environment that wrote this:
 - The finish haptic firing on the wall-clock tick (fixed once already — the first cut attached
   `.onChange` outside `TimelineView`'s content closure, which never re-evaluates on the clock)
 
-## Phase 3 — Reach (implemented, device-verification pending; complication deferred)
+## Phase 3 — Reach (implemented locally, paired-Watch verification pending)
 
 - **Siri / App Intents / Shortcuts — implemented.** `sharedTimer/TimerIntents.swift` (new,
   main app target only). `StartTimerIntent`/`StartCountdownIntent` reuse the same creation
@@ -155,11 +151,9 @@ available in the environment that wrote this:
   their parameters. **Not yet verified**: actually invoking via Siri or the Shortcuts app
   (needs a simulator/device with Siri enabled — not available in the environment that wrote
   this), and whether the donated phrases sound natural spoken aloud.
-- **Apple Watch app — implemented, without the complication.** User created the
+- **Apple Watch app — implemented, with a local complication follow-up.** User created the
   `sharedTimerWatch Watch App` target via Xcode's "Watch App for Existing iOS App" wizard;
-  App Group entitlement + `CODE_SIGN_ENTITLEMENTS` wiring added (needed for a future watch
-  complication extension, which shares data with this app on-device the way `TimerStore`
-  does across the other targets — not used for phone sync, see below). **Corrects the
+  App Group entitlement + `CODE_SIGN_ENTITLEMENTS` wiring connects the Watch app to its WidgetKit extension on the Watch itself; it is not used for phone sync (see below). **Corrects the
   roadmap's original approach**: "reads the same App Group `TimerStore`" doesn't work — App
   Groups don't sync between an iPhone and its paired Watch, verified against Apple's own
   guidance rather than assumed (different physical devices, separate container
@@ -179,10 +173,7 @@ available in the environment that wrote this:
   be downloaded first — wasn't installed at all before this). **Not yet verified**: actual
   WCSession pairing/message delivery on a live simulator pair or device, which isn't
   something to script in this environment.
-- **Complication — deferred, not started.** Needs a separate WidgetKit extension target
-  embedded in the watch app — the same "new target, needs Xcode's GUI wizard" situation the
-  watch app itself was just in. Same next step as before: scaffold the target via Xcode's
-  File > New > Target, then ask for the code plan.
+- **Complication / Smart Stack — implemented locally (2026-10-07).** See Phase 7 for the new embedded WidgetKit target, Watch-local snapshot cache, and verification status.
 
 ## Phase 4 — StandBy mode (implemented, device-verification pending)
 
@@ -235,7 +226,7 @@ its own track once the core sync/reach/StandBy phases were in.
 
 **Built (1.0.3, merged to main 2026-10-07):**
 - "Start later" — `NewSequenceSheet` can schedule a sequence's phase 0 to begin at a future
-  picked time (`TimerPayload.scheduledStartDate`, sequence-only, never shared/synced). The
+  picked time (`TimerPayload.scheduledStartDate`, sequence-only, now included in shared sequence links/CloudKit). The
   finish alert is still armed at creation, not deferred, since nothing can run in the
   background to arm it later.
 - Redesigned "Scheduled" state — `SkyCard` shows the start time itself (not a ticking
@@ -351,19 +342,54 @@ exist.
 - **Home-screen widget buttons: done (1.0.4).** Single Timer: Pause/Resume + Stop/Next/Cancel, Repeat when finished; All Timers: Pause/Resume per row. **Confirmed on device (2026-10-07):** Pause/Resume from the widgets (plain `Button(intent:)` + shimmer — an optimistic `Toggle`/`SetValueIntent` attempt never paused and was reverted); an unconfigured widget keeps the paused timer. Also confirmed on device: ✕ → Repeat on the widget, Recent chips (after a one-time seed from existing timers), dynamic Quick Actions, and the Control Center control starting a timer without opening the app (with a "started" banner as confirmation).
 - **Control Center control and Action button: done (1.0.4)** — `StartRecentTimerControl` starts the most recent timer without opening the app.
 - **Quick-start recents: done (1.0.4)** — Recent chips in the New Timer sheet + 2 dynamic Quick Actions.
-- **More Siri / App Intents:** Pause/Resume/Extend/"How long is left on X?" intents over
-  the existing `TimerChoice` `AppEntity`, plus Spotlight indexing of timers.
-- **Watch complication / Smart Stack widget:** deferred since Phase 3. Needs the Xcode
-  target wizard first.
-- **Lock Screen accessory widgets** (`.accessoryCircular`/`.accessoryRectangular`) with a
-  progress ring.
-- **Shared sequences:** adds the sequence to the URL/CloudKit wire format (and a `t.html`
-  fallback that shows the current phase). This is the biggest product differentiator left,
-  but it needs gap #1's per-phase alarm design first.
-- **Recurring countdowns:** yearly birthdays and anniversaries, re-armed on finish. Import
-  the target from Calendar (EventKit) and export an `.ics` from `t.html`.
-- **Edit a running timer:** rename it or change its target date, instead of
-  delete-and-recreate.
+- **More Siri / App Intents: implemented locally (2026-10-07), shipping in 1.0.4.**
+  - `PauseTimerIntent`, `ResumeTimerIntent`, `ExtendTimerIntent`, and `GetTimerRemainingIntent` in the main app. Each has an App Shortcut, spoken feedback, and an editable parameter summary. Extend asks how many minutes to add; Time Remaining returns seconds for chaining in Shortcuts (the current phase for sequences; a scheduled sequence's value includes the wait until its first phase ends).
+  - `TimerChoice` moved from the widget into `Shared/`, compiled by the app and widget only. Its `EntityStringQuery` supports name search, preserves duplicate names for disambiguation, derives current sequence phases, and resolves finished timers by ID so existing widget selections remain valid.
+  - Actions reload by ID, catch up stale sequences, preserve pauses during Extend, keep Pause/Resume idempotent, and reject missing/finished/scheduled selections and invalid durations. Time Remaining reports scheduled, paused, running, or finished state without mutating timers.
+  - Mutations await AlarmKit scheduling and a best-effort CloudKit fetch/save (including conflict retry), push WatchConnectivity state, reload widgets through `TimerStore.save`, and notify the foreground UI on the main actor. App Shortcut parameter values refresh when the app's timer choices change and after Siri mutations.
+  - **Verified:** 51 unit tests + 13 real AlarmKit integration tests pass on the network-connected iPhone 14 Pro, 2026-10-07. The two new device tests call the intent `perform()` methods and check real alarm Pause/Extend/Resume, returned seconds, stale entity names, idempotence, sequence catch-up, and future phase schedules. The app, widget, Messages, Clip, and Watch compile as part of the device test build. Metadata extraction contains all four new intents, `TimerChoice`, and six App Shortcuts. Simulator unit tests also pass (device AlarmKit tests skipped).
+  - **Manual checks remaining:** voice invocation and timer-name disambiguation in Siri; Minutes prompting; two-account CloudKit propagation and paired-Watch delivery. Example phrases: "Pause Pasta in Timer - iMessage Extension", "Resume Pasta in Timer - iMessage Extension", "Extend Pasta in Timer - iMessage Extension", "How long is left on Pasta in Timer - iMessage Extension".
+  - **Spotlight indexing: implemented locally (2026-10-07).** Main-app-only `TimerSpotlightIndex` indexes timer/countdown/current-phase names and paused/scheduled/finished state. Running results use end times rather than stale ticking text; paused timers stay indexed, and finished timers expire after 24 hours. Sequence metadata includes phase-name keywords and expiration after the final phase.
+  - Store writes enqueue coalesced indexing through a process-local `TimerStore.didPersist` hook; the shared targets have no indexer dependency. App launch/foreground reconciles extension changes and stale/deleted results, index delegate callbacks rebuild the index, and background intent paths await indexing. Foreground scheduled starts and finishes refresh metadata.
+  - Search results carry stable timer IDs and open the current detail screen through both cold and warm scene/user-activity handling. A deleted result shows "Timer unavailable"; it never recreates a timer from an old snapshot.
+  - **Verified:** device build passes; all 51 unit + 6 Spotlight + 13 AlarmKit tests pass on the iPhone 14 Pro. The Spotlight integration test queries the real index after insert, pause, delete, and a simulated process restart using an isolated test domain/source. All 57 unit/Spotlight tests also pass on the simulator. A visual search-result tap remains a manual check.
+- **Watch complication / Smart Stack widget: implemented locally (2026-10-07), shipping in 1.0.4.**
+  - New `sharedTimerWatchWidget` WidgetKit extension embedded in the Watch app, supporting circular, rectangular (including Smart Stack), and inline accessories. Optional timer selection plus recommendations; unconfigured widgets choose the earliest running timer, then a paused timer. Configured deleted timers stay empty.
+  - `WatchShared/` contains the existing deliberately separate Watch model, snapshot/cache helpers, and accessory view. `WatchTimerCache` persists the latest WatchConnectivity snapshot in a Watch-local App Group; it never reads the phone's `TimerStore`. App relaunch, connectivity activation, incoming snapshots, optimistic controls, and failed-control rollback keep the cache/widget updated. A SwiftUI WatchConnectivity background task drains pending delivery and persists before suspension.
+  - Running time/rings use native date-driven views, completion has a precomputed Done entry, and paused time/rings stay frozen. Long durations use coarse labels with periodic refresh. Content is privacy-sensitive and has accessibility descriptions.
+  - Registered ID-only `sharedtimer-watch://timer/<id>` links open the matching current Watch detail screen; a deleted timer shows "Timer unavailable".
+  - **Verified:** nine Watch simulator tests cover selection, completion, pause, missing/deleted IDs, cache replace/clear/corruption, received snapshot persistence/relaunch/deletion, link validation, and twelve rendered static layout attachments. Signed iPhone build includes the Watch extension; all 65 unit/Spotlight/widget tests, 13 AlarmKit tests, and the timer-link UI test pass on the iPhone 14 Pro. A separate Watch CI job runs the new shared `sharedTimerWatch` scheme.
+  - **Manual check remaining:** no physical Watch is available through Xcode. Pairing/delivery on hardware and actual watch-face/Smart Stack live rendering, configuration, tint/privacy, and refresh after phone/Watch mutations remain unverified. Static ImageRenderer attachments verify layout, not the native WidgetKit host.
+- **Lock Screen accessory widgets: implemented locally (2026-10-07), shipping in 1.0.4.**
+  - New configurable "Lock Screen Timer" widget (`.accessoryCircular` and `.accessoryRectangular`), using the existing `SelectTimerIntent`/`TimerChoice` picker. Monochrome layouts respect system tint, mark timer content privacy-sensitive, and include VoiceOver state/end-time descriptions.
+  - Running timers use native date-driven circular `ProgressView` and `Text(timerInterval:)`; paused rings/time are frozen. Scheduled sequences show their start time with an empty ring; finished/cancelled timers show Done; long countdowns use coarse labels appropriate to their refresh cadence.
+  - Pure `TimerWidgetSnapshot` selection and timelines preserve configured finished/focused paused timers, catch up stale sequences, precompute scheduled starts/phase changes/final finish (bounded to eight future entries), and refresh at calendar/day formatting thresholds. Widgets only read the store.
+  - ID-only `sharedtimer://timer/<id>` links open the current timer detail screen. The scheme is registered in the main app's generated Info.plist through `Shortcuts.plist`; deleted IDs show an unavailable screen rather than importing a widget snapshot.
+  - **Verified on iPhone 14 Pro:** 8 widget tests cover selection, ring state, URLs, coarse refresh, scheduled/sequence timeline boundaries, and eight rendered layout attachments (paused/scheduled/finished/empty in both sizes). Visual QA caught and fixed rectangular gauge overlap. A real UI test adds a quiet temporary timer, opens it through the widget URL, deletes it, and verifies the old URL cannot recreate it; it cleans up the timer. Existing unit, Spotlight, and AlarmKit checks remain green.
+  - **Manual check remaining:** add both widget sizes to the actual Lock Screen and confirm live ring/countdown rendering, tint/privacy behavior, chosen-timer configuration, and refresh after pause/extend/finish. ImageRenderer attachments verify static layout; they are not a substitute for the real WidgetKit host.
+- **Shared sequences: implemented locally (2026-10-07), shipping in 1.0.4.**
+  - Versioned `seq` JSON preserves definitions, per-phase toggles, loop/current position, pause, completion, and `start` for scheduled sequences. Legacy scalar URL fields still let older clients show a phase snapshot. New decoders validate bounded input and catch up late opens across phases/loops without rewriting mutation timestamps.
+  - CloudKit `sequenceData`, `scheduledStartDate`, and `updatedAt` preserve the same state. Main-app row/detail sharing prepares a `ckshare` link with a four-second full-sequence snapshot fallback; existing shares are reused. Explicit Next/Cancel actions await CloudKit push; cancellation stamps a finished, silent snapshot. Natural phase advancement is local derivation, never a CloudKit user-mutation push. Authoritative share acceptance does not echo back to the server.
+  - Messages and App Clip recipients show phase/loop and pending state and follow boundaries; Messages refreshes authoritative accepted/reopened cloud shares. The web fallback follows the current phase from the link snapshot, including scheduled, paused, and completed sequences.
+  - Notifications pre-arm eight phases in recipients/fallbacks, excluding AlarmKit-covered occurrences in the main app to prevent duplicate alerts. Mixed sequences retain the app's complete alert window when opened in extensions. Remote deletion clears derived phase alarms even when an extension has already removed the stored payload.
+  - **Verified on iPhone 14 Pro:** 77 unit/Spotlight/widget/sequence tests, 18 AlarmKit tests, and two UI tests pass. New device cases test received-link/record phase alarms, pause/resume, actual mixed notification/AlarmKit coverage, and deletion after the payload is gone. The recipient UI test imports a scheduled sequence, starts it, pauses/extends/resumes, and deletes it. All 77 non-AlarmKit tests also pass on the simulator. Eight web timing tests and four 390×844 headless browser layouts are checked; web tests run in CI.
+  - **Production CloudKit schema deployed (2026-10-07):** `Timer.sequenceData` (Bytes), `scheduledStartDate` (Date/Time), `updatedAt` (Date/Time). Two-account sharing/propagation and Messages/App Clip device presentation remain manual checks. Older apps still treat sequences as single-phase snapshots; App Clip/web/Watch do not become CloudKit peers. The existing eight-phase background arming limit remains.
+- **Recurring countdowns + Calendar import: implemented locally (2026-10-07), shipping in 1.0.4.**
+  - New Countdown offers **Repeat yearly** and **Import from Calendar**. The sheet uses the selected Timer/Countdown type directly, fixing an existing first-open state issue.
+  - A Gregorian month/day/time/time-zone anchor preserves anniversaries across missed years, pauses and one-occurrence extensions. February 29 uses February 28 in non-leap years; missing spring times use the first valid time, and repeated autumn times use the first occurrence. Next Year explicitly skips an occurrence; Stop disables the annual series. Clock rollover preserves the shared mutation stamp.
+  - The current occurrence and the following year are independently pre-armed through AlarmKit fixed-date alarms (no year-long countdown/Live Activity). Quiet/failed occurrences receive notifications, excluding dates AlarmKit covered. Opening/foregrounding/finishing refills the two-occurrence window. Pause cancels both; resume restores them. Two slots per Gregorian year prevent collisions when Extend crosses New Year's Eve. Remote deletion works after the stored payload is gone.
+  - `AnnualRecurrence` is stored in JSON, versioned `annual` links and CloudKit `Timer.recurrenceData` (Bytes). Main app, Messages, App Clip, widgets and web derive the next occurrence; older clients and Watch remain single-occurrence snapshots. Calendar identifiers, attendees and notes never enter the timer's shared payload.
+  - Calendar access is requested only after tapping Import. Full-access EventKit reads the next year's events, with search and denial/restricted/error/retry handling. Import copies the title/start/time zone, all-day events use local midnight, and simple unbounded annual rules/birthdays preselect yearly repetition. Relative rules (e.g. fourth Thursday) and other repeat frequencies remain one-off imports.
+  - Web countdowns offer **Add to Calendar**, exporting a UTF-8 `.ics` with escaped/folded text. Annual events include RRULE, a self-contained time zone and explicit daylight-saving exceptions. Export snapshots 30 years of current time-zone rules; calendar rules may need refreshing if governments change them. Paused countdowns do not export stale target dates.
+  - **Verification:** 93 unit/sequence/Spotlight/widget/annual tests on device and simulator, 25 AlarmKit device tests, five device UI tests, and 19 web timing/export tests. An independent iCalendar parser expands ten years of leap-day/spring-gap/autumn-repeat exports. Device screenshots and a 390×844 web capture are reviewed.
+  - **Production CloudKit schema deployed (2026-10-07):** `Timer.recurrenceData` (Bytes). Two-account delivery still to verify. The annual alert window needs Timer to run at least once each year to keep refilling; this is stated in the creation form. Calendar imports are copied snapshots, not subscriptions to later event edits.
+- **Edit a running timer: implemented locally (2026-10-07), shipping in 1.0.4.**
+  - Pencil on the detail screen and "Edit…" in the row context menu open `EditTimerSheet`. Timers: label + Alarm/Vibrate toggles (time stays on +1:00/Extend). Countdowns: also the target date (disabled while paused); a finished countdown moved forward runs again and its in-app alert stops. Yearly countdowns re-anchor in their own time zone. Sequences are not editable (product decision).
+  - Same id, CloudLink and share links; no new wire/CloudKit field (`updatedAt` stamp lets a re-shared link carry the edit). Attribution reads "<name> edited". A countdown keeps its original start so the ring and the recipient's extend banner stay correct.
+  - Fixes a latent staleness: paused AlarmKit alarms and annual fixed alarms were kept whenever their time matched, so a new title or tone would never reach them. AlarmController now records a per-alarm title/tone signature and re-creates on mismatch — also covers edits arriving via CloudKit.
+  - **Verified (simulator, 2026-10-07):** app/Messages/Clip build; 127 unit tests incl. 9 new `EditTimerTests` (one pre-existing widget PNG-render test flaked once on a zlib write error and passed on rerun); new UI test `testEditRenamesCountdownInPlace` passes. **Verified on iPhone 14 Pro (2026-10-07):** 102 non-AlarmKit tests, all 27 AlarmKit device tests (incl. the two new ones: paused-timer and annual edits re-create the alarm with the new title/tone signature), and the edit UI test pass.
+  - **Manual checks remaining:** rename a paused AlarmKit timer and confirm the Lock Screen card's title; turn Alarm off on a running timer and confirm a silent full-screen buzz; two-account propagation of an edit.
+- **"What's New" after an update: implemented locally (2026-10-07), shipping in 1.0.4.** "Sunrise Walk", picked from three mockups (https://claude.ai/artifact/R6Kz41fCP8D6dx56qMWd5t): six paged screens with animated illustrations, the sky draining from night to sunrise across the tour, Skip anytime. Shown once to people updating (not fresh installs); deep links take priority; Reduce Motion shows still frames. **Verified (simulator):** 6 gate unit tests, the paging UI test, and screenshots reviewed. **Manual:** look at it on a real update from 1.0.3 (TestFlight), with Reduce Motion on, and on a small phone. Not yet reachable again after dismissal (no settings screen to host it).
 - **Sound picker:** a few bundled `.caf` tones beyond `alarm.caf`, kept as a local
   preference (not on the wire).
 - **Localization and accessibility pass:** all strings are hard-coded English (including
