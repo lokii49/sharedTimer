@@ -208,6 +208,9 @@ struct BigCountdownWidgetView: View {
             Spacer(minLength: 0)
 
             remainingText(endDate: payload.endDate, pausedRemaining: payload.pausedRemaining)
+                // Shimmers while a tapped button's update is in flight (pause/resume
+                // only lands after the app runs the intent and the timeline reloads).
+                .invalidatableContent()
                 .font(.system(size: isSmall ? 34 : 46, weight: .regular))
                 .monospacedDigit()
                 .minimumScaleFactor(0.5)
@@ -376,6 +379,9 @@ struct TimerListWidgetView: View {
             Spacer(minLength: 6)
 
             remainingText(endDate: payload.endDate, pausedRemaining: payload.pausedRemaining)
+                // Shimmers while a tapped button's update is in flight (pause/resume
+                // only lands after the app runs the intent and the timeline reloads).
+                .invalidatableContent()
                 .font(.system(size: 22, weight: .medium))
                 .monospacedDigit()
                 .minimumScaleFactor(0.5)

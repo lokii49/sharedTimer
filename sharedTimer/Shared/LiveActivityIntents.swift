@@ -16,29 +16,31 @@
 import AppIntents
 import Foundation
 
-/// Pause ⇄ Resume on the Live Activities and home-screen widgets. A `SetValueIntent`
-/// driving a `Toggle(isOn:intent:)` (see PauseToggle) rather than a button, on purpose:
-/// WidgetKit flips a toggle's on-screen state optimistically the instant it's tapped,
-/// while a `Button(intent:)` only redraws once `perform()` has finished in the app
-/// (possibly cold-launched for it) and the timeline has reloaded — a visible lag
-/// reported on device. `value` is the new paused state; setting it is idempotent.
-struct SetTimerPausedIntent: SetValueIntent, LiveActivityIntent {
+/// Pause ⇄ Resume on the Live Activities and home-screen widgets. Carries the
+/// *desired* state (`paused`), so it's idempotent — a double tap or a stale card can't
+/// flip it the wrong way. A plain `LiveActivityIntent` behind a `Button(intent:)`,
+/// deliberately NOT a `SetValueIntent` behind `Toggle(isOn:intent:)`: that combination
+/// rendered fine but never paused anything on device (tried in 7845948/bc87c84) — most
+/// likely the toggle path performed the intent in the widget extension, where
+/// LiveActivityActions is a no-op stub. Instant feedback comes from
+/// `.invalidatableContent()` on the widgets' time display instead.
+struct SetTimerPausedIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Pause or Resume Timer"
 
     @Parameter(title: "Timer ID") var timerID: String
-    @Parameter(title: "Paused") var value: Bool
+    @Parameter(title: "Paused") var paused: Bool
 
     init() {
         self.timerID = ""
-        self.value = false
+        self.paused = false
     }
-    init(timerID: String) {
+    init(timerID: String, paused: Bool) {
         self.timerID = timerID
-        self.value = false
+        self.paused = paused
     }
 
     func perform() async throws -> some IntentResult {
-        await LiveActivityActions.setPaused(timerID: timerID, paused: value)
+        await LiveActivityActions.setPaused(timerID: timerID, paused: paused)
         return .result()
     }
 }

@@ -93,41 +93,22 @@ struct WidgetTimerControls: View {
     }
 }
 
-/// Pause ⇄ Resume as a toggle (isOn = paused) — see SetTimerPausedIntent for why a
-/// toggle and not a button: WidgetKit redraws it the instant it's tapped.
+/// Pause ⇄ Resume button — see SetTimerPausedIntent for why a plain button and not
+/// a toggle.
 struct PauseToggle: View {
     let timerID: String
     let isPaused: Bool
     var size: CGFloat = 44
 
     var body: some View {
-        Toggle(isOn: isPaused, intent: SetTimerPausedIntent(timerID: timerID)) {
-            Text(isPaused ? "Resume" : "Pause")
-        }
-        .toggleStyle(PauseToggleStyle(size: size))
-    }
-}
-
-private struct PauseToggleStyle: ToggleStyle {
-    let size: CGFloat
-
-    func makeBody(configuration: Configuration) -> some View {
-        // A custom style has to route the tap through `configuration.isOn` itself —
-        // drawn without this Button, the toggle rendered but taps did nothing (found
-        // on device). In a widget, toggling the binding is what fires the intent;
-        // `configuration.isOn` is the optimistic state, already flipped on tap.
-        Button {
-            configuration.isOn.toggle()
-        } label: {
-            Image(systemName: configuration.isOn ? "play.fill" : "pause.fill")
+        Button(intent: SetTimerPausedIntent(timerID: timerID, paused: !isPaused)) {
+            Image(systemName: isPaused ? "play.fill" : "pause.fill")
                 .font(.system(size: size * 0.38, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: size, height: size)
                 .background(.white.opacity(0.18), in: Circle())
-                .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(configuration.isOn ? "Resume" : "Pause")
+        .accessibilityLabel(isPaused ? "Resume" : "Pause")
     }
 }
-
