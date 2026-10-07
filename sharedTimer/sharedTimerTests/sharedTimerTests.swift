@@ -579,4 +579,45 @@ struct sharedTimerTests {
         #expect(CloudLinkStore.hasLeft(timerID: id) == false)
     }
 
+    // MARK: - RecentTimersStore (1.0.4 quick start)
+
+    @Test func recentsDedupeMoveToFrontCapAndSkipCountdownsAndSequences() throws {
+        let defaults = try #require(UserDefaults(suiteName: "group.com.lokesh.sharedTimer"))
+        let original = defaults.data(forKey: "recentTimers")
+        defer {
+            if let original { defaults.set(original, forKey: "recentTimers") } else { defaults.removeObject(forKey: "recentTimers") }
+        }
+        defaults.removeObject(forKey: "recentTimers")
+
+        for i in 1...8 {
+            RecentTimersStore.record(TimerPayload.compose(label: "T\(i)", kind: .timer, minutes: Double(i), targetDate: Date()))
+        }
+        #expect(RecentTimersStore.all().map(\.label) == ["T8", "T7", "T6", "T5", "T4", "T3"])
+
+        // Same label + length again moves to the front instead of duplicating.
+        RecentTimersStore.record(TimerPayload.compose(label: "T5", kind: .timer, minutes: 5, targetDate: Date(), alarmEnabled: false))
+        #expect(RecentTimersStore.all().map(\.label) == ["T5", "T8", "T7", "T6", "T4", "T3"])
+        #expect(RecentTimersStore.all().first?.alarmEnabled == false)
+
+        RecentTimersStore.record(TimerPayload.compose(label: "Trip", kind: .countdown, minutes: 0, targetDate: Date().addingTimeInterval(86400)))
+        RecentTimersStore.record(TimerPayload.composeSequence(label: "Pomodoro", phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1))
+        #expect(RecentTimersStore.all().first?.label == "T5")
+
+        RecentTimersStore.remove(id: "T5|300")
+        #expect(RecentTimersStore.all().first?.label == "T8")
+    }
+
+    @Test func recentLengthTextAndLenientDecode() throws {
+        #expect(RecentTimer.lengthText(8 * 60) == "8m")
+        #expect(RecentTimer.lengthText(90 * 60) == "1h 30m")
+        #expect(RecentTimer.lengthText(45) == "45s")
+        #expect(RecentTimer.lengthText(3600) == "1h")
+
+        // Missing toggles (an older/newer schema) must not drop the entry.
+        let json = #"[{"label":"Tea","duration":180}]"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode([RecentTimer].self, from: json)
+        #expect(decoded.first?.title == "Tea 3m")
+        #expect(decoded.first?.payload().duration == 180)
+    }
+
 }

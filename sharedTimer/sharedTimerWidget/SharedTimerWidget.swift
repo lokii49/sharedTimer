@@ -202,10 +202,20 @@ struct BigCountdownWidgetView: View {
                 .lineLimit(1)
                 .foregroundStyle(.white)
 
-            Text(footerText(for: payload))
-                .skyLabel(isSmall ? 9.5 : 10.5)
-                .foregroundStyle(.white.opacity(0.85))
-                .lineLimit(1)
+            if isSmall {
+                // Small: the buttons take the footer's place.
+                WidgetTimerControls(payload: payload, size: 34)
+                    .padding(.top, 4)
+            } else {
+                HStack(alignment: .center) {
+                    Text(footerText(for: payload))
+                        .skyLabel(10.5)
+                        .foregroundStyle(.white.opacity(0.85))
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    WidgetTimerControls(payload: payload, size: 36)
+                }
+            }
         }
         .padding(isSmall ? 2 : 4)
     }
@@ -361,6 +371,19 @@ struct TimerListWidgetView: View {
                 .multilineTextAlignment(.trailing)
                 .foregroundStyle(.white)
                 .frame(maxWidth: 92, alignment: .trailing)
+
+            // Pause/Resume only — no Stop on the list, so it can't be mis-tapped.
+            if !payload.isPending() {
+                Button(intent: ToggleTimerPauseIntent(timerID: payload.id)) {
+                    Image(systemName: payload.isPaused ? "play.fill" : "pause.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(.white.opacity(0.18), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(payload.isPaused ? "Resume \(payload.label)" : "Pause \(payload.label)")
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

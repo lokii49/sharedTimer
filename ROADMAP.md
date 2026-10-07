@@ -226,7 +226,7 @@ were changed blind.
 | 7 | Low | `TimerStore.save`/`persist` (`:21`, `:82`) | **Read-modify-write across processes isn't atomic.** The app, Messages extension, intents, and AlarmKit intents can each `loadAll` → mutate → write, so a concurrent write from another process can be lost. | Rare. Fix: `NSFileCoordinator`, or store one key per timer id instead of a single array. |
 | 8 | Low | `TimeFormat.bigDigits` (`TimerModel.swift:467`) | **Breaks its own "always 8 characters" contract** for 100–167h: it prints `120:00:00` under the 7-day calendar threshold. | Big countdown widget with a 5-day countdown. Fix: switch to `DD:HH:MM` above 99h (needs a design call). Apply to all 4 copies. |
 | 9 | Low | `TimeFormat.targetDate` (`TimerModel.swift:477`) | **Wrong year on a non-Gregorian calendar.** It uses a `DateFormatter` with a fixed `yyyy-MM-dd` and no calendar/locale (a Buddhist calendar shows 2569), and builds a new formatter per call. | Set Gregorian + `en_US_POSIX`, or switch to `Date.ISO8601FormatStyle().year().month().day()`. Apply to all copies. |
-| 10 | Low | `TimerIntents.swift` | **Intents skip the watch and the foreground UI.** `StartTimerIntent`/`StartCountdownIntent` don't call `WatchSyncController.pushCurrentState()` or post `.externalTimerStoreChange` (the CLAUDE.md rule). The sequence intents don't push to the watch either. The dialog also prints `Int(minutes)`, so 0.5 min reads as "0 minutes". | Run "Start a timer" from Shortcuts with the app open in Slide Over or Split View, or with a watch paired. |
+| 10 | ~~Low~~ | `TimerIntents.swift` | ~~Intents skip the watch and the foreground UI~~ — **fixed (1.0.4):** both start intents push to the watch and post `.externalTimerStoreChange` from the main actor; the dialog shows the real length ("30s", "1h 30m"). | — |
 | 11 | Low | `ContentView.delete` (`:505`), pull-delete path | **Deleting a ringing timer leaves the in-app `AlarmPlayer`/`VibrationPlayer` loop going**, along with the "Time's up" banner, until the user taps Stop. | Fix: stop the players when the deleted id is among those currently alerting. |
 | 12 | — | Docs | ~~CLAUDE.md said `sharedTimerTests` was empty~~ — fixed alongside this roadmap. | — |
 
@@ -282,7 +282,10 @@ exist.
   *(original item:)* Pause / +1 min / Repeat via
   `Button(intent:)` on the home-screen widget and the custom Live Activity. Reuses
   `TimerStore` plus a `LiveActivityIntent` (same pattern as `AdvanceSequenceIntent`).
-- **Control Center control and Action button** (`ControlWidget`, iOS 18+): "Start 5-min
+- **Home-screen widget buttons: done (1.0.4).** Single Timer: Pause/Resume + Stop/Next/Cancel, Repeat when finished; All Timers: Pause/Resume per row.
+- **Control Center control and Action button: done (1.0.4)** — `StartRecentTimerControl` starts the most recent timer without opening the app.
+- **Quick-start recents: done (1.0.4)** — Recent chips in the New Timer sheet + 2 dynamic Quick Actions.
+- *(original item:)* **Control Center control and Action button** (`ControlWidget`, iOS 18+): "Start 5-min
   timer" or a last-used preset. Small, high-visibility work.
 - **Quick-start presets / recents:** one-tap chips for recently used durations and labels
   in the "+" sheet and the Quick Actions, with dynamic `UIApplicationShortcutItems`.

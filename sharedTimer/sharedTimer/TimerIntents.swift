@@ -41,7 +41,10 @@ struct StartTimerIntent: AppIntent {
         // process just to run this intent and tear it down the instant `perform()`
         // returns, same class of bug `AdvanceSequenceIntent` had — see CLAUDE.md.
         await TimerArming.armAwaiting(payload)
-        return .result(dialog: "Started \(label) for \(Int(minutes)) minutes.")
+        RecentTimersStore.record(payload)
+        await RecentTimersSync.refresh()
+        await announceExternalChange()
+        return .result(dialog: "Started \(payload.label) for \(RecentTimer.lengthText(payload.duration)).")
     }
 }
 
@@ -69,7 +72,18 @@ struct StartCountdownIntent: AppIntent {
         // Awaited, not the fire-and-forget `reschedule` -- same Siri-teardown risk as
         // StartTimerIntent above.
         await TimerArming.armAwaiting(payload)
-        return .result(dialog: "Counting down to \(label).")
+        await announceExternalChange()
+        return .result(dialog: "Counting down to \(payload.label).")
+    }
+}
+
+/// A Siri/Shortcuts start writes straight to TimerStore, outside ContentView's own
+/// mutation path — push it to the watch, and tell a foregrounded app to reload (from
+/// the main actor; see CLAUDE.md's `.externalTimerStoreChange` notes).
+private func announceExternalChange() async {
+    WatchSyncController.pushCurrentState()
+    await MainActor.run {
+        NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
     }
 }
 

@@ -13,5 +13,6 @@ struct SharedTimerWidgetBundle: WidgetBundle {
         SharedTimerCountdownWidget()
         TimerLiveActivityWidget()
         TimerAlarmActivityWidget()
+        StartRecentTimerControl()
     }
 }

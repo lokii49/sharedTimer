@@ -17,4 +17,6 @@ enum LiveActivityActions {
     static func stop(timerID: String) async {}
     static func advanceSequence(timerID: String, phaseIndex: Int) async {}
     static func endSequence(timerID: String) async {}
+    static func repeatTimer(timerID: String) async {}
+    static func startRecent(id: String) async {}
 }

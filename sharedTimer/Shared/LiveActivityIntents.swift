@@ -49,6 +49,42 @@ struct StopTimerIntent: LiveActivityIntent {
     }
 }
 
+/// Home-screen widget "Repeat" on a finished timer — restarts it in place (same id,
+/// original length; a sequence restarts at phase 0), like the app's own Repeat.
+struct RepeatTimerIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Repeat Timer"
+
+    @Parameter(title: "Timer ID") var timerID: String
+
+    init() { self.timerID = "" }
+    init(timerID: String) { self.timerID = timerID }
+
+    func perform() async throws -> some IntentResult {
+        await LiveActivityActions.repeatTimer(timerID: timerID)
+        return .result()
+    }
+}
+
+/// Control Center / Action button control and the home-screen Quick Actions: starts a
+/// recent timer (RecentTimersStore) without opening the app. A `LiveActivityIntent`
+/// for the same reason as everything else in this file — the system runs it in the
+/// app's process, where AlarmKit is available (it isn't in the widget extension that
+/// hosts the control). Empty `recentID` = the most recent one (or a 5-minute "Timer"
+/// when there's no history yet).
+struct StartRecentTimerIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Start Recent Timer"
+
+    @Parameter(title: "Recent", default: "") var recentID: String
+
+    init() { self.recentID = "" }
+    init(recentID: String) { self.recentID = recentID }
+
+    func perform() async throws -> some IntentResult {
+        await LiveActivityActions.startRecent(id: recentID)
+        return .result()
+    }
+}
+
 /// AlarmKit `secondaryIntent` for a sequence phase's alarm — paired with
 /// `secondaryButtonBehavior: .custom` on its `AlarmPresentation.Alert` (see
 /// `AlarmController.scheduleAlarm`), not `stopIntent`: those are distinct parameters

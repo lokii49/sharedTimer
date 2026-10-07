@@ -59,3 +59,40 @@ struct LiveActivityControls: View {
             .background(.white.opacity(0.18), in: Circle())
     }
 }
+
+/// Home-screen widget controls for one stored payload (Single Timer widget): Repeat
+/// once finished, nothing while a sequence is still pending, otherwise the same
+/// Pause/Resume + Stop / Next / Cancel pair as the Live Activities.
+struct WidgetTimerControls: View {
+    let payload: TimerPayload
+    var size: CGFloat = 36
+
+    var body: some View {
+        if payload.isPending() {
+            EmptyView()
+        } else if payload.isFinished {
+            Button(intent: RepeatTimerIntent(timerID: payload.id)) {
+                Label("Repeat", systemImage: "arrow.clockwise")
+                    .font(.system(size: size * 0.36, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, size * 0.35)
+                    .frame(height: size)
+                    .background(.white.opacity(0.18), in: Capsule())
+            }
+            .buttonStyle(.plain)
+        } else {
+            LiveActivityControls(
+                timerID: payload.id,
+                isPaused: payload.isPaused,
+                secondary: secondary,
+                size: size
+            )
+        }
+    }
+
+    private var secondary: LiveActivitySecondaryAction {
+        guard let sequence = payload.sequence, let index = payload.sequenceGlobalIndex else { return .stop }
+        return index == sequence.phases.count * sequence.loopCount - 1 ? .cancelSequence : .next(phaseIndex: index)
+    }
+}
+

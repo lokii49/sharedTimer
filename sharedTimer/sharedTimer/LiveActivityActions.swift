@@ -87,6 +87,26 @@ enum LiveActivityActions {
         await refreshUI()
     }
 
+    /// Widget "Repeat" on a finished timer — same mutation as the app's Repeat.
+    static func repeatTimer(timerID: String) async {
+        guard let payload = stored(timerID), payload.isFinished else { return await refreshUI() }
+        await commit(payload.repeated(), action: "repeated")
+    }
+
+    /// Control Center / Action button / Quick Action: start a recent timer now.
+    static func startRecent(id: String) async {
+        let recents = RecentTimersStore.all()
+        let recent = recents.first { $0.id == id } ?? recents.first
+        let payload = recent?.payload()
+            ?? TimerPayload.compose(label: "Timer", kind: .timer, minutes: 5, targetDate: Date())
+        TimerStore.save(payload)
+        await TimerArming.armAwaiting(payload)
+        RecentTimersStore.record(payload)
+        await RecentTimersSync.refresh()
+        WatchSyncController.pushCurrentState()
+        await refreshUI()
+    }
+
     // MARK: - Helpers
 
     private static func stored(_ timerID: String) -> TimerPayload? {

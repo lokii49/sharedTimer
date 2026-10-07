@@ -1,6 +1,7 @@
-• New: Pause, Resume and Stop right from the Lock Screen and Dynamic Island. Sequences get a Next button to skip to the next phase.
+• New: Pause, Resume and Stop right from the Lock Screen, Dynamic Island and home-screen widgets. Sequences get a Next button to skip to the next phase.
+• New: Recent timers — start one again with a single tap from the New Timer screen, the app icon's long-press menu, or a Control Center / Action button control.
 • Pausing now keeps the timer on your Lock Screen, ready to resume.
 • Sequences keep ringing for every phase even if you tap Stop on an alert, instead of only "Next".
-• Fixed a shared timer sometimes showing a second alert when opened from Messages.
+• Fixed a shared timer you deleted coming back, and a second alert when opening a shared timer from Messages.
+• Finished timers no longer leave a 0:00 card on the Lock Screen.
 • Shared timers stay in sync more reliably.
-• Various reliability fixes.

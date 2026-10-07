@@ -110,7 +110,7 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showingNewTimer) {
                 NewTimerSheet(initialKind: pendingNewTimerKind) { payload in
-                    apply(payload)
+                    startNew(payload)
                 }
             }
             .sheet(isPresented: $showingNewSequence) {
@@ -202,6 +202,7 @@ struct ContentView: View {
                 armAlerts(for: payload)
             }
             LiveActivityController.endFinished(timers.filter { !AlarmController.ownsAlert(for: $0) })
+            RecentTimersSync.refresh()
             pullCloudChanges()
             // Cold-launch Quick Action: SceneDelegate's willConnectTo runs before this
             // .onAppear (and before .onReceive's subscriber exists), so it buffers the
@@ -587,7 +588,22 @@ struct ContentView: View {
         }
     }
 
+    /// A newly created plain timer/countdown (sheet, recent chip, Quick Action): apply it
+    /// and remember it in RecentTimersStore (timers only — see that file).
+    private func startNew(_ payload: TimerPayload) {
+        apply(payload)
+        RecentTimersStore.record(payload)
+        RecentTimersSync.refresh()
+    }
+
     private func openQuickAction(_ type: String) {
+        if type.hasPrefix(RecentTimersSync.quickActionPrefix) {
+            let id = String(type.dropFirst(RecentTimersSync.quickActionPrefix.count))
+            if let recent = RecentTimersStore.all().first(where: { $0.id == id }) {
+                startNew(recent.payload())
+            }
+            return
+        }
         switch type {
         case "newTimer": pendingNewTimerKind = .timer
         case "newCountdown": pendingNewTimerKind = .countdown

@@ -164,6 +164,7 @@
 		5A0000020000000000000000 /* Exceptions for "Shared" folder in "sharedTimerClip" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				RecentTimersStore.swift,
 				LiveActivityIntents.swift,
 				CloudLink.swift,
 				CloudSyncController.swift,
@@ -178,6 +179,7 @@
 		5A0000030000000000000000 /* Exceptions for "Shared" folder in "sharedTimerMessages" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				RecentTimersStore.swift,
 				LiveActivityIntents.swift,
 				TimerAlarmMetadata.swift,
 			);
