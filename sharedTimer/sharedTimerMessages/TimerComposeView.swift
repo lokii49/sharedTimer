@@ -42,13 +42,16 @@ struct TimerComposeView: View {
                 if !activeTimers.isEmpty {
                     Section("Share a running timer") {
                         ForEach(activeTimers) { timer in
+                            // No .buttonStyle(.plain): the default Form/List button style
+                            // gives the whole row cell (insets included) a tap target, not
+                            // just the label's own rendered content.
                             Button {
                                 labelFocused = false
                                 pickedExisting = timer
                             } label: {
                                 existingRow(timer)
                             }
-                            .buttonStyle(.plain)
+                            .foregroundStyle(.primary)
                         }
                     }
                 }
@@ -126,5 +129,6 @@ struct TimerComposeView: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
         }
+        .contentShape(Rectangle())
     }
 }

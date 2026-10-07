@@ -9,6 +9,13 @@ import Foundation
 enum LiveActivityController {
     static func start(for payload: TimerPayload) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        // A Live Activity's no-update budget is ~8h (see `refreshAll` below) -- starting
+        // one for a payload that may not even begin running for days would just die
+        // long before the timer does. `armAlerts` still schedules the real alert
+        // (AlarmKit/notification) immediately regardless -- only this cosmetic surface
+        // waits. Once the start time passes, the next `armAlerts` call (foregrounding,
+        // or any other mutation) starts it normally.
+        guard !payload.isPending() else { return }
 
         if let existing = Activity<TimerActivityAttributes>.activities.first(where: { $0.attributes.timerID == payload.id }) {
             Task { await existing.update(content(for: payload)) }

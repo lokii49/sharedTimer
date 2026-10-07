@@ -61,6 +61,8 @@ struct ContentView: View {
                     .monospacedDigit()
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }
 
