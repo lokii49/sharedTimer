@@ -1,3 +1,6 @@
-• New: "Start later" for Sequences — schedule a routine to begin at a future time instead of right away, with a redesigned Scheduled state showing the start time.
-• Fixed rows only responding to taps on the label text, not the rest of the row.
+• New: Pause, Resume and Stop right from the Lock Screen and Dynamic Island. Sequences get a Next button to skip to the next phase.
+• Pausing now keeps the timer on your Lock Screen, ready to resume.
+• Sequences keep ringing for every phase even if you tap Stop on an alert, instead of only "Next".
+• Fixed a shared timer sometimes showing a second alert when opened from Messages.
+• Shared timers stay in sync more reliably.
 • Various reliability fixes.
