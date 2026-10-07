@@ -1,8 +1,13 @@
+• New: Edit any timer. Rename it, change its alarm, or move a countdown to a new date. Shared timers update for everyone.
+• New: Yearly countdowns for birthdays and anniversaries. Import dates straight from your Calendar.
+• New: Share a whole sequence. Send a Pomodoro or fasting plan in Messages and everyone follows the same phases.
 • New: Pause, Resume and Stop right from the Lock Screen, Dynamic Island and home-screen widgets. Sequences get a Next button to skip to the next phase.
-• New: Recent timers — start one again with a single tap from the New Timer screen, the app icon's long-press menu, or a Control Center / Action button control.
+• New: Lock Screen widgets with a live countdown ring.
+• New: Keep a timer on your Apple Watch face or in the Smart Stack.
+• New: Ask Siri to pause, resume or extend a timer, or how long is left. Find any timer in Spotlight.
+• New: Recent timers. Start one again with a single tap from the New Timer screen, the app icon's long-press menu, or a Control Center / Action button control.
 • Pausing now keeps the timer on your Lock Screen, ready to resume.
-• Sequences keep ringing for every phase even if you tap Stop on an alert, instead of only "Next".
+• Sequences keep ringing for every phase even if you tap Stop on an alert.
 • Fixed a shared timer you deleted coming back, and a second alert when opening a shared timer from Messages.
 • Finished timers no longer leave a 0:00 card on the Lock Screen.
-• Shared timers stay in sync more reliably.
-• Re-sending a timer link now updates the timer for people who already have it, plus other reliability fixes.
+• Shared timers stay in sync more reliably, and re-sending a timer link now updates it for people who already have it.
