@@ -40,10 +40,7 @@ struct StartTimerIntent: AppIntent {
         // Awaited, not the fire-and-forget `reschedule`: Siri can cold-launch the
         // process just to run this intent and tear it down the instant `perform()`
         // returns, same class of bug `AdvanceSequenceIntent` had — see CLAUDE.md.
-        await AlarmController.rescheduleAwaiting(for: payload)
-        if !AlarmController.ownsAlert(for: payload) {
-            LiveActivityController.start(for: payload)
-        }
+        await TimerArming.armAwaiting(payload)
         return .result(dialog: "Started \(label) for \(Int(minutes)) minutes.")
     }
 }
@@ -71,10 +68,7 @@ struct StartCountdownIntent: AppIntent {
         // AlarmController picks; same arming sequence as ContentView.armAlerts.
         // Awaited, not the fire-and-forget `reschedule` -- same Siri-teardown risk as
         // StartTimerIntent above.
-        await AlarmController.rescheduleAwaiting(for: payload)
-        if !AlarmController.ownsAlert(for: payload) {
-            LiveActivityController.start(for: payload)
-        }
+        await TimerArming.armAwaiting(payload)
         return .result(dialog: "Counting down to \(label).")
     }
 }

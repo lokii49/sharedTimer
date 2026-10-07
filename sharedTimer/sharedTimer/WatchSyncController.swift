@@ -109,14 +109,7 @@ enum WatchSyncController {
                 // either toggle is on (either kind), local notification only when both
                 // are off, custom Live Activity only for that both-off case (AlarmKit
                 // runs its own whenever it owns the alert).
-                AlarmController.reschedule(for: updated)
-                if !AlarmController.ownsAlert(for: updated) {
-                    if updated.isPaused {
-                        LiveActivityController.update(for: updated)
-                    } else {
-                        LiveActivityController.start(for: updated)
-                    }
-                }
+                TimerArming.arm(updated)
                 CloudSyncController.pushUp(updated, action: action)
                 pushCurrentState()
                 NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)

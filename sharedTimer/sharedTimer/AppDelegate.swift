@@ -64,14 +64,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 // either toggle is on (either kind), local notification only when both
                 // are off, and the custom Live Activity only for that both-off case
                 // (AlarmKit runs its own whenever it owns the alert).
-                AlarmController.reschedule(for: payload)
-                if !AlarmController.ownsAlert(for: payload) {
-                    if payload.isPaused {
-                        LiveActivityController.update(for: payload)
-                    } else {
-                        LiveActivityController.start(for: payload)
-                    }
-                }
+                TimerArming.arm(payload)
                 if let existing {
                     self.notifyIfExtended(existing: existing, updated: payload)
                 }
@@ -201,13 +194,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             TimerStore.acknowledgeFinish(id: id)
         case "REPEAT_ACTION":
             // Same mutation sequence as ContentView.repeatTimer()/armAlerts: repeat,
-            // save, reschedule, and (alarm is off here by construction — this category
-            // only appears on a vibration-only notification) restart the custom Live
-            // Activity too.
+            // save, then TimerArming (AlarmKit if it's authorized by now, else the
+            // notification fallback this category came from).
             let updated = payload.repeated()
             TimerStore.save(updated)
-            AlarmController.reschedule(for: updated)
-            LiveActivityController.start(for: updated)
+            TimerArming.arm(updated)
             CloudSyncController.pushUp(updated, action: "repeated")
             WatchSyncController.pushCurrentState()
             NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
