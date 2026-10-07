@@ -217,8 +217,8 @@ were changed blind.
 
 | # | Sev | Where | Gap | Repro / fix direction |
 |---|-----|-------|-----|------------------------|
-| 1 | High | `AlarmController.scheduleAlarm`, sequence flow | **A sequence stalls if the user taps the primary Stop mid-sequence.** The next phase's alarm is only armed by "Next" or by the app returning to the foreground. If the app is never reopened, no later phase ever alerts. If the app stays foreground, the tick skips the advance (`alarmKitOwnsAlert`), so nothing is armed for the next phase there either. | Pomodoro with 1-min phases → tap Stop (not Next) on phase 1 → lock the phone → phase 2 never rings. Fix: schedule every remaining phase's AlarmKit alarm up front with `.fixed(date)` (one alarm id per phase+loop, derived from the timer id), and rebuild the set on pause/extend/repeat. AlarmKit's per-app alarm cap needs checking first (Intermittent Fasting ×7 = 14 alarms). |
-| 2 | High | `sharedTimerMessages/MessagesViewController.swift:41-44`, `sharedTimerClip/ContentView.swift:46` | **Double alerts and duplicate Live Activities when a timer exists in both the main app and Messages.** Every open of the message bubble re-arms a notification and starts the custom Live Activity. If the main app owns the same id through AlarmKit, the user gets an AlarmKit alarm *plus* a notification, and AlarmKit's Live Activity *plus* ours: the "too many Live Activities" bug, through a different door. The main app's `armAlerts` cancels the notification (same id) but never ends a stray custom Live Activity. | Create a timer with Alarm on in the main app, share it, then open the bubble in Messages on the same device. Fix: the main app writes "AlarmKit-armed ids" to the App Group, and the extension/Clip skip arming those. Also, `armAlerts` should call `LiveActivityController.end(id:)` whenever `ownsAlert` is true. |
+| 1 | ~~High~~ | `AlarmController.performSequenceReschedule` | ~~Sequence stalls after primary **Stop** mid-sequence~~ — **implemented in Phase 6, device verification pending.** Each phase occurrence now has its own pre-armed AlarmKit alarm (window of 8). | See Phase 6 device checks (a), (c), (d). |
+| 2 | ~~High~~ | `TimerStore.isAlarmKitArmed`, Messages/Clip open paths, `TimerArming.arm` | ~~Double alerts + duplicate Live Activities when a timer is in both the main app and Messages~~ — **implemented in Phase 6, device verification pending.** Mutations made *inside* Messages still arm their own notification (platform limit: no AlarmKit in extensions). | See Phase 6 device check (b). |
 | 3 | Med | `CloudSyncController.pushDelete` (`:346`) + `pullChanges` | **A timer a participant deleted comes back.** Participant delete only removes the local `CloudLink`, but the shared-database subscription still delivers that record. The next remote change (or the new token-reset refetch above) calls `TimerStore.save` and it reappears. | Participant deletes a shared timer, the owner then extends it, and the timer is back on the participant's list. Fix: keep a tombstone set of deleted ids in the App Group and skip them in the pull handlers (`ContentView.pullCloudChanges`, `AppDelegate`). Or leave the share (`CKShare` participant removal) on delete. |
 | 4 | Med | `LiveActivityController.swift:66` | **The custom Live Activity is never ended or marked stale at finish** (`staleDate: nil`, no `end` on expiry). A "0:00" activity sits on the Lock Screen until the system kills it (up to 8h + 4h). | Turn both toggles off, run a 1-min timer, and look at the Lock Screen 10 min later. Fix: `staleDate: payload.endDate`. When the app sees a finish (`checkForNewlyExpired`, foreground), call `end(..., dismissalPolicy: .after(endDate + 15min))`. |
 | 5 | Med | `ContentView.handleIncoming` (`:611`), `MessagesViewController.swift:41` | **A re-shared link for a timer that's already known is ignored.** A sender who extends a timer and sends a fresh *plain* (non-CloudKit) link can't update the recipient's copy. | Needs a recency field on the wire (e.g. `rev` = last-modified epoch). Prefer the link only when it's newer. Update `docs/t.html` in lockstep. |
@@ -230,22 +230,37 @@ were changed blind.
 | 11 | Low | `ContentView.delete` (`:505`), pull-delete path | **Deleting a ringing timer leaves the in-app `AlarmPlayer`/`VibrationPlayer` loop going**, along with the "Time's up" banner, until the user taps Stop. | Fix: stop the players when the deleted id is among those currently alerting. |
 | 12 | — | Docs | ~~CLAUDE.md said `sharedTimerTests` was empty~~ — fixed alongside this roadmap. | — |
 
-## Phase 6 — Reliability & engineering (next)
+## Phase 6 — Reliability & engineering (implemented on `1.0.4`, device verification pending)
 
-1. **Close gaps #1 and #2.** These are the two that can make a user miss an alarm or get
-   double alerts.
-2. **A local Swift package (`SharedTimerKit`)** for `TimerModel`/`TimerStore`/`Sky`/
-   `NotificationScheduler`/etc., replacing the copy-paste and `diff` discipline. It would
-   be linked by the app, Clip, Messages, and Widget; the watch stays separate on purpose.
-   That removes a whole class of drift bugs. The App Clip size budget needs checking.
-3. **CI:** a GitHub Actions `xcodebuild test` on PRs (macOS runner, iOS sim) running the
-   existing 26 tests. Add tests for `advancedSequence` edge cases, CloudKit
-   `makePayload`/`applyFields` round-trips, and `AlarmController` routing (extract the pure
-   decision part from AlarmKit calls).
-4. **Split `ContentView.swift`** (1.5k lines) into `TimerListView`, `TimerDetailView`,
-   `NewSequenceSheet`, and `TimerMutations` (the `apply`/`armAlerts` funnel), so the
-   AppDelegate/Watch/Intent copies of the arming sequence can call one shared function
-   instead of each reimplementing it.
+**Done.** Build and the 32 `sharedTimerTests` pass; CI runs them on every push and PR.
+1. **`ContentView.swift` split** into `NewTimerSheet`, `NewSequenceSheet`, `TimerDetailView`, and `ShareSheets`.
+   - New `TimerArming.arm`/`armAwaiting` is the single "reschedule, then custom Live Activity unless AlarmKit owns the alert" funnel.
+   - It replaces 5 hand-inlined copies (ContentView, AppDelegate ×2, WatchSyncController, both start intents).
+2. **Copy-paste removed.** The 12 files that were copy-pasted across targets now live once in `sharedTimer/Shared/`.
+   - It's a synchronized folder (chosen over a Swift package, so no `public` churn), with per-target membership exception sets reproducing the old footprint exactly. Verified via each target's `SwiftFileList`.
+   - The watch keeps its own `TimerModel.swift`.
+3. **Gap #2 (Messages/Clip double-arming).**
+   - New App Group registry `TimerStore.setAlarmKitArmed`/`isAlarmKitArmed`, written by `AlarmController`.
+   - The Messages bubble-open path and the Clip skip their own notification and custom Live Activity for AlarmKit-armed ids.
+   - `TimerArming.arm` ends stray custom Live Activities for AlarmKit-owned ids.
+4. **Gap #1 (sequence stalls after Stop).**
+   - Every sequence phase occurrence gets its own AlarmKit alarm, pre-armed up to 8 ahead. Future phases use `.fixed(end)` plus `preAlert: duration`, the combination confirmed on device for pending sequences.
+   - Only occurrences ≥ current are ever cancelled; matching ones are kept.
+   - `AdvanceSequenceIntent` carries the tapped phase index.
+   - The foreground tick advances without re-arming while AlarmKit's alert is up, so the UI no longer sticks on "Finished".
+   - `rescheduleAwaiting` now goes through the per-id serializer (narrows gap #6).
+5. **CI.** `.github/workflows/tests.yml`: GitHub-hosted `macos-26`, ad-hoc-signed simulator build (no certificates needed), runs the unit tests plus Clip/Messages builds.
+
+**Device checks still needed** (none could be run here):
+- **(a)** Pomodoro with 1-min phases. Tap **Stop** (not Next) on phase 1 and lock the phone.
+  - Phase 2 rings on time, and so do the phases after it.
+  - No Live Activity or Dynamic Island appears for a future phase before its own countdown window, even with several `.fixed` alarms pending at once.
+- **(b)** Create a timer with Alarm on in the main app, share it, then open its bubble in Messages on the same device. There's no extra notification and no second Live Activity.
+- **(c)** With the app foregrounded while a phase alert rings, the alert stays up and the list advances to the next phase.
+  - Also open the app *by tapping* a ringing phase alert: it must stay up.
+- **(d)** Stop on phase k, then tap **Next** on phase k+1's alert. Phase k+2 starts from the tap, not phase k+1 again.
+- **(e)** A sequence created on 1.0.3 (legacy single alarm id) upgrades cleanly: its old alarm is cancelled and the window is armed on first open.
+- **(f)** Several long sequences at once (e.g. 3× Intermittent Fasting = up to 24 pre-armed alarms). Watch for `maximumLimitReached` in the console. Once the cap is hit, a plain timer silently falls back to a notification.
 
 ## Phase 7 — Features (good to have)
 

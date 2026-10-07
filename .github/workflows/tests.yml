@@ -1,0 +1,77 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, "1.*"]
+  pull_request:
+    branches: [main, "1.*"]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: sharedTimer
+    env:
+      # Ad-hoc ("-") signing: no certificate or profile needed on the runner, but the
+      # simulator build still carries its entitlements. CODE_SIGNING_ALLOWED=NO does
+      # NOT work here: without the iCloud entitlement the test host (the app) traps at
+      # launch in CKContainer(identifier:) and the test run never starts.
+      ADHOC_SIGNING: CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER=
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: Pick an iPhone simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j \
+            | jq -r '[.devices | to_entries[] | select(.key | test("iOS")) | .value[] | select(.name | startswith("iPhone"))][0].udid')
+          test -n "$UDID" && test "$UDID" != "null"
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl list devices available | grep "$UDID"
+
+      # Swift Testing results: xcodebuild's XCTest summary line reports "Executed 0
+      # tests" even when everything ran, so assert on the Swift Testing line instead.
+      - name: Unit tests (sharedTimerTests)
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project sharedTimer.xcodeproj \
+            -scheme sharedTimer \
+            -destination "id=$SIM_UDID" \
+            -only-testing:sharedTimerTests \
+            $ADHOC_SIGNING \
+            | tee test.log | grep -E "error:|✘|Test run with|\*\* TEST" || true
+          grep -qE "✔ Test run with [0-9]+ tests? .*passed" test.log
+
+      - name: Build App Clip and Messages extension
+        run: |
+          set -o pipefail
+          for scheme in sharedTimerClip sharedTimerMessages; do
+            echo "::group::$scheme"
+            xcodebuild build \
+              -project sharedTimer.xcodeproj \
+              -scheme "$scheme" \
+              -destination "id=$SIM_UDID" \
+              $ADHOC_SIGNING \
+              | grep -E "error:|\*\* BUILD"
+            echo "::endgroup::"
+          done
+
+      - name: Upload test log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-log
+          path: sharedTimer/test.log
