@@ -45,6 +45,18 @@ struct SequenceInfo: Codable, Hashable {
     var loopIndex: Int
 }
 
+/// One entry of `TimerPayload.upcomingSequencePhases(limit:)` — a phase boundary
+/// AlarmController can arm ahead of time.
+struct ScheduledPhase: Equatable {
+    /// loopIndex * phases.count + phaseIndex — stable per phase occurrence, used to
+    /// derive that occurrence's own AlarmKit alarm id.
+    let globalIndex: Int
+    let phase: SequencePhase
+    let endDate: Date
+    /// Last phase of the last loop — its alert offers "Cancel" instead of "Next".
+    let isFinal: Bool
+}
+
 struct TimerPayload: Codable, Identifiable {
     let id: String
     /// `var`, not `let`: for a sequence-owning payload (`sequence != nil`), this and
@@ -277,18 +289,29 @@ struct TimerPayload: Codable, Identifiable {
     /// This instead always lands on exactly the next phase, timed from `date` (the
     /// moment of the tap), regardless of how long the alert sat there first.
     func steppedToNextPhase(at date: Date = Date()) -> TimerPayload {
+        guard let seq = sequence, !seq.phases.isEmpty else { return self }
+        let next = seq.loopIndex * seq.phases.count + seq.phaseIndex + 1
+        return materializingPhase(globalIndex: next, startingAt: date)
+    }
+
+    /// Materializes the phase at `globalIndex` (= loopIndex * phases.count + phaseIndex)
+    /// into the top-level fields, running from `date` for that phase's full duration.
+    /// An index past the last phase of the last loop exhausts the sequence instead
+    /// (`loopIndex = loopCount`), leaving every other field untouched — the same
+    /// settled state `advancedSequence` ends in. Used by `steppedToNextPhase` and by
+    /// `AdvanceSequenceIntent` stepping from the specific phase whose alert was tapped.
+    func materializingPhase(globalIndex: Int, startingAt date: Date) -> TimerPayload {
         guard var seq = sequence, !seq.phases.isEmpty else { return self }
         var copy = self
-        seq.phaseIndex += 1
-        if seq.phaseIndex >= seq.phases.count {
-            seq.phaseIndex = 0
-            seq.loopIndex += 1
-        }
-        guard seq.loopIndex < seq.loopCount else {
+        let count = seq.phases.count
+        guard globalIndex < count * seq.loopCount else {
             seq.loopIndex = seq.loopCount
             copy.sequence = seq
             return copy
         }
+        let clamped = max(0, globalIndex)
+        seq.phaseIndex = clamped % count
+        seq.loopIndex = clamped / count
         let next = seq.phases[seq.phaseIndex]
         copy.endDate = date.addingTimeInterval(next.duration)
         copy.duration = next.duration
@@ -298,6 +321,38 @@ struct TimerPayload: Codable, Identifiable {
         copy.vibrationEnabled = next.vibrationEnabled
         copy.sequence = seq
         return copy
+    }
+
+    /// Position of the currently materialized phase across all loops; nil for a plain
+    /// payload. `phases.count * loopCount` (or more) once exhausted.
+    var sequenceGlobalIndex: Int? {
+        sequence.map { $0.loopIndex * $0.phases.count + $0.phaseIndex }
+    }
+
+    /// The currently materialized phase plus up to `limit - 1` following ones, each
+    /// with the end date it will have if nothing is paused/extended/stepped — chained
+    /// off the current `endDate` exactly the way `advancedSequence(at:)` chains them, so
+    /// an alarm pre-armed at one of these dates always matches what the stored payload
+    /// later re-derives to. Empty for a plain, paused, or exhausted payload. This is
+    /// what `AlarmController` pre-arms so a sequence keeps ringing through phases the
+    /// app never got to see (e.g. after the user tapped Stop, not Next, on an alert).
+    func upcomingSequencePhases(limit: Int) -> [ScheduledPhase] {
+        guard let seq = sequence, !seq.phases.isEmpty, !isPaused, limit > 0,
+              seq.loopIndex < seq.loopCount else { return [] }
+        let count = seq.phases.count
+        let total = count * seq.loopCount
+        var index = seq.loopIndex * count + seq.phaseIndex
+        var end = endDate
+        var result: [ScheduledPhase] = []
+        while result.count < limit && index < total {
+            let phase = seq.phases[index % count]
+            result.append(ScheduledPhase(globalIndex: index, phase: phase, endDate: end, isFinal: index == total - 1))
+            index += 1
+            if index < total {
+                end = end.addingTimeInterval(seq.phases[index % count].duration)
+            }
+        }
+        return result
     }
 
     /// "Phase 2 of 4 · Loop 1 of 3" — nil for a plain payload, and once the sequence is

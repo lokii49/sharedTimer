@@ -11,6 +11,8 @@ import UIKit
 struct TimerDetailView: View {
     @State private var payload: TimerPayload
     let onUpdate: (TimerPayload, String) -> Void
+    /// The tick's own sequence advance — (payload, rearm). See ContentView.apply.
+    let onSequenceAdvance: (TimerPayload, Bool) -> Void
     let onDelete: (TimerPayload) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -20,9 +22,10 @@ struct TimerDetailView: View {
     @ObservedObject private var alarm = AlarmPlayer.shared
     @ObservedObject private var vibration = VibrationPlayer.shared
 
-    init(payload: TimerPayload, onUpdate: @escaping (TimerPayload, String) -> Void, onDelete: @escaping (TimerPayload) -> Void) {
+    init(payload: TimerPayload, onUpdate: @escaping (TimerPayload, String) -> Void, onSequenceAdvance: @escaping (TimerPayload, Bool) -> Void, onDelete: @escaping (TimerPayload) -> Void) {
         self._payload = State(initialValue: payload)
         self.onUpdate = onUpdate
+        self.onSequenceAdvance = onSequenceAdvance
         self.onDelete = onDelete
     }
 
@@ -158,14 +161,15 @@ struct TimerDetailView: View {
                 }
                 // This view holds its own @State copy, seeded once when pushed, so it
                 // needs the same advance-and-reseed ContentView's checkForNewlyExpired
-                // does — nothing else refreshes it on a plain tick. Same skip as there
-                // while AlarmKit owns the alert (see AlarmController.alarmKitOwnsAlert):
-                // `onUpdate` -> ... -> `reschedule` would cancel AlarmKit's own
-                // just-fired alert out from under the user before they can act on it.
-                if payload.sequence != nil && !AlarmController.alarmKitOwnsAlert(for: payload) {
+                // does — nothing else refreshes it on a plain tick. Same no-rearm rule
+                // as there while AlarmKit owns the alert (see
+                // AlarmController.alarmKitOwnsAlert): the next phases are pre-armed, and
+                // touching AlarmKit here could race the alert it's presenting.
+                if payload.sequence != nil {
                     let advanced = payload.advancedSequence()
+                    let rearm = !AlarmController.alarmKitOwnsAlert(for: payload)
                     payload = advanced
-                    onUpdate(advanced, "sequenceAdvanced")
+                    onSequenceAdvance(advanced, rearm)
                     // Not exhausted -> a new phase just started and can finish again
                     // later; let it re-buzz on that future zero-crossing.
                     hasBuzzedFinish = advanced.isExpired

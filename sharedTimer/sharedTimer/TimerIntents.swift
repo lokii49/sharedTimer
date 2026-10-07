@@ -96,23 +96,43 @@ struct StartCountdownIntent: AppIntent {
 /// like it randomly ended the sequence: it chains the next phase's duration off the
 /// stale original boundary, so any real delay between the alert firing and the tap
 /// (trivially reached with short phase durations) makes it walk through, or exhaust,
-/// several phases in one call. `steppedToNextPhase` always lands on exactly the next
-/// phase, timed from the moment of the tap.
+/// several phases in one call. `materializingPhase` (what `steppedToNextPhase` is built
+/// on) always lands on exactly the next phase, timed from the moment of the tap.
+///
+/// `phaseIndex` is the global index (loopIndex * phases.count + phaseIndex) of the
+/// phase whose alert carried this button. Needed since phases are pre-armed (see
+/// `AlarmController.performSequenceReschedule`): after a Stop (not Next) on phase k
+/// with the app never opened, phase k+1's pre-armed alert rings while the stored
+/// payload still sits on phase k — "Next" there must start k+2, not k+1. -1 (the
+/// default, also what alarms scheduled by 1.0.3 decode to) means "the stored phase".
+/// A tap on an alert the stored payload has already moved past is a no-op beyond
+/// refreshing the UI.
 struct AdvanceSequenceIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Advance Sequence"
 
     @Parameter(title: "Timer ID") var timerID: String
+    @Parameter(title: "Phase Index", default: -1) var phaseIndex: Int
 
-    init() { self.timerID = "" }
-    init(timerID: String) { self.timerID = timerID }
+    init() {
+        self.timerID = ""
+        self.phaseIndex = -1
+    }
+    init(timerID: String, phaseIndex: Int = -1) {
+        self.timerID = timerID
+        self.phaseIndex = phaseIndex
+    }
 
     func perform() async throws -> some IntentResult {
         var all = TimerStore.loadAll()
-        guard let index = all.firstIndex(where: { $0.id == timerID }) else { return .result() }
-        let advanced = all[index].steppedToNextPhase()
-        all[index] = advanced
-        TimerStore.save(advanced)
-        await AlarmController.rescheduleAwaiting(for: advanced)
+        guard let index = all.firstIndex(where: { $0.id == timerID }),
+              let storedIndex = all[index].sequenceGlobalIndex else { return .result() }
+        let tappedIndex = phaseIndex >= 0 ? phaseIndex : storedIndex
+        if tappedIndex >= storedIndex {
+            let advanced = all[index].materializingPhase(globalIndex: tappedIndex + 1, startingAt: Date())
+            all[index] = advanced
+            TimerStore.save(advanced)
+            await AlarmController.rescheduleAwaiting(for: advanced)
+        }
         // A `LiveActivityIntent` runs in-process when the app happens to already be
         // foreground — same process as ContentView's own `@State timers` array, which
         // this mutation bypasses entirely (it writes straight to `TimerStore`).
@@ -163,7 +183,7 @@ struct EndSequenceIntent: LiveActivityIntent {
         all[index].sequence = sequence
         TimerStore.save(all[index])
         await NotificationScheduler.cancel(id: timerID)
-        await AlarmController.cancelSequenceAlarm(id: timerID)
+        await AlarmController.cancelSequenceAlarms(for: all[index])
         // Same in-process-when-frontmost reasoning as AdvanceSequenceIntent above, and
         // the same fix: `perform()` runs off the main thread, so this must post from
         // the main actor or the `.onReceive` handler's `@State` write is undefined

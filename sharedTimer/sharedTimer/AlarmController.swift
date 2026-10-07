@@ -88,14 +88,13 @@ enum AlarmController {
     /// even when AlarmKit is denied/unavailable and `reschedule` fell back to
     /// `NotificationScheduler` (a plain notification, nothing interactive to protect).
     /// Callers that re-derive a just-finished sequence payload on a live tick
-    /// (`ContentView.checkForNewlyExpired`, `TimerDetailView`'s own tick) must check
-    /// this before calling back into `reschedule` for it — `reschedule` unconditionally
-    /// cancels the existing alarm before deciding whether to reschedule one, so
-    /// auto-advancing behind a currently-showing AlarmKit alert cancels it out from
-    /// under the user within about a second, before they can act on it (confirmed on
-    /// device: the alert flashes and disappears, and any button tap races a losing
-    /// battle against this). Locked-screen presentation is unaffected only because the
-    /// app isn't foregrounded there, so this tick never runs.
+    /// (`ContentView.checkForNewlyExpired`, `TimerDetailView`'s own tick) persist the
+    /// advance but skip `reschedule` while this is true. Back when every phase shared
+    /// one alarm id, rescheduling there cancelled AlarmKit's just-presented alert out
+    /// from under the user within about a second (confirmed on device). Per-phase ids
+    /// make that structurally impossible now (only indices >= the new current one are
+    /// cancelled), but the following phases are already pre-armed anyway, so the tick
+    /// keeps its hands off AlarmKit entirely while an alert is up.
     static func alarmKitOwnsAlert(for payload: TimerPayload) -> Bool {
         ownsAlert(for: payload) && AlarmManager.shared.authorizationState == .authorized
     }
@@ -131,29 +130,29 @@ enum AlarmController {
     }
 
     /// Awaitable core of `reschedule`, for a caller that must not return before the
-    /// (re)scheduling has actually completed — currently only `AdvanceSequenceIntent`.
-    /// `reschedule`'s normal callers are fire-and-forget on purpose: the app process
-    /// stays alive regardless, so the detached, per-id-serialized `enqueue` Task is
-    /// free to finish on its own time. A `LiveActivityIntent`'s `perform()` has no such
-    /// guarantee — the system may tear down its execution the instant `perform()`
-    /// returns, and `perform()` calling the fire-and-forget `reschedule` and returning
-    /// immediately gave `AlarmManager.schedule()` no reliable chance to actually run
-    /// (confirmed on device: tapping "Next" on a sequence phase's alert never armed
-    /// the next phase). Bypasses the serializer because `perform()` needs the work
-    /// awaited inline, not because the intent is known to run in a separate process —
-    /// it doesn't: a `LiveActivityIntent` runs in-process, so when the app happens to
-    /// already be foreground, this executes in the *same* process as `ContentView`
-    /// (see `AdvanceSequenceIntent`'s own `.externalTimerStoreChange` post, needed for
-    /// exactly that reason). The absence of a concurrent same-id `reschedule` call is a
-    /// property of today's call sites (nothing else reschedules this id while an
-    /// AlarmKit alert is up — `checkForNewlyExpired` skips it via `alarmKitOwnsAlert`),
-    /// not a guarantee this function provides on its own.
+    /// (re)scheduling has actually completed — `AdvanceSequenceIntent` and the start
+    /// intents. `reschedule`'s normal callers are fire-and-forget on purpose: the app
+    /// process stays alive regardless, so the per-id-serialized `enqueue` Task is free
+    /// to finish on its own time. An intent's `perform()` has no such guarantee — the
+    /// system may tear down its execution the instant `perform()` returns, and calling
+    /// the fire-and-forget `reschedule` and returning immediately gave
+    /// `AlarmManager.schedule()` no reliable chance to actually run (confirmed on
+    /// device: tapping "Next" on a sequence phase's alert never armed the next phase).
+    /// Goes through the same per-id serializer as `reschedule` and awaits its turn, so
+    /// a sequence's multi-alarm reschedule can't interleave with a concurrent
+    /// foreground one for the same id. A `LiveActivityIntent` runs in-process, so when
+    /// the app is foreground this is the *same* process as `ContentView` (see
+    /// `AdvanceSequenceIntent`'s own `.externalTimerStoreChange` post).
     static func rescheduleAwaiting(for payload: TimerPayload) async {
         NotificationScheduler.cancel(id: payload.id)
-        await performReschedule(for: payload)
+        await Serializer.shared.runAndWait(payload.id) { await performReschedule(for: payload) }
     }
 
     private static func performReschedule(for payload: TimerPayload) async {
+        if payload.sequence != nil {
+            await performSequenceReschedule(for: payload)
+            return
+        }
         await cancelAlarm(id: payload.id)
         // Pessimistic until AlarmKit actually accepts the alarm below — every early
         // return leaves no AlarmKit alarm armed, so extensions must arm their own.
@@ -166,7 +165,7 @@ enum AlarmController {
             NotificationScheduler.scheduleAlert(for: payload)
             return
         }
-        if await scheduleAlarm(for: payload) {
+        if await scheduleAlarm(for: payload, id: alarmID(for: payload.id)) == .scheduled {
             TimerStore.setAlarmKitArmed(id: payload.id, true)
         } else {
             // AlarmKit unavailable / denied / at capacity. A local notification is
@@ -177,11 +176,121 @@ enum AlarmController {
         }
     }
 
-    /// Full teardown for a deleted timer.
+    // MARK: - Sequence pre-armed window
+
+    /// How many phase occurrences (current + following) get their own AlarmKit alarm
+    /// ahead of time. Bounded because AlarmKit has an undocumented per-app cap
+    /// (`maximumLimitReached`) shared with every other timer; the window refills
+    /// whenever the app reschedules this sequence (open/foreground/Next/any mutation).
+    static let sequenceWindow = 8
+
+    /// A sequence arms one AlarmKit alarm per upcoming phase occurrence, each with its
+    /// own id (`phaseAlarmID`), instead of one alarm re-armed by the app at every
+    /// boundary. Before this, tapping the primary Stop on a phase alert (rather than
+    /// "Next") left nothing armed for the following phase until the app next ran — a
+    /// locked phone never rang again for the rest of the sequence.
+    ///
+    /// - Only occurrences at or after the current index are ever cancelled, so the
+    ///   alert for the phase that *just* finished (index current-1 once advanced) is
+    ///   never touched — that's what lets onAppear/scenePhase re-arm right after the app
+    ///   was opened from a ringing phase alert without killing it.
+    /// - An existing alarm whose `.fixed` date and preAlert already match is kept, not
+    ///   cancelled and re-created, so re-arming an unchanged sequence is a no-op for
+    ///   AlarmKit (no Live Activity flicker). Matching uses a 1s tolerance — AlarmKit
+    ///   isn't guaranteed to round-trip `Date` exactly.
+    /// - The current phase keeps the exact config plain timers use (`preAlert:
+    ///   remaining`, no schedule) unless pending; only *future* occurrences, whose
+    ///   countdown window hasn't started yet, get `.fixed(end)` + `preAlert: duration`
+    ///   — the one `.fixed` combination confirmed on device (see `scheduleAlarm`).
+    private static func performSequenceReschedule(for payload: TimerPayload) async {
+        guard let sequence = payload.sequence, let current = payload.sequenceGlobalIndex else { return }
+        let total = sequence.phases.count * sequence.loopCount
+        let existing = Dictionary(((try? AlarmManager.shared.alarms) ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+
+        let window = (payload.isPaused || payload.remaining <= 0) ? [] : payload.upcomingSequencePhases(limit: sequenceWindow)
+        let now = Date()
+        var kept: Set<UUID> = []
+        var toSchedule: [(occurrence: ScheduledPhase, projected: TimerPayload, id: UUID, fixedAt: Date?)] = []
+        for (offset, occurrence) in window.enumerated() {
+            let id = phaseAlarmID(timerID: payload.id, globalIndex: occurrence.globalIndex)
+            let projected: TimerPayload
+            let fixedAt: Date?
+            if offset == 0 {
+                projected = payload
+                fixedAt = payload.isPending() ? payload.endDate : nil
+            } else {
+                // Countdown window must still lie in the future — never `.fixed` a
+                // phase whose countdown would already be running (unverified behavior).
+                guard occurrence.endDate.addingTimeInterval(-occurrence.phase.duration) > now else { continue }
+                projected = payload.materializingPhase(globalIndex: occurrence.globalIndex, startingAt: occurrence.endDate.addingTimeInterval(-occurrence.phase.duration))
+                fixedAt = occurrence.endDate
+            }
+            guard ownsAlert(for: projected) else { continue }
+            if let alarm = existing[id], matchesPrearmed(alarm, endDate: occurrence.endDate, duration: occurrence.phase.duration) {
+                kept.insert(id)
+                continue
+            }
+            toSchedule.append((occurrence, projected, id, fixedAt))
+        }
+
+        // Cancel everything from the current occurrence onward that isn't being kept,
+        // plus the single-id alarm 1.0.3 and earlier used for every sequence phase.
+        var stale: [UUID] = [alarmID(for: payload.id)]
+        if current < total {
+            stale += (current..<total).map { phaseAlarmID(timerID: payload.id, globalIndex: $0) }
+        }
+        for id in stale where existing[id] != nil && !kept.contains(id) {
+            try? AlarmManager.shared.cancel(id: id)
+        }
+
+        let currentID = window.first.map { phaseAlarmID(timerID: payload.id, globalIndex: $0.globalIndex) }
+        var currentArmed = currentID.map { kept.contains($0) } ?? false
+        for entry in toSchedule {
+            let result = await scheduleAlarm(for: entry.projected, id: entry.id, fixedAt: entry.fixedAt)
+            if entry.id == currentID {
+                currentArmed = result == .scheduled
+                if result != .scheduled {
+                    // Same fallback as a plain timer, for the phase that's actually
+                    // running now. Later phases simply wait for the next reschedule.
+                    NotificationScheduler.scheduleAlert(for: payload)
+                }
+            }
+            if result == .limitReached {
+                print("AlarmController: AlarmKit alarm limit reached pre-arming \(payload.id) at phase occurrence \(entry.occurrence.globalIndex)")
+            }
+            if result != .scheduled && entry.id != currentID { break }
+        }
+        TimerStore.setAlarmKitArmed(id: payload.id, currentArmed)
+        if !window.isEmpty, !ownsAlert(for: payload) {
+            // Current phase has both toggles off: a quiet notification, never AlarmKit.
+            NotificationScheduler.scheduleAlert(for: payload)
+        }
+    }
+
+    /// True when `alarm` is already the pre-armed `.fixed` alarm for this occurrence.
+    private static func matchesPrearmed(_ alarm: Alarm, endDate: Date, duration: TimeInterval) -> Bool {
+        guard case .fixed(let date)? = alarm.schedule,
+              abs(date.timeIntervalSince(endDate)) < 1,
+              let preAlert = alarm.countdownDuration?.preAlert,
+              abs(preAlert - duration) < 1 else { return false }
+        return true
+    }
+
+    /// Full teardown for a deleted timer, by id alone — for callers that only have an
+    /// id (CloudKit/watch deletes, which never carry sequences). Prefer `clear(_:)`
+    /// whenever the payload is at hand.
     static func clear(id: String) {
         NotificationScheduler.cancel(id: id)
         TimerStore.setAlarmKitArmed(id: id, false)
         enqueue(id) { await cancelAlarm(id: id) }
+    }
+
+    /// Full teardown for a deleted timer, including every pre-armed phase alarm of a
+    /// sequence (which `clear(id:)` can't enumerate without the sequence's shape).
+    static func clear(_ payload: TimerPayload) {
+        NotificationScheduler.cancel(id: payload.id)
+        TimerStore.setAlarmKitArmed(id: payload.id, false)
+        enqueue(payload.id) { await cancelAllAlarms(for: payload) }
     }
 
     /// Folds an AlarmKit-side "Repeat" back into the local model: if the user tapped
@@ -216,8 +325,14 @@ enum AlarmController {
 
     // MARK: - AlarmKit plumbing
 
-    private static func scheduleAlarm(for payload: TimerPayload) async -> Bool {
-        guard await ensureAuthorized() else { return false }
+    private enum ScheduleResult { case scheduled, limitReached, failed }
+
+    /// `fixedAt` non-nil pins the alert to that date with a `duration`-long countdown
+    /// before it (`schedule: .fixed`) — used for a pending sequence's first phase and
+    /// for every pre-armed future phase occurrence; nil is the plain "count down
+    /// `remaining` from now" config every running timer uses.
+    private static func scheduleAlarm(for payload: TimerPayload, id: UUID, fixedAt: Date? = nil) async -> ScheduleResult {
+        guard await ensureAuthorized() else { return .failed }
 
         // A sequence phase never gets AlarmKit's own built-in "Repeat": `.countdown`
         // behavior can only restart the SAME `postAlert` duration, which would
@@ -288,7 +403,7 @@ enum AlarmController {
         // right at the scheduled start. This combination isn't documented (beta API,
         // checked against the swiftinterface, not behavior) -- verify on device that
         // the alarm rings at `endDate`, not `endDate + duration`, before trusting it.
-        let scheduleOverride: Alarm.Schedule? = payload.isPending() ? .fixed(payload.endDate) : nil
+        let scheduleOverride: Alarm.Schedule? = fixedAt.map { .fixed($0) }
         // Loud alarm.caf when the alarm toggle is on; otherwise (vibration-only)
         // vibration_silent.caf — a digitally-silent .caf of the same format/duration.
         // AlarmKit's `sound:` param is non-optional and has no explicit "no sound"
@@ -317,10 +432,10 @@ enum AlarmController {
         if payload.sequence != nil {
             secondaryIntent = isFinalSequencePhase
                 ? EndSequenceIntent(timerID: payload.id)
-                : AdvanceSequenceIntent(timerID: payload.id)
+                : AdvanceSequenceIntent(timerID: payload.id, phaseIndex: payload.sequenceGlobalIndex ?? -1)
         }
         let config = AlarmManager.AlarmConfiguration<TimerAlarmMetadata>(
-            countdownDuration: .init(preAlert: payload.isPending() ? payload.duration : payload.remaining, postAlert: payload.duration),
+            countdownDuration: .init(preAlert: fixedAt != nil ? payload.duration : payload.remaining, postAlert: payload.duration),
             schedule: scheduleOverride,
             attributes: attributes,
             stopIntent: nil,
@@ -329,11 +444,14 @@ enum AlarmController {
         )
 
         do {
-            _ = try await AlarmManager.shared.schedule(id: alarmID(for: payload.id), configuration: config)
-            return true
+            _ = try await AlarmManager.shared.schedule(id: id, configuration: config)
+            return .scheduled
+        } catch AlarmManager.AlarmError.maximumLimitReached {
+            print("AlarmController: AlarmKit alarm limit reached for \(payload.id)")
+            return .limitReached
         } catch {
             print("AlarmController: schedule failed for \(payload.id): \(error)")
-            return false
+            return .failed
         }
     }
 
@@ -342,15 +460,31 @@ enum AlarmController {
         catch { /* not scheduled, or already fired and dismissed — nothing to do */ }
     }
 
-    /// Explicit cancel for `EndSequenceIntent`: whatever state AlarmKit leaves a fired
-    /// alarm in after its `.custom` secondary button resolves it, this makes sure it
-    /// isn't left sitting in `.countdown` — `reconcileRepeat` treats an
-    /// already-exhausted sequence (`loopIndex == loopCount`, exactly what ending one
-    /// sets) with a live `.countdown` alarm as "user tapped the built-in Repeat" and
-    /// would silently revive the very sequence this just ended, on next app open.
-    static func cancelSequenceAlarm(id: String) async {
-        await cancelAlarm(id: id)
-        TimerStore.setAlarmKitArmed(id: id, false)
+    /// Explicit cancel for `EndSequenceIntent`: every phase alarm of the sequence,
+    /// including the one ringing right now (the user tapped its "Cancel"). Whatever
+    /// state AlarmKit leaves a fired alarm in after its `.custom` secondary button
+    /// resolves it, this makes sure it isn't left sitting in `.countdown` —
+    /// `reconcileRepeat` treats an already-exhausted sequence with a live `.countdown`
+    /// alarm as "user tapped the built-in Repeat" and would silently revive the very
+    /// sequence this just ended, on next app open.
+    static func cancelSequenceAlarms(for payload: TimerPayload) async {
+        await cancelAllAlarms(for: payload)
+        TimerStore.setAlarmKitArmed(id: payload.id, false)
+    }
+
+    /// Cancels the legacy single-id alarm and, for a sequence, every phase
+    /// occurrence's alarm — filtered against one `alarms` read so a long sequence
+    /// doesn't issue `phases × loops` blind cancels.
+    private static func cancelAllAlarms(for payload: TimerPayload) async {
+        var ids: Set<UUID> = [alarmID(for: payload.id)]
+        if let sequence = payload.sequence {
+            let total = sequence.phases.count * sequence.loopCount
+            ids.formUnion((0..<total).map { phaseAlarmID(timerID: payload.id, globalIndex: $0) })
+        }
+        let existing = Set(((try? AlarmManager.shared.alarms) ?? []).map(\.id))
+        for id in ids.intersection(existing) {
+            try? AlarmManager.shared.cancel(id: id)
+        }
     }
 
     /// AlarmKit keys alarms by UUID; TimerPayload.id is a String (a UUID string for
@@ -358,7 +492,19 @@ enum AlarmController {
     /// when it parses, else derive a stable UUID from its bytes.
     private static func alarmID(for timerID: String) -> UUID {
         if let uuid = UUID(uuidString: timerID) { return uuid }
-        let d = Array(SHA256.hash(data: Data(timerID.utf8)))  // 32 bytes
+        return derivedUUID(timerID)
+    }
+
+    /// One sequence phase occurrence's own alarm id — stable for a given timer id and
+    /// global index (loopIndex * phases.count + phaseIndex), distinct per index and
+    /// from the legacy `alarmID(for:)`.
+    static func phaseAlarmID(timerID: String, globalIndex: Int) -> UUID {
+        derivedUUID("\(timerID)#\(globalIndex)")
+    }
+
+    /// Name-based (SHA-256, version 5 layout) UUID from arbitrary text.
+    private static func derivedUUID(_ text: String) -> UUID {
+        let d = Array(SHA256.hash(data: Data(text.utf8)))  // 32 bytes
         let bytes: uuid_t = (d[0], d[1], d[2], d[3], d[4], d[5],
                              (d[6] & 0x0F) | 0x50, d[7],
                              (d[8] & 0x3F) | 0x80, d[9],
@@ -376,7 +522,8 @@ enum AlarmController {
         static let shared = Serializer()
         private var tail: [String: Task<Void, Never>] = [:]
 
-        func run(_ id: String, _ work: @escaping @Sendable () async -> Void) {
+        @discardableResult
+        func run(_ id: String, _ work: @escaping @Sendable () async -> Void) -> Task<Void, Never> {
             let previous = tail[id]
             let task = Task {
                 await previous?.value
@@ -387,6 +534,13 @@ enum AlarmController {
                 await task.value
                 await self?.clear(id, ifTail: task)
             }
+            return task
+        }
+
+        /// Queues `work` behind whatever is already running for `id`, and returns only
+        /// once it has finished — for `rescheduleAwaiting`.
+        func runAndWait(_ id: String, _ work: @escaping @Sendable () async -> Void) async {
+            await run(id, work).value
         }
 
         private func clear(_ id: String, ifTail task: Task<Void, Never>) {

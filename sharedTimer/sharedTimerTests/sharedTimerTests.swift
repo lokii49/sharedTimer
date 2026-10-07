@@ -485,4 +485,84 @@ struct sharedTimerTests {
         #expect(TimerStore.isAlarmKitArmed(id: id) == false)
     }
 
+    // MARK: - Sequence pre-armed window (1.0.4, Stop-stalls-sequence fix)
+
+    private func pomodoro(loops: Int, phaseIndex: Int = 0, loopIndex: Int = 0, endDate: Date) -> TimerPayload {
+        let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
+        let seq = SequenceInfo(phases: phases, loopCount: loops, phaseIndex: phaseIndex, loopIndex: loopIndex)
+        let current = phases[phaseIndex]
+        return TimerPayload(id: "win-\(UUID().uuidString)", label: current.label, endDate: endDate, duration: current.duration, kind: .timer, sequence: seq)
+    }
+
+    @Test func upcomingPhaseEndDatesMatchAdvancedSequenceChain() {
+        let now = Date()
+        let payload = pomodoro(loops: 3, endDate: now.addingTimeInterval(60))
+        let window = payload.upcomingSequencePhases(limit: 8)
+
+        // Pre-armed alarm dates must equal what the stored payload later re-derives to,
+        // or the no-rearm foreground advance would drift from what AlarmKit rings at.
+        var derived = payload
+        for occurrence in window {
+            #expect(derived.endDate == occurrence.endDate)
+            #expect(derived.sequenceGlobalIndex == occurrence.globalIndex)
+            derived = derived.advancedSequence(at: occurrence.endDate.addingTimeInterval(0.5))
+        }
+    }
+
+    @Test func upcomingPhasesRespectsLimitWrapsLoopsAndFlagsOnlyTheLastAsFinal() {
+        let now = Date()
+        let payload = pomodoro(loops: 2, phaseIndex: 1, loopIndex: 0, endDate: now.addingTimeInterval(30))
+
+        let window = payload.upcomingSequencePhases(limit: 8)
+        // Rest(loop0), Work(loop1), Rest(loop1) — only 3 occurrences left of 4.
+        #expect(window.map(\.globalIndex) == [1, 2, 3])
+        #expect(window.map(\.phase.label) == ["Rest", "Work", "Rest"])
+        #expect(window.map(\.isFinal) == [false, false, true])
+        #expect(window.map(\.endDate) == [now.addingTimeInterval(30), now.addingTimeInterval(90), now.addingTimeInterval(120)])
+
+        #expect(payload.upcomingSequencePhases(limit: 2).count == 2)
+    }
+
+    @Test func upcomingPhasesIsEmptyWhenPausedExhaustedOrPlain() {
+        let now = Date()
+        let running = pomodoro(loops: 2, endDate: now.addingTimeInterval(60))
+        #expect(running.paused(at: now).upcomingSequencePhases(limit: 8).isEmpty)
+
+        var exhausted = running
+        exhausted.sequence?.loopIndex = 2
+        #expect(exhausted.upcomingSequencePhases(limit: 8).isEmpty)
+
+        #expect(TimerPayload(label: "Plain", duration: 60).upcomingSequencePhases(limit: 8).isEmpty)
+    }
+
+    @Test func materializingPhaseSkipsAheadAndExhaustsLikeSteppedToNextPhase() {
+        let now = Date()
+        let payload = pomodoro(loops: 2, endDate: now)
+
+        // "Next" tapped on phase occurrence 1's pre-armed alert while the stored payload
+        // still sits on occurrence 0 (user had tapped Stop on it) -> start occurrence 2.
+        let skipped = payload.materializingPhase(globalIndex: 2, startingAt: now)
+        #expect(skipped.sequence?.phaseIndex == 0)
+        #expect(skipped.sequence?.loopIndex == 1)
+        #expect(skipped.label == "Work")
+        #expect(skipped.endDate == now.addingTimeInterval(60))
+
+        let onFinal = pomodoro(loops: 1, phaseIndex: 1, endDate: now)
+        let pastEnd = onFinal.materializingPhase(globalIndex: 2, startingAt: now.addingTimeInterval(5))
+        let stepped = onFinal.steppedToNextPhase(at: now.addingTimeInterval(5))
+        #expect(pastEnd.sequence == stepped.sequence)
+        #expect(pastEnd.label == stepped.label)
+        #expect(pastEnd.endDate == stepped.endDate)
+    }
+
+    @Test func phaseAlarmIDsAreStableAndDistinct() {
+        let timerID = UUID().uuidString
+        let ids = (0..<16).map { AlarmController.phaseAlarmID(timerID: timerID, globalIndex: $0) }
+        #expect(Set(ids).count == 16)
+        #expect(ids == (0..<16).map { AlarmController.phaseAlarmID(timerID: timerID, globalIndex: $0) })
+        // Never collides with the legacy single-id alarm (the timer's own UUID).
+        #expect(!ids.contains(UUID(uuidString: timerID)!))
+        #expect(AlarmController.phaseAlarmID(timerID: "other", globalIndex: 0) != ids[0])
+    }
+
 }

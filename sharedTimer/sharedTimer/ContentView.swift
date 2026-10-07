@@ -366,17 +366,15 @@ struct ContentView: View {
         // pre-advance (just-ended) phase; advance now, after, so the next phase's own
         // zero-crossing is still detected on a later tick (re-adds its id to
         // `armedIDs` unless the whole sequence just ran out).
-        // Skip entirely while AlarmKit itself is presenting this payload's alert —
-        // `apply` -> `armAlerts` -> `AlarmController.reschedule` unconditionally
-        // cancels the current alarm before deciding whether to reschedule, so
-        // advancing here would cancel AlarmKit's own alert out from under the user
-        // within this tick, before they can act on its Stop/Next buttons (confirmed on
-        // device). Left un-advanced, it stays correctly stale until the user acts on
-        // the alert (secondaryIntent's own advance) or next foregrounds the app, both
-        // already-correct paths per the re-derivation guarantee.
-        for payload in finished where payload.sequence != nil && !AlarmController.alarmKitOwnsAlert(for: payload) {
+        // While AlarmKit itself is presenting this payload's alert, advance and persist
+        // but don't re-arm: the following phases are already pre-armed (see
+        // AlarmController.performSequenceReschedule) at exactly the dates
+        // `advancedSequence` derives, and touching AlarmKit from this tick is what used
+        // to cancel the just-presented alert out from under the user (confirmed on
+        // device, back when every phase shared one alarm id).
+        for payload in finished where payload.sequence != nil {
             let advanced = payload.advancedSequence(at: date)
-            apply(advanced, action: "sequenceAdvanced")
+            apply(advanced, action: "sequenceAdvanced", rearm: !AlarmController.alarmKitOwnsAlert(for: payload))
             if !advanced.isExpired {
                 armedIDs.insert(advanced.id)
             }
@@ -389,7 +387,7 @@ struct ContentView: View {
             // disclosure chevron outside the sky, which breaks the full-bleed card.
             .background(
                 NavigationLink("") {
-                    TimerDetailView(payload: payload, onUpdate: applyMutation, onDelete: delete)
+                    TimerDetailView(payload: payload, onUpdate: applyMutation, onSequenceAdvance: { apply($0, action: "sequenceAdvanced", rearm: $1) }, onDelete: delete)
                 }
                 .opacity(0)
             )
@@ -498,7 +496,7 @@ struct ContentView: View {
 
     private func delete(_ payload: TimerPayload) {
         TimerStore.delete(id: payload.id)
-        AlarmController.clear(id: payload.id)
+        AlarmController.clear(payload)
         LiveActivityController.end(id: payload.id)
         CloudSyncController.pushDelete(id: payload.id)
         WatchSyncController.pushCurrentState()
@@ -567,9 +565,13 @@ struct ContentView: View {
         showingNamePrompt = true
     }
 
-    private func apply(_ updated: TimerPayload, action: String = "updated") {
+    /// `rearm: false` only for the foreground tick's sequence advance while AlarmKit is
+    /// presenting the just-finished phase's alert — see checkForNewlyExpired.
+    private func apply(_ updated: TimerPayload, action: String = "updated", rearm: Bool = true) {
         TimerStore.save(updated)
-        armAlerts(for: updated)
+        if rearm {
+            armAlerts(for: updated)
+        }
         CloudSyncController.pushUp(updated, action: action)
         WatchSyncController.pushCurrentState()
         if let index = timers.firstIndex(where: { $0.id == updated.id }) {
