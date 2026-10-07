@@ -14,6 +14,7 @@ enum TimerStore {
     private static let key = "sharedTimers"
     private static let acknowledgedFinishKey = "sharedTimerAcknowledgedFinishIDs"
     private static let alarmKitArmedKey = "sharedTimerAlarmKitArmedIDs"
+    private static let widgetFocusKey = "sharedTimerWidgetFocusID"
 
     private static var defaults: UserDefaults? {
         UserDefaults(suiteName: appGroupID)
@@ -50,6 +51,19 @@ enum TimerStore {
         let changed = armed ? ids.insert(id).inserted : ids.remove(id) != nil
         guard changed else { return }
         defaults?.set(Array(ids), forKey: alarmKitArmedKey)
+    }
+
+    /// The timer the user last acted on from a widget / Live Activity button. An
+    /// unconfigured Single Timer widget keeps showing it even once paused or finished,
+    /// so Resume / Repeat stay on screen right where they tapped — otherwise the widget
+    /// jumped to another timer, or to "No Timers", the moment they hit Pause.
+    /// Written by the app (LiveActivityActions); read by the widget.
+    static func setWidgetFocus(id: String) {
+        defaults?.set(id, forKey: widgetFocusKey)
+    }
+
+    static var widgetFocusID: String? {
+        defaults?.string(forKey: widgetFocusKey)
     }
 
     static func isAlarmKitArmed(id: String) -> Bool {

@@ -118,7 +118,11 @@ struct ConfigurableTimerProvider: AppIntentTimelineProvider {
     }
 
     /// A configured timer is shown as-is (even paused or just-finished) — the user picked
-    /// it specifically. Only fall back to "nearest active" when unconfigured or deleted.
+    /// it specifically. Unconfigured (or deleted): the timer last acted on from a
+    /// widget/Live Activity button, while it's paused/running or finished within the
+    /// last hour (so Resume/Repeat stay where the user tapped); else the soonest
+    /// running timer; else the soonest paused one. Paused timers used to be skipped
+    /// entirely, so tapping Pause on the widget turned it into "No Timers".
     private func resolve(_ configuration: SelectTimerIntent) -> TimerPayload? {
         let all = TimerStore.loadAll()
         // `advancedSequence()` is a pure function on an already-loaded value — this
@@ -128,7 +132,15 @@ struct ConfigurableTimerProvider: AppIntentTimelineProvider {
         if let id = configuration.timer?.id, let match = all.first(where: { $0.id == id }) {
             return match.advancedSequence()
         }
-        return all.filter { !$0.isExpired && !$0.isPaused }.sorted { $0.endDate < $1.endDate }.first?.advancedSequence()
+        let current = all.map { $0.advancedSequence() }
+        if let focusID = TimerStore.widgetFocusID,
+           let focused = current.first(where: { $0.id == focusID }),
+           !focused.isFinished || focused.endDate > Date().addingTimeInterval(-3600) {
+            return focused
+        }
+        let running = current.filter { !$0.isFinished && !$0.isPaused }.sorted { $0.endDate < $1.endDate }
+        let paused = current.filter { $0.isPaused && !$0.isFinished }.sorted { $0.remaining < $1.remaining }
+        return running.first ?? paused.first
     }
 }
 

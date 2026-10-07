@@ -99,6 +99,7 @@ enum LiveActivityActions {
         let recent = recents.first { $0.id == id } ?? recents.first
         let payload = recent?.payload()
             ?? TimerPayload.compose(label: "Timer", kind: .timer, minutes: 5, targetDate: Date())
+        TimerStore.setWidgetFocus(id: payload.id)
         TimerStore.save(payload)
         await TimerArming.armAwaiting(payload)
         RecentTimersStore.record(payload)
@@ -109,8 +110,11 @@ enum LiveActivityActions {
 
     // MARK: - Helpers
 
+    /// Every action goes through here first, so it also records the widget focus (see
+    /// TimerStore.setWidgetFocus) before the mutation's save reloads the widgets.
     private static func stored(_ timerID: String) -> TimerPayload? {
-        TimerStore.loadAll().first { $0.id == timerID }
+        TimerStore.setWidgetFocus(id: timerID)
+        return TimerStore.loadAll().first { $0.id == timerID }
     }
 
     private static func commit(_ updated: TimerPayload, action: String) async {
