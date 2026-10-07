@@ -278,7 +278,7 @@ were changed blind.
 Ranked by value vs. effort. Most of these build on intents and infrastructure that already
 exist.
 
-- **Live Activity buttons: done (1.0.4).** Pause/Resume + ✕, with Next/Cancel on sequence phases, on both Live Activities; pause keeps the AlarmKit alarm alive in its paused state. Device check: tap each button from the Lock Screen and the expanded Dynamic Island, with the app closed and open. **Still open:** buttons on the home-screen widget —
+- **Live Activity buttons: done (1.0.4).** Pause/Resume + ✕, with Next/Cancel on sequence phases, on both Live Activities; pause keeps the AlarmKit alarm alive in its paused state. **Confirmed on device (iPhone 14 Pro, 2026-10-07):** Lock Screen ⏭ on a sequence advances to the next phase with a single card (after fixing a skipped-phase alarm that lingered as a second card), ⏸/▶ work. Still to spot-check: the expanded Dynamic Island, and the ✕ on a plain timer. **Still open:** buttons on the home-screen widget —
   *(original item:)* Pause / +1 min / Repeat via
   `Button(intent:)` on the home-screen widget and the custom Live Activity. Reuses
   `TimerStore` plus a `LiveActivityIntent` (same pattern as `AdvanceSequenceIntent`).
