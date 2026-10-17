@@ -156,6 +156,27 @@ struct sharedTimerTests {
         #expect(decoded.vibrationEnabled == false)
     }
 
+    @Test func urlDecodeIgnoresHostAndPath() throws {
+        // Links move from lokii49.github.io/sharedTimer/t.html to mirrornotes.org/timer;
+        // both hosts must decode identically, including for app versions that predate the move.
+        let payload = TimerPayload(label: "Pasta", duration: 480, kind: .timer)
+        var moved = try #require(URLComponents(url: payload.url(), resolvingAgainstBaseURL: false))
+        moved.host = "mirrornotes.org"
+        moved.path = "/timer"
+
+        let original = try #require(TimerPayload.from(url: payload.url()))
+        let decoded = try #require(TimerPayload.from(url: try #require(moved.url)))
+
+        #expect(decoded.id == original.id)
+        #expect(decoded.label == original.label)
+        #expect(decoded.endDate == original.endDate)
+        #expect(decoded.duration == original.duration)
+        #expect(decoded.kind == original.kind)
+        #expect(decoded.alarmEnabled == original.alarmEnabled)
+        #expect(decoded.vibrationEnabled == original.vibrationEnabled)
+        #expect(decoded.updatedAt == original.updatedAt)
+    }
+
     @Test func urlAlarmZeroDecodesFalseVibOneDecodesTrue() throws {
         var components = URLComponents()
         components.scheme = "https"
