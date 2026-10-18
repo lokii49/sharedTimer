@@ -164,9 +164,6 @@ struct ContentView: View {
             } message: {
                 Text("Timers won't alert you while the app is in the background until notifications are allowed.")
             }
-            .sheet(item: $sharingPayload) { payload in
-                ShareTimerSheet(payload: payload)
-            }
             .sheet(item: $incomingPayload) { payload in
                 AddSharedTimerSheet(
                     payload: payload,
@@ -177,22 +174,28 @@ struct ContentView: View {
                     onDismiss: { incomingPayload = nil }
                 )
             }
-            .alert("What should we call you?", isPresented: $showingNamePrompt) {
-                TextField("Your name", text: $nameInput)
-                Button("Continue") {
-                    let trimmed = nameInput.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !trimmed.isEmpty { DisplayNameStore.name = trimmed }
-                    nameInput = ""
-                    pendingNameCompletion?()
-                    pendingNameCompletion = nil
-                }
-                Button("Skip", role: .cancel) {
-                    pendingNameCompletion?()
-                    pendingNameCompletion = nil
-                }
-            } message: {
-                Text("Shown to people you share timers with, like \"Sam paused Pasta.\"")
+        }
+        // Outside the NavigationStack: attached to the list root, this prompt and sheet
+        // never appeared while TimerDetailView was pushed, so its Share button did nothing
+        // for anyone without a stored display name.
+        .sheet(item: $sharingPayload) { payload in
+            ShareTimerSheet(payload: payload)
+        }
+        .alert("What should we call you?", isPresented: $showingNamePrompt) {
+            TextField("Your name", text: $nameInput)
+            Button("Continue") {
+                let trimmed = nameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty { DisplayNameStore.name = trimmed }
+                nameInput = ""
+                pendingNameCompletion?()
+                pendingNameCompletion = nil
             }
+            Button("Skip", role: .cancel) {
+                pendingNameCompletion?()
+                pendingNameCompletion = nil
+            }
+        } message: {
+            Text("Shown to people you share timers with, like \"Sam paused Pasta.\"")
         }
         .tint(.white)
         .overlay(alignment: .bottom) {

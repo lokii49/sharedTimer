@@ -43,6 +43,85 @@ final class sharedTimerUITests: XCTestCase {
     }
 
     @MainActor
+    func testShareLinkPresentsSystemShareSheet() throws {
+        // ShareTimerSheet presents UIActivityViewController itself (not ShareLink) so the
+        // share count knows when a share completed; make sure it still shows up on top.
+        let app = XCUIApplication()
+        let id = UUID().uuidString
+        var share = URLComponents(string: "https://mirrornotes.org/timer")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id),
+            URLQueryItem(name: "label", value: "Share Sheet Test"),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(300).timeIntervalSince1970)),
+            URLQueryItem(name: "dur", value: "300"),
+            URLQueryItem(name: "kind", value: "timer"),
+            URLQueryItem(name: "alarm", value: "0"),
+            URLQueryItem(name: "vib", value: "0")
+        ]
+        let link = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        widgetTestURL = link
+        app.open(try XCTUnwrap(share.url))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        let row = app.staticTexts["Share Sheet Test"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.press(forDuration: 1.0)
+        let shareButton = app.buttons["Share…"]
+        XCTAssertTrue(shareButton.waitForExistence(timeout: 10))
+        shareButton.tap()
+        // First share asks for a display name unless one is already stored.
+        let skipName = app.alerts.buttons["Skip"]
+        if skipName.waitForExistence(timeout: 3) { skipName.tap() }
+        let shareLink = app.buttons["Share Link"]
+        XCTAssertTrue(shareLink.waitForExistence(timeout: 10))
+        shareLink.tap()
+        let copy = app.staticTexts["Copy"]
+        XCTAssertTrue(copy.waitForExistence(timeout: 10))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "System share sheet over ShareTimerSheet"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        copy.tap()
+        XCTAssertTrue(shareLink.waitForExistence(timeout: 5))
+        app.buttons["Done"].tap()
+    }
+
+    @MainActor
+    func testDetailShareButtonOpensShareSheet() throws {
+        // The display-name prompt and share sheet used to hang off the list root, so they
+        // never appeared while the detail screen was pushed.
+        let app = XCUIApplication()
+        let id = UUID().uuidString
+        var share = URLComponents(string: "https://mirrornotes.org/timer")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id),
+            URLQueryItem(name: "label", value: "Detail Share Test"),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(300).timeIntervalSince1970)),
+            URLQueryItem(name: "dur", value: "300"),
+            URLQueryItem(name: "kind", value: "timer"),
+            URLQueryItem(name: "alarm", value: "0"),
+            URLQueryItem(name: "vib", value: "0")
+        ]
+        let link = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        widgetTestURL = link
+        app.open(try XCTUnwrap(share.url))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        app.open(link)
+        let shareButton = app.buttons["Share"]
+        XCTAssertTrue(shareButton.waitForExistence(timeout: 10))
+        shareButton.tap()
+        let skipName = app.alerts.buttons["Skip"]
+        if skipName.waitForExistence(timeout: 3) { skipName.tap() }
+        XCTAssertTrue(app.buttons["Share Link"].waitForExistence(timeout: 10))
+        app.buttons["Done"].tap()
+    }
+
+    @MainActor
     func testWidgetLinkOpensStoredTimerAndDoesNotRecreateAfterDeletion() throws {
         let app = XCUIApplication()
         let id = UUID().uuidString
