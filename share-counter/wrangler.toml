@@ -14,4 +14,4 @@ enabled = false
 [[d1_databases]]
 binding = "DB"
 database_name = "timer-share-counter"
-database_id = "REPLACE_AFTER_wrangler_d1_create"
+database_id = "9e7e7cf3-a756-4ac6-9b97-4bb712d3cbfe"
