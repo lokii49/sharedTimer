@@ -1,5 +1,7 @@
 default_platform(:ios)
 require 'json'
+require 'tmpdir'
+require 'fileutils'
 
 platform :ios do
   private_lane :auth do
@@ -82,8 +84,10 @@ platform :ios do
       { id: experience["id"], version_id: version_id, version_string: version_strings[version_id] }
     end
 
-    if experiences.any? { |experience| experience[:version_id] == version.id }
+    existing = experiences.find { |experience| experience[:version_id] == version.id }
+    if existing
       UI.message("#{version.version_string} already has an App Clip Default Experience.")
+      add_app_clip_localizations(experience_id: existing[:id])
       next
     end
 
@@ -108,6 +112,33 @@ platform :ios do
       "Copied the #{template[:version_string]} App Clip Default Experience to " \
       "#{version.version_string} (#{localizations.map(&:locale).join(', ')})."
     )
+    add_app_clip_localizations(experience_id: created.id)
+  end
+
+  # Every App Store localization needs a matching App Clip card localization, or the
+  # submission fails "missing a required relationship 'appClipDefaultExperienceLocalizations/
+  # locale/<code>'". Adds any missing locale with its subtitle from appclip/subtitles.json
+  # (max 56 characters) and the shared header image. Idempotent.
+  private_lane :add_app_clip_localizations do |options|
+    experience_id = options[:experience_id]
+    subtitles = JSON.parse(File.read("appclip/subtitles.json"))
+    have = Spaceship::ConnectAPI::AppClipDefaultExperienceLocalization
+      .find_all(app_clip_default_experience_id: experience_id).map(&:locale)
+    locales = Dir.children("metadata").select { |entry| File.directory?(File.join("metadata", entry)) }
+    (locales - have).sort.each do |locale|
+      subtitle = subtitles[locale]
+      UI.user_error!("No App Clip subtitle for #{locale} in fastlane/appclip/subtitles.json") unless subtitle
+      localization = Spaceship::ConnectAPI::AppClipDefaultExperienceLocalization.create(
+        default_experience_id: experience_id,
+        attributes: { locale: locale, subtitle: subtitle }
+      )
+      localization = localization.to_models.first if localization.respond_to?(:to_models)
+      Spaceship::ConnectAPI::AppClipHeaderImage.create(
+        app_clip_default_experience_localization_id: localization.id,
+        path: File.expand_path("appclip/header.png")
+      )
+      UI.success("Added the App Clip card for #{locale}.")
+    end
   end
 
   # `upload_to_app_store` uploads the binary but can't attach it: Apple is still
@@ -209,15 +240,32 @@ platform :ios do
   lane :release do
     auth
 
-    build_app(
-      scheme: "sharedTimer",
-      project: "sharedTimer.xcodeproj",
-      configuration: "Release",
-      export_method: "app-store",
-      clean: true,
-      output_directory: "./build",
-      xcargs: "-allowProvisioningUpdates"
-    )
+    # Sign with the App Store Connect API key (cloud-managed distribution signing), so a
+    # release doesn't depend on an Apple ID being signed into Xcode on this Mac — without
+    # one, export failed with "No Accounts" / no "iOS Distribution" certificate. xcodebuild
+    # needs the key as a .p8 file: written private to a temp dir and deleted afterwards.
+    api_key_json = JSON.parse(File.read("api_key.json"))
+    key_dir = Dir.mktmpdir("asc-key")
+    key_path = File.join(key_dir, "AuthKey_#{api_key_json["key_id"]}.p8")
+    File.write(key_path, api_key_json["key"])
+    File.chmod(0600, key_path)
+    signing_args = "-allowProvisioningUpdates -authenticationKeyPath #{key_path} " \
+                   "-authenticationKeyID #{api_key_json["key_id"]} -authenticationKeyIssuerID #{api_key_json["issuer_id"]}"
+    begin
+      build_app(
+        scheme: "sharedTimer",
+        project: "sharedTimer.xcodeproj",
+        configuration: "Release",
+        export_method: "app-store",
+        clean: true,
+        output_directory: "./build",
+        # gym also passes xcargs to -exportArchive, so the key covers both steps;
+        # setting export_xcargs too makes xcodebuild reject the duplicated options.
+        xcargs: signing_args
+      )
+    ensure
+      FileUtils.rm_rf(key_dir)
+    end
 
     # Upload + metadata, but DON'T submit here: the build still has to finish
     # processing, and the steps after it get their own readable error instead of being

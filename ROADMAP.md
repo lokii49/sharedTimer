@@ -9,7 +9,7 @@ or QR code.
 
 **Release:** 1.0.4 is **live on the App Store** (App Store ID 6804558361). 1.0.5 is in progress on branch `1.0.5`.
 
-### 1.0.5 (in progress)
+### 1.0.5 (submitted for review 2026-10-18, build 8)
 
 Keep this release small.
 
