@@ -1,0 +1,11 @@
+• Novedad: Timer ya habla diez idiomas: inglés, chino, hindi, español, árabe, francés, bengalí, portugués, ruso e indonesio.
+• Novedad: Vistas previas de enlaces que dicen lo que son. Mensajes muestra el nombre y la duración del temporizador antes de que nadie lo toque.
+• Novedad: La pantalla de compartir te indica si un enlace es En directo (se mantiene sincronizado para todos) o una Instantánea, y está lista al instante.
+• Novedad: Comparte con todos los presentes mediante un código QR. Quien lo escanee podrá ver la cuenta atrás, pero no cambiarla.
+• Novedad: Gestionar compartición. Consulta quién tiene un temporizador compartido, quita a alguien o deja de compartir.
+• Novedad: Guarda como plantilla propia una secuencia que te hayan enviado.
+• Novedad: Ajustes. Elige el nombre que ven los demás cuando compartes, escoge entre cuatro tonos de alarma y vuelve a ver las Novedades.
+• Mejores descripciones de VoiceOver y compatibilidad con texto más grande.
+• Las secuencias y las cuentas atrás anuales ahora reponen sus próximas alarmas en segundo plano.
+• Corregido: Compartir vuelve a funcionar desde la pantalla de cada temporizador.
+• Los enlaces compartidos ahora se abren desde mirrornotes.org. Los enlaces que ya hayas enviado siguen funcionando.

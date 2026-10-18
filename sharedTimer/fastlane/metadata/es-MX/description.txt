@@ -1,0 +1,10 @@
+Configura un temporizador o una cuenta regresiva y compártelo: todos ven la misma cuenta regresiva en vivo, actualizada en tiempo real.
+
+• Temporizadores y cuentas regresivas que cuentan los días: "3d 04:12:09" cuando falta mucho y "12:09" cuando ya está cerca
+• Comparte por iMessage un temporizador en vivo y sincronizado. Ponlo en pausa, reanúdalo o extiéndelo, y todos los que lo siguen verán el cambio al instante
+• Widgets para la pantalla de inicio y vista de Actividad en vivo / Dynamic Island, para tener el tiempo en pantalla sin abrir la app
+• App complementaria para Apple Watch
+• Pídele a Siri que inicie un temporizador o una cuenta regresiva, o usa las acciones rápidas de la pantalla de inicio
+• Quien lo recibe no necesita la app: un enlace compartido abre una página con la cuenta regresiva en vivo para cualquiera
+
+Sin anuncios, sin registro y sin rastreo. Tus temporizadores se quedan en tu dispositivo, a menos que decidas compartir alguno.

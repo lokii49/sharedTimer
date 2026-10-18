@@ -1,0 +1,10 @@
+Crie um timer ou uma contagem regressiva e compartilhe — todos veem a mesma contagem ao vivo, atualizada em tempo real.
+
+• Timers e contagens regressivas que contam os dias — "3d 04:12:09" quando falta muito, "12:09" quando está perto
+• Compartilhe pelo iMessage um timer ao vivo e sincronizado. Pause, retome ou estenda, e todos que estão acompanhando veem a mudança na hora
+• Widgets da Tela de Início e visualização em Atividade ao Vivo / Dynamic Island, para ver o tempo na tela sem abrir o app
+• App complementar para Apple Watch
+• Peça à Siri para iniciar um timer ou uma contagem regressiva, ou use as ações rápidas da Tela de Início
+• Quem recebe não precisa do app — um link compartilhado abre uma página com a contagem ao vivo para qualquer pessoa
+
+Sem anúncios, sem contas, sem rastreamento. Seus timers ficam no seu dispositivo, a menos que você escolha compartilhar um.
