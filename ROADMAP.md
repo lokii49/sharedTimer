@@ -26,7 +26,12 @@ Keep this release small.
 5. Open: an `og:image` for link previews. The App Clip header shows a fixed "4:12:09", which would read as the real time left, so it needs a neutral image first.
 6. ~~Privacy policy URL~~ moved to `https://mirrornotes.org/timer/privacy` (`privacy_url.txt`); the old URL stays up.
 
-**Next (1.0.6+):** Settings screen (mockups first; hosts What's New replay, sound picker, display name), sound picker, localization + accessibility, and best-effort background refresh of the pre-armed sequence window.
+**Added to 1.0.5 (owner's call, 2026-10-18 — everything below moved in from 1.0.6):**
+- Sharing: share-sheet preview + message; cached share URL with Live/Snapshot label; QR code (view-only snapshot link only); Manage Sharing (`UICloudSharingController`); Skip remembered for the name prompt; Save received sequence as template; link previews (neutral `og:image` + `link-preview` Worker for per-link title/description, no storage).
+- Settings ("Sky Stack", picked from three mockups): display name, alarm tone (Classic/Glass/Ember/Dawn), What's New replay, About.
+- Localization: top 10 languages (en, zh-Hans, hi, es, ar, fr, bn, pt-BR, ru, id) for app, Messages, Clip, Widget and permission prompts. Accessibility: one VoiceOver element per timer card, spoken digits, Dynamic Type sky labels.
+- Best-effort `BGAppRefreshTask` refill of pre-armed sequence/yearly alert windows.
+- **Manual checks:** Manage Sharing with a second iCloud account; RTL (Arabic) layout pass; tone choice on a real AlarmKit alert; Messages link preview on device; background refresh actually firing (Xcode's `_simulateLaunchForTaskWithIdentifier`). App Store metadata (description, screenshots) is still English-only.
 
 ### 1.0.4 (released)
 

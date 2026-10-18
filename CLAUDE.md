@@ -273,6 +273,33 @@ The extension only reads cached snapshots. Its optional AppEntity picker uses st
 
 `sharedTimerWatch` is a shared scheme containing the Watch unit target; CI has a separate Watch test job. Nine tests pass on the Watch simulator, including actual controller snapshot persistence/restoration/deletion and twelve static ImageRenderer attachments. All 78 iPhone Swift tests plus the timer-link UI test pass on the iPhone 14 Pro with the new extension embedded. Physical Watch pairing, delivery, and native watch-face/Smart Stack rendering remain manual checks; no physical Watch is exposed by Xcode in this session.
 
+### Sharing details (1.0.5)
+
+- **Share text.** `TimerPayload.shareMessage`/`shareSummary` (TimerModel.swift) is the one "⏱️ Pasta — 8 min timer" line, used by `ShareTimerSheet`'s `ShareLink(subject:message:preview:)` and by Messages' plain-link mode. The sheet's preview image is the `SkyCard` rendered with `ImageRenderer`.
+- **Share URL cache.** `CloudLinkStore.shareURL/setShareURL` (App Group key `cloudShareURLs`) lets `createShare` answer at once for an already-shared timer; the CloudKit fetch still runs and refreshes it. `CloudLinkStore.remove` clears it. The sheet labels the link Live (carries `ckshare`) or Snapshot.
+- **QR code** (`QRCode`, CoreImage, ≤1,200 bytes) always encodes the **snapshot** link (`snapshotURL`, no `ckshare`): a code shown across a room or photographed must not let strangers pause/extend a shared timer. Owner's decision, 2026-10-18.
+- **Manage Sharing** = `UICloudSharingController` via `CloudSharingView`, fed by `CloudSyncController.fetchShare`. Stop sharing → `CloudSyncController.didStopSharing`: owner drops the CloudLink (next Share creates a fresh record + share); a participant also `markLeft`.
+- **Display name.** `DisplayNameStore.declined` remembers Skip; prompts check `DisplayNameStore.shouldPrompt`. Set/change/clear lives in Settings.
+- **Save as Template** (sequence detail toolbar bookmark): `SavedSequenceStore.add/contains/suggestedName` — blueprint only (phases + loop count), duplicates skipped.
+- **Link previews.** `docs/timer-preview.jpg` (served as `https://mirrornotes.org/timer-preview.jpg`) is the static `og:image`. The `link-preview/` Cloudflare Worker (`timer-link-preview`) rewrites `<title>`/`og:title`/`og:description` on `/timer` from the link's own query — no storage, observability off, never called by the app, so the App Store label stays "Data Not Collected". **Route must be `mirrornotes.org/timer*`**: a route without the trailing `*` silently doesn't match URLs with a query string (every shared link). The Worker passes every other path (`/timer/privacy`, the image) straight through. Tests: `node --test link-preview/test.mjs`; deploy: `npx wrangler@4 deploy` in `link-preview/` (`.wrangler/` is gitignored — it caches account details).
+
+### Settings and alarm tones (1.0.5)
+
+`sharedTimer/SettingsView.swift` — "Sky Stack" (direction B of three mockups, https://claude.ai/artifact/Bne46iEsrKYGREVFPaqoR1): name card, alarm-tone chips, What's New replay, About. Opened from the gear beside "+".
+
+`Shared/AlarmTone.swift` (app, Messages, Clip; excluded from Widget) — Classic (`alarm.caf`), Glass/Ember/Dawn (`alarm_<name>.caf`, same format: mono 44.1 kHz 16-bit, ~3 s; synthesized, see the 2026-10-18 commit). The `.caf` files live once per target folder like `alarm.caf`. `AlarmTone.selected` is an App Group preference — never on the wire or in CloudKit. It drives AlarmKit's `.named(...)`, `NotificationScheduler`'s sound and `AlarmPlayer`. The AlarmKit presentation signature is `"label|<tone or silent>"`, so changing the tone (Settings re-arms every timer) re-creates kept alarms; the format change re-creates every kept alarm once after updating.
+
+### Background refresh (1.0.5)
+
+`sharedTimer/BackgroundRefresh.swift`: `BGAppRefreshTask` `com.lokesh.sharedTimer.refreshAlerts` (`BGTaskSchedulerPermittedIdentifiers` + `fetch` background mode in Shortcuts.plist). Registered in `didFinishLaunching`, scheduled on backgrounding only while a sequence/yearly countdown exists. Re-derives and calls `AlarmController.rescheduleAwaiting` — never starts Live Activities (not allowed in background) or pushes to CloudKit. iOS decides if/when it runs; the "app must run to refill the window" limitation is narrowed, not removed.
+
+### Localization and accessibility (1.0.5)
+
+- One `Localizable.xcstrings` per target folder (`sharedTimer/`, `sharedTimerMessages/`, `sharedTimerClip/`, `sharedTimerWidget/`) — **never in `Shared/`** (it would be compiled into all four targets alongside their own). Plus `sharedTimer/InfoPlist.xcstrings` (AlarmKit/Calendar prompts, Quick Action titles). Languages: en (source), zh-Hans, hi, es, ar, fr, bn, pt-BR, ru, id (`knownRegions`).
+- `xcodebuild` does not fill catalogs. After adding UI strings: build each scheme, then per target `find <DerivedData>/…/<target>.build -path "*arm64*" -name "*.stringsdata" | xargs xcrun xcstringstool sync <target>/Localizable.xcstrings --stringsdata`, drop `stale` keys, translate new keys (keep format specifiers identical).
+- Strings built with `String` interpolation (not `LocalizedStringKey`/`String(localized:)`/`LocalizedStringResource`) are never translated — notification bodies were; use `String(localized:)`. **Don't build English plurals in code** (`"phase\(n == 1 ? "" : "s")"`): translations can't follow; reword ("Loops: 3") or use catalog plural variations. Model-level text that goes to *other* people (`shareMessage`) stays in the sender's English for now.
+- `SkyCard` is one VoiceOver element (label + spoken "4 minutes 12 seconds left" value); the detail digits speak words and are `.updatesFrequently`. `skyLabel` scales with Dynamic Type, capped at 1.6× because `SkyCard` is fixed at 104 pt.
+
 ### Web fallback (`docs/t.html`)
 
 Static page (served via GitHub Pages, per the hardcoded host in `TimerPayload.url()`) that renders a live countdown from URL query params alone, for recipients without the app. Keep its param names and formatting logic in sync with `TimerModel.swift` by hand — there's no code sharing between Swift and this JS.
