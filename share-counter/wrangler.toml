@@ -1,0 +1,17 @@
+name = "timer-share-counter"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+
+routes = [
+  { pattern = "mirrornotes.org/api/timer/*", zone_name = "mirrornotes.org" }
+]
+
+# No request logs: the counter must not keep IPs or anything else about callers.
+[observability]
+enabled = false
+
+[[d1_databases]]
+binding = "DB"
+database_name = "timer-share-counter"
+database_id = "REPLACE_AFTER_wrangler_d1_create"

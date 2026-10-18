@@ -255,6 +255,8 @@ class MessagesViewController: MSMessagesAppViewController {
             conversation.insertText(text) { [weak self] error in
                 if let error {
                     print("SharedTimer insertText error: \(error)")
+                } else {
+                    ShareCounter.recordShare()
                 }
                 self?.dismiss()
             }
@@ -271,6 +273,8 @@ class MessagesViewController: MSMessagesAppViewController {
             conversation.insert(message) { [weak self] error in
                 if let error {
                     print("SharedTimer insert error: \(error)")
+                } else {
+                    ShareCounter.recordShare()
                 }
                 self?.dismiss()
             }

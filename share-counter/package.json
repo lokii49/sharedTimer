@@ -1,0 +1,9 @@
+{
+  "name": "timer-share-counter",
+  "private": true,
+  "scripts": {
+    "deploy": "npx wrangler@4 deploy",
+    "migrate": "npx wrangler@4 d1 execute timer-share-counter --remote --file=schema.sql",
+    "counts": "npx wrangler@4 d1 execute timer-share-counter --remote --command \"SELECT day, n FROM share_counts ORDER BY day DESC LIMIT 30; SELECT SUM(n) AS total FROM share_counts\""
+  }
+}

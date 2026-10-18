@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS share_counts (
+  day TEXT PRIMARY KEY, -- UTC date, YYYY-MM-DD
+  n INTEGER NOT NULL
+);

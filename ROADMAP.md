@@ -5,9 +5,29 @@ Synced Timer Plus, TimeTo) by closing the live-sync gap and leaning into the one
 them have — a real native iMessage extension — instead of routing sharing through a plain link
 or QR code.
 
-## Status at a glance (2026-10-07)
+## Status at a glance (2026-10-18)
 
-**Release:** 1.0.4 (build 7) is **Waiting for Review** on App Store Connect (submitted 2026-10-07). PR #6 merged to `main`, CI green, the new `t.html` is live on GitHub Pages, and the production CloudKit schema is deployed. Automatic release is off.
+**Release:** 1.0.4 is **live on the App Store** (App Store ID 6804558361). 1.0.5 is in progress on branch `1.0.5`.
+
+### 1.0.5 (in progress)
+
+Keep this release small: it is the first half of the link-domain move, and the second half can't start until most people run it.
+
+**Link domain move (two releases):**
+- **1.0.5 — recognise (done on the branch).** `https://mirrornotes.org/timer` is live (`mirrornotes-website` repo: `timer.html`, a copy of `docs/t.html`, plus `.well-known/apple-app-site-association`; Apple's CDN already serves it). The app claims `applinks:mirrornotes.org`, the Clip `appclips:mirrornotes.org`; the old domain stays in both. `url()` still emits `lokii49.github.io`. Unit test pins host-agnostic link decoding.
+- **Later release — switch.** Change `url()` in `Shared/` and `WatchShared/TimerModel.swift` to `mirrornotes.org/timer` only once App Store Connect analytics show most active devices on 1.0.5 or later. A recipient on an older app would otherwise get the web page instead of the app. The old domain's page, AASA and entitlements stay forever.
+- **App Clip experience:** per Apple's "Supporting invocations from your website and the Messages app", Safari/Messages invocation needs the domain association plus the page's `apple-itunes-app` tag with the default experience; advanced experiences are only for showing a different card per domain/URL. So no App Store Connect change is expected — confirm on device.
+
+**To do for 1.0.5:**
+1. Device check with a 1.0.5 build: a `mirrornotes.org/timer?…` link opens the app; on a device without the app the App Clip card appears (use `applinks:mirrornotes.org?mode=developer` + Settings → Developer → Associated Domains Development if Apple's CDN cache lags; remove before release).
+2. ~~`t.html`: `noindex`, and `app-id=6804558361` in the `apple-itunes-app` tag (Smart App Banner falls back to the full app where App Clips aren't allowed).~~ Done; re-copied to `mirrornotes-website`.
+3. Share counter (count of links shared, no identifiers): app + Messages side and `share-counter/` Worker written and tested locally; privacy policy updated. Remaining: `wrangler login`, create the D1 database, deploy, then update the App Store privacy label to "Usage Data → Product Interaction, not linked, not tracking" before submitting. Opens are visible in Cloudflare's dashboard for mirrornotes.org.
+4. Release notes.
+5. Open: an `og:image` for link previews. The App Clip header shows a fixed "4:12:09", which would read as the real time left, so it needs a neutral image first.
+
+**Next (1.0.6+):** Settings screen (mockups first; hosts What's New replay, sound picker, share-count opt-out, display name), sound picker, localization + accessibility, best-effort background refresh of the pre-armed sequence window, and the `url()` switch.
+
+### 1.0.4 (released)
 
 1.0.4 ships everything below: the hardening fixes, Live Activity / widget controls, recents and the Control Center control, plus Edit, yearly countdowns with Calendar import, shared sequences, Lock Screen widgets, the Watch complication / Smart Stack, the extra Siri intents, Spotlight indexing and the "Sunrise Walk" What's New tour.
 
@@ -16,9 +36,9 @@ or QR code.
 **Remaining release steps:**
 1. ~~Merge `1.0.4` → `main` (PR #6).~~ Done.
 2. ~~Archive and upload build 7.~~ Done.
-3. ~~Submit for review.~~ Done. Waiting for Review.
-4. After approval: release manually in App Store Connect.
-5. Then reinstall Timer from the App Store on the iPhone 13 (it runs a development build against the development CloudKit environment until then).
+3. ~~Submit for review.~~ Done.
+4. ~~After approval: release manually in App Store Connect.~~ Done, live.
+5. Reinstall Timer from the App Store on the iPhone 13 (it runs a development build against the development CloudKit environment until then).
 
 **Release tooling (2026-10-07):** `fastlane release` is now fully automated. It copies the previous version's App Clip Default Experience, waits for the build to finish processing and attaches it, then submits; `fastlane resubmit` resumes from any step. No manual App Store Connect visit per version.
 
