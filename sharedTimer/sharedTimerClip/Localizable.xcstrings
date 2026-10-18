@@ -1,0 +1,39 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Live countdown from a shared timer" : {
+
+    },
+    "Open a shared timer link to see the live countdown." : {
+
+    },
+    "Paused" : {
+
+    },
+    "Repeats yearly" : {
+
+    },
+    "Scheduled" : {
+
+    },
+    "Shared Countdown" : {
+
+    },
+    "Shared Timer" : {
+
+    },
+    "Stop" : {
+
+    },
+    "Time's up" : {
+
+    },
+    "Timer" : {
+
+    },
+    "Timer finished" : {
+
+    }
+  },
+  "version" : "1.0"
+}

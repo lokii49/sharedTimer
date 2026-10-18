@@ -1,0 +1,609 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+
+    },
+    " · 8 min" : {
+
+    },
+    "%@" : {
+
+    },
+    "%@ has %@ left." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ has %2$@ left."
+          }
+        }
+      }
+    },
+    "%@ has finished." : {
+
+    },
+    "%@ is paused with %@ left." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is paused with %2$@ left."
+          }
+        }
+      }
+    },
+    "%@ is running with %@ left." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is running with %2$@ left."
+          }
+        }
+      }
+    },
+    "%@ is scheduled to start %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is scheduled to start %2$@."
+          }
+        }
+      }
+    },
+    "%lld" : {
+
+    },
+    "%lld hr" : {
+
+    },
+    "%lld min" : {
+
+    },
+    "%lld phases · %lld loops" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld phases · %2$lld loops"
+          }
+        }
+      }
+    },
+    "+1 min" : {
+
+    },
+    "+1:00" : {
+
+    },
+    "--:--" : {
+
+    },
+    "12:30" : {
+
+    },
+    "14" : {
+
+    },
+    "2026" : {
+
+    },
+    "2027" : {
+
+    },
+    "6 minutes left" : {
+
+    },
+    "6m" : {
+
+    },
+    "9:41" : {
+
+    },
+    "A quiet notification instead — no ringing." : {
+
+    },
+    "A sequence runs each phase below back-to-back, then loops the whole thing." : {
+
+    },
+    "Active" : {
+
+    },
+    "Add 1 min" : {
+
+    },
+    "Add Phase" : {
+
+    },
+    "Add at least one phase to start this sequence." : {
+
+    },
+    "Add time to a running or paused timer, countdown, or current sequence phase." : {
+
+    },
+    "Add to My Timers" : {
+
+    },
+    "Added %@ to %@. %@ left." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Added %1$@ to %2$@. %3$@ left."
+          }
+        }
+      }
+    },
+    "Added %@ to %@. It is still paused with %@ left." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Added %1$@ to %2$@. It is still paused with %3$@ left."
+          }
+        }
+      }
+    },
+    "Advance Sequence" : {
+
+    },
+    "Alarm" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Choose an event in the next year. Its title and start time become your countdown; Calendar stays unchanged." : {
+
+    },
+    "Continue" : {
+
+    },
+    "Countdown" : {
+
+    },
+    "Counting down to %@" : {
+
+    },
+    "Counting down to %@." : {
+
+    },
+    "Delete" : {
+
+    },
+    "Done" : {
+
+    },
+    "Edit" : {
+
+    },
+    "Edit Countdown" : {
+
+    },
+    "Edit Timer" : {
+
+    },
+    "Edit…" : {
+
+    },
+    "End Sequence" : {
+
+    },
+    "Ends at %@" : {
+
+    },
+    "Extend ${timer} by ${minutes} minutes" : {
+
+    },
+    "Extend Timer" : {
+
+    },
+    "Find an event" : {
+
+    },
+    "Finished" : {
+
+    },
+    "Get Time Remaining" : {
+
+    },
+    "Get time remaining on ${timer}" : {
+
+    },
+    "Hide QR Code" : {
+
+    },
+    "Hours" : {
+
+    },
+    "How long this phase runs each time it comes up." : {
+
+    },
+    "How many minutes would you like to add?" : {
+
+    },
+    "Import from Calendar" : {
+
+    },
+    "Label" : {
+
+    },
+    "Live link · changes sync for everyone" : {
+
+    },
+    "Loading events…" : {
+
+    },
+    "Look" : {
+
+    },
+    "MAR" : {
+
+    },
+    "Manage Sharing" : {
+
+    },
+    "Minutes" : {
+
+    },
+    "Name" : {
+
+    },
+    "New" : {
+
+    },
+    "New Countdown" : {
+
+    },
+    "New Sequence" : {
+
+    },
+    "New Timer" : {
+
+    },
+    "New in %@ · %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "New in %1$@ · %2$lld of %3$lld"
+          }
+        }
+      }
+    },
+    "Next" : {
+
+    },
+    "Next Anniversary" : {
+
+    },
+    "Next Year" : {
+
+    },
+    "No matching events." : {
+
+    },
+    "No timers yet" : {
+
+    },
+    "Not Now" : {
+
+    },
+    "Notifications are off" : {
+
+    },
+    "Occurrence End" : {
+
+    },
+    "Open Settings" : {
+
+    },
+    "Open Timer" : {
+
+    },
+    "Open timer details" : {
+
+    },
+    "Page %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Page %1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "Pasta" : {
+
+    },
+    "Pasta started" : {
+
+    },
+    "Pause" : {
+
+    },
+    "Pause ${timer}" : {
+
+    },
+    "Pause Timer" : {
+
+    },
+    "Pause a timer, countdown, or the current sequence phase." : {
+
+    },
+    "Pause or Resume Timer" : {
+
+    },
+    "Paused" : {
+
+    },
+    "Phase Index" : {
+
+    },
+    "Phases" : {
+
+    },
+    "Pomodoro · Phase 2 of 4" : {
+
+    },
+    "Preparing link…" : {
+
+    },
+    "QR Code" : {
+
+    },
+    "QR code for %@" : {
+
+    },
+    "Read a timer's remaining time. Returns seconds for use in other Shortcut actions; for sequences this is the current phase." : {
+
+    },
+    "Recent" : {
+
+    },
+    "Remove from Recent" : {
+
+    },
+    "Repeat" : {
+
+    },
+    "Repeat %lld time%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Repeat %1$lld time%2$@"
+          }
+        }
+      }
+    },
+    "Repeat Timer" : {
+
+    },
+    "Repeat yearly" : {
+
+    },
+    "Repeats at this date and time in %@. February 29 uses February 28 in non-leap years. Open Timer each year to keep future reminders scheduled." : {
+
+    },
+    "Repeats yearly" : {
+
+    },
+    "Repeats yearly · %@" : {
+
+    },
+    "Resume" : {
+
+    },
+    "Resume ${timer}" : {
+
+    },
+    "Resume Timer" : {
+
+    },
+    "Resume a paused timer, countdown, or sequence phase." : {
+
+    },
+    "Resume to change the date." : {
+
+    },
+    "Rings or buzzes full-screen with Stop and Repeat, even when the app is closed or the phone is on silent." : {
+
+    },
+    "Runs %lld phase%@ per loop, %lld time%@ total." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Runs %1$lld phase%2$@ per loop, %3$lld time%4$@ total."
+          }
+        }
+      }
+    },
+    "Save" : {
+
+    },
+    "Save as New Sequence" : {
+
+    },
+    "Save as Template" : {
+
+    },
+    "Save this sequence to select and start it again later without rebuilding it." : {
+
+    },
+    "Saved as Template" : {
+
+    },
+    "Scan with the Camera app to open this timer" : {
+
+    },
+    "Scheduled" : {
+
+    },
+    "Sequence name" : {
+
+    },
+    "Share" : {
+
+    },
+    "Share Link" : {
+
+    },
+    "Shared sequence from a link" : {
+
+    },
+    "Shared timer from a link" : {
+
+    },
+    "Shared yearly countdown from a link" : {
+
+    },
+    "Share…" : {
+
+    },
+    "Shown to people you share timers with, like \"Sam paused Pasta.\"" : {
+
+    },
+    "Skip" : {
+
+    },
+    "Snapshot · won't update after sending" : {
+
+    },
+    "Start" : {
+
+    },
+    "Start Countdown" : {
+
+    },
+    "Start Now" : {
+
+    },
+    "Start Pasta 8m" : {
+
+    },
+    "Start Recent Timer" : {
+
+    },
+    "Start Timer" : {
+
+    },
+    "Start date" : {
+
+    },
+    "Start from" : {
+
+    },
+    "Start it again any time from New Sequence → Start from." : {
+
+    },
+    "Start later" : {
+
+    },
+    "Started %@ for %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Started %1$@ for %2$@."
+          }
+        }
+      }
+    },
+    "Starts" : {
+
+    },
+    "Starts %@." : {
+
+    },
+    "Starts right away." : {
+
+    },
+    "Stop" : {
+
+    },
+    "Stop Timer" : {
+
+    },
+    "Tap + to start one, or share a timer from iMessage." : {
+
+    },
+    "Tap to follow along" : {
+
+    },
+    "Target Date" : {
+
+    },
+    "Target date" : {
+
+    },
+    "This timer has been deleted or has expired." : {
+
+    },
+    "Time Remaining" : {
+
+    },
+    "Time's up" : {
+
+    },
+    "Timer" : {
+
+    },
+    "Timer ID" : {
+
+    },
+    "Timer unavailable" : {
+
+    },
+    "Timers" : {
+
+    },
+    "Timers won't alert you while the app is in the background until notifications are allowed." : {
+
+    },
+    "Try Again" : {
+
+    },
+    "Type" : {
+
+    },
+    "Update Saved Sequence" : {
+
+    },
+    "Vibrate" : {
+
+    },
+    "What should we call you?" : {
+
+    },
+    "When it ends" : {
+
+    },
+    "When this phase ends" : {
+
+    },
+    "Your name" : {
+
+    },
+    "ends at 7:30 PM" : {
+
+    },
+    "ends at 9:49" : {
+
+    },
+    "iCloud sharing isn't available right now" : {
+
+    },
+    "—" : {
+
+    },
+    "“How long is left on Pasta?”" : {
+
+    }
+  },
+  "version" : "1.0"
+}

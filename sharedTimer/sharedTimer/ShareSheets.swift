@@ -14,6 +14,9 @@ struct ShareTimerSheet: View {
     let payload: TimerPayload
     @Environment(\.dismiss) private var dismiss
     @State private var preparedURL: URL?
+    /// The same timer without its iCloud share: view-only, so a QR code shown across a
+    /// room (or photographed) can't be used to pause or extend the timer for everyone.
+    @State private var snapshotURL: URL?
     /// Whether the link carries a CloudKit share (stays in sync) or is a snapshot.
     @State private var isLive = false
     @State private var previewImage: Image?
@@ -46,7 +49,7 @@ struct ShareTimerSheet: View {
                         .padding(.horizontal, 20)
 
                         HStack(spacing: 12) {
-                            if QRCode.fits(preparedURL) {
+                            if let snapshotURL, QRCode.fits(snapshotURL) {
                                 Button {
                                     withAnimation { showingQR.toggle() }
                                 } label: {
@@ -68,7 +71,7 @@ struct ShareTimerSheet: View {
                         }
                         .padding(.horizontal, 20)
 
-                        if showingQR, let image = QRCode.image(for: preparedURL) {
+                        if showingQR, let snapshotURL, let image = QRCode.image(for: snapshotURL) {
                             VStack(spacing: 8) {
                                 Image(uiImage: image)
                                     .interpolation(.none)
@@ -78,9 +81,11 @@ struct ShareTimerSheet: View {
                                     .padding(12)
                                     .background(.white, in: RoundedRectangle(cornerRadius: 16))
                                     .accessibilityLabel("QR code for \(payload.label)")
-                                Text("Scan with the Camera app to open this timer")
+                                Text("View-only: people who scan this see the countdown but can't change it, and it won't follow later pauses or extensions.")
                                     .font(.footnote)
                                     .foregroundStyle(Sky.roomInk)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 28)
                             }
                             .transition(.opacity)
                         }
@@ -124,6 +129,7 @@ struct ShareTimerSheet: View {
             components.queryItems = (components.queryItems ?? []) + [URLQueryItem(name: "ckshare", value: shareURL.absoluteString)]
         }
         isLive = shareURL != nil
+        snapshotURL = current.url()
         preparedURL = components.url ?? current.url()
     }
 
@@ -143,8 +149,9 @@ struct ShareTimerSheet: View {
     }
 }
 
-/// QR codes for in-person sharing (CoreImage, no package). Long links — e.g. a big
-/// sequence plus its iCloud share URL — don't fit a scannable code, so the button hides.
+/// QR codes for in-person sharing (CoreImage, no package). Always the snapshot link,
+/// never the iCloud share — see `ShareTimerSheet.snapshotURL`. Long links (a big
+/// sequence) don't fit a scannable code, so the button hides.
 enum QRCode {
     private static let maxBytes = 1_200
 

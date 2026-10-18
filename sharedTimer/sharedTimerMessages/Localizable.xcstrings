@@ -1,0 +1,117 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+
+    },
+    "%lld" : {
+
+    },
+    "%lld min" : {
+
+    },
+    "%lld watching" : {
+
+    },
+    "+1:00" : {
+
+    },
+    "A plain link that opens for anyone, app or not." : {
+
+    },
+    "A richer bubble, but it only works if your friend has Timer too." : {
+
+    },
+    "Alarm" : {
+
+    },
+    "App Card" : {
+
+    },
+    "Choose a different timer" : {
+
+    },
+    "Countdown" : {
+
+    },
+    "Counting down to %@" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Ends at %@" : {
+
+    },
+    "Label" : {
+
+    },
+    "Link" : {
+
+    },
+    "New Timer" : {
+
+    },
+    "Pause" : {
+
+    },
+    "Paused" : {
+
+    },
+    "Repeats yearly" : {
+
+    },
+    "Resume" : {
+
+    },
+    "Resume to change the date." : {
+
+    },
+    "Scheduled" : {
+
+    },
+    "Share" : {
+
+    },
+    "Share a running timer" : {
+
+    },
+    "Share as" : {
+
+    },
+    "Sharing" : {
+
+    },
+    "Start & Share" : {
+
+    },
+    "Stop" : {
+
+    },
+    "Target date" : {
+
+    },
+    "This matches what your friend sees" : {
+
+    },
+    "Time's up" : {
+
+    },
+    "Timer" : {
+
+    },
+    "Timer finished" : {
+
+    },
+    "Type" : {
+
+    },
+    "Vibrate" : {
+
+    },
+    "When it ends" : {
+
+    }
+  },
+  "version" : "1.0"
+}

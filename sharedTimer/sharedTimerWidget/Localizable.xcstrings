@@ -1,0 +1,132 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+
+    },
+    "%@" : {
+
+    },
+    "%lld more…" : {
+
+    },
+    "A timer or countdown with a remaining-time ring. Tap to open its details." : {
+
+    },
+    "Advance Sequence" : {
+
+    },
+    "All Timers" : {
+
+    },
+    "Choose Timer" : {
+
+    },
+    "Done" : {
+
+    },
+    "End Sequence" : {
+
+    },
+    "End sequence" : {
+
+    },
+    "Finished" : {
+
+    },
+    "Lists every active timer and countdown, soonest first." : {
+
+    },
+    "Lock Screen Timer" : {
+
+    },
+    "Next Anniversary" : {
+
+    },
+    "Next phase" : {
+
+    },
+    "No Timers" : {
+
+    },
+    "Occurrence End" : {
+
+    },
+    "Open Timer" : {
+
+    },
+    "Open timer details" : {
+
+    },
+    "Pause" : {
+
+    },
+    "Pause or Resume Timer" : {
+
+    },
+    "Paused" : {
+
+    },
+    "Phase Index" : {
+
+    },
+    "Pick one timer or countdown to show big, on its own." : {
+
+    },
+    "Pick which timer or countdown this widget shows." : {
+
+    },
+    "Recent" : {
+
+    },
+    "Repeat" : {
+
+    },
+    "Repeat Timer" : {
+
+    },
+    "Resume" : {
+
+    },
+    "Scheduled" : {
+
+    },
+    "Single Timer" : {
+
+    },
+    "Start %@" : {
+
+    },
+    "Start 5m Timer" : {
+
+    },
+    "Start Recent Timer" : {
+
+    },
+    "Starts" : {
+
+    },
+    "Starts your most recent timer without opening the app." : {
+
+    },
+    "Stop" : {
+
+    },
+    "Stop Timer" : {
+
+    },
+    "Time's up" : {
+
+    },
+    "Timer" : {
+
+    },
+    "Timer ID" : {
+
+    },
+    "—" : {
+
+    }
+  },
+  "version" : "1.0"
+}
