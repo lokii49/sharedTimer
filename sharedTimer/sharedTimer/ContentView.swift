@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var sharingPayload: TimerPayload?
     @State private var editingPayload: TimerPayload?
     @State private var showingWhatsNew = false
+    @State private var showingSettings = false
     /// Set by any deep link (URL, Spotlight, Quick Action) this launch: the person came
     /// for something specific, so the What's New tour stays out of the way.
     @State private var deepLinkArrived = false
@@ -99,6 +100,13 @@ struct ContentView: View {
             .navigationTitle("Timers")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button { showingSettings = true } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
+                    .accessibilityIdentifier("settingsButton")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
                             pendingNewTimerKind = .timer
@@ -164,9 +172,6 @@ struct ContentView: View {
             } message: {
                 Text("Timers won't alert you while the app is in the background until notifications are allowed.")
             }
-            .sheet(item: $sharingPayload) { payload in
-                ShareTimerSheet(payload: payload)
-            }
             .sheet(item: $incomingPayload) { payload in
                 AddSharedTimerSheet(
                     payload: payload,
@@ -177,22 +182,29 @@ struct ContentView: View {
                     onDismiss: { incomingPayload = nil }
                 )
             }
-            .alert("What should we call you?", isPresented: $showingNamePrompt) {
-                TextField("Your name", text: $nameInput)
-                Button("Continue") {
-                    let trimmed = nameInput.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !trimmed.isEmpty { DisplayNameStore.name = trimmed }
-                    nameInput = ""
-                    pendingNameCompletion?()
-                    pendingNameCompletion = nil
-                }
-                Button("Skip", role: .cancel) {
-                    pendingNameCompletion?()
-                    pendingNameCompletion = nil
-                }
-            } message: {
-                Text("Shown to people you share timers with, like \"Sam paused Pasta.\"")
+        }
+        // Outside the NavigationStack: attached to the list root, this prompt and sheet
+        // never appeared while TimerDetailView was pushed, so its Share button did nothing
+        // for anyone without a stored display name.
+        .sheet(item: $sharingPayload) { payload in
+            ShareTimerSheet(payload: payload)
+        }
+        .alert("What should we call you?", isPresented: $showingNamePrompt) {
+            TextField("Your name", text: $nameInput)
+            Button("Continue") {
+                let trimmed = nameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty { DisplayNameStore.name = trimmed }
+                nameInput = ""
+                pendingNameCompletion?()
+                pendingNameCompletion = nil
             }
+            Button("Skip", role: .cancel) {
+                DisplayNameStore.declined = true
+                pendingNameCompletion?()
+                pendingNameCompletion = nil
+            }
+        } message: {
+            Text("Shown to people you share timers with, like \"Sam paused Pasta.\" You can change it any time in Settings.")
         }
         .tint(.white)
         .overlay(alignment: .bottom) {
@@ -259,6 +271,7 @@ struct ContentView: View {
                 // silently kill a ringing alarm.
                 alarm.stop()
                 vibration.stop()
+                BackgroundRefresh.schedule()
             }
             guard newPhase == .active else { return }
             TimerSpotlightIndex.shared.requestRefresh()
@@ -317,6 +330,9 @@ struct ContentView: View {
         }
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
             afterWhatsNewYields { handleIncoming(url: activity.webpageURL) }
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
         }
         .fullScreenCover(isPresented: $showingWhatsNew) {
             WhatsNewView { showingWhatsNew = false }
@@ -675,7 +691,7 @@ struct ContentView: View {
     /// Fire-and-forget version for call sites that don't need to wait on the result
     /// (mutations — see applyMutation). No-ops if a name is already set.
     private func promptForNameIfNeeded() {
-        guard DisplayNameStore.name == nil else { return }
+        guard DisplayNameStore.shouldPrompt else { return }
         showingNamePrompt = true
     }
 
@@ -684,7 +700,7 @@ struct ContentView: View {
     /// where the prompt has to resolve before the share sheet opens (two presentations at
     /// once would fight each other) — see DisplayNameStore.swift for the skip fallback.
     private func withDisplayName(_ then: @escaping () -> Void) {
-        guard DisplayNameStore.name == nil else {
+        guard DisplayNameStore.shouldPrompt else {
             then()
             return
         }

@@ -21,6 +21,10 @@ struct TimerDetailView: View {
     @State private var attribution: (name: String, action: String)?
     @State private var hasBuzzedFinish = false
     @State private var showingEdit = false
+    @State private var showingSaveTemplate = false
+    @State private var templateName = ""
+    /// Flipped on save so the bookmark redraws as filled.
+    @State private var templateSaved = false
     @ObservedObject private var alarm = AlarmPlayer.shared
     @ObservedObject private var vibration = VibrationPlayer.shared
 
@@ -77,6 +81,9 @@ struct TimerDetailView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.4)
                             .padding(.horizontal, 24)
+                            .accessibilityLabel(pending ? "Starts \(payload.scheduledStartDate?.formatted(date: .abbreviated, time: .shortened) ?? "")"
+                                                : "\(Duration.seconds(max(0, remaining.rounded())).formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))) left")
+                            .accessibilityAddTraits(.updatesFrequently)
                         Text(subtitle(done: done, pending: pending))
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.75))
@@ -202,6 +209,18 @@ struct TimerDetailView: View {
                     .accessibilityLabel("Edit")
                 }
             }
+            if let sequence = payload.sequence {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        templateName = SavedSequenceStore.suggestedName(for: sequence)
+                        showingSaveTemplate = true
+                    } label: {
+                        Image(systemName: SavedSequenceStore.contains(sequence) ? "bookmark.fill" : "bookmark")
+                    }
+                    .accessibilityLabel(SavedSequenceStore.contains(sequence) ? "Saved as Template" : "Save as Template")
+                    .disabled(templateSaved || SavedSequenceStore.contains(sequence))
+                }
+            }
             if payload.sequence.map(TimerSequenceWire.isValid) ?? true {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { onShare(payload) } label: {
@@ -210,6 +229,18 @@ struct TimerDetailView: View {
                     .accessibilityLabel("Share")
                 }
             }
+        }
+        .alert("Save as Template", isPresented: $showingSaveTemplate) {
+            TextField("Name", text: $templateName)
+            Button("Save") {
+                if let sequence = payload.sequence {
+                    SavedSequenceStore.add(sequence, name: templateName)
+                    templateSaved = true
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Start it again any time from New Sequence → Start from.")
         }
         .sheet(isPresented: $showingEdit) {
             EditTimerSheet(payload: payload) { edited in

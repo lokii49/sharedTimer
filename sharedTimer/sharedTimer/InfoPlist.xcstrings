@@ -1,0 +1,240 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSAlarmKitUsageDescription": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许计时结束时全屏响铃，你可以停止或重复，即使 App 未打开也有效。"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "समाप्त टाइमर को फ़ुल-स्क्रीन अलार्म बजाने देता है, जिसे आप रोक या दोहरा सकते हैं, भले ही ऐप खुला न हो।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permite que un temporizador terminado suene con una alarma a pantalla completa que puedes detener o repetir, incluso con la app cerrada."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يتيح للمؤقت المنتهي تشغيل منبه بملء الشاشة يمكنك إيقافه أو تكراره، حتى عندما لا يكون التطبيق مفتوحًا."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permet à un minuteur terminé de déclencher une alarme plein écran que vous pouvez arrêter ou répéter, même si l’app n’est pas ouverte."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "অ্যাপ খোলা না থাকলেও শেষ হওয়া টাইমারকে পূর্ণ স্ক্রিনে অ্যালার্ম বাজাতে দেয়, যা আপনি থামাতে বা পুনরাবৃত্তি করতে পারবেন।"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permite que um timer concluído toque um alarme em tela cheia que você pode parar ou repetir, mesmo com o app fechado."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Позволяет завершенному таймеру включать полноэкранный будильник, который можно остановить или повторить, даже когда приложение закрыто."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memungkinkan timer yang selesai membunyikan alarm layar penuh yang bisa kamu hentikan atau ulangi, bahkan saat app tidak dibuka."
+          }
+        }
+      },
+      "comment": "Lets a finished timer sound a full-screen alarm you can stop or repeat, even when the app isn't open."
+    },
+    "NSCalendarsFullAccessUsageDescription": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择一个日历日程，将其标题和日期复制到倒计时中。"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "काउंटडाउन में शीर्षक और तारीख कॉपी करने के लिए कैलेंडर इवेंट चुनें।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige un evento de Calendario para copiar su título y fecha en una cuenta atrás."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اختر حدثًا من التقويم لنسخ عنوانه وتاريخه إلى عد تنازلي."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un événement de Calendrier pour copier son titre et sa date dans un compte à rebours."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "শিরোনাম ও তারিখ কাউন্টডাউনে কপি করতে একটি ক্যালেন্ডার ইভেন্ট বেছে নিন।"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escolha um evento do Calendário para copiar o título e a data para uma contagem regressiva."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите событие Календаря, чтобы перенести его название и дату в отсчет."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih acara Kalender untuk menyalin judul dan tanggalnya ke hitung mundur."
+          }
+        }
+      },
+      "comment": "Choose a Calendar event to copy its title and date into a countdown."
+    },
+    "New Timer": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建计时器"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नया टाइमर"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuevo temporizador"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مؤقت جديد"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveau minuteur"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "নতুন টাইমার"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Novo Timer"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый таймер"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer Baru"
+          }
+        }
+      }
+    },
+    "New Countdown": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建倒计时"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नया काउंटडाउन"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nueva cuenta atrás"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عد تنازلي جديد"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nouveau compte à rebours"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "নতুন কাউন্টডাউন"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nova Contagem Regressiva"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новый отсчет"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hitung Mundur Baru"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

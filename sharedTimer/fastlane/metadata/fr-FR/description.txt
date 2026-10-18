@@ -1,0 +1,10 @@
+Lancez un minuteur ou un compte à rebours, puis partagez-le : tout le monde voit le même compte à rebours en direct, mis à jour en temps réel.
+
+• Minuteurs et comptes à rebours qui comptent les jours : « 3d 04:12:09 » quand l’échéance est lointaine, « 12:09 » quand elle approche
+• Partagez via iMessage un minuteur en direct et synchronisé. Mettez-le en pause, reprenez-le ou prolongez-le : tous ceux qui le suivent voient le changement instantanément
+• Widgets pour l’écran d’accueil et affichage en Activité en direct / Dynamic Island, pour garder le temps à l’écran sans ouvrir l’app
+• App compagnon pour Apple Watch
+• Demandez à Siri de lancer un minuteur ou un compte à rebours, ou utilisez les actions rapides de l’écran d’accueil
+• Aucune app requise pour les destinataires : un lien partagé ouvre une page de compte à rebours en direct pour tout le monde
+
+Pas de pub, pas de compte, pas de pistage. Vos minuteurs restent sur votre appareil, sauf si vous choisissez d’en partager un.

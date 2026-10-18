@@ -145,8 +145,8 @@ enum LiveActivityActions {
     /// 1:05 PM"), replaced (same identifier) if the control is tapped again.
     private static func announceStarted(_ payload: TimerPayload) {
         let content = UNMutableNotificationContent()
-        content.title = "\(payload.label) started"
-        content.body = "\(RecentTimer.lengthText(payload.duration)) · ends \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+        content.title = String(localized: "\(payload.label) started")
+        content.body = String(localized: "\(RecentTimer.lengthText(payload.duration)) · ends \(payload.endDate.formatted(date: .omitted, time: .shortened))")
         content.sound = nil
         content.categoryIdentifier = startedCategoryID
         content.interruptionLevel = .active

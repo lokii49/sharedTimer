@@ -1,0 +1,15 @@
+name = "timer-link-preview"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+
+# A route without a trailing * doesn't match URLs with a query string, and every shared
+# link has one. The wildcard also covers /timer/privacy, /timer-preview.jpg etc.; the
+# Worker passes anything other than /timer and /timer.html straight through.
+routes = [
+  { pattern = "mirrornotes.org/timer*", zone_name = "mirrornotes.org" }
+]
+
+# No request logs: link query strings carry timer labels.
+[observability]
+enabled = false

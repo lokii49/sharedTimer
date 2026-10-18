@@ -1,0 +1,11 @@
+• Novo: o Timer agora fala dez idiomas — inglês, chinês, hindi, espanhol, árabe, francês, bengali, português, russo e indonésio.
+• Novo: prévias de link que dizem o que são. O app Mensagens mostra o nome e a duração do timer antes de alguém tocar.
+• Novo: a tela de compartilhamento informa se um link é Ao vivo (fica sincronizado para todos) ou um Instantâneo, e fica pronta na hora.
+• Novo: compartilhe com todo mundo no ambiente usando um código QR. Quem escanear pode acompanhar a contagem, mas não pode alterá-la.
+• Novo: Gerenciar Compartilhamento. Veja quem tem um timer compartilhado, remova alguém ou pare de compartilhar.
+• Novo: salve como seu próprio modelo uma sequência que alguém enviou a você.
+• Novo: Ajustes. Defina o nome que as pessoas veem quando você compartilha, escolha entre quatro toques de alarme e reveja as Novidades.
+• Descrições melhores no VoiceOver e suporte a textos maiores.
+• Sequências e contagens regressivas anuais agora repõem seus próximos alarmes em segundo plano.
+• Corrigido: compartilhar voltou a funcionar na tela do próprio timer.
+• Links compartilhados agora abrem a partir de mirrornotes.org. Os links que você já enviou continuam funcionando.

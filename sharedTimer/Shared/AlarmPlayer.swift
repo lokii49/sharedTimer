@@ -24,7 +24,7 @@ final class AlarmPlayer: ObservableObject {
 
     func start() {
         guard !isPlaying else { return }
-        guard let url = Bundle.main.url(forResource: "alarm", withExtension: "caf") else { return }
+        guard let url = AlarmTone.selected.url ?? Bundle.main.url(forResource: "alarm", withExtension: "caf") else { return }
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, options: [])
             try AVAudioSession.sharedInstance().setActive(true)

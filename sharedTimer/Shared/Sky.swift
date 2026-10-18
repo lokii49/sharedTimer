@@ -105,10 +105,10 @@ enum Sky {
         let calendar = Calendar.current
         let time = start.formatted(date: .omitted, time: .shortened)
         if calendar.isDate(start, inSameDayAs: now) {
-            return "Today \(time)"
+            return String(localized: "Today \(time)")
         }
         if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now), calendar.isDate(start, inSameDayAs: tomorrow) {
-            return "Tomorrow \(time)"
+            return String(localized: "Tomorrow \(time)")
         }
         if let sixDaysOut = calendar.date(byAdding: .day, value: 6, to: now), start < sixDaysOut {
             return "\(start.formatted(.dateTime.weekday(.abbreviated))) \(time)"
@@ -120,7 +120,7 @@ enum Sky {
     /// started. `TimerPayload.sequenceCaption`'s "Phase 1 of 2 · Loop 1 of 7" reads as
     /// already running, so this is a separate function rather than a change to it.
     static func pendingSequenceCaption(_ sequence: SequenceInfo) -> String {
-        "\(sequence.phases.count) phase\(sequence.phases.count == 1 ? "" : "s") · \(sequence.loopCount) loop\(sequence.loopCount == 1 ? "" : "s")"
+        String(localized: "Phases per loop: \(sequence.phases.count) · Loops: \(sequence.loopCount)")
     }
 
     /// "FAST · 0D 16H" -- what phase 0 actually is, for the secondary slot next to the
@@ -166,15 +166,33 @@ enum Sky {
 extension Text {
     /// Small-caps label voice used on skies and chrome: uppercase, tracked, semibold.
     func skyLabel(_ size: CGFloat = 11) -> some View {
-        self.font(.system(size: size, weight: .semibold))
-            .tracking(size * 0.16)
-            .textCase(.uppercase)
+        modifier(SkyLabelStyle(size: size))
     }
 
     /// The thin digits that glow against a sky.
     func skyDigits(_ size: CGFloat, weight: Font.Weight = .thin) -> Text {
         self.font(.system(size: size, weight: weight))
             .monospacedDigit()
+    }
+}
+
+/// Small caps that follow the person's text size, capped so a fixed-height sky card
+/// (SkyCard is 104pt) can't overflow at the largest accessibility sizes.
+private struct SkyLabelStyle: ViewModifier {
+    @ScaledMetric private var scaled: CGFloat
+    private let base: CGFloat
+
+    init(size: CGFloat) {
+        base = size
+        _scaled = ScaledMetric(wrappedValue: size, relativeTo: .caption)
+    }
+
+    func body(content: Content) -> some View {
+        let size = min(scaled, base * 1.6)
+        content
+            .font(.system(size: size, weight: .semibold))
+            .tracking(size * 0.16)
+            .textCase(.uppercase)
     }
 }
 
@@ -267,6 +285,33 @@ struct SkyCard: View {
                 .brightness(pending ? -0.1 : 0)
         )
         .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        // One VoiceOver element instead of five fragments ("PASTA", "04:12", "ENDS 7:40"),
+        // with the digits spoken as words.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityTitle)
+        .accessibilityValue(accessibilityStatus(remaining: remaining, pending: pending))
+    }
+
+    private var accessibilityTitle: String {
+        let kind = payload.sequence != nil ? String(localized: "sequence") : payload.kind == .countdown ? String(localized: "countdown") : String(localized: "timer")
+        if let caption = payload.sequenceCaption, !payload.isPending(at: date) {
+            return "\(payload.label), \(kind), \(caption)"
+        }
+        return "\(payload.label), \(kind)"
+    }
+
+    private func accessibilityStatus(remaining: TimeInterval, pending: Bool) -> String {
+        if pending, let start = payload.scheduledStartDate {
+            return String(localized: "Scheduled, starts \(start.formatted(date: .abbreviated, time: .shortened))")
+        }
+        if payload.isExpired { return String(localized: "Time's up") }
+        let left = Duration.seconds(max(1, remaining.rounded()))
+            .formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))
+        if payload.isPaused { return String(localized: "Paused, \(left) left") }
+        if payload.kind == .countdown {
+            return String(localized: "\(left) left, until \(payload.endDate.formatted(date: .abbreviated, time: .shortened))")
+        }
+        return String(localized: "\(left) left, ends \(payload.endDate.formatted(date: .omitted, time: .shortened))")
     }
 
     /// The start date/time itself, day-aware, not a ticking countdown to it -- a live
@@ -285,14 +330,14 @@ struct SkyCard: View {
             return phaseText
         }
         if payload.isPaused {
-            return "held"
+            return String(localized: "held")
         }
         if payload.isExpired {
-            return "finished \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+            return String(localized: "finished \(payload.endDate.formatted(date: .omitted, time: .shortened))")
         }
         if payload.kind == .countdown {
             return TimeFormat.targetDate(payload.endDate)
         }
-        return "ends \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+        return String(localized: "ends \(payload.endDate.formatted(date: .omitted, time: .shortened))")
     }
 }

@@ -1,0 +1,10 @@
+Pon un temporizador o una cuenta atrás y compártelo: todos ven la misma cuenta atrás en directo, actualizada en tiempo real.
+
+• Temporizadores y cuentas atrás que cuentan los días: "3d 04:12:09" cuando falta mucho y "12:09" cuando ya está cerca
+• Comparte por iMessage un temporizador en directo y sincronizado. Ponlo en pausa, reanúdalo o amplíalo, y todos los que lo siguen verán el cambio al instante
+• Widgets para la pantalla de inicio y vista de Actividad en Directo / Dynamic Island, para tener el tiempo en pantalla sin abrir la app
+• App complementaria para Apple Watch
+• Pídele a Siri que inicie un temporizador o una cuenta atrás, o usa las funciones rápidas de la pantalla de inicio
+• Quien lo recibe no necesita la app: un enlace compartido abre una página con la cuenta atrás en directo para cualquiera
+
+Sin anuncios, sin registro y sin seguimiento. Tus temporizadores se quedan en tu dispositivo, salvo que decidas compartir alguno.

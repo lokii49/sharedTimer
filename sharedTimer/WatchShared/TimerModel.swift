@@ -160,8 +160,8 @@ struct TimerPayload: Codable, Identifiable {
     func url() -> URL {
         var components = URLComponents()
         components.scheme = "https"
-        components.host = "lokii49.github.io"
-        components.path = "/sharedTimer/t.html"
+        components.host = "mirrornotes.org"
+        components.path = "/timer"
         var items = [
             URLQueryItem(name: "id", value: id),
             URLQueryItem(name: "label", value: label),

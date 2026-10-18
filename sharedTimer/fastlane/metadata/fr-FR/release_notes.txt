@@ -1,0 +1,11 @@
+• Nouveau : Timer parle désormais dix langues : anglais, chinois, hindi, espagnol, arabe, français, bengali, portugais, russe et indonésien.
+• Nouveau : des aperçus de lien qui disent ce qu’ils sont. Messages affiche le nom et la durée du minuteur avant même que quelqu’un touche le lien.
+• Nouveau : l’écran de partage indique si un lien est En direct (synchronisé pour tout le monde) ou un Instantané, et il est prêt immédiatement.
+• Nouveau : partagez avec toute la salle grâce à un code QR. Les personnes qui le scannent peuvent suivre le compte à rebours, sans pouvoir le modifier.
+• Nouveau : Gérer le partage. Voyez qui a accès à un minuteur partagé, retirez quelqu’un ou arrêtez le partage.
+• Nouveau : enregistrez comme modèle personnel une séquence que l’on vous a envoyée.
+• Nouveau : Réglages. Définissez le nom que voient les autres quand vous partagez, choisissez parmi quatre sonneries d’alarme et revoyez les Nouveautés.
+• Descriptions VoiceOver améliorées et prise en charge des textes plus grands.
+• Les séquences et les comptes à rebours annuels programment désormais leurs prochaines alarmes en arrière-plan.
+• Corrigé : le partage fonctionne de nouveau depuis l’écran du minuteur.
+• Les liens partagés s’ouvrent désormais depuis mirrornotes.org. Les liens déjà envoyés continuent de fonctionner.

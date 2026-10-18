@@ -227,17 +227,20 @@ class MessagesViewController: MSMessagesAppViewController {
     /// (Skip, or dismissing) just falls back to "Someone" in attribution; nothing here
     /// blocks on it, including this call site itself, which proceeds either way.
     private func promptForDisplayNameIfNeeded(then completion: @escaping () -> Void) {
-        guard DisplayNameStore.name == nil else {
+        guard DisplayNameStore.shouldPrompt else {
             completion()
             return
         }
         let alert = UIAlertController(
             title: "What should we call you?",
-            message: "Shown to people you share timers with, like \"Sam paused Pasta.\"",
+            message: String(localized: "Shown to people you share timers with, like \"Sam paused Pasta.\" You can change it any time in Timer's Settings."),
             preferredStyle: .alert
         )
         alert.addTextField { $0.placeholder = "Your name" }
-        alert.addAction(UIAlertAction(title: "Skip", style: .cancel) { _ in completion() })
+        alert.addAction(UIAlertAction(title: "Skip", style: .cancel) { _ in
+            DisplayNameStore.declined = true
+            completion()
+        })
         alert.addAction(UIAlertAction(title: "Continue", style: .default) { [weak alert] _ in
             let trimmed = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             if !trimmed.isEmpty { DisplayNameStore.name = trimmed }
@@ -251,7 +254,7 @@ class MessagesViewController: MSMessagesAppViewController {
 
         switch mode {
         case .link:
-            let text = "\(shareEmoji(for: payload)) \(payload.label) — \(shareSummary(for: payload))\n\(link.absoluteString)"
+            let text = "\(payload.shareMessage)\n\(link.absoluteString)"
             conversation.insertText(text) { [weak self] error in
                 if let error {
                     print("SharedTimer insertText error: \(error)")
@@ -294,20 +297,6 @@ class MessagesViewController: MSMessagesAppViewController {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
-    }
-
-    private func shareEmoji(for payload: TimerPayload) -> String {
-        payload.kind == .countdown ? "📅" : "⏱️"
-    }
-
-    private func shareSummary(for payload: TimerPayload) -> String {
-        switch payload.kind {
-        case .timer:
-            let minutes = Int((payload.duration / 60).rounded())
-            return "\(minutes) min timer"
-        case .countdown:
-            return "counting down to \(TimeFormat.targetDate(payload.endDate))"
-        }
     }
 
     private func subcaption(for payload: TimerPayload) -> String {

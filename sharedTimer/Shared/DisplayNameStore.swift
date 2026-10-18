@@ -30,4 +30,16 @@ enum DisplayNameStore {
         get { defaults?.string(forKey: key) }
         set { defaults?.set(newValue, forKey: key) }
     }
+
+    private static let declinedKey = "displayNameDeclined"
+
+    /// Set when someone taps Skip, so the prompt doesn't come back on every share or
+    /// mutation. A name can still be set (or cleared) any time in Settings.
+    static var declined: Bool {
+        get { defaults?.bool(forKey: declinedKey) ?? false }
+        set { defaults?.set(newValue, forKey: declinedKey) }
+    }
+
+    /// Whether to show the "What should we call you?" prompt at all.
+    static var shouldPrompt: Bool { name == nil && !declined }
 }

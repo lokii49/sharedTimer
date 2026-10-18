@@ -5,13 +5,15 @@
 
 import SwiftUI
 
-/// Once-per-update "What's New" tour ("Sunrise Walk"): one full-screen page per
-/// feature, the sky draining from night toward sunrise as you page through — the same
-/// drain a timer's own sky does. Main app only.
+/// Once-per-update "What's New" tour. 1.0.5 is "Afternoon Walk" (direction A of three
+/// mockups, chosen 2026-10-18, https://claude.ai/artifact/N3mZkpafHZnp2gt9rADTnz): the
+/// 1.0.4 "Sunrise Walk" ended at sunrise, so this one carries on through the day — the
+/// sky runs from dusk's pale day end into the ember evening, a little more per page.
+/// Main app only; also reachable any time from Settings → What's New → Replay.
 enum WhatsNew {
     /// The version whose features the pages below describe. Bump it (and the pages)
     /// when a later release gets its own tour; a release without one shows nothing.
-    static let contentVersion = "1.0.4"
+    static let contentVersion = "1.0.5"
     static let seenVersionKey = "whatsNewSeenVersion"
     /// UI tests and screenshots: present regardless of the stored version.
     static let forceShowArgument = "-ShowWhatsNew"
@@ -57,18 +59,20 @@ enum WhatsNew {
     }
 
     static let features: [Feature] = [
-        Feature(id: 0, title: "Pause from the Lock Screen",
-                body: "Pause, resume or stop right on the Lock Screen and Dynamic Island. New Lock Screen widgets show a live ring."),
-        Feature(id: 1, title: "Edit any timer",
-                body: "Rename it, change its alarm, or move a countdown to a new date. Shared timers update for everyone."),
-        Feature(id: 2, title: "Countdowns that come back every year",
-                body: "Birthdays and anniversaries repeat yearly. Import them straight from your Calendar."),
-        Feature(id: 3, title: "Share a whole sequence",
-                body: "Send a Pomodoro or fasting plan in Messages. Everyone follows the same phases, live."),
-        Feature(id: 4, title: "Start your usual timer in one tap",
-                body: "Recent timers wait in the New Timer screen, on the app icon and in Control Center."),
-        Feature(id: 5, title: "Siri, Spotlight and your Watch",
-                body: "Ask Siri how long is left, find a timer in Spotlight, or keep one on your watch face.")
+        Feature(id: 0, title: String(localized: "Links that say what they are"),
+                body: String(localized: "Shared links now open from mirrornotes.org, and Messages shows the timer's name before anyone taps.")),
+        Feature(id: 1, title: String(localized: "Live or snapshot, at a glance"),
+                body: String(localized: "The share screen shows the timer and tells you whether the link stays in sync.")),
+        Feature(id: 2, title: String(localized: "Share across the room"),
+                body: String(localized: "Show a QR code. Anyone who scans it can watch the countdown but can't change it.")),
+        Feature(id: 3, title: String(localized: "You decide who has it"),
+                body: String(localized: "See who has a shared timer, remove someone, or stop sharing.")),
+        Feature(id: 4, title: String(localized: "Keep a sequence you were sent"),
+                body: String(localized: "Save a friend's Pomodoro or fasting plan as your own template.")),
+        Feature(id: 5, title: String(localized: "Make it yours"),
+                body: String(localized: "Set the name people see, pick one of four alarm tones, and replay this tour, all in Settings.")),
+        Feature(id: 6, title: String(localized: "Timer speaks your language"),
+                body: String(localized: "Ten languages, clearer VoiceOver and larger text. Share works again from a timer's own screen, too."))
     ]
 }
 
@@ -80,9 +84,11 @@ struct WhatsNewView: View {
     private var features: [WhatsNew.Feature] { WhatsNew.features }
     private var isLast: Bool { page == features.count - 1 }
 
-    /// Night sky drained a little more on each page — the tour ends at sunrise.
+    /// Afternoon into evening: dusk's drained (day) end blending into a fresh ember sky,
+    /// eased like a timer's own drain — the tour ends at sunset.
     private func skyColors(_ index: Int) -> [Color] {
-        Sky.night.stops(drain: Double(index) / Double(max(1, features.count - 1)))
+        let t = Double(index) / Double(max(1, features.count - 1))
+        return zip(Sky.dusk.drained, Sky.ember.fresh).map { $0.mixed(toward: $1, by: t * t).color }
     }
 
     var body: some View {
@@ -93,6 +99,16 @@ struct WhatsNewView: View {
             }
             .ignoresSafeArea()
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.9), value: page)
+
+            // The early pages are bright daytime sky (pale peach at the bottom); soft top and
+            // bottom scrims keep the white text and the Continue pill readable.
+            LinearGradient(stops: [.init(color: .black.opacity(0.32), location: 0),
+                                   .init(color: .black.opacity(0), location: 0.45),
+                                   .init(color: .black.opacity(0), location: 0.6),
+                                   .init(color: .black.opacity(0.3), location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
 
             VStack(spacing: 18) {
                 HStack {
@@ -154,11 +170,11 @@ private struct WhatsNewPage: View {
                 .skyLabel(11)
                 .foregroundStyle(.white.opacity(0.7))
             Text(feature.title)
-                .font(.title2.weight(.semibold))
+                .font(.title2.weight(.bold))
                 .fixedSize(horizontal: false, vertical: true)
             Text(feature.body)
                 .font(.subheadline)
-                .foregroundStyle(.white.opacity(0.82))
+                .foregroundStyle(.white.opacity(0.92))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 12)
             ScaledIllustration(index: feature.id, isActive: isActive)
@@ -179,8 +195,8 @@ private struct WhatsNewIllustration: View {
     let isActive: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var period: Double { [5, 6, 5, 6, 5, 6][index] }
-    private var restingT: Double { [0.6, 0.8, 0.7, 0.6, 0.6, 0.6][index] }
+    private var period: Double { [5, 4, 3.2, 6, 5, 6, 10][index] }
+    private var restingT: Double { [0.6, 0.5, 0.5, 0.3, 0.6, 0.6, 0.45][index] }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !isActive)) { context in
@@ -188,12 +204,13 @@ private struct WhatsNewIllustration: View {
             let t = reduceMotion ? restingT : (seconds.truncatingRemainder(dividingBy: period)) / period
             Group {
                 switch index {
-                case 0: LockScreenScene(t: t, seconds: seconds)
-                case 1: EditScene(t: t, seconds: seconds)
-                case 2: YearlyScene(t: t)
-                case 3: SequenceScene(t: t)
-                case 4: QuickStartScene(t: t)
-                default: ReachScene(t: t, seconds: seconds)
+                case 0: LinkPreviewScene(t: t)
+                case 1: LiveSnapshotScene(t: t)
+                case 2: QRScene(t: t)
+                case 3: ManageSharingScene(t: t)
+                case 4: TemplateScene(t: t)
+                case 5: SettingsScene()
+                default: LanguagesScene(t: t)
                 }
             }
             .frame(width: 260, height: 210)
@@ -228,249 +245,202 @@ private func pulse(_ t: Double, _ inStart: Double, _ inEnd: Double, _ outStart: 
     min(ramp(t, inStart, inEnd), 1 - ramp(t, outStart, outEnd))
 }
 
-private struct LockScreenScene: View {
+private let emberCard = LinearGradient(colors: Sky.ember.stops(drain: 0), startPoint: .topLeading, endPoint: .bottomTrailing)
+
+/// A Messages link bubble sliding in, carrying the timer's name and what it is.
+private struct LinkPreviewScene: View {
     let t: Double
-    let seconds: Double
 
     var body: some View {
-        let paused = t > 0.36 && t < 0.9
-        let tap = ramp(t, 0.32, 0.44)
-        let remaining = 462 - Int(seconds) % 462
-        VStack(spacing: 16) {
-            Text("9:41").skyDigits(48, weight: .light)
-            ZStack {
-                LinearGradient(colors: Sky.ember.stops(drain: 0.2), startPoint: .topLeading, endPoint: .bottomTrailing)
-                LinearGradient(colors: Sky.mist, startPoint: .topLeading, endPoint: .bottomTrailing)
-                    .opacity(pulse(t, 0.34, 0.42, 0.88, 0.96))
-                HStack {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Pasta").skyLabel(10).opacity(0.8)
-                        Text(TimeFormat.display(TimeInterval(remaining))).skyDigits(34, weight: .light)
-                        Text(paused ? "Paused" : "ends at 9:49").font(.caption2).opacity(0.75)
-                    }
-                    Spacer()
-                    HStack(spacing: 8) {
-                        controlCircle(paused ? "play.fill" : "pause.fill")
-                            .overlay(Circle().stroke(.white, lineWidth: 2)
-                                .scaleEffect(0.7 + tap * 0.8)
-                                .opacity(tap > 0 && tap < 1 ? 1 - tap : 0))
-                        controlCircle("xmark")
-                    }
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
+        let shown = pulse(t, 0.05, 0.3, 0.88, 1.0)
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: "Pasta").font(.subheadline.weight(.semibold))
+                Text("8 min timer").font(.caption).opacity(0.85)
             }
-            .frame(width: 240, height: 84)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .padding(12)
+            .frame(width: 176, alignment: .leading)
+            .background(emberCard, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            Text(verbatim: "mirrornotes.org").font(.caption.weight(.semibold))
         }
-    }
-
-    private func controlCircle(_ symbol: String) -> some View {
-        Image(systemName: symbol)
-            .font(.system(size: 13, weight: .bold))
-            .frame(width: 34, height: 34)
-            .background(.white.opacity(0.22), in: Circle())
+        .padding(12)
+        .background(.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(.white.opacity(0.3)))
+        .opacity(shown)
+        .offset(x: -30 * (1 - ramp(t, 0.05, 0.3)))
     }
 }
 
-private struct EditScene: View {
-    let t: Double
-    let seconds: Double
-
-    private var typed: String {
-        let from = "Pasta", to = "Ramen night"
-        if t < 0.15 { return from }
-        if t < 0.3 { return String(from.prefix(Int((1 - ramp(t, 0.15, 0.3)) * Double(from.count)))) }
-        return String(to.prefix(Int((ramp(t, 0.3, 0.6) * Double(to.count)).rounded(.up))))
-    }
-
-    var body: some View {
-        let caretOn = Int(seconds * 2) % 2 == 0
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 1) {
-                Text(typed).skyLabel(11)
-                Rectangle().frame(width: 1.5, height: 13).opacity(caretOn ? 1 : 0)
-                Spacer()
-                Image(systemName: "pencil")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 30, height: 30)
-                    .background(.white.opacity(0.22), in: Circle())
-            }
-            Text("12:30").skyDigits(34, weight: .regular)
-            Text("ends at 7:30 PM").font(.caption2).opacity(0.75)
-        }
-        .padding(14)
-        .frame(width: 240)
-        .background(LinearGradient(colors: Sky.ember.stops(drain: 0.3), startPoint: .topLeading, endPoint: .bottomTrailing),
-                    in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-}
-
-private struct YearlyScene: View {
+/// The timer card with the two link kinds; "Live" breathes.
+private struct LiveSnapshotScene: View {
     let t: Double
 
     var body: some View {
-        let flip = pulse(t, 0.45, 0.55, 0.92, 1.0)
-        VStack(spacing: 14) {
-            VStack(spacing: 0) {
-                Text("MAR")
-                    .font(.system(size: 12, weight: .bold)).tracking(1.5)
-                    .frame(maxWidth: .infinity).padding(.vertical, 5)
-                    .background(Color(red: 0.9, green: 0.28, blue: 0.3))
-                    .foregroundStyle(.white)
-                Text("14").font(.system(size: 46, weight: .light)).foregroundStyle(.black)
-                ZStack {
-                    Text("2026").offset(y: -20 * flip)
-                    Text("2027").offset(y: 20 - 20 * flip)
-                }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.gray)
-                .frame(height: 20)
-                .clipped()
-                .padding(.bottom, 8)
+        let breathe = 0.35 + 0.65 * (0.5 + 0.5 * cos(t * 2 * .pi))
+        VStack(spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: "Pasta").skyLabel(11).opacity(0.85)
+                Text(verbatim: "07:42").skyDigits(34, weight: .thin)
             }
-            .frame(width: 108)
-            .background(.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(color: .black.opacity(0.4), radius: 14, y: 8)
-
-            Label("Repeats yearly", systemImage: "arrow.triangle.2.circlepath")
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(.white.opacity(0.17), in: Capsule())
-                .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 1))
-        }
-    }
-}
-
-private struct SequenceScene: View {
-    let t: Double
-
-    var body: some View {
-        // Work 25 / Rest 5, twice: each segment fills in turn.
-        let segments: [(String, CGFloat, ClosedRange<Double>)] = [
-            ("Work", 5, 0...0.3), ("Rest", 2, 0.3...0.42), ("Work", 5, 0.42...0.72), ("Rest", 2, 0.72...0.84)
-        ]
-        VStack(alignment: .trailing, spacing: 14) {
-            GeometryReader { geo in
-                let unit = (geo.size.width - 12) / 14
-                HStack(spacing: 4) {
-                    ForEach(segments.indices, id: \.self) { i in
-                        let seg = segments[i]
-                        let fill = ramp(t, seg.2.lowerBound, seg.2.upperBound)
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 7).fill(.white.opacity(0.18))
-                            RoundedRectangle(cornerRadius: 7).fill(.white.opacity(0.45))
-                                .frame(width: unit * seg.1 * fill)
-                            Text(seg.0).skyLabel(9).padding(.leading, 6)
-                        }
-                        .frame(width: unit * seg.1)
-                    }
-                }
-            }
-            .frame(height: 26)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Pomodoro · Phase 2 of 4").font(.caption)
-                Text("Tap to follow along").font(.caption2).opacity(0.75)
-            }
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(Color(red: 0.18, green: 0.49, blue: 0.96),
-                        in: UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18, bottomTrailingRadius: 4, topTrailingRadius: 18))
-            .opacity(pulse(t, 0.08, 0.16, 0.92, 1.0))
-            .offset(y: 12 * (1 - ramp(t, 0.08, 0.16)))
-        }
-        .frame(width: 240)
-    }
-}
-
-private struct QuickStartScene: View {
-    let t: Double
-
-    var body: some View {
-        let press = 1 - 0.07 * pulse(t, 0.3, 0.34, 0.34, 0.4)
-        let banner = pulse(t, 0.38, 0.46, 0.86, 0.94)
-        VStack(spacing: 14) {
+            .padding(14)
+            .frame(width: 200, alignment: .leading)
+            .background(emberCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             HStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(LinearGradient(colors: Sky.ember.stops(drain: 0), startPoint: .top, endPoint: .bottom))
-                    .frame(width: 18, height: 18)
-                Text("Pasta started").font(.caption.weight(.semibold)) + Text(" · 8 min").font(.caption)
-            }
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(Color(white: 0.13).opacity(0.92), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .opacity(banner)
-            .offset(y: -10 * (1 - banner))
-
-            Grid(horizontalSpacing: 10, verticalSpacing: 10) {
-                GridRow {
-                    tile { Image(systemName: "flashlight.on.fill") }
-                    tile { Image(systemName: "moon.fill") }
+                HStack(spacing: 6) {
+                    Circle().fill(Color(red: 0.24, green: 0.71, blue: 0.47)).frame(width: 9, height: 9).opacity(breathe)
+                    Text("Live")
                 }
-                GridRow {
-                    HStack(spacing: 10) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .frame(width: 34, height: 34)
-                            .background(Color(red: 1, green: 0.6, blue: 0.32), in: Circle())
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text("Start Pasta 8m").font(.caption.weight(.semibold))
-                            Text("Timer").font(.caption2).opacity(0.7)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 12)
-                    .frame(width: 138, height: 64)
-                    .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .scaleEffect(press)
-                    .gridCellColumns(2)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Color(red: 0.23, green: 0.08, blue: 0.19))
+                .frame(width: 96, height: 34)
+                .background(.white.opacity(0.92), in: Capsule())
+                Text("Snapshot")
+                    .font(.footnote.weight(.semibold))
+                    .frame(width: 96, height: 34)
+                    .background(.white.opacity(0.14), in: Capsule())
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.3)))
+            }
+        }
+    }
+}
+
+/// A real QR code (the same generator as the share sheet) with a scan line, view-only.
+private struct QRScene: View {
+    let t: Double
+    private static let code = QRCode.image(for: URL(string: "https://mirrornotes.org/timer?label=Pasta")!)
+
+    var body: some View {
+        let scan = 0.5 - 0.5 * cos(t * 2 * .pi)
+        VStack(spacing: 14) {
+            ZStack(alignment: .top) {
+                if let code = Self.code {
+                    Image(uiImage: code).interpolation(.none).resizable().frame(width: 128, height: 128)
+                }
+                Capsule().fill(Color(red: 1, green: 0.6, blue: 0.32)).frame(width: 140, height: 3)
+                    .offset(y: 128 * scan)
+            }
+            .padding(8)
+            .background(.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            Label("View only", systemImage: "eye")
+                .font(.footnote.weight(.semibold))
+        }
+    }
+}
+
+/// The shared timer at the centre of the people who have it; one is removed mid-loop.
+private struct ManageSharingScene: View {
+    let t: Double
+
+    var body: some View {
+        // "M" fades out (removed) mid-loop and returns just before the loop restarts.
+        let removed = ramp(t, 0.45, 0.6) - ramp(t, 0.92, 1.0)
+        let people: [(String, CGFloat, CGFloat)] = [("S", 0, -70), ("A", 80, 0), ("M", 0, 70), ("R", -80, 0)]
+        ZStack {
+            ForEach(people.indices, id: \.self) { i in
+                let p = people[i]
+                let fade = p.0 == "M" ? 1 - removed : 1
+                Path { path in
+                    path.move(to: CGPoint(x: 130, y: 105))
+                    path.addLine(to: CGPoint(x: 130 + p.1, y: 105 + p.2))
+                }
+                .stroke(.white.opacity(0.35), lineWidth: 1.5)
+                .opacity(fade)
+                Text(verbatim: p.0)
+                    .font(.subheadline.weight(.semibold))
+                    .frame(width: 36, height: 36)
+                    .background(.white.opacity(0.2), in: Circle())
+                    .overlay(Circle().strokeBorder(.white.opacity(0.5)))
+                    .position(x: 130 + p.1, y: 105 + p.2)
+                    .opacity(fade)
+            }
+            Text(verbatim: "Pasta")
+                .font(.footnote.weight(.semibold))
+                .frame(width: 62, height: 62)
+                .background(emberCard, in: Circle())
+                .position(x: 130, y: 105)
+        }
+    }
+}
+
+/// A received Work/Rest sequence drops into a bookmark.
+private struct TemplateScene: View {
+    let t: Double
+
+    var body: some View {
+        let drop = pulse(t, 0.05, 0.35, 0.88, 1.0)
+        VStack(spacing: 16) {
+            HStack(spacing: 6) {
+                Text("Work").skyLabel(10)
+                    .frame(width: 110, height: 34)
+                    .background(emberCard, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                Text("Rest").skyLabel(10)
+                    .frame(width: 62, height: 34)
+                    .background(.white.opacity(0.3), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .opacity(drop)
+            .offset(y: -36 * (1 - ramp(t, 0.05, 0.35)))
+            Image(systemName: ramp(t, 0.35, 0.4) > 0 && t < 0.9 ? "bookmark.fill" : "bookmark")
+                .font(.system(size: 64, weight: .light))
+        }
+    }
+}
+
+/// Settings in miniature: the name card's preview sentence and the tone chips.
+private struct SettingsScene: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Your name").skyLabel(9).opacity(0.8)
+                Text(verbatim: "Sam").font(.system(size: 28, weight: .thin))
+            }
+            .padding(12)
+            .frame(width: 236, alignment: .leading)
+            .background(LinearGradient(colors: Sky.dusk.stops(drain: 0), startPoint: .topLeading, endPoint: .bottomTrailing),
+                        in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            Text("\("Sam") paused Pasta · 4:12 left")
+                .font(.caption)
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(.white.opacity(0.18), in: Capsule())
+            HStack(spacing: 5) {
+                ForEach(AlarmTone.allCases) { tone in
+                    Text(tone.title)
+                        .font(.caption2.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(width: 55, height: 28)
+                        .foregroundStyle(tone == .ember ? Color(red: 0.23, green: 0.08, blue: 0.19) : .white)
+                        .background(.white.opacity(tone == .ember ? 0.92 : 0.14), in: Capsule())
                 }
             }
         }
     }
-
-    private func tile<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        content()
-            .font(.system(size: 20))
-            .frame(width: 64, height: 64)
-            .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
 }
 
-private struct ReachScene: View {
+/// Ten scripts take turns in the middle of a ring of ten points.
+private struct LanguagesScene: View {
     let t: Double
-    let seconds: Double
+    private static let names = ["Timer", "计时器", "टाइमर", "Temporizador", "مؤقت", "Minuteur", "টাইমার", "Timer", "Таймер", "Pengatur waktu"]
 
     var body: some View {
-        let answer = pulse(t, 0.25, 0.35, 0.92, 1.0)
-        HStack(spacing: 16) {
+        let slot = t * Double(Self.names.count)
+        let index = min(Self.names.count - 1, Int(slot))
+        let local = slot - Double(index)
+        VStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 30, style: .continuous).fill(.black)
-                RoundedRectangle(cornerRadius: 30, style: .continuous).strokeBorder(Color(white: 0.25), lineWidth: 3)
-                Circle().stroke(.white.opacity(0.18), lineWidth: 6).frame(width: 64, height: 64)
-                Circle()
-                    .trim(from: 0, to: 0.84 - 0.64 * t)
-                    .stroke(Color(red: 1, green: 0.6, blue: 0.32), style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .frame(width: 64, height: 64)
-                Text("6m").font(.system(size: 15, weight: .medium)).monospacedDigit()
+                Circle().strokeBorder(.white.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [3, 6]))
+                    .frame(width: 140, height: 140)
+                ForEach(0..<Self.names.count, id: \.self) { i in
+                    let angle = Double(i) / Double(Self.names.count) * 2 * .pi - .pi / 2
+                    Circle().fill(.white.opacity(i == index ? 1 : 0.55))
+                        .frame(width: i == index ? 10 : 7, height: i == index ? 10 : 7)
+                        .offset(x: cos(angle) * 70, y: sin(angle) * 70)
+                }
+                Text(verbatim: Self.names[index])
+                    .font(.system(size: 22, weight: .light))
+                    .opacity(min(ramp(local, 0, 0.15), 1 - ramp(local, 0.85, 1)))
             }
-            .frame(width: 94, height: 110)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Circle()
-                    .fill(AngularGradient(colors: [.pink, .orange, .cyan, .purple, .pink], center: .center))
-                    .frame(width: 22, height: 22)
-                    .rotationEffect(.degrees(seconds.truncatingRemainder(dividingBy: 3) * 120))
-                Text("“How long is left on Pasta?”").font(.caption).opacity(0.85)
-                Text("6 minutes left")
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 10).padding(.vertical, 7)
-                    .background(.white.opacity(0.17), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .opacity(answer)
-                    .offset(y: 6 * (1 - answer))
-            }
-            .frame(width: 130, alignment: .leading)
+            .frame(height: 150)
+            Text("VoiceOver · larger text").skyLabel(9).opacity(0.75)
         }
     }
 }

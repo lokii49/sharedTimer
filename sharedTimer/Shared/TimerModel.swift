@@ -429,7 +429,7 @@ struct TimerPayload: Codable, Identifiable {
     /// fully exhausted (the plain "Finished ..." subtitle already covers that case).
     var sequenceCaption: String? {
         guard let sequence, sequence.loopIndex < sequence.loopCount else { return nil }
-        return "Phase \(sequence.phaseIndex + 1) of \(sequence.phases.count) · Loop \(sequence.loopIndex + 1) of \(sequence.loopCount)"
+        return String(localized: "Phase \(sequence.phaseIndex + 1) of \(sequence.phases.count) · Loop \(sequence.loopIndex + 1) of \(sequence.loopCount)")
     }
 
     /// Builds a sequence-owning payload (Pomodoro/Intermittent-Fasting style) from a
@@ -466,8 +466,8 @@ struct TimerPayload: Codable, Identifiable {
     func url() -> URL {
         var components = URLComponents()
         components.scheme = "https"
-        components.host = "lokii49.github.io"
-        components.path = "/sharedTimer/t.html"
+        components.host = "mirrornotes.org"
+        components.path = "/timer"
         var items = [
             URLQueryItem(name: "id", value: id),
             URLQueryItem(name: "label", value: label),
@@ -552,6 +552,30 @@ struct TimerPayload: Codable, Identifiable {
         }
         let updatedAt = items.first(where: { $0.name == "upd" })?.value.flatMap(Double.init).flatMap { $0.isFinite && abs($0) <= 253_402_300_799 ? Date(timeIntervalSince1970: $0) : nil }
         return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled, sequence: sequence, scheduledStartDate: start, updatedAt: updatedAt, recurrence: recurrence).advancedSequence()
+    }
+}
+
+// MARK: - Share text
+
+extension TimerPayload {
+    /// The line that goes with a shared link, e.g. "⏱️ Pasta — 8 min timer". Used by the
+    /// app's share sheet and the Messages extension's plain-link mode, so both match.
+    var shareMessage: String {
+        "\(kind == .countdown && sequence == nil ? "📅" : "⏱️") \(label) — \(shareSummary)"
+    }
+
+    var shareSummary: String {
+        if let sequence {
+            return "\(sequence.phases.count) phases · \(sequence.loopCount) \(sequence.loopCount == 1 ? "loop" : "loops")"
+        }
+        switch kind {
+        case .timer:
+            return "\(Int((duration / 60).rounded())) min timer"
+        case .countdown:
+            return recurrence != nil
+                ? "every year, next \(TimeFormat.targetDate(endDate))"
+                : "counting down to \(TimeFormat.targetDate(endDate))"
+        }
     }
 }
 

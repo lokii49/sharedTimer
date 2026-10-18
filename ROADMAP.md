@@ -5,9 +5,37 @@ Synced Timer Plus, TimeTo) by closing the live-sync gap and leaning into the one
 them have — a real native iMessage extension — instead of routing sharing through a plain link
 or QR code.
 
-## Status at a glance (2026-10-07)
+## Status at a glance (2026-10-18)
 
-**Release:** 1.0.4 (build 7) is **Waiting for Review** on App Store Connect (submitted 2026-10-07). PR #6 merged to `main`, CI green, the new `t.html` is live on GitHub Pages, and the production CloudKit schema is deployed. Automatic release is off.
+**Release:** 1.0.4 is **live on the App Store** (App Store ID 6804558361). 1.0.5 is in progress on branch `1.0.5`.
+
+### 1.0.5 (in progress)
+
+Keep this release small.
+
+**Link domain move (one release, owner's call 2026-10-18):**
+- **1.0.5 — recognise and switch (done on the branch).** `https://mirrornotes.org/timer` is live (`mirrornotes-website` repo: `timer.html`, a copy of `docs/t.html`, plus `.well-known/apple-app-site-association`; Apple's CDN already serves it). The app claims `applinks:mirrornotes.org`, the Clip `appclips:mirrornotes.org`; the old domain stays in both. `url()` now emits `https://mirrornotes.org/timer?…`; old-host links still decode (unit test).
+- **Accepted trade-off:** a recipient still on 1.0.4 or older gets the web countdown in Safari instead of the app, because their app doesn't claim mirrornotes.org. The old domain's page, AASA and entitlements stay forever for links already sent.
+- **App Clip experience:** per Apple's "Supporting invocations from your website and the Messages app", Safari/Messages invocation needs the domain association plus the page's `apple-itunes-app` tag with the default experience; advanced experiences are only for showing a different card per domain/URL. So no App Store Connect change is expected — confirm on device.
+
+**To do for 1.0.5:**
+1. ~~Device check with a 1.0.5 build: a `mirrornotes.org/timer?…` link opens the app.~~ Done on the iPhone 14 Pro (2026-10-18): 52 unit tests and all 15 UI tests pass; the two share tests open `https://mirrornotes.org/timer?…` through `XCUIApplication.open`, which only reaches the app's Add sheet via the universal link. Still manual: on a device without the app, the App Clip card appears (use `applinks:mirrornotes.org?mode=developer` + Settings → Developer → Associated Domains Development if Apple's CDN cache lags; remove before release).
+2. ~~`t.html`: `noindex`, and `app-id=6804558361` in the `apple-itunes-app` tag (Smart App Banner falls back to the full app where App Clips aren't allowed).~~ Done; re-copied to `mirrornotes-website`.
+3. ~~Share counter.~~ Dropped (owner's call, 2026-10-18): any count sent from the app would change the App Store label from "Data Not Collected". The app-side code, the Cloudflare Worker and its D1 database were removed. For a rough signal, Cloudflare's dashboard for mirrornotes.org shows visits to `/timer` pages (website traffic, not app data collection).
+4. Release notes.
+5. Open: an `og:image` for link previews. The App Clip header shows a fixed "4:12:09", which would read as the real time left, so it needs a neutral image first.
+6. ~~Privacy policy URL~~ moved to `https://mirrornotes.org/timer/privacy` (`privacy_url.txt`); the old URL stays up.
+
+**Added to 1.0.5 (owner's call, 2026-10-18 — everything below moved in from 1.0.6):**
+- Sharing: share-sheet preview + message; cached share URL with Live/Snapshot label; QR code (view-only snapshot link only); Manage Sharing (`UICloudSharingController`); Skip remembered for the name prompt; Save received sequence as template; link previews (neutral `og:image` + `link-preview` Worker for per-link title/description, no storage).
+- Settings ("Sky Stack", picked from three mockups): display name, alarm tone (Classic/Glass/Ember/Dawn), What's New replay, About.
+- Localization: top 10 languages (en, zh-Hans, hi, es, ar, fr, bn, pt-BR, ru, id) for app, Messages, Clip, Widget and permission prompts. Accessibility: one VoiceOver element per timer card, spoken digits, Dynamic Type sky labels.
+- Best-effort `BGAppRefreshTask` refill of pre-armed sequence/yearly alert windows.
+- **Verified on the iPhone 14 Pro (2026-10-18):** 109 unit tests, 27 AlarmKit device tests (incl. the tone-aware presentation signature) and 13 UI tests (Settings, What's New 1.0.5, Arabic RTL screenshots, share sheet from list and detail) pass; simulator: 136 unit + 13 UI.
+- What's New 1.0.5 "Afternoon Walk" (picked from three mockups) covers the features above.
+- **Manual checks:** Manage Sharing with a second iCloud account; RTL (Arabic) layout pass; tone choice on a real AlarmKit alert; Messages link preview on device; background refresh actually firing (Xcode's `_simulateLaunchForTaskWithIdentifier`). App Store metadata (description, screenshots) is still English-only.
+
+### 1.0.4 (released)
 
 1.0.4 ships everything below: the hardening fixes, Live Activity / widget controls, recents and the Control Center control, plus Edit, yearly countdowns with Calendar import, shared sequences, Lock Screen widgets, the Watch complication / Smart Stack, the extra Siri intents, Spotlight indexing and the "Sunrise Walk" What's New tour.
 
@@ -16,9 +44,9 @@ or QR code.
 **Remaining release steps:**
 1. ~~Merge `1.0.4` → `main` (PR #6).~~ Done.
 2. ~~Archive and upload build 7.~~ Done.
-3. ~~Submit for review.~~ Done. Waiting for Review.
-4. After approval: release manually in App Store Connect.
-5. Then reinstall Timer from the App Store on the iPhone 13 (it runs a development build against the development CloudKit environment until then).
+3. ~~Submit for review.~~ Done.
+4. ~~After approval: release manually in App Store Connect.~~ Done, live.
+5. Reinstall Timer from the App Store on the iPhone 13 (it runs a development build against the development CloudKit environment until then).
 
 **Release tooling (2026-10-07):** `fastlane release` is now fully automated. It copies the previous version's App Clip Default Experience, waits for the build to finish processing and attaches it, then submits; `fastlane resubmit` resumes from any step. No manual App Store Connect visit per version.
 

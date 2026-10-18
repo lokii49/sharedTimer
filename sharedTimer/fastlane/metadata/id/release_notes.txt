@@ -1,0 +1,11 @@
+• Baru: Timer kini tersedia dalam sepuluh bahasa — Inggris, Mandarin, Hindi, Spanyol, Arab, Prancis, Bengali, Portugis, Rusia, dan Indonesia.
+• Baru: Pratinjau tautan yang langsung menjelaskan isinya. Pesan menampilkan nama dan durasi timer sebelum ada yang mengetuk.
+• Baru: Layar berbagi memberi tahu apakah tautan bersifat Langsung (tetap sinkron untuk semua) atau Cuplikan, dan langsung siap dipakai.
+• Baru: Bagikan ke semua orang di ruangan dengan kode QR. Orang yang memindainya bisa melihat hitung mundur, tetapi tidak bisa mengubahnya.
+• Baru: Kelola Berbagi. Lihat siapa saja yang memiliki timer bersama, keluarkan seseorang, atau berhenti berbagi.
+• Baru: Simpan urutan yang dikirim seseorang sebagai templat milikmu sendiri.
+• Baru: Pengaturan. Atur nama yang dilihat orang saat kamu berbagi, pilih dari empat nada alarm, dan buka lagi Yang Baru.
+• Deskripsi VoiceOver yang lebih baik dan dukungan untuk teks yang lebih besar.
+• Urutan dan hitung mundur tahunan kini mengisi ulang alarm berikutnya di latar belakang.
+• Diperbaiki: Berbagi kembali berfungsi dari layar timer itu sendiri.
+• Tautan bersama kini dibuka dari mirrornotes.org. Tautan yang sudah kamu kirim tetap berfungsi.

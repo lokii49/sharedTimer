@@ -1,0 +1,10 @@
+Setel timer atau hitung mundur, lalu bagikan — semua orang melihat hitung mundur langsung yang sama, diperbarui secara real time.
+
+• Timer dan hitung mundur yang menghitung hari — "3d 04:12:09" saat masih lama, "12:09" saat sudah dekat
+• Bagikan timer langsung yang tersinkron lewat iMessage. Jeda, lanjutkan, atau perpanjang, dan semua yang menonton langsung melihat perubahannya
+• Widget Layar Utama dan tampilan Aktivitas Langsung / Dynamic Island, jadi waktu tetap terlihat tanpa membuka app
+• App pendamping Apple Watch
+• Minta Siri memulai timer atau hitung mundur, atau gunakan tindakan cepat di Layar Utama
+• Penerima tidak perlu app — tautan yang dibagikan membuka halaman hitung mundur langsung untuk siapa pun
+
+Tanpa iklan, tanpa akun, tanpa pelacakan. Timer-mu tetap di perangkatmu kecuali kamu memilih untuk membagikannya.

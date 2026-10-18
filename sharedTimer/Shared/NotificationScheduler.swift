@@ -99,11 +99,11 @@ enum NotificationScheduler {
             guard remaining > 0 else { return nil }
             let content = UNMutableNotificationContent()
             content.title = phase.label
-            content.body = current.recurrence != nil ? "Anniversary reached!" : index == nil ? (phase.kind == .countdown ? "Countdown complete!" : "Timer finished!") : "Sequence phase finished!"
+            content.body = current.recurrence != nil ? String(localized: "Anniversary reached!") : index == nil ? (phase.kind == .countdown ? String(localized: "Countdown complete!") : String(localized: "Timer finished!")) : String(localized: "Sequence phase finished!")
             content.userInfo["timerID"] = current.id
             if let index { content.userInfo[current.recurrence != nil ? "annualYear" : "sequenceGlobalIndex"] = index }
             if phase.alarmEnabled {
-                content.sound = UNNotificationSound(named: UNNotificationSoundName("alarm.caf"))
+                content.sound = UNNotificationSound(named: UNNotificationSoundName(AlarmTone.selected.fileName))
             } else if phase.vibrationEnabled {
                 content.sound = nil
                 content.categoryIdentifier = vibrationFinishCategoryID
