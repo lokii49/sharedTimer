@@ -21,7 +21,7 @@ struct SettingsView: View {
     @State private var preview: AVAudioPlayer?
 
     private static let privacyURL = URL(string: "https://mirrornotes.org/timer/privacy")!
-    private static let supportURL = URL(string: "https://github.com/lokii49/sharedTimer/issues")!
+    private static let supportURL = URL(string: "mailto:hello@mirrornotes.org?subject=Timer%20support")!
 
     var body: some View {
         NavigationStack {
@@ -137,8 +137,9 @@ struct SettingsView: View {
                 }
                 Divider().overlay(.white.opacity(0.15))
                 Link(destination: Self.supportURL) {
-                    aboutRow { Text("Support") } trailing: { Image(systemName: "arrow.up.right") }
+                    aboutRow { Text("Support") } trailing: { Text(verbatim: "hello@mirrornotes.org") }
                 }
+                .accessibilityHint("Writes an email to hello@mirrornotes.org")
             }
         }
     }

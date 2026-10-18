@@ -1,12 +1,8 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "": {
-      "localizations": {}
-    },
-    "%@": {
-      "localizations": {}
-    },
+    "": {},
+    "%@": {},
     "%@ added %@ — now ends at %@": {
       "localizations": {
         "ar": {
@@ -751,9 +747,7 @@
         }
       }
     },
-    "%lld": {
-      "localizations": {}
-    },
+    "%lld": {},
     "%lld hr": {
       "localizations": {
         "ar": {
@@ -992,24 +986,20 @@
         }
       }
     },
-    "+1:00": {
-      "localizations": {}
-    },
-    "--:--": {
-      "localizations": {}
-    },
+    "+1:00": {},
+    "--:--": {},
     "8 min timer": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "8 分钟计时器"
+            "value": "مؤقت 8 دقائق"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "8 मिनट का टाइमर"
+            "value": "৮ মিনিটের টাইমার"
           }
         },
         "es": {
@@ -1018,22 +1008,22 @@
             "value": "Temporizador de 8 min"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "مؤقت 8 دقائق"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Minuteur de 8 min"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "৮ মিনিটের টাইমার"
+            "value": "8 मिनट का टाइमर"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer 8 mnt"
           }
         },
         "pt-BR": {
@@ -1048,10 +1038,10 @@
             "value": "Таймер на 8 мин"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Timer 8 mnt"
+            "value": "8 分钟计时器"
           }
         }
       }
@@ -4086,16 +4076,16 @@
     },
     "Keep a sequence you were sent": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "保存收到的序列"
+            "value": "احتفظ بتسلسل أُرسل إليك"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "मिला हुआ सीक्वेंस सहेजें"
+            "value": "পাওয়া সিকোয়েন্স রেখে দিন"
           }
         },
         "es": {
@@ -4104,22 +4094,22 @@
             "value": "Guarda una secuencia que te enviaron"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "احتفظ بتسلسل أُرسل إليك"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Gardez une séquence reçue"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "পাওয়া সিকোয়েন্স রেখে দিন"
+            "value": "मिला हुआ सीक्वेंस सहेजें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpan urutan yang dikirim untuk Anda"
           }
         },
         "pt-BR": {
@@ -4134,10 +4124,10 @@
             "value": "Сохраните присланную последовательность"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Simpan urutan yang dikirim untuk Anda"
+            "value": "保存收到的序列"
           }
         }
       }
@@ -4202,16 +4192,16 @@
     },
     "Links that say what they are": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "一看就懂的链接"
+            "value": "روابط تُعرّف بنفسها"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "लिंक जो बताएँ कि वे क्या हैं"
+            "value": "লিঙ্ক নিজেই বলে দেয় সে কী"
           }
         },
         "es": {
@@ -4220,22 +4210,22 @@
             "value": "Enlaces que dicen lo que son"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "روابط تُعرّف بنفسها"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Des liens qui disent ce qu’ils sont"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "লিঙ্ক নিজেই বলে দেয় সে কী"
+            "value": "लिंक जो बताएँ कि वे क्या हैं"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tautan yang menjelaskan dirinya"
           }
         },
         "pt-BR": {
@@ -4250,26 +4240,26 @@
             "value": "Ссылки, которые говорят сами за себя"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tautan yang menjelaskan dirinya"
+            "value": "一看就懂的链接"
           }
         }
       }
     },
     "Live": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "实时"
+            "value": "مباشر"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "लाइव"
+            "value": "লাইভ"
           }
         },
         "es": {
@@ -4278,22 +4268,22 @@
             "value": "En directo"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "مباشر"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "En direct"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "লাইভ"
+            "value": "लाइव"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langsung"
           }
         },
         "pt-BR": {
@@ -4308,10 +4298,10 @@
             "value": "Живая"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Langsung"
+            "value": "实时"
           }
         }
       }
@@ -4376,16 +4366,16 @@
     },
     "Live or snapshot, at a glance": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "实时还是快照，一目了然"
+            "value": "مباشر أو لقطة، بنظرة واحدة"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "लाइव या स्नैपशॉट, एक नज़र में"
+            "value": "লাইভ নাকি স্ন্যাপশট, এক নজরে"
           }
         },
         "es": {
@@ -4394,22 +4384,22 @@
             "value": "En directo o instantánea, de un vistazo"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "مباشر أو لقطة، بنظرة واحدة"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "En direct ou instantané, d’un coup d’œil"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "লাইভ নাকি স্ন্যাপশট, এক নজরে"
+            "value": "लाइव या स्नैपशॉट, एक नज़र में"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langsung atau cuplikan, sekilas terlihat"
           }
         },
         "pt-BR": {
@@ -4424,10 +4414,10 @@
             "value": "Живая или снимок — сразу видно"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Langsung atau cuplikan, sekilas terlihat"
+            "value": "实时还是快照，一目了然"
           }
         }
       }
@@ -4608,16 +4598,16 @@
     },
     "Make it yours": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "打造你的专属设置"
+            "value": "اجعله خاصًا بك"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "इसे अपना बनाएँ"
+            "value": "নিজের মতো করে নিন"
           }
         },
         "es": {
@@ -4626,22 +4616,22 @@
             "value": "Hazlo tuyo"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "اجعله خاصًا بك"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Personnalisez-le"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "নিজের মতো করে নিন"
+            "value": "इसे अपना बनाएँ"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jadikan milik Anda"
           }
         },
         "pt-BR": {
@@ -4656,10 +4646,10 @@
             "value": "Настройте под себя"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jadikan milik Anda"
+            "value": "打造你的专属设置"
           }
         }
       }
@@ -8170,16 +8160,16 @@
     },
     "Save a friend's Pomodoro or fasting plan as your own template.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "将朋友的番茄钟或断食计划存储为你自己的模板。"
+            "value": "احفظ خطة بومودورو أو صيام من صديق كقالب خاص بك."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "किसी दोस्त का पोमोडोरो या उपवास प्लान अपने टेम्पलेट के रूप में सहेजें।"
+            "value": "বন্ধুর পোমোডোরো বা উপবাসের প্ল্যান নিজের টেমপ্লেট হিসেবে সংরক্ষণ করুন।"
           }
         },
         "es": {
@@ -8188,22 +8178,22 @@
             "value": "Guarda el Pomodoro o el plan de ayuno de un amigo como tu propia plantilla."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "احفظ خطة بومودورو أو صيام من صديق كقالب خاص بك."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Enregistrez le Pomodoro ou le plan de jeûne d’un ami comme votre propre modèle."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "বন্ধুর পোমোডোরো বা উপবাসের প্ল্যান নিজের টেমপ্লেট হিসেবে সংরক্ষণ করুন।"
+            "value": "किसी दोस्त का पोमोडोरो या उपवास प्लान अपने टेम्पलेट के रूप में सहेजें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpan rencana Pomodoro atau puasa teman sebagai templat Anda sendiri."
           }
         },
         "pt-BR": {
@@ -8218,10 +8208,10 @@
             "value": "Сохраните Помодоро или план голодания друга как собственный шаблон."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Simpan rencana Pomodoro atau puasa teman sebagai templat Anda sendiri."
+            "value": "将朋友的番茄钟或断食计划存储为你自己的模板。"
           }
         }
       }
@@ -8576,16 +8566,16 @@
     },
     "See who has a shared timer, remove someone, or stop sharing.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "查看谁拥有共享计时器，移除某人，或停止共享。"
+            "value": "اعرف من لديه مؤقت مشترك، أو أزِل أحدًا، أو أوقف المشاركة."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "देखें कि शेयर किया गया टाइमर किसके पास है, किसी को हटाएँ या शेयर करना बंद करें।"
+            "value": "দেখুন শেয়ার করা টাইমার কার কাছে আছে, কাউকে সরান বা শেয়ার করা বন্ধ করুন।"
           }
         },
         "es": {
@@ -8594,22 +8584,22 @@
             "value": "Mira quién tiene un temporizador compartido, quita a alguien o deja de compartir."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "اعرف من لديه مؤقت مشترك، أو أزِل أحدًا، أو أوقف المشاركة."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Voyez qui a un minuteur partagé, retirez quelqu’un ou arrêtez le partage."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "দেখুন শেয়ার করা টাইমার কার কাছে আছে, কাউকে সরান বা শেয়ার করা বন্ধ করুন।"
+            "value": "देखें कि शेयर किया गया टाइमर किसके पास है, किसी को हटाएँ या शेयर करना बंद करें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lihat siapa yang memiliki timer bersama, hapus seseorang, atau berhenti berbagi."
           }
         },
         "pt-BR": {
@@ -8624,10 +8614,10 @@
             "value": "Смотрите, у кого есть общий таймер, удаляйте участников или закрывайте доступ."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lihat siapa yang memiliki timer bersama, hapus seseorang, atau berhenti berbagi."
+            "value": "查看谁拥有共享计时器，移除某人，或停止共享。"
           }
         }
       }
@@ -8866,16 +8856,16 @@
     },
     "Set the name people see, pick one of four alarm tones, and replay this tour, all in Settings.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "设置别人看到的名称，从四种闹钟铃声中选择，还能重温本导览，都在“设置”中。"
+            "value": "عيّن الاسم الذي يراه الآخرون، واختر واحدة من أربع نغمات تنبيه، وأعد مشاهدة هذه الجولة، كل ذلك في الإعدادات."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "लोगों को दिखने वाला नाम सेट करें, चार अलार्म टोन में से एक चुनें और यह टूर दोबारा देखें, सब सेटिंग्ज़ में।"
+            "value": "অন্যরা যে নাম দেখবেন তা সেট করুন, চারটি অ্যালার্ম টোনের একটি বেছে নিন এবং এই ট্যুর আবার দেখুন, সবই সেটিংসে।"
           }
         },
         "es": {
@@ -8884,22 +8874,22 @@
             "value": "Elige el nombre que ven los demás, uno de cuatro tonos de alarma y vuelve a ver este recorrido, todo en Ajustes."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "عيّن الاسم الذي يراه الآخرون، واختر واحدة من أربع نغمات تنبيه، وأعد مشاهدة هذه الجولة، كل ذلك في الإعدادات."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Choisissez le nom que les autres voient, l’une des quatre sonneries d’alarme, et revoyez cette visite, le tout dans Réglages."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "অন্যরা যে নাম দেখবেন তা সেট করুন, চারটি অ্যালার্ম টোনের একটি বেছে নিন এবং এই ট্যুর আবার দেখুন, সবই সেটিংসে।"
+            "value": "लोगों को दिखने वाला नाम सेट करें, चार अलार्म टोन में से एक चुनें और यह टूर दोबारा देखें, सब सेटिंग्ज़ में।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atur nama yang dilihat orang lain, pilih salah satu dari empat nada alarm, dan putar ulang tur ini, semuanya di Pengaturan."
           }
         },
         "pt-BR": {
@@ -8914,10 +8904,10 @@
             "value": "Задайте имя, которое видят другие, выберите один из четырех звуков будильника и пересмотрите этот обзор — всё в Настройках."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Atur nama yang dilihat orang lain, pilih salah satu dari empat nada alarm, dan putar ulang tur ini, semuanya di Pengaturan."
+            "value": "设置别人看到的名称，从四种闹钟铃声中选择，还能重温本导览，都在“设置”中。"
           }
         }
       }
@@ -9098,16 +9088,16 @@
     },
     "Share across the room": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "在房间里随手共享"
+            "value": "شارك مع كل من في الغرفة"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "पूरे कमरे के साथ शेयर करें"
+            "value": "পুরো ঘরের সাথে শেয়ার করুন"
           }
         },
         "es": {
@@ -9116,22 +9106,22 @@
             "value": "Comparte con toda la sala"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "شارك مع كل من في الغرفة"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Partagez avec toute la pièce"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "পুরো ঘরের সাথে শেয়ার করুন"
+            "value": "पूरे कमरे के साथ शेयर करें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bagikan ke seisi ruangan"
           }
         },
         "pt-BR": {
@@ -9146,26 +9136,26 @@
             "value": "Поделитесь со всеми в комнате"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bagikan ke seisi ruangan"
+            "value": "在房间里随手共享"
           }
         }
       }
     },
     "Shared links now open from mirrornotes.org, and Messages shows the timer's name before anyone taps.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "共享链接现在从 mirrornotes.org 打开，在别人轻点之前，“信息”就会显示计时器名称。"
+            "value": "تُفتح الروابط المشتركة الآن من mirrornotes.org، وتعرض الرسائل اسم المؤقت قبل أن ينقر أي أحد."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "शेयर किए गए लिंक अब mirrornotes.org से खुलते हैं, और किसी के टैप करने से पहले ही Messages टाइमर का नाम दिखाता है।"
+            "value": "শেয়ার করা লিঙ্ক এখন mirrornotes.org থেকে খোলে, আর কেউ ট্যাপ করার আগেই Messages টাইমারের নাম দেখায়।"
           }
         },
         "es": {
@@ -9174,22 +9164,22 @@
             "value": "Los enlaces compartidos ahora se abren desde mirrornotes.org, y Mensajes muestra el nombre del temporizador antes de que nadie toque."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "تُفتح الروابط المشتركة الآن من mirrornotes.org، وتعرض الرسائل اسم المؤقت قبل أن ينقر أي أحد."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Les liens partagés s’ouvrent désormais depuis mirrornotes.org, et Messages affiche le nom du minuteur avant même que quiconque touche le lien."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "শেয়ার করা লিঙ্ক এখন mirrornotes.org থেকে খোলে, আর কেউ ট্যাপ করার আগেই Messages টাইমারের নাম দেখায়।"
+            "value": "शेयर किए गए लिंक अब mirrornotes.org से खुलते हैं, और किसी के टैप करने से पहले ही Messages टाइमर का नाम दिखाता है।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tautan bersama kini dibuka dari mirrornotes.org, dan Pesan menampilkan nama timer sebelum ada yang mengetuk."
           }
         },
         "pt-BR": {
@@ -9204,10 +9194,10 @@
             "value": "Общие ссылки теперь открываются с mirrornotes.org, а Сообщения показывают название таймера еще до нажатия."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tautan bersama kini dibuka dari mirrornotes.org, dan Pesan menampilkan nama timer sebelum ada yang mengetuk."
+            "value": "共享链接现在从 mirrornotes.org 打开，在别人轻点之前，“信息”就会显示计时器名称。"
           }
         }
       }
@@ -9446,16 +9436,16 @@
     },
     "Show a QR code. Anyone who scans it can watch the countdown but can't change it.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "出示二维码。扫描的人都能看到倒计时，但无法更改。"
+            "value": "اعرض رمز QR. يمكن لأي شخص يمسحه متابعة العد التنازلي دون تغييره."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "QR कोड दिखाएँ। इसे स्कैन करने वाला कोई भी काउंटडाउन देख सकता है, लेकिन बदल नहीं सकता।"
+            "value": "একটি QR কোড দেখান। যে কেউ স্ক্যান করলে কাউন্টডাউন দেখতে পাবেন, কিন্তু পরিবর্তন করতে পারবেন না।"
           }
         },
         "es": {
@@ -9464,22 +9454,22 @@
             "value": "Muestra un código QR. Quien lo escanee podrá ver la cuenta atrás, pero no cambiarla."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "اعرض رمز QR. يمكن لأي شخص يمسحه متابعة العد التنازلي دون تغييره."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Affichez un code QR. Quiconque le scanne peut suivre le compte à rebours sans pouvoir le modifier."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "একটি QR কোড দেখান। যে কেউ স্ক্যান করলে কাউন্টডাউন দেখতে পাবেন, কিন্তু পরিবর্তন করতে পারবেন না।"
+            "value": "QR कोड दिखाएँ। इसे स्कैन करने वाला कोई भी काउंटडाउन देख सकता है, लेकिन बदल नहीं सकता।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tampilkan kode QR. Siapa pun yang memindainya dapat melihat hitung mundur, tetapi tidak bisa mengubahnya."
           }
         },
         "pt-BR": {
@@ -9494,10 +9484,10 @@
             "value": "Покажите QR-код. Любой, кто его отсканирует, увидит отсчет, но не сможет его изменить."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tampilkan kode QR. Siapa pun yang memindainya dapat melihat hitung mundur, tetapi tidak bisa mengubahnya."
+            "value": "出示二维码。扫描的人都能看到倒计时，但无法更改。"
           }
         }
       }
@@ -9678,16 +9668,16 @@
     },
     "Snapshot": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "快照"
+            "value": "لقطة"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "स्नैपशॉट"
+            "value": "স্ন্যাপশট"
           }
         },
         "es": {
@@ -9696,22 +9686,22 @@
             "value": "Instantánea"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لقطة"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Instantané"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "স্ন্যাপশট"
+            "value": "स्नैपशॉट"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuplikan"
           }
         },
         "pt-BR": {
@@ -9726,10 +9716,10 @@
             "value": "Снимок"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cuplikan"
+            "value": "快照"
           }
         }
       }
@@ -11134,16 +11124,16 @@
     },
     "Ten languages, clearer VoiceOver and larger text. Share works again from a timer's own screen, too.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "支持十种语言，VoiceOver 更清晰，文字更大。在计时器自己的页面上也能再次共享。"
+            "value": "عشر لغات، وVoiceOver أوضح، ونص أكبر. كما عادت المشاركة للعمل من شاشة المؤقت نفسه."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "दस भाषाएँ, बेहतर VoiceOver और बड़ा टेक्स्ट। टाइमर की अपनी स्क्रीन से शेयर करना भी फिर से काम करता है।"
+            "value": "দশটি ভাষা, আরও স্পষ্ট VoiceOver এবং বড় টেক্সট। টাইমারের নিজের স্ক্রিন থেকেও আবার শেয়ার করা যায়।"
           }
         },
         "es": {
@@ -11152,22 +11142,22 @@
             "value": "Diez idiomas, VoiceOver más claro y texto más grande. Además, vuelves a poder compartir desde la pantalla del temporizador."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "عشر لغات، وVoiceOver أوضح، ونص أكبر. كما عادت المشاركة للعمل من شاشة المؤقت نفسه."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Dix langues, un VoiceOver plus clair et du texte plus grand. Le partage fonctionne de nouveau depuis l’écran du minuteur."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "দশটি ভাষা, আরও স্পষ্ট VoiceOver এবং বড় টেক্সট। টাইমারের নিজের স্ক্রিন থেকেও আবার শেয়ার করা যায়।"
+            "value": "दस भाषाएँ, बेहतर VoiceOver और बड़ा टेक्स्ट। टाइमर की अपनी स्क्रीन से शेयर करना भी फिर से काम करता है।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sepuluh bahasa, VoiceOver yang lebih jelas, dan teks lebih besar. Berbagi juga kembali berfungsi dari layar timer itu sendiri."
           }
         },
         "pt-BR": {
@@ -11182,26 +11172,26 @@
             "value": "Десять языков, более понятный VoiceOver и крупный текст. А делиться снова можно прямо с экрана таймера."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sepuluh bahasa, VoiceOver yang lebih jelas, dan teks lebih besar. Berbagi juga kembali berfungsi dari layar timer itu sendiri."
+            "value": "支持十种语言，VoiceOver 更清晰，文字更大。在计时器自己的页面上也能再次共享。"
           }
         }
       }
     },
     "The share screen shows the timer and tells you whether the link stays in sync.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "共享页面会显示计时器，并告诉你链接是否保持同步。"
+            "value": "تعرض شاشة المشاركة المؤقت وتخبرك إن كان الرابط سيبقى متزامنًا."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "शेयर स्क्रीन टाइमर दिखाती है और बताती है कि लिंक सिंक में रहेगा या नहीं।"
+            "value": "শেয়ার স্ক্রিন টাইমারটি দেখায় এবং জানায় লিঙ্কটি সিঙ্কে থাকবে কি না।"
           }
         },
         "es": {
@@ -11210,22 +11200,22 @@
             "value": "La pantalla de compartir muestra el temporizador y te indica si el enlace se mantiene sincronizado."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "تعرض شاشة المشاركة المؤقت وتخبرك إن كان الرابط سيبقى متزامنًا."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "L’écran de partage affiche le minuteur et vous indique si le lien reste synchronisé."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "শেয়ার স্ক্রিন টাইমারটি দেখায় এবং জানায় লিঙ্কটি সিঙ্কে থাকবে কি না।"
+            "value": "शेयर स्क्रीन टाइमर दिखाती है और बताती है कि लिंक सिंक में रहेगा या नहीं।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Layar berbagi menampilkan timer dan memberi tahu apakah tautan tetap tersinkron."
           }
         },
         "pt-BR": {
@@ -11240,10 +11230,10 @@
             "value": "Экран «Поделиться» показывает таймер и сообщает, будет ли ссылка синхронизироваться."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Layar berbagi menampilkan timer dan memberi tahu apakah tautan tetap tersinkron."
+            "value": "共享页面会显示计时器，并告诉你链接是否保持同步。"
           }
         }
       }
@@ -11598,16 +11588,16 @@
     },
     "Timer speaks your language": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "Timer 说你的语言"
+            "value": "Timer يتحدث لغتك"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "Timer अब आपकी भाषा बोलता है"
+            "value": "Timer এখন আপনার ভাষায়"
           }
         },
         "es": {
@@ -11616,22 +11606,22 @@
             "value": "Timer habla tu idioma"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Timer يتحدث لغتك"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Timer parle votre langue"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Timer এখন আপনার ভাষায়"
+            "value": "Timer अब आपकी भाषा बोलता है"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer berbicara dalam bahasa Anda"
           }
         },
         "pt-BR": {
@@ -11646,10 +11636,10 @@
             "value": "Timer говорит на вашем языке"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Timer berbicara dalam bahasa Anda"
+            "value": "Timer 说你的语言"
           }
         }
       }
@@ -12236,16 +12226,16 @@
     },
     "View only": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "仅供查看"
+            "value": "للعرض فقط"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "केवल देखने के लिए"
+            "value": "শুধু দেখার জন্য"
           }
         },
         "es": {
@@ -12254,22 +12244,22 @@
             "value": "Solo lectura"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "للعرض فقط"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Lecture seule"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "শুধু দেখার জন্য"
+            "value": "केवल देखने के लिए"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hanya lihat"
           }
         },
         "pt-BR": {
@@ -12284,10 +12274,10 @@
             "value": "Только просмотр"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hanya lihat"
+            "value": "仅供查看"
           }
         }
       }
@@ -12352,16 +12342,16 @@
     },
     "VoiceOver · larger text": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "VoiceOver · 更大文字"
+            "value": "VoiceOver · نص أكبر"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "VoiceOver · बड़ा टेक्स्ट"
+            "value": "VoiceOver · বড় টেক্সট"
           }
         },
         "es": {
@@ -12370,22 +12360,22 @@
             "value": "VoiceOver · texto más grande"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "VoiceOver · نص أكبر"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "VoiceOver · texte plus grand"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "VoiceOver · বড় টেক্সট"
+            "value": "VoiceOver · बड़ा टेक्स्ट"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "VoiceOver · teks lebih besar"
           }
         },
         "pt-BR": {
@@ -12400,10 +12390,10 @@
             "value": "VoiceOver · крупный текст"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "VoiceOver · teks lebih besar"
+            "value": "VoiceOver · 更大文字"
           }
         }
       }
@@ -12756,18 +12746,76 @@
         }
       }
     },
-    "You decide who has it": {
+    "Writes an email to hello@mirrornotes.org": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "由你决定谁能拥有"
+            "value": "给 hello@mirrornotes.org 写邮件"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "आप तय करें कि यह किसके पास हो"
+            "value": "hello@mirrornotes.org को ईमेल लिखें"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe un correo a hello@mirrornotes.org"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يكتب بريدًا إلكترونيًا إلى hello@mirrornotes.org"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Écrit un e-mail à hello@mirrornotes.org"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "hello@mirrornotes.org-এ ইমেল লেখে"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escreve um e-mail para hello@mirrornotes.org"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Написать письмо на hello@mirrornotes.org"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menulis email ke hello@mirrornotes.org"
+          }
+        }
+      }
+    },
+    "You decide who has it": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أنت تقرر من يملكه"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "কার কাছে থাকবে, আপনিই ঠিক করুন"
           }
         },
         "es": {
@@ -12776,22 +12824,22 @@
             "value": "Tú decides quién lo tiene"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "أنت تقرر من يملكه"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Vous décidez qui y a accès"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "কার কাছে থাকবে, আপনিই ঠিক করুন"
+            "value": "आप तय करें कि यह किसके पास हो"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda yang menentukan siapa yang memilikinya"
           }
         },
         "pt-BR": {
@@ -12806,10 +12854,10 @@
             "value": "Вы решаете, у кого он есть"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anda yang menentukan siapa yang memilikinya"
+            "value": "由你决定谁能拥有"
           }
         }
       }
@@ -13278,9 +13326,7 @@
         }
       }
     },
-    "—": {
-      "localizations": {}
-    }
+    "—": {}
   },
   "version": "1.0"
 }
