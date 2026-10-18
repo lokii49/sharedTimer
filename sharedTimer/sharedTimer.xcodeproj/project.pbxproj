@@ -192,7 +192,6 @@
 				LiveActivityController.swift,
 				LiveActivityIntents.swift,
 				RecentTimersStore.swift,
-				ShareCounter.swift,
 				TimerAccessoryWidgetView.swift,
 				TimerActivityAttributes.swift,
 				TimerAlarmMetadata.swift,
@@ -223,7 +222,6 @@
 				DisplayNameStore.swift,
 				LiveActivityController.swift,
 				NotificationScheduler.swift,
-				ShareCounter.swift,
 				TimerFieldsView.swift,
 			);
 			target = AB0000040000000000000000 /* sharedTimerWidget */;

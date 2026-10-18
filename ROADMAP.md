@@ -21,11 +21,12 @@ Keep this release small.
 **To do for 1.0.5:**
 1. ~~Device check with a 1.0.5 build: a `mirrornotes.org/timer?…` link opens the app.~~ Done on the iPhone 14 Pro (2026-10-18): 52 unit tests and all 15 UI tests pass; the two share tests open `https://mirrornotes.org/timer?…` through `XCUIApplication.open`, which only reaches the app's Add sheet via the universal link. Still manual: on a device without the app, the App Clip card appears (use `applinks:mirrornotes.org?mode=developer` + Settings → Developer → Associated Domains Development if Apple's CDN cache lags; remove before release).
 2. ~~`t.html`: `noindex`, and `app-id=6804558361` in the `apple-itunes-app` tag (Smart App Banner falls back to the full app where App Clips aren't allowed).~~ Done; re-copied to `mirrornotes-website`.
-3. Share counter (count of links shared, no identifiers): **live (2026-10-18).** Worker `timer-share-counter` deployed on `mirrornotes.org/api/timer/*` with D1 `timer-share-counter` (Cloudflare account of the Apple-relay login). Verified end to end: a Release-configuration simulator run of `testShareLinkPresentsSystemShareSheet` moved the count 0 → 1 (test counts reset afterwards). `npm run counts` in `share-counter/` reads it. Not yet seen end to end: the Messages extension path (needs a Release/TestFlight build in Messages). Remaining: update the App Store privacy label to "Usage Data → Product Interaction, not linked, not tracking" before submitting. Opens are visible in Cloudflare's dashboard for mirrornotes.org.
+3. ~~Share counter.~~ Dropped (owner's call, 2026-10-18): any count sent from the app would change the App Store label from "Data Not Collected". The app-side code, the Cloudflare Worker and its D1 database were removed. For a rough signal, Cloudflare's dashboard for mirrornotes.org shows visits to `/timer` pages (website traffic, not app data collection).
 4. Release notes.
 5. Open: an `og:image` for link previews. The App Clip header shows a fixed "4:12:09", which would read as the real time left, so it needs a neutral image first.
+6. ~~Privacy policy URL~~ moved to `https://mirrornotes.org/timer/privacy` (`privacy_url.txt`); the old URL stays up.
 
-**Next (1.0.6+):** Settings screen (mockups first; hosts What's New replay, sound picker, share-count opt-out, display name), sound picker, localization + accessibility, and best-effort background refresh of the pre-armed sequence window.
+**Next (1.0.6+):** Settings screen (mockups first; hosts What's New replay, sound picker, display name), sound picker, localization + accessibility, and best-effort background refresh of the pre-armed sequence window.
 
 ### 1.0.4 (released)
 

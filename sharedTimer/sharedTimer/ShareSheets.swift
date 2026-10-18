@@ -20,11 +20,7 @@ struct ShareTimerSheet: View {
                     .padding(.horizontal, 20)
 
                 if let preparedURL {
-                    // Not `ShareLink`: it reports nothing back, and the share count needs
-                    // to know a share actually completed (not just that the sheet opened).
-                    Button {
-                        ActivitySheet.present(preparedURL) { ShareCounter.recordShare() }
-                    } label: {
+                    ShareLink(item: preparedURL) {
                         Label("Share Link", systemImage: "square.and.arrow.up")
                             .frame(maxWidth: .infinity)
                     }
@@ -57,26 +53,6 @@ struct ShareTimerSheet: View {
             }
             preparedURL = components.url ?? current.url()
         }
-    }
-}
-
-/// The system share sheet, presented from the frontmost view controller so it can sit
-/// on top of `ShareTimerSheet`. `onCompleted` runs only when an activity finished
-/// (not on cancel).
-enum ActivitySheet {
-    static func present(_ url: URL, onCompleted: @escaping () -> Void) {
-        let scene = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first { $0.activationState == .foregroundActive }
-        guard var top = scene?.keyWindow?.rootViewController else { return }
-        while let presented = top.presentedViewController { top = presented }
-
-        let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        activity.completionWithItemsHandler = { _, completed, _, _ in
-            if completed { onCompleted() }
-        }
-        activity.popoverPresentationController?.sourceView = top.view
-        top.present(activity, animated: true)
     }
 }
 

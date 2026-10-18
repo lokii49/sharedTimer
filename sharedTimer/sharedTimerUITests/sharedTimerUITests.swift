@@ -44,8 +44,7 @@ final class sharedTimerUITests: XCTestCase {
 
     @MainActor
     func testShareLinkPresentsSystemShareSheet() throws {
-        // ShareTimerSheet presents UIActivityViewController itself (not ShareLink) so the
-        // share count knows when a share completed; make sure it still shows up on top.
+        // The system share sheet must show up on top of ShareTimerSheet.
         let app = XCUIApplication()
         let id = UUID().uuidString
         var share = URLComponents(string: "https://mirrornotes.org/timer")!

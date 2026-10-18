@@ -9,5 +9,3 @@ sharedTimer/fastlane/api_key.json
 *.p8
 sharedTimer/fastlane/report.xml
 sharedTimer/build-sim/
-.wrangler/
-node_modules/
