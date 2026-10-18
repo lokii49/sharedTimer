@@ -181,6 +181,72 @@ platform :ios do
     UI.success("Attached build #{build_number} to #{version.version_string}.")
   end
 
+  # Internal TestFlight group, set up like TinyAct's: "access to all builds" hands every
+  # uploaded build to these testers as soon as it finishes processing — no beta review,
+  # no per-build step. Internal testers must be users on the App Store Connect team.
+  TESTFLIGHT_GROUP = "Timer testers"
+  TESTFLIGHT_TESTERS = %w[pudari.lokesh@icloud.com]
+
+  # Creates the group if it's missing and adds any listed tester not in it yet. Idempotent.
+  private_lane :ensure_testflight_group do
+    app = Spaceship::ConnectAPI::App.find(APP_BUNDLE_ID)
+    group = app.get_beta_groups.find { |g| g.name == TESTFLIGHT_GROUP }
+    unless group
+      # Not Spaceship's create_beta_group: it always sends public-link attributes, which
+      # App Store Connect rejects on an internal group ("Public link limit cannot be applied").
+      group = Spaceship::ConnectAPI.test_flight_request_client.post("v1/betaGroups", {
+        data: {
+          type: "betaGroups",
+          attributes: { name: TESTFLIGHT_GROUP, isInternalGroup: true, hasAccessToAllBuilds: true, feedbackEnabled: true },
+          relationships: { app: { data: { type: "apps", id: app.id } } }
+        }
+      }).to_models.first
+      UI.success("Created the internal TestFlight group #{TESTFLIGHT_GROUP}.")
+    end
+
+    have = Spaceship::ConnectAPI.get_beta_testers(filter: { betaGroups: group.id }, limit: 200)
+      .to_models.map { |tester| tester.email.downcase }
+    (TESTFLIGHT_TESTERS.map(&:downcase) - have).each do |email|
+      Spaceship::ConnectAPI.post_beta_tester_assignment(
+        beta_group_ids: [group.id], attributes: { email: email }
+      )
+      UI.success("Added #{email} to #{TESTFLIGHT_GROUP}.")
+    end
+  end
+
+  # TestFlight's "What to Test" for this project's build, from the en-GB release notes.
+  # Needs the build processed (run after attach_processed_build). Idempotent.
+  private_lane :set_testflight_notes do
+    app = Spaceship::ConnectAPI::App.find(APP_BUNDLE_ID)
+    build_number = get_build_number(xcodeproj: "sharedTimer.xcodeproj")
+    build = Spaceship::ConnectAPI::Build.all(
+      app_id: app.id, build_number: build_number, platform: Spaceship::ConnectAPI::Platform::IOS
+    ).first
+    next UI.important("Build #{build_number} isn't on App Store Connect — no TestFlight notes set.") unless build
+
+    notes = File.read("metadata/en-GB/release_notes.txt").strip[0, 4000]
+    localization = Spaceship::ConnectAPI.get_beta_build_localizations(filter: { build: build.id })
+      .to_models.find { |l| l.locale == "en-GB" }
+    if localization
+      Spaceship::ConnectAPI.patch_beta_build_localizations(
+        localization_id: localization.id, attributes: { whatsNew: notes }
+      )
+    else
+      Spaceship::ConnectAPI.post_beta_build_localizations(
+        build_id: build.id, attributes: { locale: "en-GB", whatsNew: notes }
+      )
+    end
+    UI.success("Build #{build_number} is in TestFlight for #{TESTFLIGHT_GROUP}, with release notes as What to Test.")
+  end
+
+  desc "Set up the TestFlight group and What to Test for the current build. `release` already " \
+       "does this; run it alone to fix up a build uploaded before. Idempotent."
+  lane :testflight_setup do
+    auth
+    ensure_testflight_group
+    set_testflight_notes
+  end
+
   private_lane :submit_editable_version do
     platform = Spaceship::ConnectAPI::Platform::IOS
     app = Spaceship::ConnectAPI::App.find(APP_BUNDLE_ID)
@@ -231,8 +297,10 @@ platform :ios do
        "Connect (required by hand every version). Idempotent — no-ops if already in review."
   lane :resubmit do
     auth
+    ensure_testflight_group
     ensure_app_clip_default_experience
     attach_processed_build
+    set_testflight_notes
     submit_editable_version
   end
 
@@ -284,8 +352,10 @@ platform :ios do
     )
 
     begin
+      ensure_testflight_group
       ensure_app_clip_default_experience
       attach_processed_build
+      set_testflight_notes
       submit_editable_version
     rescue => e
       UI.error("Upload succeeded, but submitting for review failed:")

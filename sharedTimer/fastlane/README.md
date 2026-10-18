@@ -39,6 +39,14 @@ Upload metadata only (release notes etc.), no binary/screenshots/submission chan
 
 Upload screenshots only, no binary/metadata/submission changes
 
+### ios testflight_setup
+
+```sh
+[bundle exec] fastlane ios testflight_setup
+```
+
+Set up the TestFlight group and What to Test for the current build. `release` already does this; run it alone to fix up a build uploaded before. Idempotent.
+
 ### ios resubmit
 
 ```sh
