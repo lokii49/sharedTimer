@@ -69,6 +69,25 @@ enum CloudLinkStore {
         var links = all()
         links.removeValue(forKey: timerID)
         persist(links)
+        setShareURL(nil, timerID: timerID)
+    }
+
+    // MARK: - Share URL cache
+
+    private static let shareURLKey = "cloudShareURLs"
+
+    /// The CKShare URL last seen for a timer, so re-sharing doesn't wait on CloudKit.
+    /// A share's URL is stable for its lifetime; `createShare` refreshes this whenever it
+    /// does fetch, and `remove` clears it with the link.
+    static func shareURL(timerID: String) -> URL? {
+        (defaults?.dictionary(forKey: shareURLKey)?[timerID] as? String).flatMap(URL.init(string:))
+    }
+
+    static func setShareURL(_ url: URL?, timerID: String) {
+        var urls = defaults?.dictionary(forKey: shareURLKey) as? [String: String] ?? [:]
+        guard urls[timerID] != url?.absoluteString else { return }
+        urls[timerID] = url?.absoluteString
+        defaults?.set(urls, forKey: shareURLKey)
     }
 
     // MARK: - Left shares (participant-side tombstones)

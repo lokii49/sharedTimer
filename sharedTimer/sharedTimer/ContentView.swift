@@ -191,6 +191,7 @@ struct ContentView: View {
                 pendingNameCompletion = nil
             }
             Button("Skip", role: .cancel) {
+                DisplayNameStore.declined = true
                 pendingNameCompletion?()
                 pendingNameCompletion = nil
             }
@@ -678,7 +679,7 @@ struct ContentView: View {
     /// Fire-and-forget version for call sites that don't need to wait on the result
     /// (mutations — see applyMutation). No-ops if a name is already set.
     private func promptForNameIfNeeded() {
-        guard DisplayNameStore.name == nil else { return }
+        guard DisplayNameStore.shouldPrompt else { return }
         showingNamePrompt = true
     }
 
@@ -687,7 +688,7 @@ struct ContentView: View {
     /// where the prompt has to resolve before the share sheet opens (two presentations at
     /// once would fight each other) — see DisplayNameStore.swift for the skip fallback.
     private func withDisplayName(_ then: @escaping () -> Void) {
-        guard DisplayNameStore.name == nil else {
+        guard DisplayNameStore.shouldPrompt else {
             then()
             return
         }

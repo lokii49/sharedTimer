@@ -555,6 +555,30 @@ struct TimerPayload: Codable, Identifiable {
     }
 }
 
+// MARK: - Share text
+
+extension TimerPayload {
+    /// The line that goes with a shared link, e.g. "⏱️ Pasta — 8 min timer". Used by the
+    /// app's share sheet and the Messages extension's plain-link mode, so both match.
+    var shareMessage: String {
+        "\(kind == .countdown && sequence == nil ? "📅" : "⏱️") \(label) — \(shareSummary)"
+    }
+
+    var shareSummary: String {
+        if let sequence {
+            return "\(sequence.phases.count) phases · \(sequence.loopCount) \(sequence.loopCount == 1 ? "loop" : "loops")"
+        }
+        switch kind {
+        case .timer:
+            return "\(Int((duration / 60).rounded())) min timer"
+        case .countdown:
+            return recurrence != nil
+                ? "every year, next \(TimeFormat.targetDate(endDate))"
+                : "counting down to \(TimeFormat.targetDate(endDate))"
+        }
+    }
+}
+
 /// Day-aware time formatting shared by every surface that renders a countdown.
 enum TimeFormat {
     /// Countdowns at or beyond this range switch from a duration string to a calendar breakdown.

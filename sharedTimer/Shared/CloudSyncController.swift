@@ -149,12 +149,16 @@ enum CloudSyncController {
         // Reuse a timer's existing share (owner or participant); CloudKit permits
         // only one share per root record. A failed lookup falls back to the snapshot.
         if let link = CloudLinkStore.get(timerID: payload.id) {
+            // A cached URL answers at once; the fetch below still runs to refresh it.
+            if let cached = CloudLinkStore.shareURL(timerID: payload.id) { completeOnce(cached) }
             fetchRecord(for: payload) { record, database in
                 let zone = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
                 let shareID = record?.share?.recordID ?? link.shareRecordName.map { CKRecord.ID(recordName: $0, zoneID: zone) }
                 guard let shareID else { return completeOnce(nil) }
                 database.fetch(withRecordID: shareID) { share, _ in
-                    completeOnce((share as? CKShare)?.url)
+                    let url = (share as? CKShare)?.url
+                    if let url { CloudLinkStore.setShareURL(url, timerID: payload.id) }
+                    completeOnce(url)
                 }
             }
             return
@@ -219,6 +223,7 @@ enum CloudSyncController {
                         isOwner: true,
                         shareRecordName: share.recordID.recordName
                     ))
+                    CloudLinkStore.setShareURL(url, timerID: payload.id)
                     completeOnce(url)
                 case .failure(let error):
                     log("createShare(\(payload.id)) modifyRecords failed: \(error)")
@@ -669,6 +674,28 @@ enum CloudSyncController {
                 DispatchQueue.main.async { completion(share.participants.count) }
             }
         }
+    }
+
+    /// This timer's CKShare plus the container, for `UICloudSharingController` (Manage
+    /// Sharing). Nil if the timer isn't shared or the share can't be fetched. Main queue.
+    static func fetchShare(for payload: TimerPayload, completion: @escaping ((CKShare, CKContainer)?) -> Void) {
+        fetchRecord(for: payload) { record, database in
+            guard let shareRecordID = record?.share?.recordID else { completion(nil); return }
+            database.fetch(withRecordID: shareRecordID) { shareRecord, error in
+                if let error { log("fetchShare(\(payload.id)) failed: \(error)") }
+                DispatchQueue.main.async { completion((shareRecord as? CKShare).map { ($0, container) }) }
+            }
+        }
+    }
+
+    /// After the owner stops sharing (or a participant removes themselves) in Manage
+    /// Sharing: the timer stays on this device as a plain local timer. The owner's next
+    /// Share creates a fresh record + share; a participant is marked as having left so
+    /// later changes from the old share don't bring it back.
+    static func didStopSharing(timerID: String) {
+        let wasOwner = CloudLinkStore.get(timerID: timerID)?.isOwner ?? true
+        CloudLinkStore.remove(timerID: timerID)
+        if !wasOwner { CloudLinkStore.markLeft(timerID: timerID) }
     }
 
     /// Who last touched this timer and what they did, or nil if there's no CloudLink or

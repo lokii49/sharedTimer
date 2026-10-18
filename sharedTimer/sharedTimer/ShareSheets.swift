@@ -5,6 +5,8 @@
 
 import SwiftUI
 import UIKit
+import CloudKit
+import CoreImage.CIFilterBuiltins
 
 /// Sheet shown from a row's context-menu Share action. `ShareLink` inside `.contextMenu`
 /// is unreliable, so this presents the timer's sky with the real `ShareLink` on it.
@@ -12,27 +14,83 @@ struct ShareTimerSheet: View {
     let payload: TimerPayload
     @Environment(\.dismiss) private var dismiss
     @State private var preparedURL: URL?
+    /// Whether the link carries a CloudKit share (stays in sync) or is a snapshot.
+    @State private var isLive = false
+    @State private var previewImage: Image?
+    @State private var showingQR = false
+    @State private var cloudShare: CloudShareItem?
+    @State private var loadingShare = false
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 22) {
-                SkyCard(payload: payload, date: Date())
-                    .padding(.horizontal, 20)
+            ScrollView {
+                VStack(spacing: 18) {
+                    SkyCard(payload: payload, date: Date())
+                        .padding(.horizontal, 20)
 
-                if let preparedURL {
-                    ShareLink(item: preparedURL) {
-                        Label("Share Link", systemImage: "square.and.arrow.up")
-                            .frame(maxWidth: .infinity)
+                    if let preparedURL {
+                        Label(isLive ? "Live link · changes sync for everyone" : "Snapshot · won't update after sending",
+                              systemImage: isLive ? "icloud" : "camera.viewfinder")
+                            .font(.footnote)
+                            .foregroundStyle(Sky.roomInk)
+                            .accessibilityHint(isLive ? "" : "iCloud sharing isn't available right now")
+
+                        ShareLink(item: preparedURL,
+                                  subject: Text(payload.label),
+                                  message: Text(payload.shareMessage),
+                                  preview: SharePreview(payload.label, image: previewImage ?? Image(systemName: "timer"))) {
+                            Label("Share Link", systemImage: "square.and.arrow.up")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.glassPill)
+                        .padding(.horizontal, 20)
+
+                        HStack(spacing: 12) {
+                            if QRCode.fits(preparedURL) {
+                                Button {
+                                    withAnimation { showingQR.toggle() }
+                                } label: {
+                                    Label(showingQR ? "Hide QR Code" : "QR Code", systemImage: "qrcode")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.glassPill)
+                            }
+                            if isLive {
+                                Button {
+                                    manageSharing()
+                                } label: {
+                                    Label("Manage Sharing", systemImage: "person.2")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.glassPill)
+                                .disabled(loadingShare)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+
+                        if showingQR, let image = QRCode.image(for: preparedURL) {
+                            VStack(spacing: 8) {
+                                Image(uiImage: image)
+                                    .interpolation(.none)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 220, height: 220)
+                                    .padding(12)
+                                    .background(.white, in: RoundedRectangle(cornerRadius: 16))
+                                    .accessibilityLabel("QR code for \(payload.label)")
+                                Text("Scan with the Camera app to open this timer")
+                                    .font(.footnote)
+                                    .foregroundStyle(Sky.roomInk)
+                            }
+                            .transition(.opacity)
+                        }
+                    } else {
+                        ProgressView("Preparing link…")
                     }
-                    .buttonStyle(.glassPill)
-                    .padding(.horizontal, 20)
-                } else {
-                    ProgressView("Preparing link…")
                 }
-
-                Spacer()
+                .padding(.top, 26)
+                .padding(.bottom, 20)
             }
-            .padding(.top, 26)
             .background(Sky.room)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -41,17 +99,110 @@ struct ShareTimerSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
+        .sheet(item: $cloudShare) { item in
+            CloudSharingView(item: item, title: payload.label) {
+                CloudSyncController.didStopSharing(timerID: payload.id)
+                isLive = false
+                Task { await prepare() }
+            }
+            .ignoresSafeArea()
+        }
         .task {
-            let current = (TimerStore.loadAll().first { $0.id == payload.id } ?? payload).advancedSequence()
-            let shareURL: URL? = await withCheckedContinuation { continuation in
-                CloudSyncController.createShare(for: current) { continuation.resume(returning: $0) }
-            }
-            var components = URLComponents(url: current.url(), resolvingAgainstBaseURL: false)!
-            if let shareURL {
-                components.queryItems = (components.queryItems ?? []) + [URLQueryItem(name: "ckshare", value: shareURL.absoluteString)]
-            }
-            preparedURL = components.url ?? current.url()
+            previewImage = renderPreview()
+            await prepare()
+        }
+    }
+
+    private func prepare() async {
+        let current = (TimerStore.loadAll().first { $0.id == payload.id } ?? payload).advancedSequence()
+        let shareURL: URL? = await withCheckedContinuation { continuation in
+            CloudSyncController.createShare(for: current) { continuation.resume(returning: $0) }
+        }
+        var components = URLComponents(url: current.url(), resolvingAgainstBaseURL: false)!
+        if let shareURL {
+            components.queryItems = (components.queryItems ?? []) + [URLQueryItem(name: "ckshare", value: shareURL.absoluteString)]
+        }
+        isLive = shareURL != nil
+        preparedURL = components.url ?? current.url()
+    }
+
+    private func manageSharing() {
+        loadingShare = true
+        CloudSyncController.fetchShare(for: payload) { result in
+            loadingShare = false
+            if let (share, container) = result { cloudShare = CloudShareItem(share: share, container: container) }
+        }
+    }
+
+    /// The sky card as the share sheet's thumbnail, instead of a generic link icon.
+    @MainActor private func renderPreview() -> Image? {
+        let renderer = ImageRenderer(content: SkyCard(payload: payload, date: Date()).frame(width: 340))
+        renderer.scale = 3
+        return renderer.uiImage.map(Image.init(uiImage:))
+    }
+}
+
+/// QR codes for in-person sharing (CoreImage, no package). Long links — e.g. a big
+/// sequence plus its iCloud share URL — don't fit a scannable code, so the button hides.
+enum QRCode {
+    private static let maxBytes = 1_200
+
+    static func fits(_ url: URL) -> Bool {
+        url.absoluteString.utf8.count <= maxBytes
+    }
+
+    static func image(for url: URL) -> UIImage? {
+        guard fits(url) else { return nil }
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(url.absoluteString.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)),
+              let cgImage = CIContext().createCGImage(output, from: output.extent) else { return nil }
+        return UIImage(cgImage: cgImage)
+    }
+}
+
+struct CloudShareItem: Identifiable {
+    let share: CKShare
+    let container: CKContainer
+    var id: CKRecord.ID { share.recordID }
+}
+
+/// Apple's participants screen: see who has the timer, remove someone, or stop sharing.
+struct CloudSharingView: UIViewControllerRepresentable {
+    let item: CloudShareItem
+    let title: String
+    let onStopSharing: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(title: title, onStopSharing: onStopSharing) }
+
+    func makeUIViewController(context: Context) -> UICloudSharingController {
+        let controller = UICloudSharingController(share: item.share, container: item.container)
+        controller.delegate = context.coordinator
+        controller.availablePermissions = [.allowReadWrite, .allowPublic]
+        return controller
+    }
+
+    func updateUIViewController(_ controller: UICloudSharingController, context: Context) {}
+
+    final class Coordinator: NSObject, UICloudSharingControllerDelegate {
+        let title: String
+        let onStopSharing: () -> Void
+
+        init(title: String, onStopSharing: @escaping () -> Void) {
+            self.title = title
+            self.onStopSharing = onStopSharing
+        }
+
+        func itemTitle(for csc: UICloudSharingController) -> String? { title }
+
+        func cloudSharingController(_ csc: UICloudSharingController, failedToSaveShareWithError error: Error) {
+            print("SharedTimer: UICloudSharingController failed to save share: \(error)")
+        }
+
+        func cloudSharingControllerDidStopSharing(_ csc: UICloudSharingController) {
+            onStopSharing()
         }
     }
 }
