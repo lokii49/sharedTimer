@@ -11,11 +11,11 @@ or QR code.
 
 ### 1.0.5 (in progress)
 
-Keep this release small: it is the first half of the link-domain move, and the second half can't start until most people run it.
+Keep this release small.
 
-**Link domain move (two releases):**
-- **1.0.5 — recognise (done on the branch).** `https://mirrornotes.org/timer` is live (`mirrornotes-website` repo: `timer.html`, a copy of `docs/t.html`, plus `.well-known/apple-app-site-association`; Apple's CDN already serves it). The app claims `applinks:mirrornotes.org`, the Clip `appclips:mirrornotes.org`; the old domain stays in both. `url()` still emits `lokii49.github.io`. Unit test pins host-agnostic link decoding.
-- **Later release — switch.** Change `url()` in `Shared/` and `WatchShared/TimerModel.swift` to `mirrornotes.org/timer` only once App Store Connect analytics show most active devices on 1.0.5 or later. A recipient on an older app would otherwise get the web page instead of the app. The old domain's page, AASA and entitlements stay forever.
+**Link domain move (one release, owner's call 2026-10-18):**
+- **1.0.5 — recognise and switch (done on the branch).** `https://mirrornotes.org/timer` is live (`mirrornotes-website` repo: `timer.html`, a copy of `docs/t.html`, plus `.well-known/apple-app-site-association`; Apple's CDN already serves it). The app claims `applinks:mirrornotes.org`, the Clip `appclips:mirrornotes.org`; the old domain stays in both. `url()` now emits `https://mirrornotes.org/timer?…`; old-host links still decode (unit test).
+- **Accepted trade-off:** a recipient still on 1.0.4 or older gets the web countdown in Safari instead of the app, because their app doesn't claim mirrornotes.org. The old domain's page, AASA and entitlements stay forever for links already sent.
 - **App Clip experience:** per Apple's "Supporting invocations from your website and the Messages app", Safari/Messages invocation needs the domain association plus the page's `apple-itunes-app` tag with the default experience; advanced experiences are only for showing a different card per domain/URL. So no App Store Connect change is expected — confirm on device.
 
 **To do for 1.0.5:**
@@ -25,7 +25,7 @@ Keep this release small: it is the first half of the link-domain move, and the s
 4. Release notes.
 5. Open: an `og:image` for link previews. The App Clip header shows a fixed "4:12:09", which would read as the real time left, so it needs a neutral image first.
 
-**Next (1.0.6+):** Settings screen (mockups first; hosts What's New replay, sound picker, share-count opt-out, display name), sound picker, localization + accessibility, best-effort background refresh of the pre-armed sequence window, and the `url()` switch.
+**Next (1.0.6+):** Settings screen (mockups first; hosts What's New replay, sound picker, share-count opt-out, display name), sound picker, localization + accessibility, and best-effort background refresh of the pre-armed sequence window.
 
 ### 1.0.4 (released)
 

@@ -157,12 +157,13 @@ struct sharedTimerTests {
     }
 
     @Test func urlDecodeIgnoresHostAndPath() throws {
-        // Links move from lokii49.github.io/sharedTimer/t.html to mirrornotes.org/timer;
-        // both hosts must decode identically, including for app versions that predate the move.
+        // Links moved from lokii49.github.io/sharedTimer/t.html to mirrornotes.org/timer in
+        // 1.0.5; links already sent on the old host must keep decoding identically.
         let payload = TimerPayload(label: "Pasta", duration: 480, kind: .timer)
+        #expect(payload.url().absoluteString.hasPrefix("https://mirrornotes.org/timer?"))
         var moved = try #require(URLComponents(url: payload.url(), resolvingAgainstBaseURL: false))
-        moved.host = "mirrornotes.org"
-        moved.path = "/timer"
+        moved.host = "lokii49.github.io"
+        moved.path = "/sharedTimer/t.html"
 
         let original = try #require(TimerPayload.from(url: payload.url()))
         let decoded = try #require(TimerPayload.from(url: try #require(moved.url)))
