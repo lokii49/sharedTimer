@@ -29,6 +29,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         AlarmController.requestAuthorizationIfNeeded()
         registerNotificationCategories()
         UNUserNotificationCenter.current().delegate = self
+        BackgroundRefresh.register()
         return true
     }
 

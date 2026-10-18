@@ -263,6 +263,7 @@ struct ContentView: View {
                 // silently kill a ringing alarm.
                 alarm.stop()
                 vibration.stop()
+                BackgroundRefresh.schedule()
             }
             guard newPhase == .active else { return }
             TimerSpotlightIndex.shared.requestRefresh()
