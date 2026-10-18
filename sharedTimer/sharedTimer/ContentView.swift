@@ -104,6 +104,7 @@ struct ContentView: View {
                         Image(systemName: "gearshape")
                     }
                     .accessibilityLabel("Settings")
+                    .accessibilityIdentifier("settingsButton")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {

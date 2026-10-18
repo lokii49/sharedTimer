@@ -88,6 +88,46 @@ final class sharedTimerUITests: XCTestCase {
     }
 
     @MainActor
+    func testRightToLeftLayoutScreenshots() throws {
+        // Visual check for the Arabic (RTL) localization: list, Settings, a timer's detail.
+        let app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(ar)", "-AppleLocale", "ar_SA"]
+        let id = UUID().uuidString
+        var share = URLComponents(string: "https://mirrornotes.org/timer")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id),
+            URLQueryItem(name: "label", value: "RTL"),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(300).timeIntervalSince1970)),
+            URLQueryItem(name: "dur", value: "300"),
+            URLQueryItem(name: "kind", value: "timer"),
+            URLQueryItem(name: "alarm", value: "0"),
+            URLQueryItem(name: "vib", value: "0")
+        ]
+        widgetTestURL = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        app.launch()
+        app.open(try XCTUnwrap(share.url))
+        sleep(3)
+        attachScreenshot(app, "RTL add sheet")
+        let add = app.buttons["إضافة إلى مؤقتاتي"]  // "Add to My Timers" in Arabic
+        XCTAssertTrue(add.waitForExistence(timeout: 10))
+        add.tap()
+        sleep(2)
+        attachScreenshot(app, "RTL list")
+        let settings = app.buttons["settingsButton"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        settings.tap()
+        sleep(2)
+        attachScreenshot(app, "RTL Settings")
+    }
+
+    private func attachScreenshot(_ app: XCUIApplication, _ name: String) {
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = name
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
+    @MainActor
     func testSettingsPicksAToneAndShowsAbout() throws {
         let app = XCUIApplication()
         app.launch()
@@ -234,14 +274,14 @@ final class sharedTimerUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-ShowWhatsNew"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["Pause from the Lock Screen"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Links that say what they are"].waitForExistence(timeout: 10))
         let firstPage = XCTAttachment(screenshot: app.screenshot())
         firstPage.name = "What's New page 1"
         firstPage.lifetime = .keepAlways
         add(firstPage)
         let continueButton = app.buttons["Continue"]
-        for title in ["Edit any timer", "Countdowns that come back every year", "Share a whole sequence",
-                      "Start your usual timer in one tap", "Siri, Spotlight and your Watch"] {
+        for title in ["Live or snapshot, at a glance", "Share across the room", "You decide who has it",
+                      "Keep a sequence you were sent", "Make it yours", "Timer speaks your language"] {
             continueButton.tap()
             XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 5), title)
         }
@@ -251,7 +291,7 @@ final class sharedTimerUITests: XCTestCase {
         add(lastPage)
         app.buttons["Start"].tap()
         XCTAssertTrue(app.navigationBars["Timers"].waitForExistence(timeout: 5) || app.buttons["New"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["Siri, Spotlight and your Watch"].exists)
+        XCTAssertFalse(app.staticTexts["Timer speaks your language"].exists)
     }
 
     @MainActor

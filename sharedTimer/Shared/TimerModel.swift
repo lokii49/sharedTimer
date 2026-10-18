@@ -429,7 +429,7 @@ struct TimerPayload: Codable, Identifiable {
     /// fully exhausted (the plain "Finished ..." subtitle already covers that case).
     var sequenceCaption: String? {
         guard let sequence, sequence.loopIndex < sequence.loopCount else { return nil }
-        return "Phase \(sequence.phaseIndex + 1) of \(sequence.phases.count) · Loop \(sequence.loopIndex + 1) of \(sequence.loopCount)"
+        return String(localized: "Phase \(sequence.phaseIndex + 1) of \(sequence.phases.count) · Loop \(sequence.loopIndex + 1) of \(sequence.loopCount)")
     }
 
     /// Builds a sequence-owning payload (Pomodoro/Intermittent-Fasting style) from a

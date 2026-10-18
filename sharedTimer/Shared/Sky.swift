@@ -105,10 +105,10 @@ enum Sky {
         let calendar = Calendar.current
         let time = start.formatted(date: .omitted, time: .shortened)
         if calendar.isDate(start, inSameDayAs: now) {
-            return "Today \(time)"
+            return String(localized: "Today \(time)")
         }
         if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now), calendar.isDate(start, inSameDayAs: tomorrow) {
-            return "Tomorrow \(time)"
+            return String(localized: "Tomorrow \(time)")
         }
         if let sixDaysOut = calendar.date(byAdding: .day, value: 6, to: now), start < sixDaysOut {
             return "\(start.formatted(.dateTime.weekday(.abbreviated))) \(time)"
@@ -120,7 +120,7 @@ enum Sky {
     /// started. `TimerPayload.sequenceCaption`'s "Phase 1 of 2 · Loop 1 of 7" reads as
     /// already running, so this is a separate function rather than a change to it.
     static func pendingSequenceCaption(_ sequence: SequenceInfo) -> String {
-        "\(sequence.phases.count) phase\(sequence.phases.count == 1 ? "" : "s") · \(sequence.loopCount) loop\(sequence.loopCount == 1 ? "" : "s")"
+        String(localized: "Phases per loop: \(sequence.phases.count) · Loops: \(sequence.loopCount)")
     }
 
     /// "FAST · 0D 16H" -- what phase 0 actually is, for the secondary slot next to the
@@ -293,7 +293,7 @@ struct SkyCard: View {
     }
 
     private var accessibilityTitle: String {
-        let kind = payload.sequence != nil ? "sequence" : payload.kind == .countdown ? "countdown" : "timer"
+        let kind = payload.sequence != nil ? String(localized: "sequence") : payload.kind == .countdown ? String(localized: "countdown") : String(localized: "timer")
         if let caption = payload.sequenceCaption, !payload.isPending(at: date) {
             return "\(payload.label), \(kind), \(caption)"
         }
@@ -302,16 +302,16 @@ struct SkyCard: View {
 
     private func accessibilityStatus(remaining: TimeInterval, pending: Bool) -> String {
         if pending, let start = payload.scheduledStartDate {
-            return "Scheduled, starts \(start.formatted(date: .abbreviated, time: .shortened))"
+            return String(localized: "Scheduled, starts \(start.formatted(date: .abbreviated, time: .shortened))")
         }
-        if payload.isExpired { return "Time's up" }
+        if payload.isExpired { return String(localized: "Time's up") }
         let left = Duration.seconds(max(1, remaining.rounded()))
             .formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))
-        if payload.isPaused { return "Paused, \(left) left" }
+        if payload.isPaused { return String(localized: "Paused, \(left) left") }
         if payload.kind == .countdown {
-            return "\(left) left, until \(payload.endDate.formatted(date: .abbreviated, time: .shortened))"
+            return String(localized: "\(left) left, until \(payload.endDate.formatted(date: .abbreviated, time: .shortened))")
         }
-        return "\(left) left, ends \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+        return String(localized: "\(left) left, ends \(payload.endDate.formatted(date: .omitted, time: .shortened))")
     }
 
     /// The start date/time itself, day-aware, not a ticking countdown to it -- a live
@@ -330,14 +330,14 @@ struct SkyCard: View {
             return phaseText
         }
         if payload.isPaused {
-            return "held"
+            return String(localized: "held")
         }
         if payload.isExpired {
-            return "finished \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+            return String(localized: "finished \(payload.endDate.formatted(date: .omitted, time: .shortened))")
         }
         if payload.kind == .countdown {
             return TimeFormat.targetDate(payload.endDate)
         }
-        return "ends \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+        return String(localized: "ends \(payload.endDate.formatted(date: .omitted, time: .shortened))")
     }
 }

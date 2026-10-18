@@ -26,29 +26,29 @@ private struct SequenceTemplate: Equatable {
 
 private let sequenceTemplates: [SequenceTemplate] = [
     SequenceTemplate(
-        name: "Custom",
+        name: String(localized: "Custom"),
         seedName: "",
-        blurb: "Start from scratch and add whatever phases you like.",
-        phases: [SequencePhase(label: "Phase 1", duration: 5 * 60)],
+        blurb: String(localized: "Start from scratch and add whatever phases you like."),
+        phases: [SequencePhase(label: String(localized: "Phase 1"), duration: 5 * 60)],
         defaultLoopCount: 1
     ),
     SequenceTemplate(
-        name: "Pomodoro",
-        seedName: "Pomodoro",
-        blurb: "Work, then rest, on repeat.",
+        name: String(localized: "Pomodoro"),
+        seedName: String(localized: "Pomodoro"),
+        blurb: String(localized: "Work, then rest, on repeat."),
         phases: [
-            SequencePhase(label: "Work", kind: .timer, duration: 25 * 60),
-            SequencePhase(label: "Rest", kind: .timer, duration: 5 * 60)
+            SequencePhase(label: String(localized: "Work"), kind: .timer, duration: 25 * 60),
+            SequencePhase(label: String(localized: "Rest"), kind: .timer, duration: 5 * 60)
         ],
         defaultLoopCount: 4
     ),
     SequenceTemplate(
-        name: "Intermittent Fasting",
-        seedName: "Intermittent Fasting",
-        blurb: "Fast, then eat, day after day.",
+        name: String(localized: "Intermittent Fasting"),
+        seedName: String(localized: "Intermittent Fasting"),
+        blurb: String(localized: "Fast, then eat, day after day."),
         phases: [
-            SequencePhase(label: "Fast", kind: .timer, duration: 16 * 3600),
-            SequencePhase(label: "Eat", kind: .timer, duration: 8 * 3600)
+            SequencePhase(label: String(localized: "Fast"), kind: .timer, duration: 16 * 3600),
+            SequencePhase(label: String(localized: "Eat"), kind: .timer, duration: 8 * 3600)
         ],
         defaultLoopCount: 7
     )
@@ -227,7 +227,7 @@ struct NewSequenceSheet: View {
                         ForEach(savedSequences) { saved in
                             startFromRow(
                                 name: saved.name,
-                                subtitle: "\(saved.phases.count) phase\(saved.phases.count == 1 ? "" : "s") · \(saved.loopCount)×",
+                                subtitle: String(localized: "Phases per loop: \(saved.phases.count) · Loops: \(saved.loopCount)"),
                                 isSelected: source == .saved(id: saved.id)
                             ) {
                                 select(.saved(id: saved.id))
@@ -276,7 +276,7 @@ struct NewSequenceSheet: View {
 
                 Section {
                     Button {
-                        draftPhases.append(DraftPhase(phase: SequencePhase(label: "Phase \(draftPhases.count + 1)", duration: 5 * 60)))
+                        draftPhases.append(DraftPhase(phase: SequencePhase(label: String(localized: "Phase \(draftPhases.count + 1)"), duration: 5 * 60)))
                     } label: {
                         Label("Add Phase", systemImage: "plus.circle")
                     }
