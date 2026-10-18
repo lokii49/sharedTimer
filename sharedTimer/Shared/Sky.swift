@@ -166,15 +166,33 @@ enum Sky {
 extension Text {
     /// Small-caps label voice used on skies and chrome: uppercase, tracked, semibold.
     func skyLabel(_ size: CGFloat = 11) -> some View {
-        self.font(.system(size: size, weight: .semibold))
-            .tracking(size * 0.16)
-            .textCase(.uppercase)
+        modifier(SkyLabelStyle(size: size))
     }
 
     /// The thin digits that glow against a sky.
     func skyDigits(_ size: CGFloat, weight: Font.Weight = .thin) -> Text {
         self.font(.system(size: size, weight: weight))
             .monospacedDigit()
+    }
+}
+
+/// Small caps that follow the person's text size, capped so a fixed-height sky card
+/// (SkyCard is 104pt) can't overflow at the largest accessibility sizes.
+private struct SkyLabelStyle: ViewModifier {
+    @ScaledMetric private var scaled: CGFloat
+    private let base: CGFloat
+
+    init(size: CGFloat) {
+        base = size
+        _scaled = ScaledMetric(wrappedValue: size, relativeTo: .caption)
+    }
+
+    func body(content: Content) -> some View {
+        let size = min(scaled, base * 1.6)
+        content
+            .font(.system(size: size, weight: .semibold))
+            .tracking(size * 0.16)
+            .textCase(.uppercase)
     }
 }
 
@@ -267,6 +285,33 @@ struct SkyCard: View {
                 .brightness(pending ? -0.1 : 0)
         )
         .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        // One VoiceOver element instead of five fragments ("PASTA", "04:12", "ENDS 7:40"),
+        // with the digits spoken as words.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityTitle)
+        .accessibilityValue(accessibilityStatus(remaining: remaining, pending: pending))
+    }
+
+    private var accessibilityTitle: String {
+        let kind = payload.sequence != nil ? "sequence" : payload.kind == .countdown ? "countdown" : "timer"
+        if let caption = payload.sequenceCaption, !payload.isPending(at: date) {
+            return "\(payload.label), \(kind), \(caption)"
+        }
+        return "\(payload.label), \(kind)"
+    }
+
+    private func accessibilityStatus(remaining: TimeInterval, pending: Bool) -> String {
+        if pending, let start = payload.scheduledStartDate {
+            return "Scheduled, starts \(start.formatted(date: .abbreviated, time: .shortened))"
+        }
+        if payload.isExpired { return "Time's up" }
+        let left = Duration.seconds(max(1, remaining.rounded()))
+            .formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))
+        if payload.isPaused { return "Paused, \(left) left" }
+        if payload.kind == .countdown {
+            return "\(left) left, until \(payload.endDate.formatted(date: .abbreviated, time: .shortened))"
+        }
+        return "\(left) left, ends \(payload.endDate.formatted(date: .omitted, time: .shortened))"
     }
 
     /// The start date/time itself, day-aware, not a ticking countdown to it -- a live
