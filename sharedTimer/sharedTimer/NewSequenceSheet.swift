@@ -283,9 +283,9 @@ struct NewSequenceSheet: View {
                 }
 
                 Section {
-                    Stepper("Repeat \(loopCount) time\(loopCount == 1 ? "" : "s")", value: $loopCount, in: 1...99)
+                    Stepper("Loops: \(loopCount)", value: $loopCount, in: 1...99)
                 } footer: {
-                    Text("Runs \(draftPhases.count) phase\(draftPhases.count == 1 ? "" : "s") per loop, \(loopCount) time\(loopCount == 1 ? "" : "s") total.")
+                    Text("Phases per loop: \(draftPhases.count) · Loops: \(loopCount)")
                 }
 
                 Section {
