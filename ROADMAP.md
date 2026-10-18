@@ -31,6 +31,8 @@ Keep this release small.
 - Settings ("Sky Stack", picked from three mockups): display name, alarm tone (Classic/Glass/Ember/Dawn), What's New replay, About.
 - Localization: top 10 languages (en, zh-Hans, hi, es, ar, fr, bn, pt-BR, ru, id) for app, Messages, Clip, Widget and permission prompts. Accessibility: one VoiceOver element per timer card, spoken digits, Dynamic Type sky labels.
 - Best-effort `BGAppRefreshTask` refill of pre-armed sequence/yearly alert windows.
+- **Verified on the iPhone 14 Pro (2026-10-18):** 109 unit tests, 27 AlarmKit device tests (incl. the tone-aware presentation signature) and 13 UI tests (Settings, What's New 1.0.5, Arabic RTL screenshots, share sheet from list and detail) pass; simulator: 136 unit + 13 UI.
+- What's New 1.0.5 "Afternoon Walk" (picked from three mockups) covers the features above.
 - **Manual checks:** Manage Sharing with a second iCloud account; RTL (Arabic) layout pass; tone choice on a real AlarmKit alert; Messages link preview on device; background refresh actually firing (Xcode's `_simulateLaunchForTaskWithIdentifier`). App Store metadata (description, screenshots) is still English-only.
 
 ### 1.0.4 (released)
