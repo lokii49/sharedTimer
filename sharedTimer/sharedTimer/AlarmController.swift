@@ -397,7 +397,8 @@ enum AlarmController {
     /// (rename, Alarm toggle), local or arriving through CloudKit, would leave the old
     /// title/tone armed.
     private static func signature(of payload: TimerPayload) -> String {
-        "\(payload.label)|\(payload.alarmEnabled)"
+        // The tone joins the signature so changing it in Settings re-creates armed alarms.
+        "\(payload.label)|\(payload.alarmEnabled ? AlarmTone.selected.rawValue : "silent")"
     }
 
     /// No recorded signature (an alarm scheduled before this existed) counts as a
@@ -614,14 +615,14 @@ enum AlarmController {
         }
         let config: AlarmManager.AlarmConfiguration<TimerAlarmMetadata> = payload.recurrence != nil
             ? .alarm(schedule: scheduleOverride, attributes: attributes, stopIntent: nil, secondaryIntent: secondaryIntent,
-                     sound: .named(payload.alarmEnabled ? "alarm.caf" : "vibration_silent.caf"))
+                     sound: .named(payload.alarmEnabled ? AlarmTone.selected.fileName : "vibration_silent.caf"))
             : AlarmManager.AlarmConfiguration<TimerAlarmMetadata>(
             countdownDuration: payload.recurrence == nil ? .init(preAlert: fixedAt != nil ? payload.duration : payload.remaining, postAlert: payload.duration) : nil,
             schedule: scheduleOverride,
             attributes: attributes,
             stopIntent: nil,
             secondaryIntent: secondaryIntent,
-            sound: .named(payload.alarmEnabled ? "alarm.caf" : "vibration_silent.caf")
+            sound: .named(payload.alarmEnabled ? AlarmTone.selected.fileName : "vibration_silent.caf")
         )
 
         do {

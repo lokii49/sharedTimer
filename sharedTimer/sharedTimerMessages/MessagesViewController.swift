@@ -233,7 +233,7 @@ class MessagesViewController: MSMessagesAppViewController {
         }
         let alert = UIAlertController(
             title: "What should we call you?",
-            message: "Shown to people you share timers with, like \"Sam paused Pasta.\"",
+            message: String(localized: "Shown to people you share timers with, like \"Sam paused Pasta.\" You can change it any time in Timer's Settings."),
             preferredStyle: .alert
         )
         alert.addTextField { $0.placeholder = "Your name" }

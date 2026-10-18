@@ -107,10 +107,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
               delta >= 5 else { return }
 
         CloudSyncController.fetchAttribution(for: updated) { attribution in
-            let who = attribution?.name ?? "Someone"
+            let who = attribution?.name ?? String(localized: "Someone")
             let content = UNMutableNotificationContent()
             content.title = updated.label
-            content.body = "\(who) added \(Self.deltaText(delta)) — now ends at \(updated.endDate.formatted(date: .omitted, time: .shortened))"
+            content.body = String(localized: "\(who) added \(Self.deltaText(delta)) — now ends at \(updated.endDate.formatted(date: .omitted, time: .shortened))")
             content.sound = .default
             content.categoryIdentifier = Self.extendedCategoryID
             // A fresh identifier per extend (not e.g. `updated.id` alone) so a second
@@ -126,12 +126,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     }
 
     private static func deltaText(_ interval: TimeInterval) -> String {
-        let totalSeconds = Int(interval.rounded())
-        let minutes = totalSeconds / 60
-        let seconds = totalSeconds % 60
-        if minutes > 0 && seconds == 0 { return "\(minutes) min" }
-        if minutes > 0 { return "\(minutes)m \(seconds)s" }
-        return "\(seconds)s"
+        // Localized unit names ("5 min", "5 Min.", "5 分钟").
+        Duration.seconds(Int(interval.rounded()))
+            .formatted(.units(allowed: [.hours, .minutes, .seconds], width: .abbreviated))
     }
 
     // MARK: - Vibration-only finish notification actions

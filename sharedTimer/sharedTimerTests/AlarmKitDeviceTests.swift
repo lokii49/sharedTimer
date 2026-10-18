@@ -294,13 +294,13 @@ final class AlarmKitDeviceTests {
         let paused = payload.paused()
         await AlarmController.rescheduleAwaiting(for: paused)
         #expect(alarmsByID()[id]?.state == .paused)
-        #expect(signature(id) == "Edit paused|true")
+        #expect(signature(id) == "Edit paused|\(AlarmTone.selected.rawValue)")
 
         // Same paused time, new title and tone: the kept-paused path must not keep it.
         let edited = paused.edited(label: "Edited paused", alarmEnabled: false, vibrationEnabled: true)
         await AlarmController.rescheduleAwaiting(for: edited)
         #expect(alarmsByID()[id]?.state == .paused)
-        #expect(signature(id) == "Edited paused|false")
+        #expect(signature(id) == "Edited paused|silent")
         #expect(abs((alarmsByID()[id]?.countdownDuration?.preAlert ?? 0) - (edited.pausedRemaining ?? 0)) < 2)
         await tearDown()
     }
@@ -310,11 +310,11 @@ final class AlarmKitDeviceTests {
         created.append(payload)
         await AlarmController.rescheduleAwaiting(for: payload)
         let ids = payload.upcomingAnnualDates().map { AlarmController.annualAlarmID(timerID: payload.id, year: payload.recurrence!.year(of: $0)) }
-        #expect(ids.allSatisfy { signature($0) == "Edit annual|true" })
+        #expect(ids.allSatisfy { signature($0) == "Edit annual|\(AlarmTone.selected.rawValue)" })
 
         let renamed = payload.edited(label: "Renamed annual", alarmEnabled: true, vibrationEnabled: true, targetDate: payload.endDate)
         await AlarmController.rescheduleAwaiting(for: renamed)
-        #expect(ids.allSatisfy { alarmsByID()[$0] != nil && signature($0) == "Renamed annual|true" })
+        #expect(ids.allSatisfy { alarmsByID()[$0] != nil && signature($0) == "Renamed annual|\(AlarmTone.selected.rawValue)" })
 
         // Moving the date re-anchors both years at the new wall time.
         let moved = renamed.edited(label: "Renamed annual", alarmEnabled: true, vibrationEnabled: true, targetDate: Date().addingTimeInterval(7200))

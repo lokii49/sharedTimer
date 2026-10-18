@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var sharingPayload: TimerPayload?
     @State private var editingPayload: TimerPayload?
     @State private var showingWhatsNew = false
+    @State private var showingSettings = false
     /// Set by any deep link (URL, Spotlight, Quick Action) this launch: the person came
     /// for something specific, so the What's New tour stays out of the way.
     @State private var deepLinkArrived = false
@@ -98,6 +99,12 @@ struct ContentView: View {
             }
             .navigationTitle("Timers")
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showingSettings = true } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
@@ -196,7 +203,7 @@ struct ContentView: View {
                 pendingNameCompletion = nil
             }
         } message: {
-            Text("Shown to people you share timers with, like \"Sam paused Pasta.\"")
+            Text("Shown to people you share timers with, like \"Sam paused Pasta.\" You can change it any time in Settings.")
         }
         .tint(.white)
         .overlay(alignment: .bottom) {
@@ -322,6 +329,9 @@ struct ContentView: View {
         }
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
             afterWhatsNewYields { handleIncoming(url: activity.webpageURL) }
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
         }
         .fullScreenCover(isPresented: $showingWhatsNew) {
             WhatsNewView { showingWhatsNew = false }

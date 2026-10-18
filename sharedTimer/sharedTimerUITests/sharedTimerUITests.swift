@@ -88,6 +88,29 @@ final class sharedTimerUITests: XCTestCase {
     }
 
     @MainActor
+    func testSettingsPicksAToneAndShowsAbout() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let settings = app.buttons["Settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        settings.tap()
+        XCTAssertTrue(app.staticTexts["Settings"].waitForExistence(timeout: 5))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Settings (Sky Stack)"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let glass = app.buttons["Glass"]
+        XCTAssertTrue(glass.exists)
+        glass.tap()
+        XCTAssertTrue(glass.isSelected)
+        // Leave the phone on the default tone.
+        app.buttons["Classic"].tap()
+        XCTAssertTrue(app.buttons["Classic"].isSelected)
+        XCTAssertTrue(app.staticTexts["Privacy Policy"].exists)
+        app.buttons["Done"].tap()
+    }
+
+    @MainActor
     func testDetailShareButtonOpensShareSheet() throws {
         // The display-name prompt and share sheet used to hang off the list root, so they
         // never appeared while the detail screen was pushed.

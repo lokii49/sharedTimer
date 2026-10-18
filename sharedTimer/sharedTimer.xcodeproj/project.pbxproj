@@ -217,6 +217,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				AlarmPlayer.swift,
+				AlarmTone.swift,
 				CloudLink.swift,
 				CloudSyncController.swift,
 				DisplayNameStore.swift,
