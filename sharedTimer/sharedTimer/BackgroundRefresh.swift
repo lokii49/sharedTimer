@@ -54,10 +54,12 @@ enum BackgroundRefresh {
         (payload.sequence != nil || payload.recurrence != nil) && !payload.isPaused && !payload.isFinished
     }
 
-    /// A quiet (custom Live Activity) timer more than a day out: its card shows a static
+    /// A quiet (custom Live Activity) timer about a day or more out: its card shows a static
     /// day/hour figure and only redraws on an update, so a background run refreshes it.
     private static func needsCardRefresh(_ payload: TimerPayload) -> Bool {
-        !payload.isPaused && payload.remaining > 86400 && !AlarmController.ownsAlert(for: payload)
+        // Down to 18h, not 24h: the redraw that swaps "1d" for the live count has to
+        // happen after it crosses the day, not just before.
+        !payload.isPaused && payload.remaining > 18 * 3600 && !AlarmController.ownsAlert(for: payload)
     }
 
     @MainActor

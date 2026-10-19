@@ -293,8 +293,7 @@ struct TimerPayload: Codable, Identifiable {
     /// occurrence (Feb 29 shown as Feb 28, or a DST-shifted time).
     /// The countdown keeps its original start (`endDate - duration`, never later than
     /// now) and only `duration` grows/shrinks, so the progress ring still means "elapsed
-    /// since created" — and a changed `duration` keeps the recipient's extend banner
-    /// (AppDelegate.notifyIfExtended) from announcing an edit as an extend.
+    /// since created".
     func edited(label newLabel: String, alarmEnabled: Bool, vibrationEnabled: Bool,
                 targetDate: Date? = nil, at date: Date = Date()) -> TimerPayload {
         guard sequence == nil else { return self }

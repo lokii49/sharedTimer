@@ -34,9 +34,13 @@ import Foundation
 enum CloudSyncController {
     private static let appGroupID = "group.com.lokesh.sharedTimer"
     private static let zoneName = "SharedTimers"
-    /// Versioned: a device that registered the silent-only subscription must save it
-    /// again with the visible alert (v2). A stale "already done" flag would skip that.
-    private static let subscriptionsRegisteredKey = "cloudSubscriptionsRegistered.v2"
+    /// Versioned: a device that registered an earlier subscription (silent only, then a
+    /// fixed-language alert) must save it again (v3). A stale "done" flag would skip it.
+    private static let subscriptionsRegisteredKey = "cloudSubscriptionsRegistered.v3"
+
+    /// The visible change alert's text. Sent as a key, resolved on the receiving phone.
+    static let changeAlertKey = "A shared timer changed."
+    static var changeAlertText: String { String(localized: "A shared timer changed.") }
     private static let recordType = "Timer"
 
     /// Explicit, not `CKContainer.default()`. `.default()` resolves the container from
@@ -117,9 +121,10 @@ enum CloudSyncController {
             // throttled, delayed, and never reach an app swiped away), and it usually
             // wakes the app to apply the change. A database subscription can only send
             // fixed text, so the notification service extension rewrites it ("Sam paused
-            // Pasta") — mutable content lets it. Each device registers its own
-            // subscription, so the text is in that device's language.
-            notificationInfo.alertBody = String(localized: "A shared timer changed.")
+            // Pasta") — mutable content lets it. Subscriptions are per iCloud account,
+            // not per device, so the text is a localization key each receiving phone
+            // resolves in its own language (`changeAlertText` keeps it in the catalog).
+            notificationInfo.alertLocalizationKey = changeAlertKey
             notificationInfo.shouldSendMutableContent = true
             subscription.notificationInfo = notificationInfo
 
@@ -425,9 +430,11 @@ enum CloudSyncController {
         TimerStore.setReadOnly(id: link.timerID, true)
         database.fetch(withRecordID: recordID) { record, _ in
             guard let record, let payload = makePayload(from: record) else {
-                // Couldn't read the server copy now: forget this zone's change token so
-                // the next pull refetches every record in it, the refused edit included.
+                // Couldn't read the server copy now. A refused write changed nothing on
+                // the server, so the database won't report this zone again on its own:
+                // forget both tokens, and the next pull refetches every record.
                 clearToken(key: zoneTokenKey(recordID.zoneID))
+                clearToken(key: "dbChangeToken.\(link.isOwner ? SyncScope.owner.rawValue : SyncScope.participant.rawValue)")
                 DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: [link.timerID]) }
                 return
             }
@@ -658,8 +665,9 @@ enum CloudSyncController {
             case .success(let record):
                 if let share = record as? CKShare {
                     // The owner switched "view only" / "can make changes" in Manage
-                    // Sharing — apply it so open screens update without a restart.
-                    if let permission = share.currentUserParticipant?.permission {
+                    // Sharing — apply it so open screens update without a restart. Not
+                    // when peeking: the app must still see the change to re-arm.
+                    if !peek, let permission = share.currentUserParticipant?.permission {
                         applyPermission(permission, shareRecordName: share.recordID.recordName)
                     }
                 } else if let payload = makePayload(from: record) {

@@ -7,70 +7,6 @@
     "%@": {
       "shouldTranslate": false
     },
-    "%@ added %@ — now ends at %@": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "أضاف %1$@ مدة %2$@ — ينتهي الآن في %3$@"
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ %2$@ যোগ করেছেন — এখন %3$@-এ শেষ হবে"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ added %2$@ — now ends at %3$@"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ ha añadido %@: ahora termina a las %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ a ajouté %@ — se termine désormais à %@"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ ने %2$@ जोड़ा — अब %3$@ पर समाप्त होगा"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ menambahkan %@ — kini berakhir pukul %@"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ adicionou %@ — agora termina às %@"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ добавил(а) %2$@ — теперь закончится в %3$@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ 增加了 %2$@，现在结束于 %3$@"
-          }
-        }
-      }
-    },
     "%@ created": {
       "localizations": {
         "ar": {
@@ -2916,16 +2852,16 @@
     },
     "A shared timer changed.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "共享的计时器已更改。"
+            "value": "تغيّر مؤقت مشترك."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "शेयर किया गया टाइमर बदला गया।"
+            "value": "একটি শেয়ার করা টাইমার বদলেছে।"
           }
         },
         "es": {
@@ -2934,22 +2870,22 @@
             "value": "Un temporizador compartido ha cambiado."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "تغيّر مؤقت مشترك."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Un minuteur partagé a changé."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "একটি শেয়ার করা টাইমার বদলেছে।"
+            "value": "शेयर किया गया टाइमर बदला गया।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer bersama berubah."
           }
         },
         "pt-BR": {
@@ -2964,10 +2900,10 @@
             "value": "Общий таймер изменился."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Timer bersama berubah."
+            "value": "共享的计时器已更改。"
           }
         }
       }
