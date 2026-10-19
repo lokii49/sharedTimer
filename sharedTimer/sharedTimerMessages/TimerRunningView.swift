@@ -86,10 +86,8 @@ struct TimerRunningView: View {
                             }
                             .buttonStyle(.glassPill)
 
-                            Button("+1:00") {
-                                extend(by: 60)
-                            }
-                            .buttonStyle(.glassPill)
+                            ExtendTimeMenu { extend(by: $0) }
+                                .buttonStyle(.glassPill)
                         }
                     }
 

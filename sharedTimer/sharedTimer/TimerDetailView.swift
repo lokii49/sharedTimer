@@ -109,10 +109,8 @@ struct TimerDetailView: View {
                         .buttonStyle(.glassPill)
                     } else if !done {
                         HStack(spacing: 12) {
-                            Button("+1:00") {
-                                extend(by: 60)
-                            }
-                            .buttonStyle(.glassPill)
+                            ExtendTimeMenu { extend(by: $0) }
+                                .buttonStyle(.glassPill)
 
                             Button(payload.isPaused ? "Resume" : "Pause") {
                                 togglePause()

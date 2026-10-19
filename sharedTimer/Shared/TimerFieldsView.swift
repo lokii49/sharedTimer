@@ -194,3 +194,72 @@ struct TimerFieldsView: View {
         }
     }
 }
+
+/// "+1:00" that adds a minute on tap; holding it offers more (+5/+10/+15/+30) or a
+/// custom amount. Used by the detail screen and Messages; any interval works because
+/// `TimerPayload.extended(by:)` takes one. Lives here (app + Messages only) so the
+/// widget and Clip never compile it.
+struct ExtendTimeMenu: View {
+    let onExtend: (TimeInterval) -> Void
+    @State private var showingCustom = false
+
+    var body: some View {
+        Menu {
+            ForEach([5, 10, 15, 30], id: \.self) { minutes in
+                Button(String(localized: "+\(minutes) min")) { onExtend(TimeInterval(minutes * 60)) }
+            }
+            Button(String(localized: "Custom…")) { showingCustom = true }
+        } label: {
+            Text("+1:00")
+        } primaryAction: {
+            onExtend(60)
+        }
+        .menuStyle(.button)
+        .accessibilityHint(String(localized: "Adds a minute. Touch and hold for more."))
+        .sheet(isPresented: $showingCustom) {
+            CustomExtendSheet(onAdd: onExtend)
+        }
+    }
+}
+
+/// Hours and minutes to add to a running timer — the "Custom…" choice.
+struct CustomExtendSheet: View {
+    let onAdd: (TimeInterval) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var hours = 0
+    @State private var minutes = 5
+
+    var body: some View {
+        NavigationStack {
+            HStack(spacing: 0) {
+                Picker(String(localized: "hours"), selection: $hours) {
+                    ForEach(0...23, id: \.self) { Text("\($0)").tag($0) }
+                }
+                .pickerStyle(.wheel)
+                Text(String(localized: "hours")).foregroundStyle(.secondary)
+                Picker(String(localized: "min"), selection: $minutes) {
+                    ForEach(0...59, id: \.self) { Text("\($0)").tag($0) }
+                }
+                .pickerStyle(.wheel)
+                Text(String(localized: "min")).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
+            .navigationTitle(String(localized: "Add Time"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Add")) {
+                        onAdd(TimeInterval(hours * 3600 + minutes * 60))
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(hours == 0 && minutes == 0)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+}

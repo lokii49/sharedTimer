@@ -15,6 +15,8 @@ struct ContentView: View {
     @State private var pendingNewTimerKind: TimerKind?
     @State private var sharingPayload: TimerPayload?
     @State private var editingPayload: TimerPayload?
+    /// The row whose context-menu "Custom…" add-time picker is open.
+    @State private var customExtendPayload: TimerPayload?
     @State private var showingWhatsNew = false
     @State private var showingSettings = false
     /// Set by any deep link (URL, Spotlight, Quick Action) this launch: the person came
@@ -137,6 +139,12 @@ struct ContentView: View {
             .sheet(item: $editingPayload) { payload in
                 EditTimerSheet(payload: payload) { edited in
                     applyEdit(edited)
+                }
+            }
+            .sheet(item: $customExtendPayload) { payload in
+                CustomExtendSheet { interval in
+                    // The newest copy: the row's may be seconds old by now.
+                    if let current = timers.first(where: { $0.id == payload.id }), !current.isFinished { extend(current, by: interval) }
                 }
             }
             .sheet(isPresented: $showingNewSequence) {
@@ -608,10 +616,13 @@ struct ContentView: View {
                     Label(payload.isPaused ? "Resume" : "Pause",
                           systemImage: payload.isPaused ? "play.fill" : "pause.fill")
                 }
-                Button {
-                    extend(payload, by: 60)
+                Menu {
+                    ForEach([1, 5, 10, 15, 30], id: \.self) { minutes in
+                        Button(String(localized: "+\(minutes) min")) { extend(payload, by: TimeInterval(minutes * 60)) }
+                    }
+                    Button(String(localized: "Custom…")) { customExtendPayload = payload }
                 } label: {
-                    Label("Add 1 min", systemImage: "plus")
+                    Label(String(localized: "Add Time"), systemImage: "plus")
                 }
             }
             Button(role: .destructive) {
