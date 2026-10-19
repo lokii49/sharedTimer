@@ -303,8 +303,8 @@ enum CloudSyncController {
     // MARK: - Push local mutations up
 
     /// Fire-and-forget. No-ops silently if this timer has no CloudLink (pure local
-    /// timer). Retries once on a write conflict, taking the server record and reapplying
-    /// this device's field values on top — last-writer-wins on endDate/pausedRemaining.
+    /// timer). Retries once on a write conflict, reapplying only the fields this device
+    /// changed onto the server's newer record (see `merged`).
     /// `action` is a short human-readable verb ("paused", "resumed", "extended") written
     /// alongside this device's DisplayNameStore name for the "who did what" surfaces.
     static func pushUp(_ payload: TimerPayload, action: String, completion: @escaping () -> Void = {}) {
@@ -338,7 +338,10 @@ enum CloudSyncController {
 
     private static func save(_ record: CKRecord, to database: CKDatabase, retryOnConflict: Bool, completion: @escaping () -> Void) {
         let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
-        operation.savePolicy = .changedKeys
+        // `.changedKeys` never compares change tags, so it never reported a conflict
+        // and the merge below never ran — every push overwrote every field. pushUp
+        // always saves a just-fetched record, so this only trips on a real race.
+        operation.savePolicy = .ifServerRecordUnchanged
         operation.modifyRecordsResultBlock = { result in
             guard case .failure(let error) = result else { return completion() }
             guard retryOnConflict,
@@ -348,12 +351,27 @@ enum CloudSyncController {
                 completion()
                 return
             }
-            for key in Set(record.allKeys()).union(record.changedKeys()) {
-                serverRecord[key] = record[key]
-            }
-            save(serverRecord, to: database, retryOnConflict: false, completion: completion)
+            let merged = merged(client: record, ancestor: conflict.ancestorRecord, server: serverRecord)
+            save(merged, to: database, retryOnConflict: false, completion: completion)
         }
         database.add(operation)
+    }
+
+    /// Three-way merge for a write conflict: only the keys this device changed since
+    /// its fetch (`ancestor`) go onto the server's newer record, so a concurrent change
+    /// to another field (their extend, our pause) survives. A key cleared to nil counts
+    /// as changed. Without an ancestor every local key wins, as before.
+    static func merged(client: CKRecord, ancestor: CKRecord?, server: CKRecord) -> CKRecord {
+        let keys = Set(client.allKeys()).union(client.changedKeys()).union(ancestor?.allKeys() ?? [])
+        for key in keys {
+            if let ancestor {
+                let mine = client[key] as? NSObject
+                let base = ancestor[key] as? NSObject
+                guard mine != base else { continue }
+            }
+            server[key] = client[key]
+        }
+        return server
     }
 
     private static func serverRecordChangedError(from error: Error, for recordID: CKRecord.ID) -> CKError? {

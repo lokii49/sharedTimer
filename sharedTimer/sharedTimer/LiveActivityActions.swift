@@ -66,7 +66,7 @@ enum LiveActivityActions {
     /// also what 1.0.3-scheduled alarms decode to). Uses `materializingPhase`, never
     /// `advancedSequence` — see AdvanceSequenceIntent's doc comment.
     static func advanceSequence(timerID: String, phaseIndex: Int) async {
-        guard let payload = stored(timerID), let storedIndex = payload.sequenceGlobalIndex else { return await refreshUI() }
+        guard let payload = stored(timerID, project: false), let storedIndex = payload.sequenceGlobalIndex else { return await refreshUI() }
         let tappedIndex = phaseIndex >= 0 ? phaseIndex : storedIndex
         guard tappedIndex >= storedIndex else { return await refreshUI() }
         var advanced = payload.materializingPhase(globalIndex: tappedIndex + 1, startingAt: Date())
@@ -107,7 +107,7 @@ enum LiveActivityActions {
     }
 
     static func advanceAnnual(timerID: String, occurrenceEnd: Double) async {
-        guard var payload = stored(timerID, projectAnnual: false), let recurrence = payload.recurrence,
+        guard var payload = stored(timerID, project: false), let recurrence = payload.recurrence,
               occurrenceEnd.isFinite, abs(occurrenceEnd) <= 253_402_300_799,
               payload.endDate.timeIntervalSince1970 <= occurrenceEnd + 1,
               let next = recurrence.nextDate(after: max(Date(), Date(timeIntervalSince1970: occurrenceEnd))) else { return await refreshUI() }
@@ -161,10 +161,14 @@ enum LiveActivityActions {
 
     /// Every action goes through here first, so it also records the widget focus (see
     /// TimerStore.setWidgetFocus) before the mutation's save reloads the widgets.
-    private static func stored(_ timerID: String, projectAnnual: Bool = true) -> TimerPayload? {
+    /// Projected to the current sequence phase / yearly occurrence, like Siri's path —
+    /// otherwise Pause/Stop on a phase the app never caught up to read it as finished
+    /// and did nothing. `project: false` for Next and Next Year, which act on the
+    /// stored occurrence the tapped alert belongs to.
+    private static func stored(_ timerID: String, project: Bool = true) -> TimerPayload? {
         TimerStore.setWidgetFocus(id: timerID)
         guard let payload = TimerStore.loadAll().first(where: { $0.id == timerID }) else { return nil }
-        return projectAnnual ? payload.advancedRecurrence() : payload
+        return project ? payload.advancedSequence() : payload
     }
 
     private static func commit(_ updated: TimerPayload, action: String) async {

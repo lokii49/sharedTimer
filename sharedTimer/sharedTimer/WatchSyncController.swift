@@ -89,13 +89,16 @@ enum WatchSyncController {
                     replyHandler([:]); return
                 }
                 let all = TimerStore.loadAll()
-                guard let existing = all.first(where: { $0.id == id })?.advancedRecurrence() else { replyHandler([:]); return }
+                guard let existing = all.first(where: { $0.id == id })?.advancedSequence() else { replyHandler([:]); return }
                 // The watch has no pending-state awareness at all (its TimerModel copy
                 // doesn't even carry scheduledStartDate) -- it would show Pause/+1:00
                 // for a still-pending timer with no way to know that's meaningless.
                 // Guard it here, on the phone side, same as the main app's own row/
                 // detail controls already do.
                 guard !existing.isPending() else { replyHandler([:]); return }
+                // Same rejection as Siri's `.timerFinished`: pausing a finished timer
+                // froze it at 0s, and a paused sequence never advances again.
+                guard !existing.isFinished else { replyHandler([:]); return }
                 let action: String
                 let updated: TimerPayload
                 switch op {

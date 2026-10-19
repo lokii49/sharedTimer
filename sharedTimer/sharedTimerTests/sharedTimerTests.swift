@@ -7,6 +7,7 @@
 
 import Foundation
 import Testing
+import CloudKit
 @testable import sharedTimer
 
 // .serialized: the TimerStore tests below share one real App Group UserDefaults key
@@ -880,6 +881,28 @@ struct sharedTimerTests {
         #expect(TimerStore.finishMoved(from: stopped, to: stopped.extended(by: 60)))
         #expect(TimerStore.finishMoved(from: stopped, to: stopped.repeated(at: now)))
         #expect(TimerStore.finishMoved(from: nil, to: stopped))
+    }
+
+    @Test func conflictMergeKeepsAConcurrentChangeToAnotherField() {
+        func record(_ end: Date, _ paused: Double?) -> CKRecord {
+            let record = CKRecord(recordType: "Timer", recordID: CKRecord.ID(recordName: "merge"))
+            record["endDate"] = end as CKRecordValue
+            record["pausedRemaining"] = paused as CKRecordValue?
+            return record
+        }
+        let t0 = Date(timeIntervalSince1970: 1_000), t1 = Date(timeIntervalSince1970: 1_060)
+        // We paused; someone else extended in between.
+        let mine = record(t0, 30)
+        let merged = CloudSyncController.merged(client: mine, ancestor: record(t0, nil), server: record(t1, nil))
+        #expect(merged["endDate"] as? Date == t1)
+        #expect(merged["pausedRemaining"] as? Double == 30)
+        // We resumed (cleared to nil); the server still has the pause.
+        let resumed = CloudSyncController.merged(client: record(t0, nil), ancestor: record(t0, 30), server: record(t1, 30))
+        #expect(resumed["pausedRemaining"] == nil)
+        #expect(resumed["endDate"] as? Date == t1)
+        // No ancestor: every local key wins, as before.
+        let fallback = CloudSyncController.merged(client: record(t0, 30), ancestor: nil, server: record(t1, nil))
+        #expect(fallback["endDate"] as? Date == t0)
     }
 
 }

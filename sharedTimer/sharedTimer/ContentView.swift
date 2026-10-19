@@ -304,6 +304,9 @@ struct ContentView: View {
                 WatchSyncController.pushCurrentState()
             }
             for payload in timers where payload.recurrence != nil { armAlerts(for: payload) }
+            // An open TimerDetailView holds its own copy; without this it kept showing
+            // (and on Pause/+1:00, saving and pushing) the pre-background state.
+            NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
             pullCloudChanges()
             // Opportunistic Live Activity keep-alive: there's no server here to push a
             // periodic refresh while the app isn't running, so a multi-day countdown's
@@ -819,6 +822,10 @@ struct ContentView: View {
                     AlarmController.clear(id: id)
                     LiveActivityController.end(id: id)
                     timers.removeAll { $0.id == id }
+                }
+                // Same reason as the scenePhase post: refresh an open detail screen.
+                if !updated.isEmpty || !deletedIDs.isEmpty {
+                    NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
                 }
                 // Unconditional, not gated on updated/deletedIDs being non-empty — this
                 // is also where the scenePhase handler's TimerStore.loadAll() re-read

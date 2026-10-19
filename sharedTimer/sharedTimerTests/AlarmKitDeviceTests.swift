@@ -185,6 +185,24 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
+    /// Pause from a Live Activity/widget on a sequence whose stored phase already
+    /// ended: the action must catch up to the running phase, not bail out as finished.
+    @Test @MainActor func livePauseCatchesUpAMissedSequencePhase() async {
+        var payload = TimerPayload.composeSequence(
+            label: "Catch up",
+            phases: [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 600)],
+            loopCount: 1
+        )
+        payload.endDate = Date().addingTimeInterval(-5)
+        created.append(payload)
+        TimerStore.save(payload)
+        await LiveActivityActions.setPaused(timerID: payload.id, paused: true)
+        let stored = TimerStore.loadAll().first { $0.id == payload.id }
+        #expect(stored?.isPaused == true)
+        #expect(stored?.sequence?.phaseIndex == 1)
+        await tearDown()
+    }
+
     @Test func clearAndEndSequenceRemoveEveryPhaseAlarm() async {
         let deleted = sequence(loops: 3, end: Date().addingTimeInterval(60))
         created.append(deleted)
