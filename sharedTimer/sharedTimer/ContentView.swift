@@ -17,6 +17,8 @@ struct ContentView: View {
     @State private var editingPayload: TimerPayload?
     /// The row whose context-menu "Custom…" add-time picker is open.
     @State private var customExtendPayload: TimerPayload?
+    /// The share being managed from a row's context menu (UICloudSharingController).
+    @State private var managedShare: (item: CloudShareItem, timerID: String)?
     /// A shared timer this device owns, waiting for "Delete for Everyone" to be confirmed.
     @State private var deleteForEveryonePayload: TimerPayload?
     @State private var showingWhatsNew = false
@@ -149,6 +151,17 @@ struct ContentView: View {
                 Button(String(localized: "Delete for Everyone"), role: .destructive) { delete(payload) }
             } message: { _ in
                 Text("It stops for everyone you shared it with.")
+            }
+            .sheet(isPresented: Binding(get: { managedShare != nil }, set: { if !$0 { managedShare = nil } }), onDismiss: {
+                CloudSyncController.refreshPermissions { timers = TimerStore.loadAll() }
+            }) {
+                if let managedShare {
+                    CloudSharingView(item: managedShare.item, title: timers.first { $0.id == managedShare.timerID }?.label ?? "") {
+                        CloudSyncController.didStopSharing(timerID: managedShare.timerID)
+                        timers = TimerStore.loadAll()
+                    }
+                    .ignoresSafeArea()
+                }
             }
             .sheet(item: $customExtendPayload) { payload in
                 CustomExtendSheet { interval in
@@ -619,6 +632,13 @@ struct ContentView: View {
                     Label("Share…", systemImage: "square.and.arrow.up")
                 }
             }
+            if CloudLinkStore.get(timerID: payload.id) != nil {
+                Button {
+                    manageSharing(payload)
+                } label: {
+                    Label("Manage Sharing", systemImage: "person.2")
+                }
+            }
             // View only: the change items show but are disabled (see swipeActions).
             Group {
             if payload.sequence == nil {
@@ -683,6 +703,14 @@ struct ContentView: View {
     private func removalTitle(for payload: TimerPayload) -> String {
         guard let link = CloudLinkStore.get(timerID: payload.id) else { return String(localized: "Delete") }
         return link.isOwner ? String(localized: "Delete for Everyone") : String(localized: "Remove from My Timers")
+    }
+
+    private func manageSharing(_ payload: TimerPayload) {
+        CloudSyncController.fetchShare(for: payload) { result in
+            if let (share, container) = result {
+                managedShare = (CloudShareItem(share: share, container: container), payload.id)
+            }
+        }
     }
 
     private func requestDelete(_ payload: TimerPayload) {

@@ -26,6 +26,10 @@ struct TimerDetailView: View {
     @State private var readOnly = false
     /// Shared with this phone by someone else (shows the permission badge).
     @State private var isParticipant = false
+    /// Has a CloudKit share (owner or participant) — shows the Manage Sharing button.
+    @State private var isShared = false
+    @State private var cloudShare: CloudShareItem?
+    @State private var loadingShare = false
     @State private var showingSaveTemplate = false
     @State private var templateName = ""
     /// Flipped on save so the bookmark redraws as filled.
@@ -264,6 +268,17 @@ struct TimerDetailView: View {
                     .disabled(templateSaved || SavedSequenceStore.contains(sequence))
                 }
             }
+            // Only once it's actually shared: who has it, view only / can make
+            // changes, Stop Sharing (owner) or Remove Me (someone it was shared with).
+            if isShared {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { manageSharing() } label: {
+                        Image(systemName: "person.2")
+                    }
+                    .disabled(loadingShare)
+                    .accessibilityLabel("Manage Sharing")
+                }
+            }
             if payload.sequence.map(TimerSequenceWire.isValid) ?? true {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { onShare(payload) } label: {
@@ -285,6 +300,17 @@ struct TimerDetailView: View {
         } message: {
             Text("Start it again any time from New Sequence → Start from.")
         }
+        .sheet(item: $cloudShare, onDismiss: {
+            // A permission or participant change made in the sheet shows right away.
+            CloudSyncController.refreshPermissions(for: [payload.id]) { refreshSharingState() }
+        }) { item in
+            CloudSharingView(item: item, title: payload.label) {
+                CloudSyncController.didStopSharing(timerID: payload.id)
+                refreshSharingState()
+                NotificationCenter.default.post(name: CloudSyncController.permissionsChanged, object: nil)
+            }
+            .ignoresSafeArea()
+        }
         .sheet(isPresented: $showingEdit) {
             EditTimerSheet(payload: payload) { edited in
                 applyEdit(edited)
@@ -293,7 +319,7 @@ struct TimerDetailView: View {
         .onAppear {
             hasBuzzedFinish = payload.isExpired
             readOnly = TimerStore.isReadOnly(id: payload.id)
-            isParticipant = CloudLinkStore.get(timerID: payload.id)?.isOwner == false
+            refreshSharingState()
             CloudSyncController.refreshPermissions(for: [payload.id]) {
                 readOnly = TimerStore.isReadOnly(id: payload.id)
             }
@@ -301,7 +327,7 @@ struct TimerDetailView: View {
             CloudSyncController.fetchAttribution(for: payload) { attribution = $0 }
         }
         .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.permissionsChanged)) { _ in
-            readOnly = TimerStore.isReadOnly(id: payload.id)
+            refreshSharingState()
         }
         // Fallback for a delayed silent push: while someone it was shared with is
         // looking at it, re-check the permission every 30s.
@@ -344,6 +370,21 @@ struct TimerDetailView: View {
     private var removal: Removal {
         guard let link = CloudLinkStore.get(timerID: payload.id) else { return .delete }
         return link.isOwner ? .deleteForEveryone : .removeMine
+    }
+
+    private func refreshSharingState() {
+        let link = CloudLinkStore.get(timerID: payload.id)
+        isShared = link != nil
+        isParticipant = link?.isOwner == false
+        readOnly = TimerStore.isReadOnly(id: payload.id)
+    }
+
+    private func manageSharing() {
+        loadingShare = true
+        CloudSyncController.fetchShare(for: payload) { result in
+            loadingShare = false
+            if let (share, container) = result { cloudShare = CloudShareItem(share: share, container: container) }
+        }
     }
 
     private func subtitle(done: Bool, pending: Bool = false) -> String {

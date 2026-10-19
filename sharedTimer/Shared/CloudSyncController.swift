@@ -227,6 +227,8 @@ enum CloudSyncController {
                         shareRecordName: share.recordID.recordName
                     ))
                     CloudLinkStore.setShareURL(url, timerID: payload.id)
+                    // Newly shared: an open detail screen shows its Manage Sharing button.
+                    DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: nil) }
                     completeOnce(url)
                 case .failure(let error):
                     log("createShare(\(payload.id)) modifyRecords failed: \(error)")
