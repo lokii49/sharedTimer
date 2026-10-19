@@ -85,6 +85,6 @@ enum SavedSequenceStore {
     static func suggestedName(for sequence: SequenceInfo) -> String {
         let labels = sequence.phases.map(\.label)
         if labels.count == 2 { return labels.joined(separator: " + ") }
-        return labels.first.map { "\($0) sequence" } ?? "Sequence"
+        return labels.first.map { String(localized: "\($0) sequence") } ?? String(localized: "Sequence")
     }
 }

@@ -77,7 +77,8 @@ final class sharedTimerUITests: XCTestCase {
         XCTAssertTrue(shareLink.waitForExistence(timeout: 10))
         shareLink.tap()
         let copy = app.staticTexts["Copy"]
-        XCTAssertTrue(copy.waitForExistence(timeout: 10))
+        // Apple's share sheet can take a while to fill in; 10s failed now and then.
+        XCTAssertTrue(copy.waitForExistence(timeout: 30))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "System share sheet over ShareTimerSheet"
         screenshot.lifetime = .keepAlways

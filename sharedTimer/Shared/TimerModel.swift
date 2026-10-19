@@ -504,7 +504,9 @@ struct TimerPayload: Codable, Identifiable {
     /// a plain timer/countdown always starts now.
     static func compose(label: String, kind: TimerKind, minutes: Double, targetDate: Date, alarmEnabled: Bool = true, vibrationEnabled: Bool = true) -> TimerPayload {
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
-        let finalLabel = trimmed.isEmpty ? (kind == .timer ? "Timer" : "Countdown") : trimmed
+        // In the person's language: it's stored as the label (and shown to whoever they
+        // share it with, who sees the sender's word — like the share message).
+        let finalLabel = trimmed.isEmpty ? (kind == .timer ? String(localized: "Timer") : String(localized: "Countdown")) : trimmed
         switch kind {
         case .timer:
             return TimerPayload(label: finalLabel, duration: max(1, minutes * 60), kind: .timer, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)

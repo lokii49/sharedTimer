@@ -977,6 +977,64 @@
         }
       }
     },
+    "%@ sequence": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@序列"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ सीक्वेंस"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secuencia %@"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تسلسل %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Séquence %@"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ সিকোয়েন্স"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sequência %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Последовательность «%@»"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urutan %@"
+          }
+        }
+      }
+    },
     "%@ skipped ahead": {
       "localizations": {
         "ar": {
@@ -3032,16 +3090,16 @@
     },
     "Add 1 minute": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "增加 1 分钟"
+            "value": "إضافة دقيقة واحدة"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 मिनट जोड़ें"
+            "value": "১ মিনিট যোগ করুন"
           }
         },
         "es": {
@@ -3050,22 +3108,22 @@
             "value": "Añadir 1 minuto"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "إضافة دقيقة واحدة"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Ajouter 1 minute"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "১ মিনিট যোগ করুন"
+            "value": "1 मिनट जोड़ें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambah 1 menit"
           }
         },
         "pt-BR": {
@@ -3080,10 +3138,10 @@
             "value": "Добавить 1 минуту"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tambah 1 menit"
+            "value": "增加 1 分钟"
           }
         }
       }

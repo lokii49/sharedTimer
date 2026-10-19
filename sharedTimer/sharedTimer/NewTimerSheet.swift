@@ -47,7 +47,7 @@ struct NewTimerSheet: View {
             return TimerPayload.composeAnnual(label: label, targetDate: targetDate, timeZone: countdownTimeZone,
                                               alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
         }
-        return TimerPayload.compose(label: label.isEmpty ? (kind == .timer ? "Timer" : "Countdown") : label,
+        return TimerPayload.compose(label: label.isEmpty ? (kind == .timer ? String(localized: "Timer") : String(localized: "Countdown")) : label,
                              kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
     }
 
