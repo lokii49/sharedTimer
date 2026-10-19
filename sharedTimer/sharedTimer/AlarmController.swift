@@ -578,8 +578,8 @@ enum AlarmController {
         // happens to satisfy the actual product requirement exactly: Next disabled/
         // hidden with only Cancel available once there's nothing left to advance to.
         // Cancelling mid-sequence (before the final phase) isn't available from this
-        // alert — only the primary Stop, which just dismisses and lets the sequence
-        // continue on next app foreground, same as it always has.
+        // alert — only the primary Stop, which just dismisses it; the following phases
+        // keep ringing from the pre-armed window (performSequenceReschedule).
         let isFinalSequencePhase = payload.sequence.map {
             $0.phaseIndex == $0.phases.count - 1 && $0.loopIndex == $0.loopCount - 1
         } ?? false
@@ -648,8 +648,9 @@ enum AlarmController {
         // keep `preAlert: payload.duration` so the countdown/Live Activity only
         // appears for the last `duration` seconds before that date, i.e. starting
         // right at the scheduled start. This combination isn't documented (beta API,
-        // checked against the swiftinterface, not behavior) -- verify on device that
-        // the alarm rings at `endDate`, not `endDate + duration`, before trusting it.
+        // checked against the swiftinterface) -- confirmed on device that the alarm
+        // rings at `endDate`, not `endDate + duration`; re-verify after an SDK change
+        // (CLAUDE.md has the procedure).
         let scheduleOverride: Alarm.Schedule? = fixedAt.map { .fixed($0) }
         // Loud alarm.caf when the alarm toggle is on; otherwise (vibration-only)
         // vibration_silent.caf — a digitally-silent .caf of the same format/duration.
@@ -669,9 +670,9 @@ enum AlarmController {
         // `stopIntent` — is the actual hook for "run this when the SEPARATE secondary
         // button is tapped" and is what `secondaryButtonBehavior: .custom` above
         // pairs with; unlike `stopIntent` it doesn't appear to suppress presentation.
-        // Confirmed unreliable when the app is frontmost (see `AdvanceSequenceIntent`'s
-        // and `EndSequenceIntent`'s own doc comments and CLAUDE.md) — locked and
-        // other-app-frontmost both work. Runs whichever intent matches the button
+        // Works with the app frontmost too: an earlier "unreliable" report was an
+        // off-main SwiftUI state write, fixed by posting `.externalTimerStoreChange` on
+        // the main actor (see CLAUDE.md). Runs whichever intent matches the button
         // built above: `EndSequenceIntent` on the final phase, `AdvanceSequenceIntent`
         // otherwise. If it doesn't stick, a sequence still advances correctly on next
         // app foreground (the `advancedSequence` re-derivation guarantee).

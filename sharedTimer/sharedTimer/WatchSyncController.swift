@@ -73,9 +73,9 @@ enum WatchSyncController {
         /// A mutation relayed from the watch. Applied independently of ContentView — same
         /// pattern AppDelegate's silent-push handler already uses — through the exact
         /// same static calls every other surface uses, so it schedules
-        /// notifications/Live Activity/CloudKit push identically. ContentView picks up
-        /// the result on next foreground via its scenePhase reload (reads
-        /// TimerStore.loadAll() there).
+        /// notifications/Live Activity/CloudKit push identically. A foregrounded
+        /// ContentView/TimerDetailView picks up the result through the
+        /// `.externalTimerStoreChange` post below.
         func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
             // WCSessionDelegate callbacks land on a background queue — every other
             // async-callback path here hops to main before touching TimerStore/

@@ -74,7 +74,8 @@ enum TimerStore {
         let fd = open(url.path, O_CREAT | O_RDWR, 0o644)
         guard fd >= 0 else { return body() }
         defer { close(fd) }
-        flock(fd, LOCK_EX)
+        // A signal can interrupt the wait; retry rather than run unlocked.
+        while flock(fd, LOCK_EX) != 0 && errno == EINTR {}
         defer { flock(fd, LOCK_UN) }
         body()
     }

@@ -156,61 +156,6 @@ struct TimerPayload: Codable, Identifiable {
             return TimerPayload(label: finalLabel, duration: max(1, targetDate.timeIntervalSinceNow), kind: .countdown, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
         }
     }
-
-    func url() -> URL {
-        var components = URLComponents()
-        components.scheme = "https"
-        components.host = "mirrornotes.org"
-        components.path = "/timer"
-        var items = [
-            URLQueryItem(name: "id", value: id),
-            URLQueryItem(name: "label", value: label),
-            URLQueryItem(name: "end", value: String(endDate.timeIntervalSince1970)),
-            URLQueryItem(name: "dur", value: String(duration)),
-            URLQueryItem(name: "kind", value: kind.rawValue)
-        ]
-        if let pausedRemaining {
-            items.append(URLQueryItem(name: "paused", value: String(pausedRemaining)))
-        }
-        // Only emitted when off — absence means "alarm on", so old links stay valid.
-        if !alarmEnabled {
-            items.append(URLQueryItem(name: "alarm", value: "0"))
-        }
-        // Unlike `alarm`, always emitted explicitly (not just when off): absence has
-        // to unambiguously mean "predates the vibration toggle" so an old link decodes
-        // as off (see `from(url:)`) — `alarm`'s on-by-default-when-absent convention is
-        // safe because "alarm on" never changed meaning, but "vibration on" started
-        // also triggering a full-screen AlarmKit takeover, so a pre-existing link
-        // silently inheriting "on" would surprise whoever shared it.
-        items.append(URLQueryItem(name: "vib", value: vibrationEnabled ? "1" : "0"))
-        components.queryItems = items
-        return components.url!
-    }
-
-    static func from(url: URL?) -> TimerPayload? {
-        guard let url,
-              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let items = components.queryItems,
-              let id = items.first(where: { $0.name == "id" })?.value,
-              let label = items.first(where: { $0.name == "label" })?.value,
-              let endString = items.first(where: { $0.name == "end" })?.value,
-              let endInterval = Double(endString) else {
-            return nil
-        }
-        let endDate = Date(timeIntervalSince1970: endInterval)
-        let durString = items.first(where: { $0.name == "dur" })?.value
-        let duration = durString.flatMap(Double.init) ?? max(endDate.timeIntervalSinceNow, 1)
-        let pausedRemaining = items.first(where: { $0.name == "paused" })?.value.flatMap(Double.init)
-        let kind = items.first(where: { $0.name == "kind" })?.value.flatMap(TimerKind.init(rawValue:)) ?? .timer
-        // Absent -> alarm on (old links). Only "0" turns it off.
-        let alarmEnabled = items.first(where: { $0.name == "alarm" })?.value != "0"
-        // Absent -> vibration off (a link from before the toggle existed): unlike
-        // `alarm`, "vibration on" now also means a full-screen AlarmKit takeover, so an
-        // old link can't default to it. "1" turns it on; anything else (including "0"
-        // or absent) is off.
-        let vibrationEnabled = items.first(where: { $0.name == "vib" })?.value == "1"
-        return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
-    }
 }
 
 /// Day-aware time formatting shared by every surface that renders a countdown.

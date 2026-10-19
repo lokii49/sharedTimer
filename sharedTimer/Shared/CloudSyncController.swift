@@ -239,8 +239,9 @@ enum CloudSyncController {
 
     // MARK: - Accept
 
-    /// Main app only, called from `onOpenURL` when an incoming link carries a `ckshare`
-    /// param. Accepts programmatically via CKFetchShareMetadataOperation +
+    /// Called by the main app's `onOpenURL` and the Messages extension's bubble-open
+    /// path when an incoming link carries a `ckshare` param. Accepts programmatically
+    /// via CKFetchShareMetadataOperation +
     /// CKAcceptSharesOperation — never relies on the scene-delegate
     /// `userDidAcceptCloudKitShareWith` callback, since the raw icloud.com share URL is
     /// never the tappable link a recipient sees.
@@ -651,7 +652,7 @@ enum CloudSyncController {
             sequence: sequence,
             scheduledStartDate: sequence == nil ? nil : record["scheduledStartDate"] as? Date,
             updatedAt: record["updatedAt"] as? Date, recurrence: recurrence
-        ).advancedSequence()
+        ).alignedToCurrentPhase().advancedSequence()
     }
 
     // MARK: - Attribution

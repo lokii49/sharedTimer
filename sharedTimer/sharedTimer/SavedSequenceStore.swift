@@ -22,6 +22,16 @@ struct SavedSequence: Codable, Identifiable, Equatable {
         self.phases = phases
         self.loopCount = loopCount
     }
+
+    // Decoded as a root array: a field added without a default would fail every entry.
+    // New fields: `decodeIfPresent` + default.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        phases = try container.decode([SequencePhase].self, forKey: .phases)
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Sequence"
+        loopCount = try container.decodeIfPresent(Int.self, forKey: .loopCount) ?? 1
+    }
 }
 
 enum SavedSequenceStore {
@@ -36,12 +46,20 @@ enum SavedSequenceStore {
         UserDefaults(suiteName: appGroupID)
     }
 
+    /// Falls back to entry-by-entry like `TimerStore.loadAll`, so one template this
+    /// build can't read drops only itself instead of every saved template.
     static func loadAll() -> [SavedSequence] {
-        guard let data = defaults?.data(forKey: key),
-              let decoded = try? JSONDecoder().decode([SavedSequence].self, from: data) else {
-            return []
+        guard let data = defaults?.data(forKey: key) else { return [] }
+        if let decoded = try? JSONDecoder().decode([SavedSequence].self, from: data) {
+            return decoded
         }
-        return decoded
+        guard let rawArray = try? JSONSerialization.jsonObject(with: data) as? [Any] else { return [] }
+        let decoder = JSONDecoder()
+        return rawArray.compactMap { entry in
+            guard let dict = entry as? [String: Any],
+                  let entryData = try? JSONSerialization.data(withJSONObject: dict) else { return nil }
+            return try? decoder.decode(SavedSequence.self, from: entryData)
+        }
     }
 
     static func saveAll(_ sequences: [SavedSequence]) {

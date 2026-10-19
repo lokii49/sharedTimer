@@ -912,4 +912,29 @@ struct sharedTimerTests {
         #expect(fallback["endDate"] as? Date == t0)
     }
 
+    @Test func sequenceLinkScalarsFollowTheCurrentPhase() throws {
+        var payload = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)], loopCount: 2)
+        payload.label = "Pomodoro"  // what a pre-1.0.6 link carried for phase 0
+        payload.vibrationEnabled = false
+        let decoded = try #require(TimerPayload.from(url: payload.url()))
+        #expect(decoded.label == "Work")
+        #expect(decoded.vibrationEnabled)
+        // Cancel's silent snapshot of an exhausted sequence keeps its own scalars.
+        var cancelled = payload
+        cancelled.sequence!.loopIndex = 2
+        cancelled.alarmEnabled = false
+        #expect(cancelled.alignedToCurrentPhase().alarmEnabled == false)
+    }
+
+    @Test func modelTypesDecodeWithLaterFieldsMissing() throws {
+        let phase = try JSONDecoder().decode(SequencePhase.self, from: Data(#"{"label":"Work","duration":60}"#.utf8))
+        #expect(phase.kind == .timer && phase.alarmEnabled && !phase.vibrationEnabled)
+        let info = try JSONDecoder().decode(SequenceInfo.self, from: Data(#"{"phases":[{"label":"Work","duration":60}]}"#.utf8))
+        #expect(info.loopCount == 1 && info.phaseIndex == 0 && info.loopIndex == 0)
+        let saved = try JSONDecoder().decode(SavedSequence.self, from: Data(#"{"id":"s1","phases":[{"label":"Work","duration":60}]}"#.utf8))
+        #expect(saved.name == "Sequence" && saved.loopCount == 1)
+        let annual = try JSONDecoder().decode(AnnualRecurrence.self, from: Data(#"{"month":2,"day":29,"timeZoneID":"UTC"}"#.utf8))
+        #expect(annual.hour == 0 && annual.isValid)
+    }
+
 }

@@ -86,6 +86,7 @@ enum LiveActivityActions {
     /// own) and tears down every phase alarm, including the one ringing now.
     static func endSequence(timerID: String) async {
         guard var payload = stored(timerID), var sequence = payload.sequence else { return await refreshUI() }
+        sequence.phaseIndex = 0  // same exhausted shape as advancedSequence
         sequence.loopIndex = sequence.loopCount
         payload.sequence = sequence
         payload.pausedRemaining = nil

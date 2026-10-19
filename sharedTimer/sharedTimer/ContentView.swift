@@ -774,9 +774,9 @@ struct ContentView: View {
     }
 
     /// Universal link / App Clip handoff into the full app. A timer already in the local
-    /// store is left as-is (the link's snapshot may be older than what's stored — the link
-    /// carries no recency marker; same in the Messages extension); a genuinely new one
-    /// surfaces the add-confirmation sheet instead of merging straight in.
+    /// store adopts the link's snapshot only when its `upd` stamp is strictly newer and
+    /// the timer has no CloudLink (`shouldAdopt`; same in the Messages extension); a
+    /// genuinely new one surfaces the add-confirmation sheet instead of merging straight in.
     ///
     /// A `ckshare` query param means the sender's Messages extension successfully created
     /// a live-synced timer — accept it in the background and upgrade the stored copy to
