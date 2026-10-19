@@ -481,27 +481,9 @@ struct TimerDetailView: View {
             parts.append(String(localized: "\(participantCount) watching"))
         }
         if let attribution, attribution.name != DisplayNameStore.name {
-            parts.append(Self.attributionPhrase(name: attribution.name, action: attribution.action))
+            parts.append(CloudSyncController.attributionPhrase(name: attribution.name, action: attribution.action))
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    /// The record's `lastAction` is an English wire verb ("paused"), so the whole phrase
-    /// is translated, not the verb on its own. An unknown verb (a newer app) shows the
-    /// name alone rather than raw English.
-    static func attributionPhrase(name: String, action: String) -> String {
-        switch action {
-        case "created": return String(localized: "\(name) created")
-        case "paused": return String(localized: "\(name) paused")
-        case "resumed": return String(localized: "\(name) resumed")
-        case "extended": return String(localized: "\(name) extended")
-        case "repeated": return String(localized: "\(name) repeated")
-        case "edited": return String(localized: "\(name) edited")
-        case "advanced": return String(localized: "\(name) skipped ahead")
-        case "cancelled", "stopped": return String(localized: "\(name) stopped")
-        case "startedEarly": return String(localized: "\(name) started early")
-        case "updated", "updatedFromLink": return String(localized: "\(name) updated")
-        default: return name
-        }
-    }
 }

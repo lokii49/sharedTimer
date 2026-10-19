@@ -538,7 +538,12 @@ enum CloudSyncController {
     /// Walks both databases via the change-token APIs (not CKQuerySubscription, which
     /// doesn't work on the shared database) so deletes are reported explicitly rather
     /// than inferred from a failed fetch.
-    static func pullChanges(completion: @escaping (_ updated: [TimerPayload], _ deletedIDs: [String]) -> Void) {
+    ///
+    /// `peek`: read the changes without moving any change token or dropping links — for
+    /// the notification service extension, which only describes a change. The app's own
+    /// pull (woken by the same push, or on opening) must still see it, or it would never
+    /// re-arm the AlarmKit alarm for it.
+    static func pullChanges(peek: Bool = false, completion: @escaping (_ updated: [TimerPayload], _ deletedIDs: [String]) -> Void) {
         let group = DispatchGroup()
         var updated: [TimerPayload] = []
         var deletedIDs: [String] = []
@@ -546,7 +551,7 @@ enum CloudSyncController {
 
         for scope in SyncScope.allCases {
             group.enter()
-            pullChanges(scope: scope) { u, d in
+            pullChanges(scope: scope, peek: peek) { u, d in
                 lock.lock()
                 updated.append(contentsOf: u)
                 deletedIDs.append(contentsOf: d)
@@ -563,7 +568,7 @@ enum CloudSyncController {
     }
 
     /// `isRetry` bounds the `.changeTokenExpired` recovery below to a single re-run.
-    private static func pullChanges(scope: SyncScope, isRetry: Bool = false, completion: @escaping ([TimerPayload], [String]) -> Void) {
+    private static func pullChanges(scope: SyncScope, isRetry: Bool = false, peek: Bool = false, completion: @escaping ([TimerPayload], [String]) -> Void) {
         let database = scope.database
         let tokenKey = "dbChangeToken.\(scope.rawValue)"
 
@@ -590,7 +595,7 @@ enum CloudSyncController {
             case .failure(let error):
                 // An expired token fails every fetch that reuses it, so without this
                 // reset live sync dies silently and permanently for this scope.
-                if !isRetry, (error as? CKError)?.code == .changeTokenExpired {
+                if !isRetry, !peek, (error as? CKError)?.code == .changeTokenExpired {
                     log("pullChanges(\(scope.rawValue)) database token expired — refetching from scratch")
                     clearToken(key: tokenKey)
                     pullChanges(scope: scope, isRetry: true, completion: completion)
@@ -608,17 +613,17 @@ enum CloudSyncController {
                 for (timerID, link) in CloudLinkStore.all()
                 where deletedZoneIDs.contains(where: { $0.zoneName == link.zoneName && $0.ownerName == link.zoneOwnerName }) {
                     deletedIDs.append(timerID)
-                    CloudLinkStore.remove(timerID: timerID)
+                    if !peek { CloudLinkStore.remove(timerID: timerID) }
                 }
             }
 
             guard !changedZoneIDs.isEmpty else {
-                saveToken(databaseToken, key: tokenKey)
+                if !peek { saveToken(databaseToken, key: tokenKey) }
                 completion([], deletedIDs)
                 return
             }
-            fetchZoneChanges(changedZoneIDs, database: database) { updated, deleted, complete in
-                if complete {
+            fetchZoneChanges(changedZoneIDs, database: database, peek: peek) { updated, deleted, complete in
+                if complete && !peek {
                     saveToken(databaseToken, key: tokenKey)
                 }
                 completion(updated, deletedIDs + deleted)
@@ -631,7 +636,7 @@ enum CloudSyncController {
     /// zone itself being gone) — the caller then keeps its old database token so the
     /// next pull reports those zones again. A zone whose own token expired is retried
     /// once immediately from a nil token, same recovery as the database level.
-    private static func fetchZoneChanges(_ zoneIDs: [CKRecordZone.ID], database: CKDatabase, isRetry: Bool = false, completion: @escaping ([TimerPayload], [String], _ complete: Bool) -> Void) {
+    private static func fetchZoneChanges(_ zoneIDs: [CKRecordZone.ID], database: CKDatabase, isRetry: Bool = false, peek: Bool = false, completion: @escaping ([TimerPayload], [String], _ complete: Bool) -> Void) {
         var configs: [CKRecordZone.ID: CKFetchRecordZoneChangesOperation.ZoneConfiguration] = [:]
         for zoneID in zoneIDs {
             configs[zoneID] = CKFetchRecordZoneChangesOperation.ZoneConfiguration(
@@ -672,17 +677,20 @@ enum CloudSyncController {
             deletedIDs.append(recordID.recordName)
         }
         operation.recordZoneChangeTokensUpdatedBlock = { zoneID, token, _ in
-            if let token, !failedZoneIDs.contains(zoneID) { saveToken(token, key: zoneTokenKey(zoneID)) }
+            if let token, !peek, !failedZoneIDs.contains(zoneID) { saveToken(token, key: zoneTokenKey(zoneID)) }
         }
         operation.recordZoneFetchResultBlock = { zoneID, result in
             switch result {
             case .success(let value):
-                if !failedZoneIDs.contains(zoneID) { saveToken(value.serverChangeToken, key: zoneTokenKey(zoneID)) }
+                if !peek, !failedZoneIDs.contains(zoneID) { saveToken(value.serverChangeToken, key: zoneTokenKey(zoneID)) }
             case .failure(let error):
                 switch (error as? CKError)?.code {
                 case .changeTokenExpired?:
-                    clearToken(key: zoneTokenKey(zoneID))
-                    expiredZoneIDs.append(zoneID)
+                    // A peek leaves recovery to the app's own pull.
+                    if !peek {
+                        clearToken(key: zoneTokenKey(zoneID))
+                        expiredZoneIDs.append(zoneID)
+                    }
                 case .zoneNotFound?, .userDeletedZone?:
                     // Gone for good — nothing left to fetch, so this doesn't hold back
                     // the database token (that would refetch a dead zone forever).
@@ -853,6 +861,26 @@ enum CloudSyncController {
         CloudLinkStore.remove(timerID: timerID)
         if !wasOwner { CloudLinkStore.markLeft(timerID: timerID) }
         DispatchQueue.main.async { NotificationCenter.default.post(name: sharingChanged, object: timerID) }
+    }
+
+    /// "Sam paused" — the record's `lastAction` is an English wire verb, so the whole
+    /// phrase is translated, not the verb on its own. An unknown verb (a newer app)
+    /// shows the name alone. Shared by the detail screen and the notification service
+    /// extension's rewritten banner.
+    static func attributionPhrase(name: String, action: String) -> String {
+        switch action {
+        case "created": return String(localized: "\(name) created")
+        case "paused": return String(localized: "\(name) paused")
+        case "resumed": return String(localized: "\(name) resumed")
+        case "extended": return String(localized: "\(name) extended")
+        case "repeated": return String(localized: "\(name) repeated")
+        case "edited": return String(localized: "\(name) edited")
+        case "advanced": return String(localized: "\(name) skipped ahead")
+        case "cancelled", "stopped": return String(localized: "\(name) stopped")
+        case "startedEarly": return String(localized: "\(name) started early")
+        case "updated", "updatedFromLink": return String(localized: "\(name) updated")
+        default: return name
+        }
     }
 
     /// Who last touched this timer and what they did, or nil if there's no CloudLink or
