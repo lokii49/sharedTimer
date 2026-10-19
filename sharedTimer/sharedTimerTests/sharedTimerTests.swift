@@ -867,4 +867,19 @@ struct sharedTimerTests {
         }
     }
 
+    @Test func finishAcknowledgementSurvivesSavesThatLeaveTheFinishInPlace() {
+        let now = Date()
+        let stopped = TimerPayload(id: "ack", label: "Pasta", endDate: now, duration: 60)
+        // A CloudKit echo of this device's own Stop, rounded to the millisecond.
+        var echo = stopped
+        echo.endDate = Date(timeIntervalSince1970: (now.timeIntervalSince1970 * 1000).rounded() / 1000)
+        #expect(!TimerStore.finishMoved(from: stopped, to: echo))
+        var renamed = stopped
+        renamed.label = "Spaghetti"
+        #expect(!TimerStore.finishMoved(from: stopped, to: renamed))
+        #expect(TimerStore.finishMoved(from: stopped, to: stopped.extended(by: 60)))
+        #expect(TimerStore.finishMoved(from: stopped, to: stopped.repeated(at: now)))
+        #expect(TimerStore.finishMoved(from: nil, to: stopped))
+    }
+
 }

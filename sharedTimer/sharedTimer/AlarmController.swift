@@ -60,9 +60,10 @@ enum AlarmController {
     /// alarm AlarmKit is handling returns false — including one whose alarm the user
     /// already stopped from its panel, so re-opening the app doesn't re-bang. (`alarms`
     /// membership can't tell "never scheduled" from "scheduled then dismissed", so
-    /// don't key on it.)
+    /// don't key on it.) A finish already stopped (`TimerStore.acknowledgeFinish` — the
+    /// widget/Live Activity ✕, the in-app Stop) never sounds either.
     static func shouldSoundInAppAlarm(for payload: TimerPayload) -> Bool {
-        guard payload.alarmEnabled else { return false }
+        guard payload.alarmEnabled, !TimerStore.isFinishAcknowledged(id: payload.id) else { return false }
         return AlarmManager.shared.authorizationState != .authorized
     }
 
@@ -194,7 +195,9 @@ enum AlarmController {
     private static func performAnnualReschedule(for payload: TimerPayload) async {
         guard let recurrence = payload.recurrence else { return }
         let current = payload.advancedRecurrence()
-        let dates = current.upcomingAnnualDates(limit: annualWindow)
+        // Both toggles off plans no AlarmKit slot, so the sweep below cancels any armed
+        // before the edit — otherwise it kept ringing next to the quiet notification.
+        let dates = ownsAlert(for: current) ? current.upcomingAnnualDates(limit: annualWindow) : []
         let existing = Dictionary(((try? AlarmManager.shared.alarms) ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var planned: [(Date, UUID)] = []
         for end in dates {
@@ -215,7 +218,7 @@ enum AlarmController {
             try? AlarmManager.shared.cancel(id: id)
         }
         var covered: Set<Date> = []
-        for (end, id) in planned where ownsAlert(for: current) {
+        for (end, id) in planned {
             if let alarm = existing[id], case .fixed(let fixed)? = alarm.schedule,
                abs(fixed.timeIntervalSince(end)) < 1, alarm.countdownDuration == nil, signatureMatches(current, for: id) {
                 covered.insert(end)
@@ -433,14 +436,24 @@ enum AlarmController {
     static func clear(id: String) {
         NotificationScheduler.cancel(id: id)
         TimerStore.setAlarmKitArmed(id: id, false)
-        enqueue(id) {
-            let existing = Set(((try? AlarmManager.shared.alarms) ?? []).map(\.id))
-            guard !existing.isEmpty else { return }
-            var candidates: Set<UUID> = [alarmID(for: id)]
-            candidates.formUnion(annualIDs(timerID: id))
-            candidates.formUnion((0..<TimerSequenceWire.maximumOccurrences).map { phaseAlarmID(timerID: id, globalIndex: $0) })
-            for alarmID in candidates.intersection(existing) { try? AlarmManager.shared.cancel(id: alarmID) }
-        }
+        enqueue(id) { await cancelEveryDerivedAlarm(id: id) }
+    }
+
+    /// Awaitable `clear(id:)`, for a caller the system may suspend as soon as it
+    /// returns (the background push handler) — see `rescheduleAwaiting`.
+    static func clearAwaiting(id: String) async {
+        NotificationScheduler.cancel(id: id)
+        TimerStore.setAlarmKitArmed(id: id, false)
+        await Serializer.shared.runAndWait(id) { await cancelEveryDerivedAlarm(id: id) }
+    }
+
+    private static func cancelEveryDerivedAlarm(id: String) async {
+        let existing = Set(((try? AlarmManager.shared.alarms) ?? []).map(\.id))
+        guard !existing.isEmpty else { return }
+        var candidates: Set<UUID> = [alarmID(for: id)]
+        candidates.formUnion(annualIDs(timerID: id))
+        candidates.formUnion((0..<TimerSequenceWire.maximumOccurrences).map { phaseAlarmID(timerID: id, globalIndex: $0) })
+        for alarmID in candidates.intersection(existing) { try? AlarmManager.shared.cancel(id: alarmID) }
     }
 
     /// Full teardown including every phase of a local sequence, whose draft can be
@@ -641,6 +654,17 @@ enum AlarmController {
     private static func cancelAlarm(id: String) async {
         do { try AlarmManager.shared.cancel(id: alarmID(for: id)) }
         catch { /* not scheduled, or already fired and dismissed — nothing to do */ }
+        // A yearly countdown stopped on another device arrives with `recurrence` nil and
+        // lands on this plain path, so its annual slots must go too. Armed slots only
+        // ever cover the next two occurrences (plus a New Year's Eve extension), so a
+        // few years around now is enough — `annualIDs` would hash ~20k ids per call.
+        let existing = Set(((try? AlarmManager.shared.alarms) ?? []).map(\.id))
+        guard !existing.isEmpty else { return }
+        // Device-zone year, while slot ids use the recurrence's zone — the -1/+3 margin
+        // absorbs that, so don't tighten it.
+        let year = Calendar(identifier: .gregorian).component(.year, from: Date())
+        let nearby = ((year - 1)...(year + 3)).flatMap { y in (0...1).map { annualAlarmID(timerID: id, year: y, slot: $0) } }
+        for alarmID in Set(nearby).intersection(existing) { try? AlarmManager.shared.cancel(id: alarmID) }
     }
 
     /// Explicit cancel for `EndSequenceIntent`: every phase alarm of the sequence,

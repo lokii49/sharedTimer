@@ -33,13 +33,19 @@ enum TimerStore {
     static func save(_ payload: TimerPayload) {
         withWriteLock {
             var all = loadAll()
+            let prior = all.first { $0.id == payload.id }
             all.removeAll { $0.id == payload.id }
             all.append(payload)
             persist(all)
             // Any prior "Stop" on this id was about the finish event it stopped — a
-            // fresh mutation (repeat, extend past finish, a new share of the same id)
-            // means a future finish should be free to alert again.
-            clearAcknowledgedFinish(id: payload.id)
+            // mutation that moves that finish (repeat, extend past finish, resume) means
+            // a future finish should be free to alert again. A save that leaves the
+            // finish where it was (a CloudKit echo of this device's own Stop, a rename)
+            // must keep the Stop, or the app re-alerts on next open. 1s absorbs the
+            // CloudKit Date round-trip.
+            if finishMoved(from: prior, to: payload) {
+                clearAcknowledgedFinish(id: payload.id)
+            }
         }
     }
 
@@ -120,6 +126,11 @@ enum TimerStore {
 
     static func isFinishAcknowledged(id: String) -> Bool {
         (defaults?.stringArray(forKey: acknowledgedFinishKey) ?? []).contains(id)
+    }
+
+    static func finishMoved(from prior: TimerPayload?, to payload: TimerPayload) -> Bool {
+        guard let prior else { return true }
+        return abs(prior.endDate.timeIntervalSince(payload.endDate)) >= 1 || prior.isPaused != payload.isPaused
     }
 
     /// Caller holds the write lock.

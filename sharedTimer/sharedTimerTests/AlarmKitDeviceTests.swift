@@ -618,6 +618,36 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
+    @Test func turningBothTogglesOffCancelsArmedAnnualAlarms() async {
+        let payload = TimerPayload.composeAnnual(label: "Annual quiet edit test", targetDate: Date().addingTimeInterval(3600), timeZone: .gmt)
+        created.append(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let ids = payload.upcomingAnnualDates().map { AlarmController.annualAlarmID(timerID: payload.id, year: payload.recurrence!.year(of: $0)) }
+        #expect(ids.allSatisfy { alarmsByID()[$0] != nil })
+        let quiet = payload.edited(label: payload.label, alarmEnabled: false, vibrationEnabled: false, targetDate: payload.endDate)
+        await AlarmController.rescheduleAwaiting(for: quiet)
+        #expect(ids.allSatisfy { alarmsByID()[$0] == nil })
+        #expect(!TimerStore.isAlarmKitArmed(id: payload.id))
+        await tearDown()
+    }
+
+    /// The receiving side of a remote Stop: the synced payload has no recurrence, so it
+    /// takes the plain path, which must still cancel the annual slots.
+    @Test func remoteStopOfAnnualCountdownCancelsItsYearlyAlarms() async {
+        let payload = TimerPayload.composeAnnual(label: "Annual remote stop test", targetDate: Date().addingTimeInterval(3600), timeZone: .gmt)
+        created.append(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let ids = payload.upcomingAnnualDates().map { AlarmController.annualAlarmID(timerID: payload.id, year: payload.recurrence!.year(of: $0)) }
+        #expect(ids.allSatisfy { alarmsByID()[$0] != nil })
+        var stopped = payload
+        stopped.recurrence = nil
+        stopped.endDate = Date()
+        stopped.updatedAt = Date()
+        await AlarmController.rescheduleAwaiting(for: stopped)
+        #expect(ids.allSatisfy { alarmsByID()[$0] == nil })
+        await tearDown()
+    }
+
     @Test func extendingNewYearsEveDoesNotCollideWithNextOccurrence() async {
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = .gmt
         let year = calendar.component(.year, from: Date()) + 1
@@ -680,7 +710,7 @@ final class AlarmKitDeviceTests {
     @Test func sweepStrayTestAlarms() async {
         var owned: Set<UUID> = []
         let stored = TimerStore.loadAll()
-        let fixtureTitles: Set<String> = ["Annual device test", "Annual pause test", "Annual intent test", "Annual deletion test", "Annual year boundary test", "Quiet annual device test"]
+        let fixtureTitles: Set<String> = ["Annual device test", "Annual pause test", "Annual intent test", "Annual deletion test", "Annual year boundary test", "Quiet annual device test", "Annual quiet edit test", "Annual remote stop test"]
         let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
         let orphanedFixtures = requests.filter { request in
             guard fixtureTitles.contains(request.content.title), let id = request.content.userInfo["timerID"] as? String else { return false }
