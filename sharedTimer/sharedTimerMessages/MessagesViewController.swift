@@ -102,6 +102,13 @@ class MessagesViewController: MSMessagesAppViewController {
         CloudSyncController.acceptShare(from: shareURL) { authoritative in
             guard let authoritative else { return }
             DispatchQueue.main.async {
+                // A pause/extend made while the accept was in flight couldn't push (no
+                // CloudLink yet) and is newer than the record — keep it and push it now.
+                if let local = TimerStore.loadAll().first(where: { $0.id == authoritative.id }),
+                   authoritative.shouldAdopt(local) {
+                    CloudSyncController.pushUp(local, action: "updated")
+                    return
+                }
                 TimerStore.save(authoritative)
                 NotificationCenter.default.post(name: TimerRunningView.storeChange, object: nil)
                 guard !TimerStore.isAlarmKitArmed(id: authoritative.id) else { return }

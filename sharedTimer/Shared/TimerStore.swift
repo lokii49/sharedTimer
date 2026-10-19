@@ -161,6 +161,19 @@ enum TimerStore {
         }
     }
 
+    private static func undecodableEntries(excluding ids: Set<String>) -> [Any] {
+        guard let data = defaults?.data(forKey: key),
+              (try? JSONDecoder().decode([TimerPayload].self, from: data)) == nil,
+              let rawArray = try? JSONSerialization.jsonObject(with: data) as? [Any] else { return [] }
+        let decoder = JSONDecoder()
+        return rawArray.filter { entry in
+            guard let dict = entry as? [String: Any] else { return false }
+            if let id = dict["id"] as? String, ids.contains(id) { return false }
+            guard let entryData = try? JSONSerialization.data(withJSONObject: dict) else { return false }
+            return (try? decoder.decode(TimerPayload.self, from: entryData)) == nil
+        }
+    }
+
     private static func persist(_ payloads: [TimerPayload]) {
         let cutoff = Date().addingTimeInterval(-86400)
         // A sequence-owning payload's raw `endDate` is only the CURRENT phase's — a
@@ -172,7 +185,16 @@ enum TimerStore {
             let projected = $0.advancedSequence()
             return projected.isPaused || projected.endDate > cutoff
         }
-        guard let data = try? JSONEncoder().encode(trimmed) else { return }
+        guard var data = try? JSONEncoder().encode(trimmed) else { return }
+        // Entries this build can't decode (written by a newer version, say) were left out
+        // of `payloads` by loadAll; writing without them deleted those timers for good.
+        // Carry them over untouched, unless a decodable payload now has the same id.
+        let undecodable = undecodableEntries(excluding: Set(trimmed.map(\.id)))
+        if !undecodable.isEmpty,
+           let encoded = try? JSONSerialization.jsonObject(with: data) as? [Any],
+           let merged = try? JSONSerialization.data(withJSONObject: encoded + undecodable) {
+            data = merged
+        }
         defaults?.set(data, forKey: key)
         // The home-screen widget only re-reads the App Group store when told to — otherwise
         // it keeps showing its last timeline entry until whatever refresh date it computed

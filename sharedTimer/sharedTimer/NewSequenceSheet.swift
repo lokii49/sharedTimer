@@ -149,7 +149,7 @@ struct NewSequenceSheet: View {
     private func normalizedPhases() -> [SequencePhase] {
         draftPhases.enumerated().map { index, draft in
             var phase = draft.phase
-            if phase.label.trimmingCharacters(in: .whitespaces).isEmpty {
+            if phase.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 phase.label = "Phase \(index + 1)"
             }
             return phase
@@ -339,7 +339,6 @@ struct NewSequenceSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Start") {
                         onCreate(TimerPayload.composeSequence(
-                            label: sequenceName.trimmingCharacters(in: .whitespaces),
                             phases: normalizedPhases(),
                             loopCount: loopCount,
                             startDate: startLater ? scheduledStart : nil

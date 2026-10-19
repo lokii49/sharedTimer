@@ -435,13 +435,15 @@ struct TimerPayload: Codable, Identifiable {
     /// Builds a sequence-owning payload (Pomodoro/Intermittent-Fasting style) from a
     /// preset's phase list + loop count. Links and CloudKit preserve the full sequence.
     /// `startDate` in the past (or omitted) means "start now" -- same clamp as `compose`.
-    static func composeSequence(label: String, phases: [SequencePhase], loopCount: Int, startDate: Date? = nil) -> TimerPayload {
+    /// The payload's `label` is phase 0's, like every later phase's projection — the
+    /// sequence name used to show for phase 0 only, then vanish at the first boundary.
+    static func composeSequence(phases: [SequencePhase], loopCount: Int, startDate: Date? = nil) -> TimerPayload {
         precondition(!phases.isEmpty, "a sequence needs at least one phase")
         let first = phases[0]
         let effectiveStart = startDate.flatMap { $0 > Date() ? $0 : nil }
         let seq = SequenceInfo(phases: phases, loopCount: max(1, loopCount), phaseIndex: 0, loopIndex: 0)
         return TimerPayload(
-            id: UUID().uuidString, label: label,
+            id: UUID().uuidString, label: first.label,
             endDate: (effectiveStart ?? Date()).addingTimeInterval(first.duration),
             duration: first.duration, kind: first.kind,
             alarmEnabled: first.alarmEnabled, vibrationEnabled: first.vibrationEnabled,

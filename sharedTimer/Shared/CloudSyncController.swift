@@ -247,8 +247,13 @@ enum CloudSyncController {
     static func acceptShare(from url: URL, completion: @escaping (TimerPayload?) -> Void) {
         let metadataOp = CKFetchShareMetadataOperation(shareURLs: [url])
         metadataOp.shouldFetchRootRecord = true
+        // Set once a per-share result arrives; an operation that fails outright (no
+        // account, offline) never reaches that block and must still call back.
+        let lock = NSLock()
+        var gotShareResult = false
 
         metadataOp.perShareMetadataResultBlock = { _, result in
+            lock.lock(); gotShareResult = true; lock.unlock()
             guard case .success(let metadata) = result else {
                 if case .failure(let error) = result {
                     log("acceptShare fetchMetadata failed: \(error)")
@@ -299,6 +304,8 @@ enum CloudSyncController {
             if case .failure(let error) = result {
                 log("acceptShare fetchShareMetadataResultBlock failed: \(error)")
             }
+            lock.lock(); let handled = gotShareResult; lock.unlock()
+            if !handled { completion(nil) }
         }
         container.add(metadataOp)
     }
@@ -453,6 +460,10 @@ enum CloudSyncController {
 
         dbOp.recordZoneWithIDChangedBlock = { zoneID in changedZoneIDs.append(zoneID) }
         dbOp.recordZoneWithIDWasDeletedBlock = { zoneID in deletedZoneIDs.append(zoneID) }
+        // Purged (the user removed the app's iCloud data) or wiped by an encrypted-data
+        // reset: just as gone, and never reported as a plain deletion.
+        dbOp.recordZoneWithIDWasPurgedBlock = { zoneID in deletedZoneIDs.append(zoneID) }
+        dbOp.recordZoneWithIDWasDeletedDueToUserEncryptedDataResetBlock = { zoneID in deletedZoneIDs.append(zoneID) }
         // Deliberately no `changeTokenUpdatedBlock` save: the database token is only
         // persisted once every changed zone's records have actually been fetched (see
         // below). Saving it any earlier meant a failed zone fetch was never retried —
@@ -519,6 +530,9 @@ enum CloudSyncController {
         var updated: [TimerPayload] = []
         var deletedIDs: [String] = []
         var expiredZoneIDs: [CKRecordZone.ID] = []
+        // Zones where a record failed to download: their token must not move past it,
+        // or that record is skipped until its next change.
+        var failedZoneIDs: Set<CKRecordZone.ID> = []
         var complete = true
 
         operation.recordWasChangedBlock = { recordID, result in
@@ -531,18 +545,20 @@ enum CloudSyncController {
                 }
             case .failure(let error):
                 log("fetchZoneChanges: record \(recordID.recordName) failed: \(error)")
+                failedZoneIDs.insert(recordID.zoneID)
+                complete = false
             }
         }
         operation.recordWithIDWasDeletedBlock = { recordID, _ in
             deletedIDs.append(recordID.recordName)
         }
         operation.recordZoneChangeTokensUpdatedBlock = { zoneID, token, _ in
-            if let token { saveToken(token, key: zoneTokenKey(zoneID)) }
+            if let token, !failedZoneIDs.contains(zoneID) { saveToken(token, key: zoneTokenKey(zoneID)) }
         }
         operation.recordZoneFetchResultBlock = { zoneID, result in
             switch result {
             case .success(let value):
-                saveToken(value.serverChangeToken, key: zoneTokenKey(zoneID))
+                if !failedZoneIDs.contains(zoneID) { saveToken(value.serverChangeToken, key: zoneTokenKey(zoneID)) }
             case .failure(let error):
                 switch (error as? CKError)?.code {
                 case .changeTokenExpired?:

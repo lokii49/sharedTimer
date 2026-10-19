@@ -167,7 +167,6 @@ final class AlarmKitDeviceTests {
     @Test func pendingSequencePinsPhaseZeroToFixedEndDate() async {
         let start = Date().addingTimeInterval(600)
         let payload = TimerPayload.composeSequence(
-            label: "Later",
             phases: [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)],
             loopCount: 1, startDate: start
         )
@@ -189,7 +188,6 @@ final class AlarmKitDeviceTests {
     /// ended: the action must catch up to the running phase, not bail out as finished.
     @Test @MainActor func livePauseCatchesUpAMissedSequencePhase() async {
         var payload = TimerPayload.composeSequence(
-            label: "Catch up",
             phases: [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 600)],
             loopCount: 1
         )
@@ -302,6 +300,22 @@ final class AlarmKitDeviceTests {
     /// when an alarm is actually (re)scheduled, so a changed value proves re-creation.
     private func signature(_ id: UUID) -> String? {
         (UserDefaults(suiteName: "group.com.lokesh.sharedTimer")?.dictionary(forKey: "alarmPresentationSignature") as? [String: String])?[id.uuidString]
+    }
+
+    /// Changing the tone re-creates a sequence's kept alarms, current and pre-armed.
+    @Test func toneChangeReachesKeptSequenceAlarms() async {
+        let original = AlarmTone.selected
+        let other = AlarmTone.allCases.first { $0 != original }!
+        let payload = sequence(loops: 2, end: Date().addingTimeInterval(60))
+        created.append(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let ids = phaseIDs(payload, 0..<4)
+        #expect(ids.allSatisfy { signature($0)?.hasSuffix("|\(original.rawValue)") == true })
+        AlarmTone.selected = other
+        await AlarmController.rescheduleAwaiting(for: payload)
+        #expect(ids.allSatisfy { alarmsByID()[$0] != nil && signature($0)?.hasSuffix("|\(other.rawValue)") == true })
+        AlarmTone.selected = original
+        await tearDown()
     }
 
     @Test func editingAPausedTimerReplacesItsPausedAlarm() async {

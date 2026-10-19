@@ -83,6 +83,13 @@ struct sharedTimerTests {
         // The JSONSerialization round-trip is where a Date-as-Double could drift —
         // assert the field that's actually at risk, not just that decoding succeeded.
         #expect(loaded.first?.endDate == good.endDate)
+
+        // A later save must not delete the entry this build can't read.
+        TimerStore.save(TimerPayload(id: "good-2", label: "Also good", duration: 60))
+        let stored = try #require(defaults.data(forKey: "sharedTimers"))
+        let ids = try #require(JSONSerialization.jsonObject(with: stored) as? [[String: Any]]).compactMap { $0["id"] as? String }
+        #expect(Set(ids) == ["good-1", "good-2", "bad-1"])
+        #expect(TimerStore.loadAll().count == 2)
     }
 
     @Test func loadAllSkipsAWronglyTypedArrayElement() throws {
@@ -404,7 +411,7 @@ struct sharedTimerTests {
     @Test func composeSequenceWithFutureStartSetsFirstPhaseEndDateFromStart() {
         let start = Date().addingTimeInterval(1800)
         let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
-        let payload = TimerPayload.composeSequence(label: "Pomodoro", phases: phases, loopCount: 2, startDate: start)
+        let payload = TimerPayload.composeSequence(phases: phases, loopCount: 2, startDate: start)
 
         #expect(payload.scheduledStartDate == start)
         #expect(payload.endDate == start.addingTimeInterval(60))
@@ -415,7 +422,7 @@ struct sharedTimerTests {
     @Test func composeSequenceWithPastStartClampsToStartingNow() {
         let past = Date().addingTimeInterval(-600)
         let phases = [SequencePhase(label: "Work", duration: 60)]
-        let payload = TimerPayload.composeSequence(label: "Pomodoro", phases: phases, loopCount: 1, startDate: past)
+        let payload = TimerPayload.composeSequence(phases: phases, loopCount: 1, startDate: past)
 
         // A start at/before now means "start now" -- never a payload whose own
         // scheduled start already lies in the past. Same clamp `compose` used to have
@@ -432,7 +439,7 @@ struct sharedTimerTests {
         let now = Date()
         let start = now.addingTimeInterval(3600)
         let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
-        let pending = TimerPayload.composeSequence(label: "Pomodoro", phases: phases, loopCount: 2, startDate: start)
+        let pending = TimerPayload.composeSequence(phases: phases, loopCount: 2, startDate: start)
         #expect(pending.isPending(at: now) == true)
 
         let started = pending.repeated(at: now)
@@ -619,7 +626,7 @@ struct sharedTimerTests {
         #expect(RecentTimersStore.all().first?.alarmEnabled == false)
 
         RecentTimersStore.record(TimerPayload.compose(label: "Trip", kind: .countdown, minutes: 0, targetDate: Date().addingTimeInterval(86400)))
-        RecentTimersStore.record(TimerPayload.composeSequence(label: "Pomodoro", phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1))
+        RecentTimersStore.record(TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1))
         #expect(RecentTimersStore.all().first?.label == "T5")
 
         RecentTimersStore.remove(id: "T5|300")
@@ -734,7 +741,7 @@ struct sharedTimerTests {
 
     @Test func siriScheduledSequenceCanBeReadButNotChanged() throws {
         let now = Date()
-        let pending = TimerPayload.composeSequence(label: "Later", phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1, startDate: now.addingTimeInterval(120))
+        let pending = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1, startDate: now.addingTimeInterval(120))
         let current = try TimerIntentActions.snapshot(pending, at: now)
         #expect(current.status == .scheduled)
         #expect(current.seconds == 180)

@@ -47,7 +47,7 @@ struct TimerSpotlightTests {
 
     @Test func scheduledAndCancelledSequencesHaveDistinctSearchDescriptions() throws {
         let now = Date()
-        let pending = TimerPayload.composeSequence(label: "Later", phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1, startDate: now.addingTimeInterval(120))
+        let pending = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1, startDate: now.addingTimeInterval(120))
         let entry = try #require(TimerSpotlightIndex.entries(from: [pending], at: now).first)
         #expect(entry.description.contains("Starts"))
         var cancelled = pending

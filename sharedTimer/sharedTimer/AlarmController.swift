@@ -35,6 +35,7 @@ import AlarmKit
 import AppIntents
 import CryptoKit
 import Foundation
+import os
 import SwiftUI
 
 enum AlarmController {
@@ -193,9 +194,14 @@ enum AlarmController {
     static func annualAlarmID(timerID: String, year: Int, slot: Int = 0) -> UUID {
         derivedUUID("\(timerID)#annual.\(year).\(slot)")
     }
+    /// ~20k SHA-256 derivations per timer — computed once per process, then cached.
     private static func annualIDs(timerID: String) -> Set<UUID> {
-        Set((1...9998).flatMap { year in (0...1).map { annualAlarmID(timerID: timerID, year: year, slot: $0) } })
+        if let cached = annualIDCache.withLock({ $0[timerID] }) { return cached }
+        let ids = Set((1...9998).flatMap { year in (0...1).map { annualAlarmID(timerID: timerID, year: year, slot: $0) } })
+        annualIDCache.withLock { $0[timerID] = ids }
+        return ids
     }
+    private static let annualIDCache = OSAllocatedUnfairLock<[String: Set<UUID>]>(initialState: [:])
     private static func performAnnualReschedule(for payload: TimerPayload) async {
         guard let recurrence = payload.recurrence else { return }
         let current = payload.advancedRecurrence()
@@ -295,7 +301,11 @@ enum AlarmController {
                 fixedAt = occurrence.endDate
             }
             guard ownsAlert(for: projected) else { continue }
-            if let alarm = existing[id], matchesPrearmed(alarm, endDate: occurrence.endDate, duration: occurrence.phase.duration) {
+            // The signature check makes a tone change (Settings) or edit re-create the
+            // kept alarm, as the plain and annual keep-paths already do.
+            if let alarm = existing[id], signatureMatches(projected, for: id),
+               matchesPrearmed(alarm, endDate: occurrence.endDate, duration: occurrence.phase.duration)
+                || (offset == 0 && fixedAt == nil && matchesRunning(alarm, id: id, endDate: occurrence.endDate)) {
                 kept.insert(id)
                 continue
             }
@@ -362,7 +372,11 @@ enum AlarmController {
             if let recorded = pausedRemaining(for: id), abs(recorded - remaining) < 1, signatureMatches(payload, for: id) { return true }
             try? AlarmManager.shared.cancel(id: id)
         case .countdown?:
-            if signatureMatches(payload, for: id), (try? AlarmManager.shared.pause(id: id)) != nil {
+            // Pausing in place freezes whatever the alarm has left now; a pause arriving
+            // late (CloudKit, a busy queue) would freeze less than `remaining` and the
+            // paused card would show the wrong time. Re-create it then instead.
+            let alarmLeft = intendedEnd(for: id).map { $0.timeIntervalSinceNow } ?? remaining
+            if abs(alarmLeft - remaining) < 1, signatureMatches(payload, for: id), (try? AlarmManager.shared.pause(id: id)) != nil {
                 recordPausedRemaining(remaining, for: id)
                 return true
             }
@@ -422,6 +436,34 @@ enum AlarmController {
         var map = (defaults.dictionary(forKey: signatureKey) as? [String: String] ?? [:]).filter { live.contains($0.key) }
         map[id.uuidString] = signature(of: payload)
         defaults.set(map, forKey: signatureKey)
+    }
+
+    private static let intendedEndKey = "alarmIntendedEnd"
+
+    /// When each alarm was scheduled to fire. `Alarm` exposes neither elapsed nor
+    /// remaining time for a plain countdown, so this is the only way to tell whether a
+    /// running alarm still matches the payload (keep it, don't re-create) and how much
+    /// time it really has left when it's paused late.
+    private static func intendedEnd(for id: UUID) -> Date? {
+        ((UserDefaults(suiteName: "group.com.lokesh.sharedTimer")?.dictionary(forKey: intendedEndKey) as? [String: Double])?[id.uuidString])
+            .map(Date.init(timeIntervalSince1970:))
+    }
+
+    /// Prunes entries for alarms AlarmKit no longer holds, like `recordPausedRemaining`.
+    private static func recordIntendedEnd(_ end: Date, for id: UUID) {
+        guard let defaults = UserDefaults(suiteName: "group.com.lokesh.sharedTimer") else { return }
+        let live = Set(((try? AlarmManager.shared.alarms) ?? []).map(\.id.uuidString))
+        var map = (defaults.dictionary(forKey: intendedEndKey) as? [String: Double] ?? [:]).filter { live.contains($0.key) }
+        map[id.uuidString] = end.timeIntervalSince1970
+        defaults.set(map, forKey: intendedEndKey)
+    }
+
+    /// True when `alarm` is the current phase's plain countdown and still fires at
+    /// `endDate`. Without this the running phase never matched `matchesPrearmed` (it has
+    /// no `.fixed` schedule) and was cancelled and re-created on every foreground.
+    private static func matchesRunning(_ alarm: Alarm, id: UUID, endDate: Date) -> Bool {
+        guard alarm.state == .countdown, let end = intendedEnd(for: id) else { return false }
+        return abs(end.timeIntervalSince(endDate)) < 1
     }
 
     /// True when `alarm` is already the pre-armed `.fixed` alarm for this occurrence.
@@ -501,6 +543,8 @@ enum AlarmController {
             var revived = timers[index]
             revived.endDate = Date().addingTimeInterval(length)
             revived.pausedRemaining = nil
+            // A user's Repeat, like every other mutation: stamped so it syncs and wins.
+            revived.updatedAt = Date()
             timers[index] = revived
             revivedIDs.append(revived.id)
         }
@@ -654,6 +698,7 @@ enum AlarmController {
         do {
             _ = try await AlarmManager.shared.schedule(id: id, configuration: config)
             recordSignature(of: payload, for: id)
+            recordIntendedEnd(fixedAt ?? payload.endDate, for: id)
             return .scheduled
         } catch AlarmManager.AlarmError.maximumLimitReached {
             print("AlarmController: AlarmKit alarm limit reached for \(payload.id)")

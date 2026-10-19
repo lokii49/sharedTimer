@@ -76,10 +76,17 @@ enum RecentTimersStore {
     static func record(_ payload: TimerPayload) {
         guard payload.kind == .timer, payload.sequence == nil else { return }
         let recent = RecentTimer(label: payload.label, duration: payload.duration, alarmEnabled: payload.alarmEnabled, vibrationEnabled: payload.vibrationEnabled)
-        var list = all().filter { $0.id != recent.id }
-        list.insert(recent, at: 0)
-        save(Array(list.prefix(limit)))
+        lock.withLock {
+            var list = all().filter { $0.id != recent.id }
+            list.insert(recent, at: 0)
+            save(Array(list.prefix(limit)))
+        }
     }
+
+    /// Read-modify-write guard: a Control Center start (`startRecent`, off the main
+    /// thread) and a start in the app could otherwise drop one of the two. Writers all
+    /// run in the app's process — the widget only reads — so an in-process lock does.
+    private static let lock = NSLock()
 
     private static let seededKey = "recentTimersSeeded"
 
@@ -100,7 +107,7 @@ enum RecentTimersStore {
     }
 
     static func remove(id: String) {
-        save(all().filter { $0.id != id })
+        lock.withLock { save(all().filter { $0.id != id }) }
     }
 
     private static func save(_ list: [RecentTimer]) {

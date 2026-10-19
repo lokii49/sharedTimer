@@ -158,7 +158,14 @@ struct ContentView: View {
                 // Watch-relayed mutation or CloudKit silent push landed while this view
                 // is already foregrounded — scenePhase alone won't fire here since we
                 // never left .active. Re-read TimerStore directly.
-                timers = TimerStore.loadAll()
+                let fresh = TimerStore.loadAll()
+                // A remote delete (silent push) of a timer ringing in-app must silence it,
+                // as pullCloudChanges does. Before the reassign: it reads `timers`.
+                let freshIDs = Set(fresh.map(\.id))
+                for payload in timers where !freshIDs.contains(payload.id) {
+                    stopInAppAlertIfRinging(for: payload.id)
+                }
+                timers = fresh
             }
             .onReceive(NotificationCenter.default.publisher(for: NotificationScheduler.permissionDeniedNotification)) { _ in
                 showingNotificationPermissionAlert = true
@@ -235,7 +242,11 @@ struct ContentView: View {
             // Fold any "Repeat" tapped on a fired timer's AlarmKit panel back in before
             // arming — the arm loop below then re-aligns the alarm to the revived endDate.
             for id in AlarmController.reconcileRepeat(into: &timers) {
-                if let revived = timers.first(where: { $0.id == id }) { TimerStore.save(revived) }
+                if let revived = timers.first(where: { $0.id == id }) {
+                    TimerStore.save(revived)
+                    // Other participants of a shared timer never saw this Repeat before.
+                    CloudSyncController.pushUp(revived, action: "repeated")
+                }
             }
             for payload in timers where !payload.isExpired {
                 armAlerts(for: payload)
@@ -300,6 +311,7 @@ struct ContentView: View {
                     if let revived = timers.first(where: { $0.id == id }) {
                         TimerStore.save(revived)
                         armAlerts(for: revived)
+                        CloudSyncController.pushUp(revived, action: "repeated")
                     }
                 }
                 WatchSyncController.pushCurrentState()
@@ -798,10 +810,16 @@ struct ContentView: View {
                     // Still showing the add-confirmation sheet for this timer — upgrade
                     // it to the authoritative cloud state before the user taps Add.
                     incomingPayload = authoritative
-                } else if timers.contains(where: { $0.id == authoritative.id }) {
+                } else if let local = timers.first(where: { $0.id == authoritative.id }) {
                     // Already added (e.g. re-tapping the link after accepting once, or
                     // the sender re-opening their own link) — refresh in place instead of
-                    // resurfacing a sheet that's already been dismissed.
+                    // resurfacing a sheet that's already been dismissed. A change made here
+                    // while the accept was in flight (it couldn't push: no CloudLink yet)
+                    // is newer than the record — keep it and push it now instead.
+                    if authoritative.shouldAdopt(local) {
+                        CloudSyncController.pushUp(local, action: "updated")
+                        return
+                    }
                     TimerStore.save(authoritative)
                     armAlerts(for: authoritative)
                     if let index = timers.firstIndex(where: { $0.id == authoritative.id }) { timers[index] = authoritative }

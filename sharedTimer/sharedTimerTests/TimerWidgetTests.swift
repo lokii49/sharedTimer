@@ -65,7 +65,7 @@ struct TimerWidgetTests {
         let now = Date()
         let start = now.addingTimeInterval(120)
         let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
-        let payload = TimerPayload.composeSequence(label: "Session", phases: phases, loopCount: 1, startDate: start)
+        let payload = TimerPayload.composeSequence(phases: phases, loopCount: 1, startDate: start)
         let entries = TimerWidgetSnapshot.timeline(payload: payload, at: now)
         #expect(entries.map(\.date) == [now, start, start.addingTimeInterval(60), start.addingTimeInterval(90)])
         #expect(entries.map(\.status) == [.scheduled, .running, .running, .finished])
@@ -109,7 +109,7 @@ struct TimerWidgetTests {
     @Test func renderAccessoryStatesForVisualReview() throws {
         let now = Date()
         let running = TimerPayload(id: UUID().uuidString, label: "A long timer name for a study break", endDate: now.addingTimeInterval(150), duration: 300)
-        let scheduled = TimerPayload.composeSequence(label: "Morning session", phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1, startDate: now.addingTimeInterval(120))
+        let scheduled = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1, startDate: now.addingTimeInterval(120))
         let cases: [(String, TimerPayload?)] = [
             ("paused", running.paused(at: now)),
             ("finished", TimerPayload(id: UUID().uuidString, label: "Pasta", endDate: now.addingTimeInterval(-1), duration: 300)),
