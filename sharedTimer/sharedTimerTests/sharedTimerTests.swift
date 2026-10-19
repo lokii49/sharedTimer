@@ -968,7 +968,25 @@ struct sharedTimerTests {
         #expect(snapshot.first?.label == "Rest")
         let data = try JSONEncoder().encode(snapshot)
         let keys = Set(try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]]).flatMap(\.keys))
-        #expect(keys.isSubset(of: ["id", "label", "endDate", "duration", "pausedRemaining", "kind", "alarmEnabled", "vibrationEnabled"]))
+        #expect(keys.isSubset(of: ["id", "label", "endDate", "duration", "pausedRemaining", "extraTime", "kind", "alarmEnabled", "vibrationEnabled"]))
+    }
+
+    @Test func extendedTimerKeepsDrainingInsteadOfSittingFull() throws {
+        let now = Date()
+        let timer = TimerPayload(id: "ext", label: "Tea", endDate: now.addingTimeInterval(240), duration: 300)
+        #expect(abs(timer.progress(at: now) - 0.8) < 0.001)
+        let extended = timer.extended(by: 300)
+        // 540s left of a 600s run, not clamped to full.
+        #expect(abs(extended.progress(at: now) - 0.9) < 0.001)
+        // Pause/resume keep the run; a link carries it; Repeat starts a fresh one.
+        #expect(extended.paused(at: now).resumed(at: now).extraTime == 300)
+        #expect(TimerPayload.from(url: extended.url())?.extraTime == 300)
+        #expect(extended.repeated(at: now).extraTime == 0)
+        // A CloudKit echo (no extraTime) of the same run keeps the stored extends.
+        var echo = extended
+        echo.extraTime = 0
+        #expect(TimerStore.keepingExtraTime(of: extended, in: echo).extraTime == 300)
+        #expect(TimerStore.keepingExtraTime(of: extended, in: extended.repeated(at: now)).extraTime == 0)
     }
 
 }

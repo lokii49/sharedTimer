@@ -28,9 +28,9 @@ struct WatchTimerSnapshot {
     }
     var isRunning: Bool { timer != nil && timer?.pausedRemaining == nil && remaining > 0 }
     var status: String {
-        guard let timer else { return "No Timers" }
-        if remaining <= 0 { return "Done" }
-        return timer.isPaused ? "Paused" : "Remaining"
+        guard let timer else { return String(localized: "No Timers") }
+        if remaining <= 0 { return String(localized: "Done") }
+        return timer.isPaused ? String(localized: "Paused") : String(localized: "Remaining")
     }
     var progress: Double { min(1, remaining / max(1, timer?.duration ?? 1)) }
 

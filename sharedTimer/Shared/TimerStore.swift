@@ -35,7 +35,7 @@ enum TimerStore {
             var all = loadAll()
             let prior = all.first { $0.id == payload.id }
             all.removeAll { $0.id == payload.id }
-            all.append(payload)
+            all.append(Self.keepingExtraTime(of: prior, in: payload))
             persist(all)
             // Any prior "Stop" on this id was about the finish event it stopped — a
             // mutation that moves that finish (repeat, extend past finish, resume) means
@@ -127,6 +127,22 @@ enum TimerStore {
 
     static func isFinishAcknowledged(id: String) -> Bool {
         (defaults?.stringArray(forKey: acknowledgedFinishKey) ?? []).contains(id)
+    }
+
+    /// CloudKit records don't carry `extraTime`, so a pulled copy arrives with 0. When it
+    /// describes the same run as the stored copy (same length and end — this device's
+    /// own change echoing back), keep the stored extends so the ring
+    /// doesn't jump back to full.
+    static func keepingExtraTime(of prior: TimerPayload?, in payload: TimerPayload) -> TimerPayload {
+        guard payload.extraTime == 0, let prior, prior.extraTime > 0, prior.duration == payload.duration,
+              prior.isPaused == payload.isPaused else { return payload }
+        let sameRun = payload.isPaused
+            ? abs((prior.pausedRemaining ?? 0) - (payload.pausedRemaining ?? 0)) < 1
+            : abs(prior.endDate.timeIntervalSince(payload.endDate)) < 1
+        guard sameRun else { return payload }
+        var copy = payload
+        copy.extraTime = prior.extraTime
+        return copy
     }
 
     static func finishMoved(from prior: TimerPayload?, to payload: TimerPayload) -> Bool {

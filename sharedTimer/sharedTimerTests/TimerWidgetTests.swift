@@ -32,7 +32,7 @@ struct TimerWidgetTests {
         #expect(zero.progress == 0)
     }
 
-    @Test func runningRingMatchesDurationAndCapsExtendedProgress() throws {
+    @Test func runningRingMatchesDurationAndKeepsDrainingWhenExtended() throws {
         let now = Date()
         let payload = TimerPayload(id: UUID().uuidString, label: "Tea", endDate: now.addingTimeInterval(60), duration: 120)
         let snapshot = TimerWidgetSnapshot(payload: payload, at: now)
@@ -40,8 +40,10 @@ struct TimerWidgetTests {
         let range = try #require(snapshot.timerInterval)
         #expect(range.lowerBound == now.addingTimeInterval(-60))
         #expect(range.upperBound == payload.endDate)
+        // 240s left of a 300s run (120 + 180 extended), not a full ring.
         let extended = TimerWidgetSnapshot(payload: payload.extended(by: 180), at: now)
-        #expect(extended.progress == 1)
+        #expect(abs(extended.progress - 0.8) < 0.001)
+        #expect(try #require(extended.timerInterval).lowerBound == now.addingTimeInterval(-60))
         let finished = TimerWidgetSnapshot(payload: payload, at: payload.endDate)
         #expect(finished.status == .finished)
         #expect(finished.timerInterval == nil)

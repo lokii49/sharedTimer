@@ -52,7 +52,7 @@ struct TimerWidgetSnapshot {
 
     var timerInterval: ClosedRange<Date>? {
         guard status == .running, let payload, payload.duration.isFinite, payload.duration > 0 else { return nil }
-        return payload.endDate.addingTimeInterval(-payload.duration)...payload.endDate
+        return payload.endDate.addingTimeInterval(-payload.span)...payload.endDate
     }
 
     static func resolve(from payloads: [TimerPayload], selectedID: String?, focusID: String?, at date: Date) -> TimerPayload? {

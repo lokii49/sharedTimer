@@ -23,7 +23,7 @@ struct WatchTimerWidgetView: View {
                  ? (family == .accessoryCircular ? TimeFormat.compactSnapshot(snapshot.remaining, at: snapshot.date) : TimeFormat.snapshot(snapshot.remaining, at: snapshot.date))
                  : TimeFormat.display(snapshot.remaining, at: snapshot.date)).monospacedDigit()
         } else {
-            Text(snapshot.timer == nil ? "—" : "Done")
+            Text(snapshot.timer == nil ? "—" : String(localized: "Done"))
         }
     }
     private func ring(showTime: Bool) -> some View {
@@ -62,16 +62,16 @@ struct WatchTimerWidgetView: View {
             switch family {
             case .accessoryInline:
                 ViewThatFits {
-                    HStack { Image(systemName: symbol); Text(snapshot.timer?.label ?? "Shared Timer"); time }
+                    HStack { Image(systemName: symbol); Text(snapshot.timer?.label ?? String(localized: "Shared Timer")); time }
                     HStack { Image(systemName: symbol); time }
                 }
             case .accessoryRectangular:
                 HStack(spacing: 8) {
                     ring(showTime: false).frame(width: 40, height: 40)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(snapshot.timer?.label ?? "Shared Timer").font(.headline).lineLimit(1)
+                        Text(snapshot.timer?.label ?? String(localized: "Shared Timer")).font(.headline).lineLimit(1)
                         time.font(.title3).lineLimit(1).minimumScaleFactor(0.5)
-                        Text(snapshot.timer == nil ? "Sync timers from iPhone" : snapshot.status)
+                        Text(snapshot.timer == nil ? String(localized: "Sync timers from iPhone") : snapshot.status)
                             .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
@@ -82,7 +82,7 @@ struct WatchTimerWidgetView: View {
         .widgetURL(snapshot.timer.flatMap { WatchTimerLink.url(id: $0.id) })
         .privacySensitive()
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(snapshot.timer?.label ?? "Shared Timer"), \(snapshot.status), \(TimeFormat.display(snapshot.remaining, at: snapshot.date))")
+        .accessibilityLabel(String(localized: "\(snapshot.timer?.label ?? String(localized: "Shared Timer")), \(snapshot.status), \(TimeFormat.display(snapshot.remaining, at: snapshot.date))"))
     }
 }
 

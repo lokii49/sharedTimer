@@ -76,13 +76,14 @@ enum WatchSyncController {
         let endDate: Date
         let duration: TimeInterval
         let pausedRemaining: TimeInterval?
+        let extraTime: TimeInterval
         let kind: TimerKind
         let alarmEnabled: Bool
         let vibrationEnabled: Bool
 
         init(_ payload: TimerPayload) {
             id = payload.id; label = payload.label; endDate = payload.endDate
-            duration = payload.duration; pausedRemaining = payload.pausedRemaining
+            duration = payload.duration; pausedRemaining = payload.pausedRemaining; extraTime = payload.extraTime
             kind = payload.kind; alarmEnabled = payload.alarmEnabled; vibrationEnabled = payload.vibrationEnabled
         }
     }

@@ -97,8 +97,16 @@ struct TimerPayload: Codable, Identifiable {
     /// "whichever phase is running now" with no sequence-awareness of its own.
     var label: String
     var endDate: Date
-    var duration: TimeInterval
+    /// Assigning a new length (a phase change, the next anniversary, an edited
+    /// countdown) starts a fresh run, so the extends counted for the old one go.
+    var duration: TimeInterval { didSet { extraTime = 0 } }
     var pausedRemaining: TimeInterval?
+    /// Time added by Extend since this run started. Progress is measured against
+    /// `duration + extraTime` (`span`), so an extended timer's ring keeps draining
+    /// instead of sitting full until the remaining time drops back under `duration`.
+    /// Stored locally and carried in links (`ext`); not in CloudKit (no schema field),
+    /// so a remotely extended timer falls back to `duration`.
+    var extraTime: TimeInterval = 0
     var kind: TimerKind
     /// When false, finishing raises only a quiet notification (standard sound, no
     /// AlarmKit full-screen ring, no in-app alarm loop) — the compose-sheet "Alarm"
@@ -161,7 +169,7 @@ struct TimerPayload: Codable, Identifiable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, label, endDate, duration, pausedRemaining, kind, alarmEnabled, vibrationEnabled, sequence, scheduledStartDate, updatedAt, recurrence
+        case id, label, endDate, duration, pausedRemaining, extraTime, kind, alarmEnabled, vibrationEnabled, sequence, scheduledStartDate, updatedAt, recurrence
     }
 
     init(from decoder: Decoder) throws {
@@ -171,6 +179,7 @@ struct TimerPayload: Codable, Identifiable {
         endDate = try container.decode(Date.self, forKey: .endDate)
         duration = try container.decode(TimeInterval.self, forKey: .duration)
         pausedRemaining = try container.decodeIfPresent(TimeInterval.self, forKey: .pausedRemaining)
+        extraTime = max(0, try container.decodeIfPresent(TimeInterval.self, forKey: .extraTime) ?? 0)
         // Older shared links/stored timers predate `kind`; treat them as plain timers.
         kind = try container.decodeIfPresent(TimerKind.self, forKey: .kind) ?? .timer
         // Predates the alarm toggle -> keep the old always-alarm behavior.
@@ -238,10 +247,13 @@ struct TimerPayload: Codable, Identifiable {
     }
 
     /// Fraction of the timer remaining, for progress rings. 1 = just started, 0 = done.
+    /// The whole run this progress is measured against: the length plus every extend.
+    var span: TimeInterval { duration + extraTime }
+
     func progress(at date: Date = Date()) -> Double {
-        guard duration > 0 else { return 0 }
+        guard span > 0 else { return 0 }
         let currentRemaining = isPaused ? (pausedRemaining ?? 0) : endDate.timeIntervalSince(date)
-        return min(1, max(0, currentRemaining / duration))
+        return min(1, max(0, currentRemaining / span))
     }
 
     func paused(at date: Date = Date()) -> TimerPayload {
@@ -268,6 +280,7 @@ struct TimerPayload: Codable, Identifiable {
         } else {
             copy.endDate = copy.endDate.addingTimeInterval(interval)
         }
+        copy.extraTime = max(0, copy.extraTime + interval)
         copy.updatedAt = Date()
         return copy
     }
@@ -291,7 +304,7 @@ struct TimerPayload: Codable, Identifiable {
         copy.alarmEnabled = alarmEnabled
         copy.vibrationEnabled = vibrationEnabled
         if kind == .countdown, !isPaused, let targetDate, abs(targetDate.timeIntervalSince(endDate)) >= 1 {
-            let start = min(endDate.addingTimeInterval(-duration), date)
+            let start = min(endDate.addingTimeInterval(-span), date)
             var end = max(targetDate, date)
             if let recurrence {
                 let anchor = AnnualRecurrence(date: targetDate, timeZone: TimeZone(identifier: recurrence.timeZoneID) ?? .current)
@@ -327,6 +340,7 @@ struct TimerPayload: Codable, Identifiable {
         } else {
             copy.endDate = date.addingTimeInterval(duration)
         }
+        copy.extraTime = 0
         copy.pausedRemaining = nil
         // A repeated payload is running now, by definition -- clear any stale scheduled
         // start so it never reads as pending (belt-and-suspenders: nothing currently
@@ -527,6 +541,9 @@ struct TimerPayload: Codable, Identifiable {
         items.append(URLQueryItem(name: "vib", value: vibrationEnabled ? "1" : "0"))
         // Last-change stamp so a re-shared link can update an existing copy — see
         // `shouldAdopt`. Absent on links from before 1.0.4 (decodes as nil = unknown).
+        if extraTime > 0 {
+            items.append(URLQueryItem(name: "ext", value: String(extraTime)))
+        }
         if let updatedAt {
             items.append(URLQueryItem(name: "upd", value: String(updatedAt.timeIntervalSince1970)))
         }
@@ -549,13 +566,19 @@ struct TimerPayload: Codable, Identifiable {
     /// rather than trust the scalars (a hand-edited or pre-1.0.6 link could disagree —
     /// the old phase-0 sequence name, say). An exhausted sequence keeps its scalars:
     /// Cancel deliberately stores a silent snapshot.
+    fileprivate func withExtraTime(_ value: TimeInterval) -> TimerPayload {
+        var copy = self
+        copy.extraTime = value
+        return copy
+    }
+
     func alignedToCurrentPhase() -> TimerPayload {
         guard let sequence, sequence.loopIndex < sequence.loopCount,
               sequence.phases.indices.contains(sequence.phaseIndex) else { return self }
         let phase = sequence.phases[sequence.phaseIndex]
         var copy = self
         copy.label = phase.label
-        copy.duration = phase.duration
+        if copy.duration != phase.duration { copy.duration = phase.duration }
         copy.kind = phase.kind
         copy.alarmEnabled = phase.alarmEnabled
         copy.vibrationEnabled = phase.vibrationEnabled
@@ -604,9 +627,11 @@ struct TimerPayload: Codable, Identifiable {
             // A scheduled sequence starts at phase zero, running (not paused).
             if start! > Date(), (sequence!.loopIndex != 0 || sequence!.phaseIndex != 0 || pausedRemaining != nil) { return nil }
         }
+        let extraTime = items.first(where: { $0.name == "ext" })?.value.flatMap(Double.init)
+            .flatMap { $0.isFinite && $0 >= 0 && $0 <= 1_000_000_000_000 ? $0 : nil } ?? 0
         let updatedAt = items.first(where: { $0.name == "upd" })?.value.flatMap(Double.init).flatMap { $0.isFinite && abs($0) <= 253_402_300_799 ? Date(timeIntervalSince1970: $0) : nil }
         return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled, sequence: sequence, scheduledStartDate: start, updatedAt: updatedAt, recurrence: recurrence)
-            .alignedToCurrentPhase().advancedSequence()
+            .withExtraTime(extraTime).alignedToCurrentPhase().advancedSequence()
     }
 }
 
@@ -647,7 +672,7 @@ enum TimeFormat {
         let m = (total % 3600) / 60
         let s = total % 60
         if days > 0 {
-            return String(format: "%dd %02d:%02d:%02d", days, h, m, s)
+            return String(format: String(localized: "%dd %02d:%02d:%02d", comment: "Days, then hours:minutes:seconds"), days, h, m, s)
         }
         if h > 0 {
             return String(format: "%d:%02d:%02d", h, m, s)
@@ -661,24 +686,24 @@ enum TimeFormat {
         let total = max(0, Int(interval))
         let days = total / 86400
         let h = (total % 86400) / 3600
-        return h > 0 ? "\(days)d \(h)h" : "\(days)d"
+        return h > 0 ? String(localized: "\(days)d \(h)h", comment: "Compact days and hours") : String(localized: "\(days)d", comment: "Compact days")
     }
 
     /// "1y 2mo", "2mo 15d", "21d" — calendar-aware breakdown for far-out countdowns.
     static func calendarBreakdown(_ interval: TimeInterval, at now: Date = Date()) -> String {
         let comps = Calendar.current.dateComponents([.year, .month, .day], from: now, to: now.addingTimeInterval(max(0, interval)))
         let y = comps.year ?? 0, m = comps.month ?? 0, d = max(comps.day ?? 0, 0)
-        if y > 0 { return m > 0 ? "\(y)y \(m)mo" : "\(y)y" }
-        if m > 0 { return d > 0 ? "\(m)mo \(d)d" : "\(m)mo" }
-        return "\(d)d"
+        if y > 0 { return m > 0 ? String(localized: "\(y)y \(m)mo", comment: "Compact years and months") : String(localized: "\(y)y", comment: "Compact years") }
+        if m > 0 { return d > 0 ? String(localized: "\(m)mo \(d)d", comment: "Compact months and days") : String(localized: "\(m)mo", comment: "Compact months") }
+        return String(localized: "\(d)d", comment: "Compact days")
     }
 
     /// Single most significant unit, for ultra-compact slots like the Dynamic Island's compact views.
     static func compactCalendar(_ interval: TimeInterval, at now: Date = Date()) -> String {
         let comps = Calendar.current.dateComponents([.year, .month, .day], from: now, to: now.addingTimeInterval(max(0, interval)))
-        if let y = comps.year, y > 0 { return "\(y)y" }
-        if let m = comps.month, m > 0 { return "\(m)mo" }
-        return "\(max(comps.day ?? 0, 0))d"
+        if let y = comps.year, y > 0 { return String(localized: "\(y)y", comment: "Compact years") }
+        if let m = comps.month, m > 0 { return String(localized: "\(m)mo", comment: "Compact months") }
+        return String(localized: "\(max(comps.day ?? 0, 0))d", comment: "Compact days")
     }
 
     /// Chooser for surfaces that tick live every second (`TimelineView`, in-app): full precision
