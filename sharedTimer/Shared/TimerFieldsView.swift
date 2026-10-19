@@ -32,9 +32,9 @@ struct TimerFieldsView: View {
 
     private let presets: [Double] = [1, 3, 5, 10, 15, 30, 60]
     private let datePresets: [(String, TimeInterval)] = [
-        ("Tomorrow", 86400),
-        ("In a week", 7 * 86400),
-        ("In a month", 30 * 86400)
+        (String(localized: "Tomorrow"), 86400),
+        (String(localized: "In a week"), 7 * 86400),
+        (String(localized: "In a month"), 30 * 86400)
     ]
 
     var body: some View {
@@ -78,9 +78,9 @@ struct TimerFieldsView: View {
     private var timerLengthSection: some View {
         Section {
             HStack(spacing: 0) {
-                wheelColumn(hoursBinding, range: 0...23, unit: "hours")
-                wheelColumn(minutesBinding, range: 0...59, unit: "min")
-                wheelColumn(secondsBinding, range: 0...59, unit: "sec")
+                wheelColumn(hoursBinding, range: 0...23, unit: String(localized: "hours"))
+                wheelColumn(minutesBinding, range: 0...59, unit: String(localized: "min"))
+                wheelColumn(secondsBinding, range: 0...59, unit: String(localized: "sec"))
             }
             .frame(height: 160)
 
@@ -129,15 +129,21 @@ struct TimerFieldsView: View {
     /// countdown ringing when a far-out date finally arrives is exactly the point. The
     /// alarm toggle picks the loud tone; vibration-only (alarm off) plays no audible
     /// sound (a silent asset), same full-screen/lock-screen presence either way.
+    /// Whole sentences per case (not the button name interpolated), so translations
+    /// can name the buttons the way the system alert does.
     private var alarmFootnote: String {
-        let action = yearlyCountdown ? "Next Year" : "Repeat"
-        if alarmEnabled {
-            return "Rings full-screen with Stop and \(action), even when the app is closed or the phone is on silent."
+        switch (alarmEnabled, vibrationEnabled, yearlyCountdown) {
+        case (true, _, false):
+            return String(localized: "Rings full-screen with Stop and Repeat, even when the app is closed or the phone is on silent.")
+        case (true, _, true):
+            return String(localized: "Rings full-screen with Stop and Next Year, even when the app is closed or the phone is on silent.")
+        case (false, true, false):
+            return String(localized: "Buzzes full-screen with Stop and Repeat, no sound, even when the app is closed or the phone is on silent.")
+        case (false, true, true):
+            return String(localized: "Buzzes full-screen with Stop and Next Year, no sound, even when the app is closed or the phone is on silent.")
+        default:
+            return String(localized: "A quiet notification instead — no ringing.")
         }
-        if vibrationEnabled {
-            return "Buzzes full-screen with Stop and \(action), no sound, even when the app is closed or the phone is on silent."
-        }
-        return "A quiet notification instead — no ringing."
     }
 
     // MARK: - Timer wheel (hours / minutes / seconds, derived from `minutes`)

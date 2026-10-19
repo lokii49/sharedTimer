@@ -223,20 +223,9 @@ struct BigCountdownWidgetView: View {
         .padding(isSmall ? 2 : 4)
     }
 
+    /// Same line SkyCard shows (localized there).
     private func footerText(for payload: TimerPayload) -> String {
-        if payload.isPending(), let sequence = payload.sequence, let phaseText = Sky.pendingFirstPhaseText(sequence) {
-            return phaseText
-        }
-        if payload.isPaused {
-            return "held"
-        }
-        if payload.isExpired {
-            return "finished \(payload.endDate.formatted(date: .omitted, time: .shortened))"
-        }
-        if payload.kind == .countdown {
-            return TimeFormat.targetDate(payload.endDate)
-        }
-        return "ends \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+        Sky.endText(for: payload, at: Date())
     }
 
     private var emptyView: some View {
@@ -356,11 +345,7 @@ struct TimerListWidgetView: View {
                 Text(payload.label)
                     .skyLabel(10)
                     .lineLimit(1)
-                Text(payload.isPaused
-                     ? "held"
-                     : (payload.kind == .countdown
-                        ? TimeFormat.targetDate(payload.endDate)
-                        : "ends \(payload.endDate.formatted(date: .omitted, time: .shortened))"))
+                Text(Sky.endText(for: payload, at: Date()))
                     .skyLabel(9.5)
                     .foregroundStyle(.white.opacity(0.8))
                     .lineLimit(1)

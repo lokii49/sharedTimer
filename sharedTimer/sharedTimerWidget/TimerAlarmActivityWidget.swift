@@ -25,7 +25,7 @@ struct TimerAlarmActivityWidget: Widget {
             // any label longer than a few characters (see the "Alarm only cou…" report).
             // Full width to the label, wrapping up to 2 lines, fixes that.
             VStack(alignment: .leading, spacing: 4) {
-                Label(context.attributes.metadata?.label ?? "Timer", systemImage: kind.symbolName)
+                Label(context.attributes.metadata?.label ?? String(localized: "Timer"), systemImage: kind.symbolName)
                     .font(.headline)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
@@ -49,7 +49,7 @@ struct TimerAlarmActivityWidget: Widget {
             let kind = context.attributes.metadata?.kind ?? .timer
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.attributes.metadata?.label ?? "Timer", systemImage: kind.symbolName)
+                    Label(context.attributes.metadata?.label ?? String(localized: "Timer"), systemImage: kind.symbolName)
                         .font(.headline)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)

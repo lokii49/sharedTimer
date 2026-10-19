@@ -99,11 +99,11 @@ enum TimerIntentError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .pastTargetDate: return "That date has already passed — pick one in the future."
-        case .nonPositiveMinutes: return "Enter a finite number of minutes greater than zero."
-        case .timerNotFound: return "That timer is no longer available. Choose another timer."
-        case .timerScheduled: return "That sequence has not started yet. You can change it after it starts."
-        case .timerFinished: return "That timer has finished. Repeat it in the app to start it again."
+        case .pastTargetDate: return String(localized: "That date has already passed — pick one in the future.")
+        case .nonPositiveMinutes: return String(localized: "Enter a finite number of minutes greater than zero.")
+        case .timerNotFound: return String(localized: "That timer is no longer available. Choose another timer.")
+        case .timerScheduled: return String(localized: "That sequence has not started yet. You can change it after it starts.")
+        case .timerFinished: return String(localized: "That timer has finished. Repeat it in the app to start it again.")
         }
     }
 }

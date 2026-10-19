@@ -254,16 +254,16 @@ class MessagesViewController: MSMessagesAppViewController {
             return
         }
         let alert = UIAlertController(
-            title: "What should we call you?",
+            title: String(localized: "What should we call you?"),
             message: String(localized: "Shown to people you share timers with, like \"Sam paused Pasta.\" You can change it any time in Timer's Settings."),
             preferredStyle: .alert
         )
-        alert.addTextField { $0.placeholder = "Your name" }
-        alert.addAction(UIAlertAction(title: "Skip", style: .cancel) { _ in
+        alert.addTextField { $0.placeholder = String(localized: "Your name") }
+        alert.addAction(UIAlertAction(title: String(localized: "Skip"), style: .cancel) { _ in
             DisplayNameStore.declined = true
             completion()
         })
-        alert.addAction(UIAlertAction(title: "Continue", style: .default) { [weak alert] _ in
+        alert.addAction(UIAlertAction(title: String(localized: "Continue"), style: .default) { [weak alert] _ in
             let trimmed = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             if !trimmed.isEmpty { DisplayNameStore.name = trimmed }
             completion()

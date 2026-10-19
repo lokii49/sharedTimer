@@ -116,10 +116,10 @@ struct TimerComposeView: View {
                     .font(.body)
                     .lineLimit(1)
                 Text(timer.isPaused
-                     ? "Paused"
+                     ? String(localized: "Paused")
                      : (timer.kind == .countdown
                         ? TimeFormat.targetDate(timer.endDate)
-                        : "Ends \(timer.endDate.formatted(date: .omitted, time: .shortened))"))
+                        : String(localized: "Ends \(timer.endDate.formatted(date: .omitted, time: .shortened))")))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

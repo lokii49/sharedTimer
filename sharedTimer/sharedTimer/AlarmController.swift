@@ -585,7 +585,7 @@ enum AlarmController {
         } ?? false
         let alert: AlarmPresentation.Alert
         if payload.recurrence != nil {
-            alert = AlarmPresentation.Alert(title: LocalizedStringResource(stringLiteral: payload.label),
+            alert = AlarmPresentation.Alert(title: LocalizedStringResource("\(payload.label)"),
                 secondaryButton: AlarmButton(text: "Next Year", textColor: .white, systemImageName: "calendar.badge.clock"),
                 secondaryButtonBehavior: .custom)
         } else if payload.sequence != nil {
@@ -593,7 +593,7 @@ enum AlarmController {
                 ? AlarmButton(text: "Cancel", textColor: .white, systemImageName: "xmark")
                 : AlarmButton(text: "Next", textColor: .white, systemImageName: "forward.fill")
             alert = AlarmPresentation.Alert(
-                title: LocalizedStringResource(stringLiteral: payload.label),
+                title: LocalizedStringResource("\(payload.label)"),
                 secondaryButton: button,
                 secondaryButtonBehavior: .custom
             )
@@ -603,13 +603,13 @@ enum AlarmController {
             // restart the countdown (for `postAlert` seconds) with no intent of ours.
             let repeatButton = AlarmButton(text: "Repeat", textColor: .white, systemImageName: "repeat")
             alert = AlarmPresentation.Alert(
-                title: LocalizedStringResource(stringLiteral: payload.label),
+                title: LocalizedStringResource("\(payload.label)"),
                 secondaryButton: repeatButton,
                 secondaryButtonBehavior: .countdown
             )
         }
         let countdown = AlarmPresentation.Countdown(
-            title: LocalizedStringResource(stringLiteral: payload.label)
+            title: LocalizedStringResource("\(payload.label)")
         )
         // A Paused presentation is what lets `AlarmManager.pause(id:)` keep the alarm
         // (and its Live Activity, now with a Resume button) alive while the timer is
@@ -618,7 +618,7 @@ enum AlarmController {
         // running any of our code, desyncing TimerStore; our own Live Activity buttons
         // (LiveActivityIntents.swift) drive pause/resume instead.
         let paused = AlarmPresentation.Paused(
-            title: LocalizedStringResource(stringLiteral: payload.label),
+            title: LocalizedStringResource("\(payload.label)"),
             resumeButton: AlarmButton(text: "Resume", textColor: .white, systemImageName: "play.fill")
         )
         let presentation = payload.recurrence != nil ? AlarmPresentation(alert: alert) : AlarmPresentation(alert: alert, countdown: countdown, paused: paused)

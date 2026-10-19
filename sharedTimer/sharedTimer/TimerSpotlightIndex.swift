@@ -127,16 +127,16 @@ final class TimerSpotlightIndex: NSObject, CSSearchableIndexDelegate {
             let exhausted = payload.sequence.map { $0.loopIndex >= $0.loopCount } ?? false
             let remaining = payload.pausedRemaining ?? payload.endDate.timeIntervalSince(date)
             let finished = exhausted || remaining <= 0
-            let type = payload.sequence != nil ? "Sequence" : payload.kind == .countdown ? "Countdown" : "Timer"
+            let type = payload.sequence != nil ? String(localized: "Sequence") : payload.kind == .countdown ? String(localized: "Countdown") : String(localized: "Timer")
             let description: String
             if finished {
-                description = "\(type) · Finished"
+                description = String(localized: "\(type) · Finished")
             } else if payload.isPending(at: date), let start = payload.scheduledStartDate {
-                description = "\(type) · Starts \(start.formatted(date: .abbreviated, time: .shortened))"
+                description = String(localized: "\(type) · Starts \(start.formatted(date: .abbreviated, time: .shortened))")
             } else if payload.isPaused {
-                description = "\(type) · Paused"
+                description = String(localized: "\(type) · Paused")
             } else {
-                description = "\(type) · Ends \(payload.endDate.formatted(date: .abbreviated, time: .shortened))"
+                description = String(localized: "\(type) · Ends \(payload.endDate.formatted(date: .abbreviated, time: .shortened))")
             }
             let expiry: Date
             if payload.isPaused && !finished {

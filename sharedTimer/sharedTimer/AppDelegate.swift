@@ -184,8 +184,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     /// handles the alarm-on case). Neither action takes `.foreground` — both process
     /// silently without opening the app, which is the point.
     private func registerNotificationCategories() {
-        let repeatAction = UNNotificationAction(identifier: "REPEAT_ACTION", title: "Repeat", options: [])
-        let stopAction = UNNotificationAction(identifier: "STOP_ACTION", title: "Stop", options: [])
+        let repeatAction = UNNotificationAction(identifier: "REPEAT_ACTION", title: String(localized: "Repeat"), options: [])
+        let stopAction = UNNotificationAction(identifier: "STOP_ACTION", title: String(localized: "Stop"), options: [])
         let vibrationFinishCategory = UNNotificationCategory(
             identifier: NotificationScheduler.vibrationFinishCategoryID,
             actions: [stopAction, repeatAction],
