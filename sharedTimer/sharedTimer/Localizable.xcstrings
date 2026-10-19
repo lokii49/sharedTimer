@@ -73,16 +73,16 @@
     },
     "%@ created": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已创建"
+            "value": "أنشأه %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ने बनाया"
+            "value": "%@ তৈরি করেছেন"
           }
         },
         "es": {
@@ -91,22 +91,22 @@
             "value": "%@ lo creó"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "أنشأه %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ l’a créé"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ তৈরি করেছেন"
+            "value": "%@ ने बनाया"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ membuat"
           }
         },
         "pt-BR": {
@@ -121,26 +121,26 @@
             "value": "%@: создано"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ membuat"
+            "value": "%@ 已创建"
           }
         }
       }
     },
     "%@ edited": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已编辑"
+            "value": "عدّله %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ने बदला"
+            "value": "%@ সম্পাদনা করেছেন"
           }
         },
         "es": {
@@ -149,22 +149,22 @@
             "value": "%@ lo editó"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "عدّله %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ l’a modifié"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ সম্পাদনা করেছেন"
+            "value": "%@ ने बदला"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ mengedit"
           }
         },
         "pt-BR": {
@@ -179,26 +179,26 @@
             "value": "%@: изменено"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ mengedit"
+            "value": "%@ 已编辑"
           }
         }
       }
     },
     "%@ extended": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已延长"
+            "value": "مدّده %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ने बढ़ाया"
+            "value": "%@ সময় বাড়িয়েছেন"
           }
         },
         "es": {
@@ -207,22 +207,22 @@
             "value": "%@ lo amplió"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "مدّده %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ l’a prolongé"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ সময় বাড়িয়েছেন"
+            "value": "%@ ने बढ़ाया"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ memperpanjang"
           }
         },
         "pt-BR": {
@@ -237,10 +237,10 @@
             "value": "%@: продлено"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ memperpanjang"
+            "value": "%@ 已延长"
           }
         }
       }
@@ -747,16 +747,16 @@
     },
     "%@ paused": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已暂停"
+            "value": "أوقفه %@ مؤقتًا"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ने पॉज़ किया"
+            "value": "%@ বিরতি দিয়েছেন"
           }
         },
         "es": {
@@ -765,22 +765,22 @@
             "value": "%@ lo pausó"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "أوقفه %@ مؤقتًا"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ l’a mis en pause"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ বিরতি দিয়েছেন"
+            "value": "%@ ने पॉज़ किया"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ menjeda"
           }
         },
         "pt-BR": {
@@ -795,10 +795,10 @@
             "value": "%@: пауза"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ menjeda"
+            "value": "%@ 已暂停"
           }
         }
       }
@@ -863,16 +863,16 @@
     },
     "%@ repeated": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已重复"
+            "value": "كرّره %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ने दोहराया"
+            "value": "%@ পুনরাবৃত্তি করেছেন"
           }
         },
         "es": {
@@ -881,22 +881,22 @@
             "value": "%@ lo repitió"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "كرّره %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ l’a répété"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ পুনরাবৃত্তি করেছেন"
+            "value": "%@ ने दोहराया"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ mengulang"
           }
         },
         "pt-BR": {
@@ -911,26 +911,26 @@
             "value": "%@: повтор"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ mengulang"
+            "value": "%@ 已重复"
           }
         }
       }
     },
     "%@ resumed": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已继续"
+            "value": "استأنفه %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ने फिर शुरू किया"
+            "value": "%@ আবার শুরু করেছেন"
           }
         },
         "es": {
@@ -939,22 +939,22 @@
             "value": "%@ lo reanudó"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "استأنفه %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ l’a repris"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ আবার শুরু করেছেন"
+            "value": "%@ ने फिर शुरू किया"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ melanjutkan"
           }
         },
         "pt-BR": {
@@ -969,26 +969,26 @@
             "value": "%@: продолжено"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ melanjutkan"
+            "value": "%@ 已继续"
           }
         }
       }
     },
     "%@ skipped ahead": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已跳到下一阶段"
+            "value": "انتقل %@ إلى المرحلة التالية"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ने अगले चरण पर बढ़ाया"
+            "value": "%@ পরের ধাপে গেছেন"
           }
         },
         "es": {
@@ -997,22 +997,22 @@
             "value": "%@ pasó a la siguiente fase"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "انتقل %@ إلى المرحلة التالية"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ est passé à la phase suivante"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ পরের ধাপে গেছেন"
+            "value": "%@ ने अगले चरण पर बढ़ाया"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ melompat ke fase berikutnya"
           }
         },
         "pt-BR": {
@@ -1027,10 +1027,10 @@
             "value": "%@: следующая фаза"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ melompat ke fase berikutnya"
+            "value": "%@ 已跳到下一阶段"
           }
         }
       }
@@ -1095,16 +1095,16 @@
     },
     "%@ started early": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已提前开始"
+            "value": "بدأه %@ مبكرًا"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ने जल्दी शुरू किया"
+            "value": "%@ আগেই শুরু করেছেন"
           }
         },
         "es": {
@@ -1113,22 +1113,22 @@
             "value": "%@ lo inició antes"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "بدأه %@ مبكرًا"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ l’a démarré plus tôt"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ আগেই শুরু করেছেন"
+            "value": "%@ ने जल्दी शुरू किया"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ memulai lebih awal"
           }
         },
         "pt-BR": {
@@ -1143,26 +1143,26 @@
             "value": "%@: запущено раньше"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ memulai lebih awal"
+            "value": "%@ 已提前开始"
           }
         }
       }
     },
     "%@ stopped": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已停止"
+            "value": "أوقفه %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ने रोका"
+            "value": "%@ থামিয়েছেন"
           }
         },
         "es": {
@@ -1171,22 +1171,22 @@
             "value": "%@ lo detuvo"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "أوقفه %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ l’a arrêté"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ থামিয়েছেন"
+            "value": "%@ ने रोका"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ menghentikan"
           }
         },
         "pt-BR": {
@@ -1201,26 +1201,26 @@
             "value": "%@: остановлено"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ menghentikan"
+            "value": "%@ 已停止"
           }
         }
       }
     },
     "%@ updated": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已更新"
+            "value": "حدّثه %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ ने अपडेट किया"
+            "value": "%@ আপডেট করেছেন"
           }
         },
         "es": {
@@ -1229,22 +1229,22 @@
             "value": "%@ lo actualizó"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "حدّثه %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ l’a mis à jour"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ আপডেট করেছেন"
+            "value": "%@ ने अपडेट किया"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ memperbarui"
           }
         },
         "pt-BR": {
@@ -1259,32 +1259,32 @@
             "value": "%@: обновлено"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ memperbarui"
+            "value": "%@ 已更新"
           }
         }
       }
     },
     "%@ · Ends %@": {
       "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · ينتهي %2$@"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · শেষ হবে %2$@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "new",
             "value": "%1$@ · Ends %2$@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · %2$@ 结束"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · %2$@ पर खत्म"
           }
         },
         "es": {
@@ -1293,22 +1293,22 @@
             "value": "%1$@ · Termina %2$@"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · ينتهي %2$@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ · Fin le %2$@"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ · শেষ হবে %2$@"
+            "value": "%1$@ · %2$@ पर खत्म"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · Berakhir %2$@"
           }
         },
         "pt-BR": {
@@ -1323,26 +1323,26 @@
             "value": "%1$@ · Окончание %2$@"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ · Berakhir %2$@"
+            "value": "%1$@ · %2$@ 结束"
           }
         }
       }
     },
     "%@ · Finished": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · 已结束"
+            "value": "%@ · منتهٍ"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · समाप्त"
+            "value": "%@ · শেষ হয়েছে"
           }
         },
         "es": {
@@ -1351,22 +1351,22 @@
             "value": "%@ · Terminado"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · منتهٍ"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ · Terminé"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · শেষ হয়েছে"
+            "value": "%@ · समाप्त"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Selesai"
           }
         },
         "pt-BR": {
@@ -1381,26 +1381,26 @@
             "value": "%@ · Завершено"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · Selesai"
+            "value": "%@ · 已结束"
           }
         }
       }
     },
     "%@ · Paused": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · 已暂停"
+            "value": "%@ · متوقف مؤقتًا"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · पॉज़ है"
+            "value": "%@ · বিরতিতে"
           }
         },
         "es": {
@@ -1409,22 +1409,22 @@
             "value": "%@ · En pausa"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · متوقف مؤقتًا"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ · En pause"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · বিরতিতে"
+            "value": "%@ · पॉज़ है"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · Dijeda"
           }
         },
         "pt-BR": {
@@ -1439,32 +1439,32 @@
             "value": "%@ · На паузе"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ · Dijeda"
+            "value": "%@ · 已暂停"
           }
         }
       }
     },
     "%@ · Starts %@": {
       "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · يبدأ %2$@"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · শুরু হবে %2$@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "new",
             "value": "%1$@ · Starts %2$@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · %2$@ 开始"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · %2$@ को शुरू"
           }
         },
         "es": {
@@ -1473,22 +1473,22 @@
             "value": "%1$@ · Empieza %2$@"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ · يبدأ %2$@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ · Début le %2$@"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ · শুরু হবে %2$@"
+            "value": "%1$@ · %2$@ को शुरू"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · Mulai %2$@"
           }
         },
         "pt-BR": {
@@ -1503,10 +1503,10 @@
             "value": "%1$@ · Начало %2$@"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ · Mulai %2$@"
+            "value": "%1$@ · %2$@ 开始"
           }
         }
       }
@@ -1760,16 +1760,16 @@
     },
     "%lld watching": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 人在看"
+            "value": "%lld يتابعون"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld देख रहे हैं"
+            "value": "%lld জন দেখছেন"
           }
         },
         "es": {
@@ -1778,22 +1778,22 @@
             "value": "%lld siguiéndolo"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld يتابعون"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "%lld spectateurs"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld জন দেখছেন"
+            "value": "%lld देख रहे हैं"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld menonton"
           }
         },
         "pt-BR": {
@@ -1808,10 +1808,10 @@
             "value": "Следят: %lld"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld menonton"
+            "value": "%lld 人在看"
           }
         }
       }
@@ -2288,16 +2288,16 @@
     },
     "Add a timer in the app": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "在 App 中添加计时器"
+            "value": "أضف مؤقتًا في التطبيق"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "ऐप में टाइमर जोड़ें"
+            "value": "অ্যাপে একটি টাইমার যোগ করুন"
           }
         },
         "es": {
@@ -2306,22 +2306,22 @@
             "value": "Añade un temporizador en la app"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "أضف مؤقتًا في التطبيق"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Ajoutez un minuteur dans l’app"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "অ্যাপে একটি টাইমার যোগ করুন"
+            "value": "ऐप में टाइमर जोड़ें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambahkan timer di app"
           }
         },
         "pt-BR": {
@@ -2336,10 +2336,10 @@
             "value": "Добавьте таймер в приложении"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tambahkan timer di app"
+            "value": "在 App 中添加计时器"
           }
         }
       }
@@ -2822,16 +2822,16 @@
     },
     "Allow Calendar access in Settings to choose an event. You can also enter a date yourself.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "请在“设置”中允许访问日历以选择事件。你也可以自己输入日期。"
+            "value": "اسمح بالوصول إلى التقويم من الإعدادات لاختيار حدث. يمكنك أيضًا إدخال تاريخ بنفسك."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "इवेंट चुनने के लिए सेटिंग्ज़ में कैलेंडर की अनुमति दें। आप खुद भी तारीख डाल सकते हैं।"
+            "value": "ইভেন্ট বেছে নিতে সেটিংসে ক্যালেন্ডার অ্যাক্সেসের অনুমতি দিন। আপনি নিজেও তারিখ লিখতে পারেন।"
           }
         },
         "es": {
@@ -2840,22 +2840,22 @@
             "value": "Permite el acceso al Calendario en Ajustes para elegir un evento. También puedes introducir una fecha tú mismo."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "اسمح بالوصول إلى التقويم من الإعدادات لاختيار حدث. يمكنك أيضًا إدخال تاريخ بنفسك."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Autorisez l’accès à Calendrier dans Réglages pour choisir un événement. Vous pouvez aussi saisir une date vous-même."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "ইভেন্ট বেছে নিতে সেটিংসে ক্যালেন্ডার অ্যাক্সেসের অনুমতি দিন। আপনি নিজেও তারিখ লিখতে পারেন।"
+            "value": "इवेंट चुनने के लिए सेटिंग्ज़ में कैलेंडर की अनुमति दें। आप खुद भी तारीख डाल सकते हैं।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Izinkan akses Kalender di Pengaturan untuk memilih acara. Anda juga bisa memasukkan tanggal sendiri."
           }
         },
         "pt-BR": {
@@ -2870,10 +2870,10 @@
             "value": "Разрешите доступ к Календарю в Настройках, чтобы выбрать событие. Можно также ввести дату вручную."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Izinkan akses Kalender di Pengaturan untuk memilih acara. Anda juga bisa memasukkan tanggal sendiri."
+            "value": "请在“设置”中允许访问日历以选择事件。你也可以自己输入日期。"
           }
         }
       }
@@ -2938,16 +2938,16 @@
     },
     "Buzzes full-screen with Stop and Next Year, no sound, even when the app is closed or the phone is on silent.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "全屏振动，带“停止”和“下一年”按钮，无声音；即使 App 已关闭或手机处于静音状态也会提醒。"
+            "value": "يهتز بملء الشاشة مع «إيقاف» و«السنة التالية»، دون صوت، حتى عندما يكون التطبيق مغلقًا أو الهاتف على الوضع الصامت."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "फ़ुल-स्क्रीन पर वाइब्रेट करता है, रोकें और अगला साल के साथ, बिना आवाज़ के — ऐप बंद हो या फ़ोन साइलेंट पर हो तब भी।"
+            "value": "পূর্ণ স্ক্রিনে কম্পন করে, থামান ও পরের বছর সহ, কোনো শব্দ ছাড়া — অ্যাপ বন্ধ বা ফোন সাইলেন্টে থাকলেও।"
           }
         },
         "es": {
@@ -2956,22 +2956,22 @@
             "value": "Vibra a pantalla completa con Detener y Próximo año, sin sonido, incluso con la app cerrada o el teléfono en silencio."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يهتز بملء الشاشة مع «إيقاف» و«السنة التالية»، دون صوت، حتى عندما يكون التطبيق مغلقًا أو الهاتف على الوضع الصامت."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Vibre en plein écran avec Arrêter et Année suivante, sans son, même app fermée ou téléphone en mode silencieux."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "পূর্ণ স্ক্রিনে কম্পন করে, থামান ও পরের বছর সহ, কোনো শব্দ ছাড়া — অ্যাপ বন্ধ বা ফোন সাইলেন্টে থাকলেও।"
+            "value": "फ़ुल-स्क्रीन पर वाइब्रेट करता है, रोकें और अगला साल के साथ, बिना आवाज़ के — ऐप बंद हो या फ़ोन साइलेंट पर हो तब भी।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bergetar layar penuh dengan Hentikan dan Tahun Depan, tanpa suara, bahkan saat app ditutup atau ponsel dalam mode senyap."
           }
         },
         "pt-BR": {
@@ -2986,26 +2986,26 @@
             "value": "Вибрирует на весь экран с кнопками «Стоп» и «Следующий год», без звука, даже если приложение закрыто или включён беззвучный режим."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bergetar layar penuh dengan Hentikan dan Tahun Depan, tanpa suara, bahkan saat app ditutup atau ponsel dalam mode senyap."
+            "value": "全屏振动，带“停止”和“下一年”按钮，无声音；即使 App 已关闭或手机处于静音状态也会提醒。"
           }
         }
       }
     },
     "Buzzes full-screen with Stop and Repeat, no sound, even when the app is closed or the phone is on silent.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "全屏振动，带“停止”和“重复”按钮，无声音；即使 App 已关闭或手机处于静音状态也会提醒。"
+            "value": "يهتز بملء الشاشة مع «إيقاف» و«تكرار»، دون صوت، حتى عندما يكون التطبيق مغلقًا أو الهاتف على الوضع الصامت."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "फ़ुल-स्क्रीन पर वाइब्रेट करता है, रोकें और दोहराएँ के साथ, बिना आवाज़ के — ऐप बंद हो या फ़ोन साइलेंट पर हो तब भी।"
+            "value": "পূর্ণ স্ক্রিনে কম্পন করে, থামান ও পুনরাবৃত্তি সহ, কোনো শব্দ ছাড়া — অ্যাপ বন্ধ বা ফোন সাইলেন্টে থাকলেও।"
           }
         },
         "es": {
@@ -3014,22 +3014,22 @@
             "value": "Vibra a pantalla completa con Detener y Repetir, sin sonido, incluso con la app cerrada o el teléfono en silencio."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يهتز بملء الشاشة مع «إيقاف» و«تكرار»، دون صوت، حتى عندما يكون التطبيق مغلقًا أو الهاتف على الوضع الصامت."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Vibre en plein écran avec Arrêter et Répéter, sans son, même app fermée ou téléphone en mode silencieux."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "পূর্ণ স্ক্রিনে কম্পন করে, থামান ও পুনরাবৃত্তি সহ, কোনো শব্দ ছাড়া — অ্যাপ বন্ধ বা ফোন সাইলেন্টে থাকলেও।"
+            "value": "फ़ुल-स्क्रीन पर वाइब्रेट करता है, रोकें और दोहराएँ के साथ, बिना आवाज़ के — ऐप बंद हो या फ़ोन साइलेंट पर हो तब भी।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bergetar layar penuh dengan Hentikan dan Ulangi, tanpa suara, bahkan saat app ditutup atau ponsel dalam mode senyap."
           }
         },
         "pt-BR": {
@@ -3044,26 +3044,26 @@
             "value": "Вибрирует на весь экран с кнопками «Стоп» и «Повторить», без звука, даже если приложение закрыто или включён беззвучный режим."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bergetar layar penuh dengan Hentikan dan Ulangi, tanpa suara, bahkan saat app ditutup atau ponsel dalam mode senyap."
+            "value": "全屏振动，带“停止”和“重复”按钮，无声音；即使 App 已关闭或手机处于静音状态也会提醒。"
           }
         }
       }
     },
     "Calendar events couldn’t be loaded. Try again or enter a date yourself.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "无法载入日历事件。请重试或自己输入日期。"
+            "value": "تعذّر تحميل أحداث التقويم. حاول مرة أخرى أو أدخل تاريخًا بنفسك."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "कैलेंडर इवेंट लोड नहीं हो सके। फिर कोशिश करें या खुद तारीख डालें।"
+            "value": "ক্যালেন্ডারের ইভেন্ট লোড করা যায়নি। আবার চেষ্টা করুন বা নিজে তারিখ লিখুন।"
           }
         },
         "es": {
@@ -3072,22 +3072,22 @@
             "value": "No se pudieron cargar los eventos del calendario. Inténtalo de nuevo o introduce una fecha tú mismo."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "تعذّر تحميل أحداث التقويم. حاول مرة أخرى أو أدخل تاريخًا بنفسك."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Impossible de charger les événements du calendrier. Réessayez ou saisissez une date vous-même."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "ক্যালেন্ডারের ইভেন্ট লোড করা যায়নি। আবার চেষ্টা করুন বা নিজে তারিখ লিখুন।"
+            "value": "कैलेंडर इवेंट लोड नहीं हो सके। फिर कोशिश करें या खुद तारीख डालें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acara kalender tidak dapat dimuat. Coba lagi atau masukkan tanggal sendiri."
           }
         },
         "pt-BR": {
@@ -3102,10 +3102,10 @@
             "value": "Не удалось загрузить события календаря. Повторите попытку или введите дату вручную."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Acara kalender tidak dapat dimuat. Coba lagi atau masukkan tanggal sendiri."
+            "value": "无法载入日历事件。请重试或自己输入日期。"
           }
         }
       }
@@ -4388,16 +4388,16 @@
     },
     "Enter a finite number of minutes greater than zero.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "请输入大于零的有效分钟数。"
+            "value": "أدخل عددًا صالحًا من الدقائق أكبر من صفر."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "शून्य से ज़्यादा मिनटों की सही संख्या डालें।"
+            "value": "শূন্যের বেশি সঠিক সংখ্যক মিনিট লিখুন।"
           }
         },
         "es": {
@@ -4406,22 +4406,22 @@
             "value": "Introduce un número de minutos válido mayor que cero."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "أدخل عددًا صالحًا من الدقائق أكبر من صفر."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Saisissez un nombre de minutes valide supérieur à zéro."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "শূন্যের বেশি সঠিক সংখ্যক মিনিট লিখুন।"
+            "value": "शून्य से ज़्यादा मिनटों की सही संख्या डालें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masukkan jumlah menit yang valid dan lebih dari nol."
           }
         },
         "pt-BR": {
@@ -4436,10 +4436,10 @@
             "value": "Введите допустимое число минут больше нуля."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Masukkan jumlah menit yang valid dan lebih dari nol."
+            "value": "请输入大于零的有效分钟数。"
           }
         }
       }
@@ -4794,16 +4794,16 @@
     },
     "Finished %@": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已结束"
+            "value": "انتهى %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ पर समाप्त"
+            "value": "শেষ হয়েছে %@"
           }
         },
         "es": {
@@ -4812,22 +4812,22 @@
             "value": "Terminó a las %@"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "انتهى %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Terminé à %@"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "শেষ হয়েছে %@"
+            "value": "%@ पर समाप्त"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selesai %@"
           }
         },
         "pt-BR": {
@@ -4842,10 +4842,10 @@
             "value": "Завершено в %@"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Selesai %@"
+            "value": "%@ 已结束"
           }
         }
       }
@@ -5316,16 +5316,16 @@
     },
     "In a month": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "一个月后"
+            "value": "بعد شهر"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "एक महीने में"
+            "value": "এক মাস পরে"
           }
         },
         "es": {
@@ -5334,22 +5334,22 @@
             "value": "En un mes"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "بعد شهر"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Dans un mois"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "এক মাস পরে"
+            "value": "एक महीने में"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sebulan lagi"
           }
         },
         "pt-BR": {
@@ -5364,26 +5364,26 @@
             "value": "Через месяц"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sebulan lagi"
+            "value": "一个月后"
           }
         }
       }
     },
     "In a week": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "一周后"
+            "value": "بعد أسبوع"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "एक हफ़्ते में"
+            "value": "এক সপ্তাহ পরে"
           }
         },
         "es": {
@@ -5392,22 +5392,22 @@
             "value": "En una semana"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "بعد أسبوع"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Dans une semaine"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "এক সপ্তাহ পরে"
+            "value": "एक हफ़्ते में"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seminggu lagi"
           }
         },
         "pt-BR": {
@@ -5422,10 +5422,10 @@
             "value": "Через неделю"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seminggu lagi"
+            "value": "一周后"
           }
         }
       }
@@ -6714,16 +6714,16 @@
     },
     "No Timers": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有计时器"
+            "value": "لا توجد مؤقتات"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "कोई टाइमर नहीं"
+            "value": "কোনো টাইমার নেই"
           }
         },
         "es": {
@@ -6732,22 +6732,22 @@
             "value": "Sin temporizadores"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لا توجد مؤقتات"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Aucun minuteur"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "কোনো টাইমার নেই"
+            "value": "कोई टाइमर नहीं"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak Ada Timer"
           }
         },
         "pt-BR": {
@@ -6762,10 +6762,10 @@
             "value": "Нет таймеров"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tidak Ada Timer"
+            "value": "没有计时器"
           }
         }
       }
@@ -6830,16 +6830,16 @@
     },
     "No timers": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有计时器"
+            "value": "لا توجد مؤقتات"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "कोई टाइमर नहीं"
+            "value": "কোনো টাইমার নেই"
           }
         },
         "es": {
@@ -6848,22 +6848,22 @@
             "value": "Sin temporizadores"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لا توجد مؤقتات"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Aucun minuteur"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "কোনো টাইমার নেই"
+            "value": "कोई टाइमर नहीं"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada timer"
           }
         },
         "pt-BR": {
@@ -6878,10 +6878,10 @@
             "value": "Нет таймеров"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tidak ada timer"
+            "value": "没有计时器"
           }
         }
       }
@@ -6946,16 +6946,16 @@
     },
     "No upcoming events in the next year. You can enter a date yourself.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "未来一年内没有日程。你可以自己输入日期。"
+            "value": "لا توجد أحداث قادمة خلال العام المقبل. يمكنك إدخال تاريخ بنفسك."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "अगले साल में कोई आने वाला इवेंट नहीं है। आप खुद तारीख डाल सकते हैं।"
+            "value": "আগামী এক বছরে কোনো ইভেন্ট নেই। আপনি নিজে তারিখ লিখতে পারেন।"
           }
         },
         "es": {
@@ -6964,22 +6964,22 @@
             "value": "No hay eventos en el próximo año. Puedes introducir una fecha tú mismo."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لا توجد أحداث قادمة خلال العام المقبل. يمكنك إدخال تاريخ بنفسك."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Aucun événement dans l’année à venir. Vous pouvez saisir une date vous-même."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "আগামী এক বছরে কোনো ইভেন্ট নেই। আপনি নিজে তারিখ লিখতে পারেন।"
+            "value": "अगले साल में कोई आने वाला इवेंट नहीं है। आप खुद तारीख डाल सकते हैं।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak ada acara dalam setahun ke depan. Anda bisa memasukkan tanggal sendiri."
           }
         },
         "pt-BR": {
@@ -6994,10 +6994,10 @@
             "value": "В ближайший год событий нет. Можно ввести дату вручную."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tidak ada acara dalam setahun ke depan. Anda bisa memasukkan tanggal sendiri."
+            "value": "未来一年内没有日程。你可以自己输入日期。"
           }
         }
       }
@@ -7880,16 +7880,16 @@
     },
     "Paused, %@ remaining": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "已暂停，剩余 %@"
+            "value": "متوقف مؤقتًا، متبقٍ %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "पॉज़ है, %@ बाकी"
+            "value": "বিরতিতে, %@ বাকি"
           }
         },
         "es": {
@@ -7898,22 +7898,22 @@
             "value": "En pausa, quedan %@"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "متوقف مؤقتًا، متبقٍ %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "En pause, il reste %@"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "বিরতিতে, %@ বাকি"
+            "value": "पॉज़ है, %@ बाकी"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dijeda, sisa %@"
           }
         },
         "pt-BR": {
@@ -7928,10 +7928,10 @@
             "value": "На паузе, осталось %@"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dijeda, sisa %@"
+            "value": "已暂停，剩余 %@"
           }
         }
       }
@@ -9690,16 +9690,16 @@
     },
     "Rings full-screen with Stop and Next Year, even when the app is closed or the phone is on silent.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "全屏响铃，带“停止”和“下一年”按钮；即使 App 已关闭或手机处于静音状态也会响铃。"
+            "value": "يرن بملء الشاشة مع «إيقاف» و«السنة التالية»، حتى عندما يكون التطبيق مغلقًا أو الهاتف على الوضع الصامت."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "फ़ुल-स्क्रीन पर बजता है, रोकें और अगला साल के साथ — ऐप बंद हो या फ़ोन साइलेंट पर हो तब भी।"
+            "value": "পূর্ণ স্ক্রিনে বাজে, থামান ও পরের বছর সহ — অ্যাপ বন্ধ বা ফোন সাইলেন্টে থাকলেও।"
           }
         },
         "es": {
@@ -9708,22 +9708,22 @@
             "value": "Suena a pantalla completa con Detener y Próximo año, incluso con la app cerrada o el teléfono en silencio."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يرن بملء الشاشة مع «إيقاف» و«السنة التالية»، حتى عندما يكون التطبيق مغلقًا أو الهاتف على الوضع الصامت."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Sonne en plein écran avec Arrêter et Année suivante, même app fermée ou téléphone en mode silencieux."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "পূর্ণ স্ক্রিনে বাজে, থামান ও পরের বছর সহ — অ্যাপ বন্ধ বা ফোন সাইলেন্টে থাকলেও।"
+            "value": "फ़ुल-स्क्रीन पर बजता है, रोकें और अगला साल के साथ — ऐप बंद हो या फ़ोन साइलेंट पर हो तब भी।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berbunyi layar penuh dengan Hentikan dan Tahun Depan, bahkan saat app ditutup atau ponsel dalam mode senyap."
           }
         },
         "pt-BR": {
@@ -9738,26 +9738,26 @@
             "value": "Звонит на весь экран с кнопками «Стоп» и «Следующий год», даже если приложение закрыто или включён беззвучный режим."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Berbunyi layar penuh dengan Hentikan dan Tahun Depan, bahkan saat app ditutup atau ponsel dalam mode senyap."
+            "value": "全屏响铃，带“停止”和“下一年”按钮；即使 App 已关闭或手机处于静音状态也会响铃。"
           }
         }
       }
     },
     "Rings full-screen with Stop and Repeat, even when the app is closed or the phone is on silent.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "全屏响铃，带“停止”和“重复”按钮；即使 App 已关闭或手机处于静音状态也会响铃。"
+            "value": "يرن بملء الشاشة مع «إيقاف» و«تكرار»، حتى عندما يكون التطبيق مغلقًا أو الهاتف على الوضع الصامت."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "फ़ुल-स्क्रीन पर बजता है, रोकें और दोहराएँ के साथ — ऐप बंद हो या फ़ोन साइलेंट पर हो तब भी।"
+            "value": "পূর্ণ স্ক্রিনে বাজে, থামান ও পুনরাবৃত্তি সহ — অ্যাপ বন্ধ বা ফোন সাইলেন্টে থাকলেও।"
           }
         },
         "es": {
@@ -9766,22 +9766,22 @@
             "value": "Suena a pantalla completa con Detener y Repetir, incluso con la app cerrada o el teléfono en silencio."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يرن بملء الشاشة مع «إيقاف» و«تكرار»، حتى عندما يكون التطبيق مغلقًا أو الهاتف على الوضع الصامت."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Sonne en plein écran avec Arrêter et Répéter, même app fermée ou téléphone en mode silencieux."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "পূর্ণ স্ক্রিনে বাজে, থামান ও পুনরাবৃত্তি সহ — অ্যাপ বন্ধ বা ফোন সাইলেন্টে থাকলেও।"
+            "value": "फ़ुल-स्क्रीन पर बजता है, रोकें और दोहराएँ के साथ — ऐप बंद हो या फ़ोन साइलेंट पर हो तब भी।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berbunyi layar penuh dengan Hentikan dan Ulangi, bahkan saat app ditutup atau ponsel dalam mode senyap."
           }
         },
         "pt-BR": {
@@ -9796,84 +9796,84 @@
             "value": "Звонит на весь экран с кнопками «Стоп» и «Повторить», даже если приложение закрыто или включён беззвучный режим."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Berbunyi layar penuh dengan Hentikan dan Ulangi, bahkan saat app ditutup atau ponsel dalam mode senyap."
+            "value": "全屏响铃，带“停止”和“重复”按钮；即使 App 已关闭或手机处于静音状态也会响铃。"
           }
         }
       }
     },
-    "Rings or buzzes full-screen with Stop and Repeat, even when the app is closed or the phone is on silent.": {
+    "Rings or buzzes full-screen with Stop and Next, even when the app is closed or the phone is on silent.": {
       "localizations": {
-        "ar": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "يرن أو يهتز بملء الشاشة مع زرّي الإيقاف والتكرار، حتى عندما يكون التطبيق مغلقًا أو الهاتف في الوضع الصامت."
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "অ্যাপ বন্ধ থাকলে বা ফোন সাইলেন্টে থাকলেও থামান ও পুনরাবৃত্তি বোতামসহ পূর্ণ স্ক্রিনে বাজে বা কম্পন করে।"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suena o vibra a pantalla completa con Detener y Repetir, incluso con la app cerrada o el iPhone en silencio."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sonne ou vibre en plein écran avec Arrêter et Répéter, même si l’app est fermée ou l’iPhone en mode silencieux."
+            "value": "全屏响铃或振动，并提供“停止”和“下一个”按钮，即使 App 已关闭或手机处于静音模式也有效。"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "ऐप बंद होने या फ़ोन साइलेंट पर होने पर भी, रोकें और दोहराएँ बटन के साथ फ़ुल-स्क्रीन बजता या वाइब्रेट करता है।"
+            "value": "ऐप बंद होने या फ़ोन साइलेंट पर होने पर भी, रोकें और अगला बटन के साथ फ़ुल-स्क्रीन बजता या वाइब्रेट करता है।"
           }
         },
-        "id": {
+        "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Berdering atau bergetar layar penuh dengan Hentikan dan Ulangi, bahkan saat app ditutup atau iPhone dalam mode senyap."
+            "value": "Suena o vibra a pantalla completa con Detener y Siguiente, incluso con la app cerrada o el iPhone en silencio."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يرن أو يهتز بملء الشاشة مع زرّي الإيقاف والتالي، حتى عندما يكون التطبيق مغلقًا أو الهاتف في الوضع الصامت."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonne ou vibre en plein écran avec Arrêter et Suivant, même si l’app est fermée ou l’iPhone en mode silencieux."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "অ্যাপ বন্ধ থাকলে বা ফোন সাইলেন্টে থাকলেও থামান ও পরবর্তী বোতামসহ পূর্ণ স্ক্রিনে বাজে বা কম্পন করে।"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toca ou vibra em tela cheia com Parar e Repetir, mesmo com o app fechado ou o iPhone no silencioso."
+            "value": "Toca ou vibra em tela cheia com Parar e Próxima, mesmo com o app fechado ou o iPhone no silencioso."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Звонит или вибрирует на весь экран с кнопками «Стоп» и «Повторить», даже если приложение закрыто или включен бесшумный режим."
+            "value": "Звонит или вибрирует на весь экран с кнопками «Стоп» и «Далее», даже если приложение закрыто или включен бесшумный режим."
           }
         },
-        "zh-Hans": {
+        "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "全屏响铃或振动，并提供“停止”和“重复”按钮，即使 App 已关闭或手机处于静音模式也有效。"
+            "value": "Berdering atau bergetar layar penuh dengan Hentikan dan Berikutnya, bahkan saat app ditutup atau iPhone dalam mode senyap."
           }
         }
       }
     },
     "Running, ends %@": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "进行中，%@ 结束"
+            "value": "قيد التشغيل، ينتهي %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "चल रहा है, %@ पर खत्म"
+            "value": "চলছে, শেষ হবে %@"
           }
         },
         "es": {
@@ -9882,22 +9882,22 @@
             "value": "En curso, termina %@"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "قيد التشغيل، ينتهي %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "En cours, fin le %@"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "চলছে, শেষ হবে %@"
+            "value": "चल रहा है, %@ पर खत्म"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berjalan, berakhir %@"
           }
         },
         "pt-BR": {
@@ -9912,10 +9912,10 @@
             "value": "Идёт, окончание %@"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Berjalan, berakhir %@"
+            "value": "进行中，%@ 结束"
           }
         }
       }
@@ -10328,16 +10328,16 @@
     },
     "Scheduled to start %@": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "计划于 %@ 开始"
+            "value": "مجدول للبدء %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ को शुरू होना तय"
+            "value": "শুরু হওয়ার কথা %@"
           }
         },
         "es": {
@@ -10346,22 +10346,22 @@
             "value": "Programado para empezar %@"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "مجدول للبدء %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Début prévu le %@"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "শুরু হওয়ার কথা %@"
+            "value": "%@ को शुरू होना तय"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dijadwalkan mulai %@"
           }
         },
         "pt-BR": {
@@ -10376,10 +10376,10 @@
             "value": "Начнётся %@"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dijadwalkan mulai %@"
+            "value": "计划于 %@ 开始"
           }
         }
       }
@@ -10560,16 +10560,16 @@
     },
     "Sequence": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "序列"
+            "value": "تسلسل"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "सीक्वेंस"
+            "value": "সিকোয়েন্স"
           }
         },
         "es": {
@@ -10578,22 +10578,22 @@
             "value": "Secuencia"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "تسلسل"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Séquence"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "সিকোয়েন্স"
+            "value": "सीक्वेंस"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urutan"
           }
         },
         "pt-BR": {
@@ -10608,10 +10608,10 @@
             "value": "Последовательность"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Urutan"
+            "value": "序列"
           }
         }
       }
@@ -11836,16 +11836,16 @@
     },
     "Start %@": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "开始%@"
+            "value": "بدء %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ शुरू करें"
+            "value": "%@ শুরু করুন"
           }
         },
         "es": {
@@ -11854,22 +11854,22 @@
             "value": "Iniciar %@"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "بدء %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Démarrer %@"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ শুরু করুন"
+            "value": "%@ शुरू करें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mulai %@"
           }
         },
         "pt-BR": {
@@ -11884,10 +11884,10 @@
             "value": "Запустить %@"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mulai %@"
+            "value": "开始%@"
           }
         }
       }
@@ -13176,16 +13176,16 @@
     },
     "That date has already passed — pick one in the future.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "该日期已过——请选择未来的日期。"
+            "value": "هذا التاريخ قد مضى — اختر تاريخًا في المستقبل."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "यह तारीख बीत चुकी है — आगे की कोई तारीख चुनें।"
+            "value": "এই তারিখ পেরিয়ে গেছে — ভবিষ্যতের কোনো তারিখ বেছে নিন।"
           }
         },
         "es": {
@@ -13194,22 +13194,22 @@
             "value": "Esa fecha ya pasó: elige una futura."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "هذا التاريخ قد مضى — اختر تاريخًا في المستقبل."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Cette date est déjà passée — choisissez-en une à venir."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "এই তারিখ পেরিয়ে গেছে — ভবিষ্যতের কোনো তারিখ বেছে নিন।"
+            "value": "यह तारीख बीत चुकी है — आगे की कोई तारीख चुनें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tanggal itu sudah lewat — pilih tanggal di masa depan."
           }
         },
         "pt-BR": {
@@ -13224,26 +13224,26 @@
             "value": "Эта дата уже прошла — выберите будущую."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tanggal itu sudah lewat — pilih tanggal di masa depan."
+            "value": "该日期已过——请选择未来的日期。"
           }
         }
       }
     },
     "That sequence has not started yet. You can change it after it starts.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "该序列尚未开始，开始后才能更改。"
+            "value": "لم يبدأ هذا التسلسل بعد. يمكنك تغييره بعد أن يبدأ."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "यह सीक्वेंस अभी शुरू नहीं हुआ है। शुरू होने के बाद आप इसे बदल सकते हैं।"
+            "value": "এই সিকোয়েন্স এখনো শুরু হয়নি। শুরু হওয়ার পরে বদলাতে পারবেন।"
           }
         },
         "es": {
@@ -13252,22 +13252,22 @@
             "value": "Esa secuencia aún no ha empezado. Puedes cambiarla cuando empiece."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لم يبدأ هذا التسلسل بعد. يمكنك تغييره بعد أن يبدأ."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Cette séquence n’a pas encore commencé. Vous pourrez la modifier une fois lancée."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "এই সিকোয়েন্স এখনো শুরু হয়নি। শুরু হওয়ার পরে বদলাতে পারবেন।"
+            "value": "यह सीक्वेंस अभी शुरू नहीं हुआ है। शुरू होने के बाद आप इसे बदल सकते हैं।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urutan itu belum dimulai. Anda bisa mengubahnya setelah dimulai."
           }
         },
         "pt-BR": {
@@ -13282,26 +13282,26 @@
             "value": "Эта последовательность ещё не началась. Её можно изменить после начала."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Urutan itu belum dimulai. Anda bisa mengubahnya setelah dimulai."
+            "value": "该序列尚未开始，开始后才能更改。"
           }
         }
       }
     },
     "That timer has finished. Repeat it in the app to start it again.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "该计时器已结束。请在 App 中重复以重新开始。"
+            "value": "انتهى هذا المؤقت. كرّره في التطبيق لبدئه من جديد."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "यह टाइमर खत्म हो चुका है। फिर से शुरू करने के लिए ऐप में दोहराएँ।"
+            "value": "এই টাইমার শেষ হয়েছে। আবার শুরু করতে অ্যাপে পুনরাবৃত্তি করুন।"
           }
         },
         "es": {
@@ -13310,22 +13310,22 @@
             "value": "Ese temporizador ha terminado. Repítelo en la app para volver a iniciarlo."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "انتهى هذا المؤقت. كرّره في التطبيق لبدئه من جديد."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Ce minuteur est terminé. Répétez-le dans l’app pour le relancer."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "এই টাইমার শেষ হয়েছে। আবার শুরু করতে অ্যাপে পুনরাবৃত্তি করুন।"
+            "value": "यह टाइमर खत्म हो चुका है। फिर से शुरू करने के लिए ऐप में दोहराएँ।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer itu sudah selesai. Ulangi di app untuk memulainya lagi."
           }
         },
         "pt-BR": {
@@ -13340,26 +13340,26 @@
             "value": "Этот таймер завершён. Повторите его в приложении, чтобы запустить снова."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Timer itu sudah selesai. Ulangi di app untuk memulainya lagi."
+            "value": "该计时器已结束。请在 App 中重复以重新开始。"
           }
         }
       }
     },
     "That timer is no longer available. Choose another timer.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "该计时器已不可用，请选择其他计时器。"
+            "value": "هذا المؤقت لم يعد متاحًا. اختر مؤقتًا آخر."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "यह टाइमर अब उपलब्ध नहीं है। कोई दूसरा टाइमर चुनें।"
+            "value": "এই টাইমার আর নেই। অন্য একটি টাইমার বেছে নিন।"
           }
         },
         "es": {
@@ -13368,22 +13368,22 @@
             "value": "Ese temporizador ya no está disponible. Elige otro."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "هذا المؤقت لم يعد متاحًا. اختر مؤقتًا آخر."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Ce minuteur n’est plus disponible. Choisissez-en un autre."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "এই টাইমার আর নেই। অন্য একটি টাইমার বেছে নিন।"
+            "value": "यह टाइमर अब उपलब्ध नहीं है। कोई दूसरा टाइमर चुनें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer itu sudah tidak tersedia. Pilih timer lain."
           }
         },
         "pt-BR": {
@@ -13398,10 +13398,10 @@
             "value": "Этот таймер больше недоступен. Выберите другой."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Timer itu sudah tidak tersedia. Pilih timer lain."
+            "value": "该计时器已不可用，请选择其他计时器。"
           }
         }
       }
@@ -14104,16 +14104,16 @@
     },
     "Tomorrow": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "明天"
+            "value": "غدًا"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "कल"
+            "value": "আগামীকাল"
           }
         },
         "es": {
@@ -14122,22 +14122,22 @@
             "value": "Mañana"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "غدًا"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Demain"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "আগামীকাল"
+            "value": "कल"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Besok"
           }
         },
         "pt-BR": {
@@ -14152,10 +14152,10 @@
             "value": "Завтра"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Besok"
+            "value": "明天"
           }
         }
       }
@@ -15322,16 +15322,16 @@
     },
     "ends at %@": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 结束"
+            "value": "ينتهي عند %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ पर खत्म"
+            "value": "শেষ হবে %@"
           }
         },
         "es": {
@@ -15340,22 +15340,22 @@
             "value": "termina a las %@"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ينتهي عند %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "fin à %@"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "শেষ হবে %@"
+            "value": "%@ पर खत्म"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "berakhir pukul %@"
           }
         },
         "pt-BR": {
@@ -15370,10 +15370,10 @@
             "value": "конец в %@"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "berakhir pukul %@"
+            "value": "%@ 结束"
           }
         }
       }
@@ -15496,16 +15496,16 @@
     },
     "hours": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "小时"
+            "value": "ساعات"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "घंटे"
+            "value": "ঘণ্টা"
           }
         },
         "es": {
@@ -15514,22 +15514,22 @@
             "value": "horas"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ساعات"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "heures"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "ঘণ্টা"
+            "value": "घंटे"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "jam"
           }
         },
         "pt-BR": {
@@ -15544,10 +15544,10 @@
             "value": "ч"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "jam"
+            "value": "小时"
           }
         }
       }
@@ -15612,16 +15612,16 @@
     },
     "min": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "分"
+            "value": "دقيقة"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "मिनट"
+            "value": "মিনিট"
           }
         },
         "es": {
@@ -15630,22 +15630,22 @@
             "value": "min"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "دقيقة"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "min"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "মিনিট"
+            "value": "मिनट"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mnt"
           }
         },
         "pt-BR": {
@@ -15660,26 +15660,26 @@
             "value": "мин"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "mnt"
+            "value": "分"
           }
         }
       }
     },
     "sec": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "秒"
+            "value": "ثانية"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "सेकंड"
+            "value": "সেকেন্ড"
           }
         },
         "es": {
@@ -15688,22 +15688,22 @@
             "value": "s"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ثانية"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "s"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "সেকেন্ড"
+            "value": "सेकंड"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dtk"
           }
         },
         "pt-BR": {
@@ -15718,10 +15718,10 @@
             "value": "с"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "dtk"
+            "value": "秒"
           }
         }
       }

@@ -434,6 +434,11 @@ struct ContentView: View {
             Button("Stop") {
                 alarm.stop()
                 vibration.stop()
+                // Same acknowledgment as the detail screen's Stop. The banner covers every
+                // timer that's ringing, so record it for each finished one.
+                for payload in timers where payload.isExpired {
+                    TimerStore.acknowledgeFinish(id: payload.id)
+                }
             }
             .buttonStyle(.glassPill)
         }

@@ -61,6 +61,16 @@ struct TimerWidgetTests {
         #expect(TimerWidgetSnapshot.resolve(from: [], selectedID: "deleted", focusID: nil, at: now) == nil)
     }
 
+    @Test func scheduledTimelineRefreshesAtMidnightSoTheDayLabelRollsOver() {
+        let now = Date()
+        let start = Calendar.current.date(byAdding: .day, value: 3, to: now)!
+        let payload = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1, startDate: start)
+        let dates = TimerWidgetSnapshot.timeline(payload: payload, at: now).map(\.date)
+        let midnight = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now))!
+        #expect(dates.contains(midnight))
+        #expect(dates.contains(start))
+    }
+
     @Test func timelinePrecomputesPendingStartPhaseChangesAndFinalFinish() throws {
         let now = Date()
         let start = now.addingTimeInterval(120)

@@ -11,6 +11,7 @@ struct TimerClipView: View {
     let payload: TimerPayload
     @State private var current: TimerPayload?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @State private var hasAlarmed = false
     @ObservedObject private var alarm = AlarmPlayer.shared
     @ObservedObject private var vibration = VibrationPlayer.shared
@@ -121,6 +122,14 @@ struct TimerClipView: View {
         .onDisappear {
             alarm.stop()
             vibration.stop()
+        }
+        // The loops can't run in the background anyway; stop them so `isPlaying` and the
+        // Stop button don't linger in a stale "ringing" state (same as the main app).
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                alarm.stop()
+                vibration.stop()
+            }
         }
     }
 

@@ -88,7 +88,17 @@ struct TimerAccessoryWidgetView: View {
         case .finished: Text("Done")
         case .scheduled:
             if let start = snapshot.payload?.scheduledStartDate {
-                Text(start, style: .time)
+                // With the day, like SkyCard and the home-screen widget ("Tomorrow
+                // 7:00 AM"); the small circle only fits the day when it isn't today.
+                if family == .accessoryCircular {
+                    if Calendar.current.isDate(start, inSameDayAs: snapshot.date) {
+                        Text(start, style: .time)
+                    } else {
+                        Text(start.formatted(.dateTime.weekday(.abbreviated)))
+                    }
+                } else {
+                    Text(Sky.pendingStartText(for: start, at: snapshot.date))
+                }
             }
         case .paused:
             Text(family == .accessoryCircular && snapshot.remaining >= 86400

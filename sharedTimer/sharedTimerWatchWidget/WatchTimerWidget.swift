@@ -11,9 +11,14 @@ struct WatchTimerChoice: AppEntity {
 }
 
 struct WatchTimerQuery: EntityQuery {
+    /// A configured timer that's gone still resolves (as a placeholder), so the widget
+    /// keeps its selection and shows empty — dropping it let WidgetKit treat the
+    /// parameter as unset and quietly switch to the next active timer.
     func entities(for identifiers: [String]) async throws -> [WatchTimerChoice] {
-        WatchTimerCache.load().filter { identifiers.contains($0.id) }
-            .map { WatchTimerChoice(id: $0.id, label: $0.label) }
+        let cached = WatchTimerCache.load()
+        return identifiers.map { id in
+            WatchTimerChoice(id: id, label: cached.first { $0.id == id }?.label ?? "Timer")
+        }
     }
     func suggestedEntities() async throws -> [WatchTimerChoice] {
         WatchTimerCache.load().filter { !$0.isFinished }

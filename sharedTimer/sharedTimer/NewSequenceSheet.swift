@@ -285,6 +285,9 @@ struct NewSequenceSheet: View {
                     } label: {
                         Label("Add Phase", systemImage: "plus.circle")
                     }
+                    // Links and CloudKit carry at most this many; a bigger sequence was
+                    // shared as a single-phase timer.
+                    .disabled(draftPhases.count >= TimerSequenceWire.maximumPhases)
                 }
 
                 Section {
@@ -413,6 +416,12 @@ private struct PhaseEditView: View {
         Form {
             Section {
                 TextField("Label", text: $phase.label)
+                    // Same 512-byte limit the share link enforces per label.
+                    .onChange(of: phase.label) { _, label in
+                        var trimmed = label
+                        while trimmed.utf8.count > 512 { trimmed.removeLast() }
+                        if trimmed != label { phase.label = trimmed }
+                    }
 
                 Picker("Look", selection: $phase.kind) {
                     Text("Timer").tag(TimerKind.timer)
@@ -436,7 +445,7 @@ private struct PhaseEditView: View {
                 Text("When this phase ends")
             } footer: {
                 Text(phase.alarmEnabled || phase.vibrationEnabled
-                     ? "Rings or buzzes full-screen with Stop and Repeat, even when the app is closed or the phone is on silent."
+                     ? "Rings or buzzes full-screen with Stop and Next, even when the app is closed or the phone is on silent."
                      : "A quiet notification instead — no ringing.")
             }
         }

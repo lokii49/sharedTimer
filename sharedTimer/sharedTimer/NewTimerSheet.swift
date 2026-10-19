@@ -32,6 +32,16 @@ struct NewTimerSheet: View {
         composedPayload
     }
 
+    /// A 0:00:00 timer or a countdown target already in the past would ring at once
+    /// (compose clamps both to one second). A yearly countdown rolls a past date to
+    /// its next anniversary, so it's always fine.
+    private func canStart(at date: Date) -> Bool {
+        switch kind {
+        case .timer: return minutes * 60 >= 1
+        case .countdown: return repeatsYearly || targetDate > date
+        }
+    }
+
     private var composedPayload: TimerPayload {
         if kind == .countdown && repeatsYearly {
             return TimerPayload.composeAnnual(label: label, targetDate: targetDate, timeZone: countdownTimeZone,
@@ -128,11 +138,17 @@ struct NewTimerSheet: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Start") {
-                        onCreate(composedPayload)
-                        dismiss()
+                    // Re-checked every second: a countdown target can pass while the
+                    // sheet sits open, and starting then made a 1-second countdown.
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Button("Start") {
+                            guard canStart(at: Date()) else { return }
+                            onCreate(composedPayload)
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
+                        .disabled(!canStart(at: context.date))
                     }
-                    .fontWeight(.semibold)
                 }
             }
         }

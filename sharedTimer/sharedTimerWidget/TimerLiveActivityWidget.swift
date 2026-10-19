@@ -22,7 +22,7 @@ struct TimerLiveActivityWidget: Widget {
                         .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    remainingText(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining)
+                    liveActivityRemainingText(liveState(context))
                         .font(.title3.weight(.medium))
                         .monospacedDigit()
                         .minimumScaleFactor(0.6)
@@ -101,7 +101,7 @@ private struct LockScreenTimerView: View {
                     .foregroundStyle(.white.opacity(0.85))
                     .lineLimit(1)
                 Spacer()
-                remainingText(endDate: state.endDate, pausedRemaining: state.pausedRemaining)
+                liveActivityRemainingText(state)
                     .font(.system(size: 30, weight: .light))
                     .monospacedDigit()
                     .minimumScaleFactor(0.6)
@@ -137,6 +137,20 @@ private struct LockScreenTimerView: View {
                 }
             }
         }
+    }
+}
+
+/// The card's big time. Unlike the widgets' `remainingText`, a running countdown under
+/// a week ticks live even past 24h ("30:12:05"): a Live Activity only redraws on an
+/// update or at its stale date, so a static "1d 6h" stayed on screen long after it had
+/// dropped under a day. Further out (or paused) the static string is fine.
+@ViewBuilder
+private func liveActivityRemainingText(_ state: TimerActivityAttributes.ContentState) -> some View {
+    let remaining = state.endDate.timeIntervalSinceNow
+    if state.pausedRemaining == nil && remaining > 0 && remaining < 7 * 86400 {
+        Text(timerInterval: Date.now...state.endDate, countsDown: true)
+    } else {
+        remainingText(endDate: state.endDate, pausedRemaining: state.pausedRemaining)
     }
 }
 

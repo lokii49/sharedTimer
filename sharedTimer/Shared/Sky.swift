@@ -250,10 +250,20 @@ struct SkyCard: View {
                 Text(Sky.pendingSequenceCaption(sequence))
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.6))
+                    // Capped like skyLabel: the card is a fixed 104pt, and an uncapped
+                    // accessibility size wrapped this line into the digits.
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             } else if let caption = payload.sequenceCaption {
                 Text(caption)
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.6))
+                    // Capped like skyLabel: the card is a fixed 104pt, and an uncapped
+                    // accessibility size wrapped this line into the digits.
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
 
             Spacer(minLength: 0)

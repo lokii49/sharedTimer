@@ -32,6 +32,14 @@ class MessagesViewController: MSMessagesAppViewController {
         }
     }
 
+    /// Messages backgrounded or switched away: the foreground loops can't keep running,
+    /// so stop them rather than leave `isPlaying` and the Stop button stale.
+    override func willResignActive(with conversation: MSConversation) {
+        super.willResignActive(with: conversation)
+        AlarmPlayer.shared.stop()
+        VibrationPlayer.shared.stop()
+    }
+
     override func didReceive(_ message: MSMessage, conversation: MSConversation) {
         presentView(for: conversation)
     }
@@ -124,8 +132,8 @@ class MessagesViewController: MSMessagesAppViewController {
     }
 
     private func presentComposeView() {
-        let root = AnyView(TimerComposeView { [weak self] payload, mode in
-            self?.send(payload: payload, mode: mode)
+        let root = AnyView(TimerComposeView { [weak self] payload, mode, isExisting in
+            self?.send(payload: payload, mode: mode, isExisting: isExisting)
         })
         presentRoot(root)
     }
@@ -215,7 +223,7 @@ class MessagesViewController: MSMessagesAppViewController {
     /// own internal ~4s timeout and always calls back with either a share URL or nil;
     /// nil means "send exactly today's plain link," which is what makes the added
     /// network dependency safe rather than a regression.
-    private func send(payload picked: TimerPayload, mode: TimerShareMode) {
+    private func send(payload picked: TimerPayload, mode: TimerShareMode, isExisting: Bool) {
         // A second tap while the share is being prepared (up to ~4s) created a second
         // timer, share and bubble.
         guard let conversation = activeConversation, !isSending else { return }
@@ -227,6 +235,11 @@ class MessagesViewController: MSMessagesAppViewController {
             // alone — re-saving the copy the picker loaded overwrote changes made since,
             // and a notification here doubled up on an AlarmKit alarm the app owns.
             payload = stored.advancedSequence()
+        } else if isExisting {
+            // Deleted (here or on another device) after the picker loaded it — saving the
+            // picker's copy would bring it back.
+            isSending = false
+            return
         } else {
             payload = picked
             TimerStore.save(payload)

@@ -81,14 +81,6 @@ enum LiveActivityController {
         }
     }
 
-    /// Re-pushes every running timer's still-live Activity, resetting its no-update
-    /// budget (iOS ends an activity roughly 8h after its last push) before a long
-    /// countdown's Live Activity ages out. Deliberately calls `update`, not `start`:
-    /// "no matching activity" is indistinguishable here from "the system aged it out"
-    /// vs. "the person swiped it away on the Lock Screen" — recreating in the second
-    /// case would make a dismissed Live Activity reappear on every foreground. Call
-    /// opportunistically (e.g. app foregrounding) — there's no server here to push
-    /// this on a schedule while the app isn't running.
     /// Ends the Live Activity of every finished payload: its final state lingers on
     /// the Lock Screen for a few minutes (so a glance still shows "Finished"), then
     /// the system removes it. Called when the app sees a finish — the live zero
@@ -105,6 +97,14 @@ enum LiveActivityController {
         }
     }
 
+    /// Re-pushes every running timer's still-live Activity, resetting its no-update
+    /// budget (iOS ends an activity roughly 8h after its last push) before a long
+    /// countdown's Live Activity ages out. Deliberately calls `update`, not `start`:
+    /// "no matching activity" is indistinguishable here from "the system aged it out"
+    /// vs. "the person swiped it away on the Lock Screen" — recreating in the second
+    /// case would make a dismissed Live Activity reappear on every foreground. Call
+    /// opportunistically (e.g. app foregrounding) — there's no server here to push
+    /// this on a schedule while the app isn't running.
     static func refreshAll(from payloads: [TimerPayload]) {
         for payload in payloads where !payload.isPaused && !payload.isFinished {
             update(for: payload)
