@@ -19,11 +19,29 @@ enum LiveActivityController {
 
         // An ended activity can linger (dismissal pending) — updating it does nothing,
         // so only reuse one that's still active.
-        if let existing = Activity<TimerActivityAttributes>.activities.first(where: { $0.attributes.timerID == payload.id && $0.activityState == .active }) {
+        if let existing = activeActivity(for: payload.id) {
             Task { await existing.update(content(for: payload)) }
             return
         }
+        request(payload)
+    }
 
+    /// `start`, awaited — for an intent's `perform()`, which the system may tear down
+    /// as soon as it returns (same rule as `AlarmController.rescheduleAwaiting`).
+    static func startAwaiting(for payload: TimerPayload) async {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled, !payload.isPending() else { return }
+        if let existing = activeActivity(for: payload.id) {
+            await existing.update(content(for: payload))
+            return
+        }
+        request(payload)
+    }
+
+    private static func activeActivity(for id: String) -> Activity<TimerActivityAttributes>? {
+        Activity<TimerActivityAttributes>.activities.first { $0.attributes.timerID == id && $0.activityState == .active }
+    }
+
+    private static func request(_ payload: TimerPayload) {
         let attributes = TimerActivityAttributes(timerID: payload.id, label: payload.label, kind: payload.kind)
         do {
             _ = try Activity.request(attributes: attributes, content: content(for: payload))
@@ -40,7 +58,15 @@ enum LiveActivityController {
         }
     }
 
-    /// `update`, awaited — for a background task that may be suspended once it returns.
+    /// `end`, awaited — see `startAwaiting`.
+    static func endAwaiting(id: String) async {
+        for activity in Activity<TimerActivityAttributes>.activities where activity.attributes.timerID == id {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+
+    /// `update`, awaited — for an intent or background task that may be suspended once
+    /// it returns.
     static func updateAwaiting(for payload: TimerPayload) async {
         for activity in Activity<TimerActivityAttributes>.activities where activity.attributes.timerID == payload.id {
             await activity.update(content(for: payload))

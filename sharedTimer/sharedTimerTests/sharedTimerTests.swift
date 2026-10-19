@@ -957,4 +957,18 @@ struct sharedTimerTests {
         #expect(state.current(at: upcoming[0].endDate.addingTimeInterval(1)).label == "Work")
     }
 
+    @Test func watchSnapshotSendsCurrentPhasesOnlyAndSlimFields() throws {
+        let now = Date()
+        var stale = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 600)], loopCount: 1)
+        stale.endDate = now.addingTimeInterval(-5)
+        let pending = TimerPayload.composeSequence(phases: [SequencePhase(label: "Later", duration: 60)], loopCount: 1, startDate: now.addingTimeInterval(3600))
+        let plain = TimerPayload(id: "plain", label: "Tea", duration: 300)
+        let snapshot = WatchSyncController.watchSnapshot([stale, pending, plain], at: now)
+        #expect(snapshot.map(\.id) == [stale.id, "plain"])
+        #expect(snapshot.first?.label == "Rest")
+        let data = try JSONEncoder().encode(snapshot)
+        let keys = Set(try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]]).flatMap(\.keys))
+        #expect(keys.isSubset(of: ["id", "label", "endDate", "duration", "pausedRemaining", "kind", "alarmEnabled", "vibrationEnabled"]))
+    }
+
 }
