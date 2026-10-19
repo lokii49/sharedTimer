@@ -979,16 +979,16 @@
     },
     "%@ sequence": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@序列"
+            "value": "تسلسل %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ सीक्वेंस"
+            "value": "%@ সিকোয়েন্স"
           }
         },
         "es": {
@@ -997,22 +997,22 @@
             "value": "Secuencia %@"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "تسلسل %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Séquence %@"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ সিকোয়েন্স"
+            "value": "%@ सीक्वेंस"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urutan %@"
           }
         },
         "pt-BR": {
@@ -1027,10 +1027,10 @@
             "value": "Последовательность «%@»"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Urutan %@"
+            "value": "%@序列"
           }
         }
       }
@@ -2910,6 +2910,64 @@
           "stringUnit": {
             "state": "translated",
             "value": "序列会依次运行下面的每个阶段，然后整体循环。"
+          }
+        }
+      }
+    },
+    "A shared timer changed.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共享的计时器已更改。"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "शेयर किया गया टाइमर बदला गया।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un temporizador compartido ha cambiado."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تغيّر مؤقت مشترك."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un minuteur partagé a changé."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "একটি শেয়ার করা টাইমার বদলেছে।"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um timer compartilhado mudou."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Общий таймер изменился."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer bersama berubah."
           }
         }
       }

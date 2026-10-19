@@ -34,7 +34,9 @@ import Foundation
 enum CloudSyncController {
     private static let appGroupID = "group.com.lokesh.sharedTimer"
     private static let zoneName = "SharedTimers"
-    private static let subscriptionsRegisteredKey = "cloudSubscriptionsRegistered"
+    /// Versioned: a device that registered the silent-only subscription must save it
+    /// again with the visible alert (v2). A stale "already done" flag would skip that.
+    private static let subscriptionsRegisteredKey = "cloudSubscriptionsRegistered.v2"
     private static let recordType = "Timer"
 
     /// Explicit, not `CKContainer.default()`. `.default()` resolves the container from
@@ -111,6 +113,14 @@ enum CloudSyncController {
             let subscription = CKDatabaseSubscription(subscriptionID: "sharedTimer.\(scope.rawValue)")
             let notificationInfo = CKSubscription.NotificationInfo()
             notificationInfo.shouldSendContentAvailable = true
+            // A visible alert too: iOS delivers it reliably (silent pushes alone are
+            // throttled, delayed, and never reach an app swiped away), and it usually
+            // wakes the app to apply the change. A database subscription can only send
+            // fixed text, so the notification service extension rewrites it ("Sam paused
+            // Pasta") — mutable content lets it. Each device registers its own
+            // subscription, so the text is in that device's language.
+            notificationInfo.alertBody = String(localized: "A shared timer changed.")
+            notificationInfo.shouldSendMutableContent = true
             subscription.notificationInfo = notificationInfo
 
             let operation = CKModifySubscriptionsOperation(subscriptionsToSave: [subscription], subscriptionIDsToDelete: nil)
