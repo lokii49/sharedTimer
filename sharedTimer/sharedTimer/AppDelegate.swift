@@ -115,9 +115,16 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         guard !existing.isPaused, !updated.isPaused,
               existing.duration == updated.duration,
               existing.remaining > 0,
-              delta >= 5 else { return }
+              delta >= 5,
+              // "Next" between two equal-length phases has the same shape.
+              existing.sequence?.phaseIndex == updated.sequence?.phaseIndex,
+              existing.sequence?.loopIndex == updated.sequence?.loopIndex else { return }
 
         let attribution = await Self.attribution(for: updated, timeout: max(0, deadline.timeIntervalSinceNow))
+        // A pause then resume before this push lands also moves endDate forward with
+        // nothing else changed; the record's last action tells them apart. Without it
+        // (timeout, older record) fall back to the shape check above.
+        if let attribution, attribution.action != "extended" { return }
         let who = attribution?.name ?? String(localized: "Someone")
         let content = UNMutableNotificationContent()
         content.title = updated.label

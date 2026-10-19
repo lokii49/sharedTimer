@@ -148,6 +148,10 @@ enum AlarmController {
     }
 
     private static func performReschedule(for payload: TimerPayload) async {
+        // Again inside the queue: the caller's synchronous cancel can run before an
+        // earlier queued job schedules its notification, which then outlived a later
+        // pause or delete.
+        NotificationScheduler.cancel(id: payload.id)
         if payload.recurrence != nil {
             await performAnnualReschedule(for: payload)
             return
@@ -436,7 +440,10 @@ enum AlarmController {
     static func clear(id: String) {
         NotificationScheduler.cancel(id: id)
         TimerStore.setAlarmKitArmed(id: id, false)
-        enqueue(id) { await cancelEveryDerivedAlarm(id: id) }
+        enqueue(id) {
+            NotificationScheduler.cancel(id: id)
+            await cancelEveryDerivedAlarm(id: id)
+        }
     }
 
     /// Awaitable `clear(id:)`, for a caller the system may suspend as soon as it
@@ -444,7 +451,10 @@ enum AlarmController {
     static func clearAwaiting(id: String) async {
         NotificationScheduler.cancel(id: id)
         TimerStore.setAlarmKitArmed(id: id, false)
-        await Serializer.shared.runAndWait(id) { await cancelEveryDerivedAlarm(id: id) }
+        await Serializer.shared.runAndWait(id) {
+            NotificationScheduler.cancel(id: id)
+            await cancelEveryDerivedAlarm(id: id)
+        }
     }
 
     private static func cancelEveryDerivedAlarm(id: String) async {
@@ -461,7 +471,10 @@ enum AlarmController {
     static func clear(_ payload: TimerPayload) {
         NotificationScheduler.cancel(id: payload.id)
         TimerStore.setAlarmKitArmed(id: payload.id, false)
-        enqueue(payload.id) { await cancelAllAlarms(for: payload) }
+        enqueue(payload.id) {
+            NotificationScheduler.cancel(id: payload.id)
+            await cancelAllAlarms(for: payload)
+        }
     }
 
     /// Folds an AlarmKit-side "Repeat" back into the local model: if the user tapped
@@ -675,7 +688,12 @@ enum AlarmController {
     /// alarm as "user tapped the built-in Repeat" and would silently revive the very
     /// sequence this just ended, on next app open.
     static func cancelSequenceAlarms(for payload: TimerPayload) async {
-        await cancelAllAlarms(for: payload)
+        // Queued behind any in-flight reschedule for this id, which could otherwise
+        // re-arm the phase alarms right after this cancel.
+        await Serializer.shared.runAndWait(payload.id) {
+            NotificationScheduler.cancel(id: payload.id)
+            await cancelAllAlarms(for: payload)
+        }
         TimerStore.setAlarmKitArmed(id: payload.id, false)
     }
 

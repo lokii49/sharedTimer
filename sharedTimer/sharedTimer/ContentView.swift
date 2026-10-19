@@ -278,6 +278,7 @@ struct ContentView: View {
             // Re-read TimerStore first — a timer created while backgrounded (e.g. via
             // TimerIntents.swift's Siri intents) writes straight to the App Group and has
             // no CloudLink, so pullCloudChanges alone would never surface it here.
+            let beforeBackground = Dictionary(timers.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             timers = TimerStore.loadAll()
             // Same sequence re-derivation as onAppear, and for the same reason: must
             // run before reconcileRepeat, since a mid-sequence payload sitting
@@ -304,6 +305,14 @@ struct ContentView: View {
                 WatchSyncController.pushCurrentState()
             }
             for payload in timers where payload.recurrence != nil { armAlerts(for: payload) }
+            // A change made while backgrounded by something that can't move AlarmKit (an
+            // extend/pause in Messages, a timer composed there) left AlarmKit at its old
+            // time or unarmed. Re-arm only new or changed payloads that aren't finished — re-arming an unchanged or
+            // ringing one would cancel the alert the person is opening the app from.
+            for payload in timers where payload.recurrence == nil && payload.sequence == nil && !payload.isExpired {
+                if let old = beforeBackground[payload.id], Self.alertShape(old) == Self.alertShape(payload) { continue }
+                armAlerts(for: payload)
+            }
             // An open TimerDetailView holds its own copy; without this it kept showing
             // (and on Pause/+1:00, saving and pushing) the pre-background state.
             NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
@@ -800,6 +809,11 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    /// What the armed alert depends on — a difference means it's out of date.
+    private static func alertShape(_ payload: TimerPayload) -> String {
+        "\(payload.endDate.timeIntervalSince1970)|\(payload.pausedRemaining ?? -1)|\(payload.alarmEnabled)|\(payload.vibrationEnabled)|\(payload.label)"
     }
 
     /// Applies remote changes pulled from CloudKit through the same local mutation

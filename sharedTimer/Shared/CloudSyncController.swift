@@ -215,6 +215,9 @@ enum CloudSyncController {
                         completeOnce(nil)
                         return
                     }
+                    // A participant who left and now shares the timer themselves owns this
+                    // new share; the old "left" mark would make pullChanges drop it.
+                    CloudLinkStore.clearLeft(timerID: payload.id)
                     CloudLinkStore.set(CloudLink(
                         timerID: payload.id,
                         recordName: payload.id,
