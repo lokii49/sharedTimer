@@ -107,11 +107,16 @@ struct NewSequenceSheet: View {
         self._loopCount = State(initialValue: first.defaultLoopCount)
     }
 
-    /// A sequence needs at least one phase (`composeSequence` preconditions on it) and
-    /// a name — an editable list lets the user delete down to empty, so Start (and
-    /// Save) must be gateable rather than crash.
-    private var canCreate: Bool {
-        !draftPhases.isEmpty && !sequenceName.trimmingCharacters(in: .whitespaces).isEmpty
+    /// A sequence needs at least one phase (`composeSequence` preconditions on it) — an
+    /// editable list lets the user delete down to empty, so Start must be gateable
+    /// rather than crash. The name only labels a saved template (a running sequence
+    /// shows its phase names), so only Save requires one.
+    private var canStart: Bool {
+        !draftPhases.isEmpty
+    }
+
+    private var canSave: Bool {
+        canStart && !sequenceName.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     private func seed(for source: SequenceSource) -> SequenceSeed? {
@@ -150,7 +155,7 @@ struct NewSequenceSheet: View {
         draftPhases.enumerated().map { index, draft in
             var phase = draft.phase
             if phase.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                phase.label = "Phase \(index + 1)"
+                phase.label = String(localized: "Phase \(index + 1)")
             }
             return phase
         }
@@ -320,7 +325,7 @@ struct NewSequenceSheet: View {
                             Label("Save as New Sequence", systemImage: "square.and.arrow.down")
                         }
                     }
-                    .disabled(!canCreate)
+                    .disabled(!canSave)
                 } footer: {
                     Text("Save this sequence to select and start it again later without rebuilding it.")
                 }
@@ -346,7 +351,7 @@ struct NewSequenceSheet: View {
                         dismiss()
                     }
                     .fontWeight(.semibold)
-                    .disabled(!canCreate)
+                    .disabled(!canStart)
                 }
             }
         }

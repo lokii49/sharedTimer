@@ -937,4 +937,24 @@ struct sharedTimerTests {
         #expect(annual.hour == 0 && annual.isValid)
     }
 
+    @Test func quietSequenceLiveActivityMovesToTheNextPhaseWhenStale() {
+        let now = Date()
+        let payload = TimerPayload.composeSequence(phases: [
+            SequencePhase(label: "Work", duration: 60, alarmEnabled: false, vibrationEnabled: false),
+            SequencePhase(label: "Rest", duration: 30, alarmEnabled: false, vibrationEnabled: false),
+            SequencePhase(label: "Loud", duration: 30)
+        ], loopCount: 1)
+        let upcoming = LiveActivityController.upcomingQuietPhases(of: payload) ?? []
+        // Stops at the first phase AlarmKit owns.
+        #expect(upcoming.map(\.label) == ["Rest"])
+        let state = TimerActivityAttributes.ContentState(endDate: payload.endDate, pausedRemaining: nil,
+                                                         label: "Work", kind: .timer, upcoming: upcoming)
+        #expect(state.current(at: now).label == "Work")
+        let afterFirst = state.current(at: payload.endDate.addingTimeInterval(1))
+        #expect(afterFirst.label == "Rest")
+        #expect(afterFirst.endDate == upcoming[0].endDate)
+        // Past every carried phase: unchanged, so the card reads Finished.
+        #expect(state.current(at: upcoming[0].endDate.addingTimeInterval(1)).label == "Work")
+    }
+
 }

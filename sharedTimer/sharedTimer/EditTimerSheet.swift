@@ -38,6 +38,19 @@ struct EditTimerSheet: View {
                         targetDate: kind == .countdown ? targetDate : nil)
     }
 
+    /// What Save writes: the fields this sheet actually changed, applied to the newest
+    /// stored copy rather than the one it opened with — a pause, extend or rename that
+    /// landed meanwhile (Live Activity, Watch, CloudKit) would otherwise be overwritten.
+    private func editedLatest() -> TimerPayload {
+        let latest = (TimerStore.loadAll().first { $0.id == original.id } ?? original).advancedSequence()
+        let movedTarget = kind == .countdown && abs(targetDate.timeIntervalSince(original.endDate)) >= 1
+        return latest.edited(
+            label: label != original.label ? label : latest.label,
+            alarmEnabled: alarmEnabled != original.alarmEnabled ? alarmEnabled : latest.alarmEnabled,
+            vibrationEnabled: vibrationEnabled != original.vibrationEnabled ? vibrationEnabled : latest.vibrationEnabled,
+            targetDate: movedTarget ? targetDate : nil)
+    }
+
     /// `edited` always restamps `updatedAt`, so compare the fields an edit can change.
     private var hasChanges: Bool {
         let next = edited
@@ -85,7 +98,7 @@ struct EditTimerSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        onSave(edited)
+                        onSave(editedLatest())
                         dismiss()
                     }
                     .fontWeight(.semibold)

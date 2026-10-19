@@ -215,20 +215,35 @@ class MessagesViewController: MSMessagesAppViewController {
     /// own internal ~4s timeout and always calls back with either a share URL or nil;
     /// nil means "send exactly today's plain link," which is what makes the added
     /// network dependency safe rather than a regression.
-    private func send(payload: TimerPayload, mode: TimerShareMode) {
-        guard let conversation = activeConversation else { return }
+    private func send(payload picked: TimerPayload, mode: TimerShareMode) {
+        // A second tap while the share is being prepared (up to ~4s) created a second
+        // timer, share and bubble.
+        guard let conversation = activeConversation, !isSending else { return }
+        isSending = true
 
-        TimerStore.save(payload)
-        NotificationScheduler.scheduleAlert(for: payload)
+        let payload: TimerPayload
+        if let stored = TimerStore.loadAll().first(where: { $0.id == picked.id }) {
+            // Re-sharing an existing timer: send its newest state, and leave its alerts
+            // alone — re-saving the copy the picker loaded overwrote changes made since,
+            // and a notification here doubled up on an AlarmKit alarm the app owns.
+            payload = stored.advancedSequence()
+        } else {
+            payload = picked
+            TimerStore.save(payload)
+            NotificationScheduler.scheduleAlert(for: payload)
+        }
 
         promptForDisplayNameIfNeeded {
             CloudSyncController.createShare(for: payload) { [weak self] shareURL in
                 DispatchQueue.main.async {
+                    self?.isSending = false
                     self?.deliver(payload: payload, mode: mode, shareURL: shareURL, conversation: conversation)
                 }
             }
         }
     }
+
+    private var isSending = false
 
     /// One-time prompt for DisplayNameStore.name — see DisplayNameStore.swift. Skipping
     /// (Skip, or dismissing) just falls back to "Someone" in attribution; nothing here
