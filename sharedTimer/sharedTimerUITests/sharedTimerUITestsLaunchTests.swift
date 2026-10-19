@@ -9,8 +9,11 @@ import XCTest
 
 final class sharedTimerUITestsLaunchTests: XCTestCase {
 
+    // Once, not per language × appearance: that was several hundred launches per run
+    // (10+ minutes, on every CI push). Localized and right-to-left layouts have their
+    // own screenshot test (testRightToLeftLayoutScreenshots).
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
-        true
+        false
     }
 
     override func setUpWithError() throws {

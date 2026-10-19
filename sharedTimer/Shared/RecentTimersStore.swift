@@ -30,9 +30,9 @@ struct RecentTimer: Codable, Hashable, Identifiable {
     static func lengthText(_ duration: TimeInterval) -> String {
         let total = max(1, Int(duration.rounded()))
         let h = total / 3600, m = (total % 3600) / 60, s = total % 60
-        if h > 0 { return m > 0 ? "\(h)h \(m)m" : "\(h)h" }
-        if m > 0 { return s > 0 ? "\(m)m \(s)s" : "\(m)m" }
-        return "\(s)s"
+        if h > 0 { return m > 0 ? String(localized: "\(h)h \(m)m", comment: "Compact hours and minutes") : String(localized: "\(h)h", comment: "Compact hours") }
+        if m > 0 { return s > 0 ? String(localized: "\(m)m \(s)s", comment: "Compact minutes and seconds") : String(localized: "\(m)m", comment: "Compact minutes") }
+        return String(localized: "\(s)s", comment: "Compact seconds")
     }
 
     init(label: String, duration: TimeInterval, alarmEnabled: Bool, vibrationEnabled: Bool) {
@@ -100,7 +100,7 @@ enum RecentTimersStore {
         defaults?.set(true, forKey: seededKey)
         let started = payloads
             .filter { $0.kind == .timer && $0.sequence == nil }
-            .sorted { $0.endDate.addingTimeInterval(-$0.duration) < $1.endDate.addingTimeInterval(-$1.duration) }
+            .sorted { $0.endDate.addingTimeInterval(-$0.span) < $1.endDate.addingTimeInterval(-$1.span) }
         for payload in started {
             record(payload)  // oldest first, so the newest ends up at the front
         }

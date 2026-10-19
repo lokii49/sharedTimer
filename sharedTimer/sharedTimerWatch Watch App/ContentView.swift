@@ -62,7 +62,7 @@ struct ContentView: View {
                 .font(.headline)
                 .lineLimit(1)
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                Text(payload.isPaused ? "Paused" : TimeFormat.display(payload.remaining, at: context.date))
+                Text(payload.isPaused ? String(localized: "Paused") : TimeFormat.display(payload.remaining, at: context.date))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
@@ -97,7 +97,7 @@ private struct TimerDetailView: View {
                     .font(.headline)
                     .lineLimit(1)
 
-                Text(payload.isPaused ? "Paused" : TimeFormat.display(remaining, at: context.date))
+                Text(payload.isPaused ? String(localized: "Paused") : TimeFormat.display(remaining, at: context.date))
                     .font(.system(size: 34, weight: .semibold))
                     .monospacedDigit()
                     .minimumScaleFactor(0.5)
@@ -105,7 +105,7 @@ private struct TimerDetailView: View {
 
                 if !done {
                     HStack(spacing: 8) {
-                        Button(payload.isPaused ? "Resume" : "Pause") {
+                        Button(payload.isPaused ? String(localized: "Resume") : String(localized: "Pause")) {
                             sync.send(id: payload.id, op: payload.isPaused ? "resume" : "pause")
                         }
                         Button("+1:00") {
@@ -113,6 +113,9 @@ private struct TimerDetailView: View {
                         }
                     }
                     .buttonStyle(.bordered)
+                    // Shared with the phone as view only: same as the phone, shown but
+                    // disabled (the phone would refuse the change anyway).
+                    .disabled(payload.readOnly)
                 }
             }
         }

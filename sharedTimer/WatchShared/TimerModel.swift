@@ -22,6 +22,11 @@ struct TimerPayload: Codable, Identifiable {
     var endDate: Date
     let duration: TimeInterval
     var pausedRemaining: TimeInterval?
+    /// Time added by Extend since this run started (phone's `TimerPayload.extraTime`);
+    /// progress is measured against `duration + extraTime`.
+    var extraTime: TimeInterval = 0
+    /// Shared with the phone as view only (phone's `TimerStore.isReadOnly`).
+    var readOnly: Bool = false
     let kind: TimerKind
     /// When false, finishing raises only a quiet notification (standard sound, no
     /// AlarmKit full-screen ring, no in-app alarm loop) — the compose-sheet "Alarm"
@@ -57,7 +62,7 @@ struct TimerPayload: Codable, Identifiable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, label, endDate, duration, pausedRemaining, kind, alarmEnabled, vibrationEnabled
+        case id, label, endDate, duration, pausedRemaining, extraTime, readOnly, kind, alarmEnabled, vibrationEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -67,6 +72,8 @@ struct TimerPayload: Codable, Identifiable {
         endDate = try container.decode(Date.self, forKey: .endDate)
         duration = try container.decode(TimeInterval.self, forKey: .duration)
         pausedRemaining = try container.decodeIfPresent(TimeInterval.self, forKey: .pausedRemaining)
+        extraTime = max(0, try container.decodeIfPresent(TimeInterval.self, forKey: .extraTime) ?? 0)
+        readOnly = try container.decodeIfPresent(Bool.self, forKey: .readOnly) ?? false
         // Older shared links/stored timers predate `kind`; treat them as plain timers.
         kind = try container.decodeIfPresent(TimerKind.self, forKey: .kind) ?? .timer
         // Predates the alarm toggle -> keep the old always-alarm behavior.
@@ -106,9 +113,10 @@ struct TimerPayload: Codable, Identifiable {
 
     /// Fraction of the timer remaining, for progress rings. 1 = just started, 0 = done.
     func progress(at date: Date = Date()) -> Double {
-        guard duration > 0 else { return 0 }
+        let span = duration + extraTime
+        guard span > 0 else { return 0 }
         let currentRemaining = isPaused ? (pausedRemaining ?? 0) : endDate.timeIntervalSince(date)
-        return min(1, max(0, currentRemaining / duration))
+        return min(1, max(0, currentRemaining / span))
     }
 
     func paused(at date: Date = Date()) -> TimerPayload {
@@ -133,6 +141,7 @@ struct TimerPayload: Codable, Identifiable {
         } else {
             copy.endDate = copy.endDate.addingTimeInterval(interval)
         }
+        copy.extraTime = max(0, copy.extraTime + interval)
         return copy
     }
 
@@ -142,6 +151,7 @@ struct TimerPayload: Codable, Identifiable {
         var copy = self
         copy.endDate = date.addingTimeInterval(duration)
         copy.pausedRemaining = nil
+        copy.extraTime = 0
         return copy
     }
 
@@ -171,7 +181,7 @@ enum TimeFormat {
         let m = (total % 3600) / 60
         let s = total % 60
         if days > 0 {
-            return String(format: "%dd %02d:%02d:%02d", days, h, m, s)
+            return String(format: String(localized: "%dd %02d:%02d:%02d", comment: "Days, then hours:minutes:seconds"), days, h, m, s)
         }
         if h > 0 {
             return String(format: "%d:%02d:%02d", h, m, s)
@@ -185,24 +195,24 @@ enum TimeFormat {
         let total = max(0, Int(interval))
         let days = total / 86400
         let h = (total % 86400) / 3600
-        return h > 0 ? "\(days)d \(h)h" : "\(days)d"
+        return h > 0 ? String(localized: "\(days)d \(h)h", comment: "Compact days and hours") : String(localized: "\(days)d", comment: "Compact days")
     }
 
     /// "1y 2mo", "2mo 15d", "21d" — calendar-aware breakdown for far-out countdowns.
     static func calendarBreakdown(_ interval: TimeInterval, at now: Date = Date()) -> String {
         let comps = Calendar.current.dateComponents([.year, .month, .day], from: now, to: now.addingTimeInterval(max(0, interval)))
         let y = comps.year ?? 0, m = comps.month ?? 0, d = max(comps.day ?? 0, 0)
-        if y > 0 { return m > 0 ? "\(y)y \(m)mo" : "\(y)y" }
-        if m > 0 { return d > 0 ? "\(m)mo \(d)d" : "\(m)mo" }
-        return "\(d)d"
+        if y > 0 { return m > 0 ? String(localized: "\(y)y \(m)mo", comment: "Compact years and months") : String(localized: "\(y)y", comment: "Compact years") }
+        if m > 0 { return d > 0 ? String(localized: "\(m)mo \(d)d", comment: "Compact months and days") : String(localized: "\(m)mo", comment: "Compact months") }
+        return String(localized: "\(d)d", comment: "Compact days")
     }
 
     /// Single most significant unit, for ultra-compact slots like the Dynamic Island's compact views.
     static func compactCalendar(_ interval: TimeInterval, at now: Date = Date()) -> String {
         let comps = Calendar.current.dateComponents([.year, .month, .day], from: now, to: now.addingTimeInterval(max(0, interval)))
-        if let y = comps.year, y > 0 { return "\(y)y" }
-        if let m = comps.month, m > 0 { return "\(m)mo" }
-        return "\(max(comps.day ?? 0, 0))d"
+        if let y = comps.year, y > 0 { return String(localized: "\(y)y", comment: "Compact years") }
+        if let m = comps.month, m > 0 { return String(localized: "\(m)mo", comment: "Compact months") }
+        return String(localized: "\(max(comps.day ?? 0, 0))d", comment: "Compact days")
     }
 
     /// Chooser for surfaces that tick live every second (`TimelineView`, in-app): full precision

@@ -18,6 +18,7 @@ enum TimerStore {
     private static let key = "sharedTimers"
     private static let acknowledgedFinishKey = "sharedTimerAcknowledgedFinishIDs"
     private static let alarmKitArmedKey = "sharedTimerAlarmKitArmedIDs"
+    private static let readOnlyKey = "sharedTimerReadOnlyIDs"
     private static let widgetFocusKey = "sharedTimerWidgetFocusID"
 
     private static var defaults: UserDefaults? {
@@ -35,7 +36,7 @@ enum TimerStore {
             var all = loadAll()
             let prior = all.first { $0.id == payload.id }
             all.removeAll { $0.id == payload.id }
-            all.append(payload)
+            all.append(Self.keepingExtraTime(of: prior, in: payload))
             persist(all)
             // Any prior "Stop" on this id was about the finish event it stopped — a
             // mutation that moves that finish (repeat, extend past finish, resume) means
@@ -56,6 +57,7 @@ enum TimerStore {
             persist(all)
             clearAcknowledgedFinish(id: id)
             updateIDSet(alarmKitArmedKey, id: id, member: false)
+            updateIDSet(readOnlyKey, id: id, member: false)
         }
     }
 
@@ -116,6 +118,22 @@ enum TimerStore {
         (defaults?.stringArray(forKey: alarmKitArmedKey) ?? []).contains(id)
     }
 
+    /// Shared with this device as "view only" (the owner's choice in Manage Sharing,
+    /// enforced by CloudKit's server). Every mutation entry point — app, Messages, Siri,
+    /// Live Activity/widget buttons, Watch relay, notification actions — checks this and
+    /// offers only silence/remove. In TimerStore, not CloudLink, so the widget (which
+    /// can't see CloudLink) can hide its buttons too. Written by CloudSyncController.
+    static func setReadOnly(id: String, _ readOnly: Bool) {
+        guard isReadOnly(id: id) != readOnly else { return }
+        withWriteLock { updateIDSet(readOnlyKey, id: id, member: readOnly) }
+        // The widgets show or hide their buttons by this; they only re-read when told.
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    static func isReadOnly(id: String) -> Bool {
+        (defaults?.stringArray(forKey: readOnlyKey) ?? []).contains(id)
+    }
+
     /// "Stop" tapped on the vibration-only finish notification (see AppDelegate's
     /// `UNUserNotificationCenterDelegate`) — there's nothing actively buzzing in the
     /// background to interrupt (`VibrationPlayer` is foreground-only), so "Stop" means
@@ -127,6 +145,22 @@ enum TimerStore {
 
     static func isFinishAcknowledged(id: String) -> Bool {
         (defaults?.stringArray(forKey: acknowledgedFinishKey) ?? []).contains(id)
+    }
+
+    /// CloudKit records don't carry `extraTime`, so a pulled copy arrives with 0. When it
+    /// describes the same run as the stored copy (same length and end — this device's
+    /// own change echoing back), keep the stored extends so the ring
+    /// doesn't jump back to full.
+    static func keepingExtraTime(of prior: TimerPayload?, in payload: TimerPayload) -> TimerPayload {
+        guard payload.extraTime == 0, let prior, prior.extraTime > 0, prior.duration == payload.duration,
+              prior.isPaused == payload.isPaused else { return payload }
+        let sameRun = payload.isPaused
+            ? abs((prior.pausedRemaining ?? 0) - (payload.pausedRemaining ?? 0)) < 1
+            : abs(prior.endDate.timeIntervalSince(payload.endDate)) < 1
+        guard sameRun else { return payload }
+        var copy = payload
+        copy.extraTime = prior.extraTime
+        return copy
     }
 
     static func finishMoved(from prior: TimerPayload?, to payload: TimerPayload) -> Bool {

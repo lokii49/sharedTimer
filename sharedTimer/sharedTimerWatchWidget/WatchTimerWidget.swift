@@ -17,7 +17,7 @@ struct WatchTimerQuery: EntityQuery {
     func entities(for identifiers: [String]) async throws -> [WatchTimerChoice] {
         let cached = WatchTimerCache.load()
         return identifiers.map { id in
-            WatchTimerChoice(id: id, label: cached.first { $0.id == id }?.label ?? "Timer")
+            WatchTimerChoice(id: id, label: cached.first { $0.id == id }?.label ?? String(localized: "Timer"))
         }
     }
     func suggestedEntities() async throws -> [WatchTimerChoice] {

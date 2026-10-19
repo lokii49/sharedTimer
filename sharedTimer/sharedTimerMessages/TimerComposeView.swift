@@ -114,7 +114,7 @@ struct TimerComposeView: View {
     /// The live preview of the sky the composed timer will get.
     private var previewPayload: TimerPayload {
         pickedExisting ?? TimerPayload.compose(
-            label: label.isEmpty ? (kind == .timer ? "Timer" : "Countdown") : label,
+            label: label.isEmpty ? (kind == .timer ? String(localized: "Timer") : String(localized: "Countdown")) : label,
             kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
     }
 

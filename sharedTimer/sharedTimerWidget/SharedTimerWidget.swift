@@ -367,7 +367,7 @@ struct TimerListWidgetView: View {
                 .frame(maxWidth: 92, alignment: .trailing)
 
             // Pause/Resume only — no Stop on the list, so it can't be mis-tapped.
-            if !payload.isPending() {
+            if !payload.isPending() && !TimerStore.isReadOnly(id: payload.id) {
                 PauseToggle(timerID: payload.id, isPaused: payload.isPaused, size: 28)
             }
         }

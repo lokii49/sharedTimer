@@ -11,9 +11,11 @@
 		470A5011302889C1006EB758 /* sharedTimerMessages.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 470A5002302889C0006EB758 /* sharedTimerMessages.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		470A5047302896F1006EB758 /* sharedTimerClip.app in Embed App Clips */ = {isa = PBXBuildFile; fileRef = 470A5023302896F0006EB758 /* sharedTimerClip.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4710160F30387B490049528C /* sharedTimerWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 471015EF30387B480049528C /* sharedTimerWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		5419552906E9FF2FCEB30564 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 718A4F4EB3AC6D3F0FD5741F /* Foundation.framework */; };
 		7D33730293652328D07E6570 /* sharedTimerWatchWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B45CC4A60CAB51E752CD64E9 /* sharedTimerWatchWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		951AF4068EEDFE4310D6F8E8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B888AA9D5C1A70B96DBB9D31 /* Foundation.framework */; };
 		AB00000D0000000000000000 /* sharedTimerWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB0000010000000000000000 /* sharedTimerWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AF4E61087D2995D0C53BC2CA /* sharedTimerNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B550A90D2E9086BEA5E7F8FE /* sharedTimerNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -87,6 +89,13 @@
 			remoteGlobalIDString = E233EB460D0D38176B553ED8;
 			remoteInfo = sharedTimerWatchWidget;
 		};
+		730A26624730A0D4E5CAD733 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 470A4FCA30288982006EB758 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9245414F74508D055B69709F;
+			remoteInfo = sharedTimerNotificationService;
+		};
 		AB00000B0000000000000000 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 470A4FCA30288982006EB758 /* Project object */;
@@ -116,6 +125,7 @@
 			files = (
 				470A5011302889C1006EB758 /* sharedTimerMessages.appex in Embed Foundation Extensions */,
 				AB00000D0000000000000000 /* sharedTimerWidget.appex in Embed Foundation Extensions */,
+				AF4E61087D2995D0C53BC2CA /* sharedTimerNotificationService.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -156,12 +166,21 @@
 		471015EF30387B480049528C /* sharedTimerWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "sharedTimerWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		471015FB30387B490049528C /* sharedTimerWatch Watch AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "sharedTimerWatch Watch AppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4710160530387B490049528C /* sharedTimerWatch Watch AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "sharedTimerWatch Watch AppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		718A4F4EB3AC6D3F0FD5741F /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		AB0000010000000000000000 /* sharedTimerWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = sharedTimerWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B45CC4A60CAB51E752CD64E9 /* sharedTimerWatchWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = sharedTimerWatchWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B550A90D2E9086BEA5E7F8FE /* sharedTimerNotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = sharedTimerNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B888AA9D5C1A70B96DBB9D31 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		3FC2BB28AEE1ECF084A7DB19 /* Exceptions for "sharedTimerNotificationService" folder in "sharedTimerNotificationService" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 9245414F74508D055B69709F /* sharedTimerNotificationService */;
+		};
 		470A5012302889C1006EB758 /* Exceptions for "sharedTimerMessages" folder in "sharedTimerMessages" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -241,6 +260,23 @@
 			);
 			target = AB0000040000000000000000 /* sharedTimerWidget */;
 		};
+		FB11BF41E0772AC7C36A24AB /* Exceptions for "Shared" folder in "sharedTimerNotificationService" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AlarmPlayer.swift,
+				LiveActivityController.swift,
+				LiveActivityIntents.swift,
+				RecentTimersStore.swift,
+				Sky.swift,
+				TimerAccessoryWidgetView.swift,
+				TimerActivityAttributes.swift,
+				TimerAlarmMetadata.swift,
+				TimerChoice.swift,
+				TimerFieldsView.swift,
+				TimerWidgetSupport.swift,
+			);
+			target = 9245414F74508D055B69709F /* sharedTimerNotificationService */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -254,21 +290,29 @@
 		};
 		30FE4D8FCBF959B1792F8F04 /* WatchShared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = WatchShared;
 			sourceTree = "<group>";
 		};
 		470A4FD430288982006EB758 /* sharedTimer */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = sharedTimer;
 			sourceTree = "<group>";
 		};
 		470A4FE430288983006EB758 /* sharedTimerTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = sharedTimerTests;
 			sourceTree = "<group>";
 		};
 		470A4FEE30288983006EB758 /* sharedTimerUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = sharedTimerUITests;
 			sourceTree = "<group>";
 		};
@@ -290,11 +334,15 @@
 		};
 		470A5036302896F1006EB758 /* sharedTimerClipTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = sharedTimerClipTests;
 			sourceTree = "<group>";
 		};
 		470A5040302896F1006EB758 /* sharedTimerClipUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = sharedTimerClipUITests;
 			sourceTree = "<group>";
 		};
@@ -308,11 +356,15 @@
 		};
 		471015FE30387B490049528C /* sharedTimerWatch Watch AppTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = "sharedTimerWatch Watch AppTests";
 			sourceTree = "<group>";
 		};
 		4710160830387B490049528C /* sharedTimerWatch Watch AppUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = "sharedTimerWatch Watch AppUITests";
 			sourceTree = "<group>";
 		};
@@ -322,8 +374,17 @@
 				5A0000030000000000000000 /* Exceptions for "Shared" folder in "sharedTimerMessages" target */,
 				5A0000020000000000000000 /* Exceptions for "Shared" folder in "sharedTimerClip" target */,
 				5A0000040000000000000000 /* Exceptions for "Shared" folder in "sharedTimerWidget" target */,
+				FB11BF41E0772AC7C36A24AB /* Exceptions for "Shared" folder in "sharedTimerNotificationService" target */,
 			);
 			path = Shared;
+			sourceTree = "<group>";
+		};
+		93C1CA89D36FFEB35C15E691 /* sharedTimerNotificationService */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				3FC2BB28AEE1ECF084A7DB19 /* Exceptions for "sharedTimerNotificationService" folder in "sharedTimerNotificationService" target */,
+			);
+			path = sharedTimerNotificationService;
 			sourceTree = "<group>";
 		};
 		AB0000020000000000000000 /* sharedTimerWidget */ = {
@@ -337,6 +398,14 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		096E4845D2A38E180B56086B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5419552906E9FF2FCEB30564 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		470A4FCF30288982006EB758 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -445,6 +514,7 @@
 				470A4FD330288982006EB758 /* Products */,
 				30FE4D8FCBF959B1792F8F04 /* WatchShared */,
 				25A8B5F2066B3F68FDDCC5D2 /* sharedTimerWatchWidget */,
+				93C1CA89D36FFEB35C15E691 /* sharedTimerNotificationService */,
 			);
 			sourceTree = "<group>";
 		};
@@ -463,6 +533,7 @@
 				471015FB30387B490049528C /* sharedTimerWatch Watch AppTests.xctest */,
 				4710160530387B490049528C /* sharedTimerWatch Watch AppUITests.xctest */,
 				B45CC4A60CAB51E752CD64E9 /* sharedTimerWatchWidget.appex */,
+				B550A90D2E9086BEA5E7F8FE /* sharedTimerNotificationService.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -472,6 +543,7 @@
 			children = (
 				470A5004302889C0006EB758 /* Messages.framework */,
 				7620B01D95BCB04DE67DF225 /* watchOS */,
+				EBFA5575AEE7AF3C6F820A90 /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -482,6 +554,14 @@
 				B888AA9D5C1A70B96DBB9D31 /* Foundation.framework */,
 			);
 			name = watchOS;
+			sourceTree = "<group>";
+		};
+		EBFA5575AEE7AF3C6F820A90 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				718A4F4EB3AC6D3F0FD5741F /* Foundation.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -505,6 +585,7 @@
 				470A5046302896F1006EB758 /* PBXTargetDependency */,
 				AB00000C0000000000000000 /* PBXTargetDependency */,
 				4710160E30387B490049528C /* PBXTargetDependency */,
+				55A162C3BA172B7B61F00718 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				470A4FD430288982006EB758 /* sharedTimer */,
@@ -706,6 +787,27 @@
 			productReference = 4710160530387B490049528C /* sharedTimerWatch Watch AppUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		9245414F74508D055B69709F /* sharedTimerNotificationService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8C4BCF04AFC74833E74C6343 /* Build configuration list for PBXNativeTarget "sharedTimerNotificationService" */;
+			buildPhases = (
+				CB092C7A518C4C193DE08BE1 /* Sources */,
+				096E4845D2A38E180B56086B /* Frameworks */,
+				667711AA1957E9490BA79AE6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				93C1CA89D36FFEB35C15E691 /* sharedTimerNotificationService */,
+				5A0000010000000000000000 /* Shared */,
+			);
+			name = sharedTimerNotificationService;
+			productName = sharedTimerNotificationService;
+			productReference = B550A90D2E9086BEA5E7F8FE /* sharedTimerNotificationService.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		AB0000040000000000000000 /* sharedTimerWidget */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AB00000A0000000000000000 /* Build configuration list for PBXNativeTarget "sharedTimerWidget" */;
@@ -834,6 +936,7 @@
 				471015FA30387B490049528C /* sharedTimerWatch Watch AppTests */,
 				4710160430387B490049528C /* sharedTimerWatch Watch AppUITests */,
 				E233EB460D0D38176B553ED8 /* sharedTimerWatchWidget */,
+				9245414F74508D055B69709F /* sharedTimerNotificationService */,
 			);
 		};
 /* End PBXProject section */
@@ -910,6 +1013,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4710160330387B490049528C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		667711AA1957E9490BA79AE6 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1003,6 +1113,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CB092C7A518C4C193DE08BE1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FE6B6D9749A065726D8BE09E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1057,6 +1174,12 @@
 			isa = PBXTargetDependency;
 			target = 471015EE30387B480049528C /* sharedTimerWatch Watch App */;
 			targetProxy = 4710160D30387B490049528C /* PBXContainerItemProxy */;
+		};
+		55A162C3BA172B7B61F00718 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = sharedTimerNotificationService;
+			target = 9245414F74508D055B69709F /* sharedTimerNotificationService */;
+			targetProxy = 730A26624730A0D4E5CAD733 /* PBXContainerItemProxy */;
 		};
 		AB00000C0000000000000000 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1601,7 +1724,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "sharedTimerWatch Watch App/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = sharedTimerWatch;
+				INFOPLIST_KEY_CFBundleDisplayName = Timer;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.lokesh.sharedTimer;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1636,7 +1759,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "sharedTimerWatch Watch App/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = sharedTimerWatch;
+				INFOPLIST_KEY_CFBundleDisplayName = Timer;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.lokesh.sharedTimer;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1749,6 +1872,37 @@
 			};
 			name = Release;
 		};
+		505521583B141E45A5F3CDD3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = sharedTimerNotificationService/sharedTimerNotificationService.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 8;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = sharedTimerNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Timer Notifications";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimer.NotificationService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
 		7211165E7469E067ABE19A2F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1771,6 +1925,7 @@
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
 				VALIDATE_PRODUCT = YES;
@@ -1800,6 +1955,7 @@
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
 				WATCHOS_DEPLOYMENT_TARGET = 26.0;
@@ -1857,6 +2013,37 @@
 				);
 				MARKETING_VERSION = 1.0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimer.sharedTimerWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		CA42DDE189E12383F6B99CED /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = sharedTimerNotificationService/sharedTimerNotificationService.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 8;
+				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = sharedTimerNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Timer Notifications";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lokesh.sharedTimer.NotificationService;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1975,6 +2162,15 @@
 			buildConfigurations = (
 				7211165E7469E067ABE19A2F /* Release */,
 				9DFF00705B225BA955795F2B /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8C4BCF04AFC74833E74C6343 /* Build configuration list for PBXNativeTarget "sharedTimerNotificationService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CA42DDE189E12383F6B99CED /* Release */,
+				505521583B141E45A5F3CDD3 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

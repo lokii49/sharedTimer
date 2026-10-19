@@ -194,3 +194,130 @@ struct TimerFieldsView: View {
         }
     }
 }
+
+/// Split pill: "+1:00" on the left adds a minute; the chevron on the right opens
+/// +5/+10/+15/+30 and Custom…. Both halves are visible, so the extra amounts are
+/// discoverable (a hidden long-press wasn't). Styled to match `.glassPill`. Used by
+/// the detail screen and Messages; any interval works because
+/// `TimerPayload.extended(by:)` takes one. Lives here (app + Messages only) so the
+/// widget and Clip never compile it.
+struct ExtendTimeMenu: View {
+    let onExtend: (TimeInterval) -> Void
+    /// Opens the Custom… sheet, which the caller presents from outside the timer's
+    /// running-state branch — attached here it vanished mid-pick when the timer ended.
+    let onCustom: () -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button("+1:00") { onExtend(60) }
+                .buttonStyle(SplitPillSegmentStyle(leading: 22, trailing: 14))
+                .accessibilityLabel(String(localized: "Add 1 minute"))
+                // Stable hook for UI tests/automation, whatever the spoken label says.
+                .accessibilityIdentifier("+1:00")
+
+            Rectangle()
+                .fill(.white.opacity(0.3))
+                .frame(width: 1, height: 22)
+                .accessibilityHidden(true)
+
+            Menu {
+                ForEach([5, 10, 15, 30], id: \.self) { minutes in
+                    Button(String(localized: "+\(minutes) min")) { onExtend(TimeInterval(minutes * 60)) }
+                }
+                Button(String(localized: "Custom…")) { onCustom() }
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 13, weight: .bold))
+            }
+            .menuStyle(.button)
+            .buttonStyle(SplitPillSegmentStyle(leading: 12, trailing: 16))
+            .accessibilityLabel(String(localized: "More time options"))
+        }
+        .background(.white.opacity(0.17), in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 1))
+        .clipShape(Capsule())
+    }
+}
+
+/// One half of the split pill — `GlassPillButtonStyle`'s type and pressed highlight,
+/// without its own capsule (the pill draws one around both halves).
+private struct SplitPillSegmentStyle: ButtonStyle {
+    let leading: CGFloat
+    let trailing: CGFloat
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(.leading, leading)
+            .padding(.trailing, trailing)
+            .padding(.vertical, 11)
+            .background(.white.opacity(configuration.isPressed ? 0.11 : 0))
+            .contentShape(Rectangle())
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+/// Hours and minutes to add to a running timer — the "Custom…" choice.
+struct CustomExtendSheet: View {
+    let onAdd: (TimeInterval) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var hours = 0
+    @State private var minutes = 5
+
+    var body: some View {
+        NavigationStack {
+            HStack(spacing: 0) {
+                // Clipped: side-by-side wheels otherwise steal each other's drags.
+                Picker(String(localized: "hours"), selection: $hours) {
+                    ForEach(0...23, id: \.self) { Text("\($0)").tag($0) }
+                }
+                .pickerStyle(.wheel)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                Text(String(localized: "hours")).foregroundStyle(.secondary)
+                Picker(String(localized: "min"), selection: $minutes) {
+                    ForEach(0...59, id: \.self) { Text("\($0)").tag($0) }
+                }
+                .pickerStyle(.wheel)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                Text(String(localized: "min")).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
+            .navigationTitle(String(localized: "Add Time"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Add")) {
+                        onAdd(TimeInterval(hours * 3600 + minutes * 60))
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(hours == 0 && minutes == 0)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+}
+
+/// "View only" / "Can make changes" for someone a timer was shared with — the owner's
+/// choice in Manage Sharing. Shown on the detail screen and in Messages.
+struct SharePermissionBadge: View {
+    let readOnly: Bool
+
+    var body: some View {
+        Label(readOnly ? String(localized: "View only") : String(localized: "Can make changes"),
+              systemImage: readOnly ? "eye" : "pencil")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.9))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(.white.opacity(0.14), in: Capsule())
+            .accessibilityHint(readOnly ? String(localized: "Only the owner can pause or change this timer.") : "")
+    }
+}

@@ -15,6 +15,12 @@ struct ContentView: View {
     @State private var pendingNewTimerKind: TimerKind?
     @State private var sharingPayload: TimerPayload?
     @State private var editingPayload: TimerPayload?
+    /// The row whose context-menu "Custom…" add-time picker is open.
+    @State private var customExtendPayload: TimerPayload?
+    /// The share being managed from a row's context menu (UICloudSharingController).
+    @State private var managedShare: (item: CloudShareItem, timerID: String)?
+    /// A shared timer this device owns, waiting for "Delete for Everyone" to be confirmed.
+    @State private var deleteForEveryonePayload: TimerPayload?
     @State private var showingWhatsNew = false
     @State private var showingSettings = false
     /// Set by any deep link (URL, Spotlight, Quick Action) this launch: the person came
@@ -139,6 +145,30 @@ struct ContentView: View {
                     applyEdit(edited)
                 }
             }
+            .confirmationDialog(String(localized: "Delete for everyone?"),
+                                isPresented: Binding(get: { deleteForEveryonePayload != nil }, set: { if !$0 { deleteForEveryonePayload = nil } }),
+                                titleVisibility: .visible, presenting: deleteForEveryonePayload) { payload in
+                Button(String(localized: "Delete for Everyone"), role: .destructive) { delete(payload) }
+            } message: { _ in
+                Text("It stops for everyone you shared it with.")
+            }
+            .sheet(isPresented: Binding(get: { managedShare != nil }, set: { if !$0 { managedShare = nil } }), onDismiss: {
+                CloudSyncController.refreshPermissions { timers = TimerStore.loadAll() }
+            }) {
+                if let managedShare {
+                    CloudSharingView(item: managedShare.item, title: timers.first { $0.id == managedShare.timerID }?.label ?? "") {
+                        CloudSyncController.didStopSharing(timerID: managedShare.timerID)
+                        timers = TimerStore.loadAll()
+                    }
+                    .ignoresSafeArea()
+                }
+            }
+            .sheet(item: $customExtendPayload) { payload in
+                CustomExtendSheet { interval in
+                    // The newest copy: the row's may be seconds old by now.
+                    if let current = timers.first(where: { $0.id == payload.id }), !current.isFinished { extend(current, by: interval) }
+                }
+            }
             .sheet(isPresented: $showingNewSequence) {
                 NewSequenceSheet { payload in
                     apply(payload)
@@ -166,6 +196,24 @@ struct ContentView: View {
                     stopInAppAlertIfRinging(for: payload.id)
                 }
                 timers = fresh
+            }
+            .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.permissionsChanged)) { notification in
+                // Re-render so the menus' enabled state follows the new permission, and
+                // re-arm just the timers whose permission changed: their full-screen
+                // alert's second button depends on it (Open when view only).
+                rearmAfterSharingChange(ids: notification.object as? [String] ?? [])
+            }
+            .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.sharingChanged)) { notification in
+                // Shared or unshared (Stop Sharing / Remove Me): a timer that left a
+                // view-only share needs its normal alert buttons back.
+                rearmAfterSharingChange(ids: (notification.object as? String).map { [$0] } ?? [])
+            }
+            .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.revertedToServer)) { notification in
+                // CloudKit refused a change (the share became view-only): the store
+                // already holds the server's copy — show it and re-arm to it.
+                timers = TimerStore.loadAll()
+                if let payload = notification.object as? TimerPayload { armAlerts(for: payload) }
+                NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NotificationScheduler.permissionDeniedNotification)) { _ in
                 showingNotificationPermissionAlert = true
@@ -329,6 +377,12 @@ struct ContentView: View {
             // (and on Pause/+1:00, saving and pushing) the pre-background state.
             NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
             pullCloudChanges()
+            // The owner can switch a share to view only at any time; re-read so the
+            // controls match before anyone taps one.
+            CloudSyncController.refreshPermissions {
+                timers = TimerStore.loadAll()
+                NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
+            }
             // Opportunistic Live Activity keep-alive: there's no server here to push a
             // periodic refresh while the app isn't running, so a multi-day countdown's
             // activity only survives past iOS's ~8h no-update budget if something re-pushes
@@ -531,16 +585,19 @@ struct ContentView: View {
         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
-                delete(payload)
+                requestDelete(payload)
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label(removalTitle(for: payload), systemImage: "trash")
             }
             // Explicit tint: with a clear listRowBackground the destructive role's
             // default red fill drops out and the button reveals as a white slab.
             .tint(.red)
         }
         .swipeActions(edge: .leading) {
-            if payload.isFinished {
+            // A view-only share offers no changes — only Delete (remove from this phone).
+            if TimerStore.isReadOnly(id: payload.id) {
+                EmptyView()
+            } else if payload.isFinished {
                 Button {
                     repeatTimer(payload)
                 } label: {
@@ -582,6 +639,15 @@ struct ContentView: View {
                     Label("Share…", systemImage: "square.and.arrow.up")
                 }
             }
+            if CloudLinkStore.get(timerID: payload.id) != nil {
+                Button {
+                    manageSharing(payload)
+                } label: {
+                    Label("Manage Sharing", systemImage: "person.2")
+                }
+            }
+            // View only: the change items show but are disabled (see swipeActions).
+            Group {
             if payload.sequence == nil {
                 Button {
                     editingPayload = payload
@@ -608,16 +674,21 @@ struct ContentView: View {
                     Label(payload.isPaused ? "Resume" : "Pause",
                           systemImage: payload.isPaused ? "play.fill" : "pause.fill")
                 }
-                Button {
-                    extend(payload, by: 60)
+                Menu {
+                    ForEach([1, 5, 10, 15, 30], id: \.self) { minutes in
+                        Button(String(localized: "+\(minutes) min")) { extend(payload, by: TimeInterval(minutes * 60)) }
+                    }
+                    Button(String(localized: "Custom…")) { customExtendPayload = payload }
                 } label: {
-                    Label("Add 1 min", systemImage: "plus")
+                    Label(String(localized: "Add Time"), systemImage: "plus")
                 }
             }
+            }
+            .disabled(TimerStore.isReadOnly(id: payload.id))
             Button(role: .destructive) {
-                delete(payload)
+                requestDelete(payload)
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label(removalTitle(for: payload), systemImage: "trash")
             }
         }
     }
@@ -632,6 +703,37 @@ struct ContentView: View {
     /// `reschedule`.
     private func armAlerts(for payload: TimerPayload) {
         TimerArming.arm(payload)
+    }
+
+    /// Same wording as the detail screen: the owner of a shared timer deletes it for
+    /// everyone (after confirming), someone it was shared with only removes their copy.
+    private func removalTitle(for payload: TimerPayload) -> String {
+        guard let link = CloudLinkStore.get(timerID: payload.id) else { return String(localized: "Delete") }
+        return link.isOwner ? String(localized: "Delete for Everyone") : String(localized: "Remove from My Timers")
+    }
+
+    private func rearmAfterSharingChange(ids: [String]) {
+        timers = TimerStore.loadAll()
+        for payload in timers where ids.contains(payload.id) && !payload.isExpired {
+            armAlerts(for: payload)
+        }
+        WatchSyncController.pushCurrentState()
+    }
+
+    private func manageSharing(_ payload: TimerPayload) {
+        CloudSyncController.fetchShare(for: payload) { result in
+            if let (share, container) = result {
+                managedShare = (CloudShareItem(share: share, container: container), payload.id)
+            }
+        }
+    }
+
+    private func requestDelete(_ payload: TimerPayload) {
+        if CloudLinkStore.get(timerID: payload.id)?.isOwner == true {
+            deleteForEveryonePayload = payload
+        } else {
+            delete(payload)
+        }
     }
 
     private func delete(_ payload: TimerPayload) {
@@ -711,6 +813,8 @@ struct ContentView: View {
     /// (DisplayNameStore's documented fallback) and the next one picks up whatever the
     /// person enters.
     private func applyMutation(_ updated: TimerPayload, action: String) {
+        // View-only share: the controls are hidden, and CloudKit would refuse the write.
+        guard !TimerStore.isReadOnly(id: updated.id) else { return }
         apply(updated, action: action)
         if CloudLinkStore.get(timerID: updated.id) != nil {
             promptForNameIfNeeded()

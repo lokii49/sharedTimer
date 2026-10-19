@@ -77,7 +77,8 @@ final class sharedTimerUITests: XCTestCase {
         XCTAssertTrue(shareLink.waitForExistence(timeout: 10))
         shareLink.tap()
         let copy = app.staticTexts["Copy"]
-        XCTAssertTrue(copy.waitForExistence(timeout: 10))
+        // Apple's share sheet can take a while to fill in; 10s failed now and then.
+        XCTAssertTrue(copy.waitForExistence(timeout: 30))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "System share sheet over ShareTimerSheet"
         screenshot.lifetime = .keepAlways
@@ -336,6 +337,45 @@ final class sharedTimerUITests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
         app.buttons["Delete"].tap()
+        widgetTestURL = nil
+    }
+
+    /// A shared yearly countdown (the tallest detail screen: Next Year row, Repeats
+    /// yearly line) at the largest text size must still offer a reachable Delete.
+    @MainActor
+    func testDetailDeleteStaysReachableAtLargestTextSize() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        let id = UUID().uuidString
+        let target = Date().addingTimeInterval(3600)
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = .gmt
+        let parts = calendar.dateComponents([.month, .day, .hour, .minute, .second], from: target)
+        let envelope: [String: Any] = ["version": 1, "recurrence": ["month": parts.month!, "day": parts.day!,
+            "hour": parts.hour!, "minute": parts.minute!, "second": parts.second!, "timeZoneID": "GMT"]]
+        let json = try JSONSerialization.data(withJSONObject: envelope)
+        var share = URLComponents(string: "https://mirrornotes.org/timer")!
+        share.queryItems = [URLQueryItem(name: "id", value: id), URLQueryItem(name: "label", value: "Large Text Delete"),
+            URLQueryItem(name: "end", value: String(target.timeIntervalSince1970)), URLQueryItem(name: "dur", value: "3600"),
+            URLQueryItem(name: "kind", value: "countdown"), URLQueryItem(name: "alarm", value: "0"), URLQueryItem(name: "vib", value: "0"),
+            URLQueryItem(name: "annual", value: String(data: json, encoding: .utf8))]
+        let detail = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        widgetTestURL = detail
+        app.open(try XCTUnwrap(share.url))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        app.open(detail)
+        let delete = app.buttons["Delete"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 10))
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Detail at largest text size"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        if !delete.isHittable { app.swipeUp() }
+        XCTAssertTrue(delete.isHittable, "Delete is off-screen at the largest text size")
+        delete.tap()
         widgetTestURL = nil
     }
 

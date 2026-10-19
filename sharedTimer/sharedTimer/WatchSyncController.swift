@@ -76,13 +76,15 @@ enum WatchSyncController {
         let endDate: Date
         let duration: TimeInterval
         let pausedRemaining: TimeInterval?
+        let extraTime: TimeInterval
+        let readOnly: Bool
         let kind: TimerKind
         let alarmEnabled: Bool
         let vibrationEnabled: Bool
 
         init(_ payload: TimerPayload) {
             id = payload.id; label = payload.label; endDate = payload.endDate
-            duration = payload.duration; pausedRemaining = payload.pausedRemaining
+            duration = payload.duration; pausedRemaining = payload.pausedRemaining; extraTime = payload.extraTime; readOnly = TimerStore.isReadOnly(id: payload.id)
             kind = payload.kind; alarmEnabled = payload.alarmEnabled; vibrationEnabled = payload.vibrationEnabled
         }
     }
@@ -136,6 +138,8 @@ enum WatchSyncController {
                 // Same rejection as Siri's `.timerFinished`: pausing a finished timer
                 // froze it at 0s, and a paused sequence never advances again.
                 guard !existing.isFinished else { reject(); return }
+                // Shared with this phone as view only: the owner alone can change it.
+                guard !TimerStore.isReadOnly(id: id) else { reject(); return }
                 let action: String
                 let updated: TimerPayload
                 switch op {

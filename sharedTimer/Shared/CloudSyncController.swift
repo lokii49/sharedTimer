@@ -34,7 +34,13 @@ import Foundation
 enum CloudSyncController {
     private static let appGroupID = "group.com.lokesh.sharedTimer"
     private static let zoneName = "SharedTimers"
-    private static let subscriptionsRegisteredKey = "cloudSubscriptionsRegistered"
+    /// Versioned: a device that registered an earlier subscription (silent only, then a
+    /// fixed-language alert) must save it again (v3). A stale "done" flag would skip it.
+    private static let subscriptionsRegisteredKey = "cloudSubscriptionsRegistered.v3"
+
+    /// The visible change alert's text. Sent as a key, resolved on the receiving phone.
+    static let changeAlertKey = "A shared timer changed."
+    static var changeAlertText: String { String(localized: "A shared timer changed.") }
     private static let recordType = "Timer"
 
     /// Explicit, not `CKContainer.default()`. `.default()` resolves the container from
@@ -111,6 +117,15 @@ enum CloudSyncController {
             let subscription = CKDatabaseSubscription(subscriptionID: "sharedTimer.\(scope.rawValue)")
             let notificationInfo = CKSubscription.NotificationInfo()
             notificationInfo.shouldSendContentAvailable = true
+            // A visible alert too: iOS delivers it reliably (silent pushes alone are
+            // throttled, delayed, and never reach an app swiped away), and it usually
+            // wakes the app to apply the change. A database subscription can only send
+            // fixed text, so the notification service extension rewrites it ("Sam paused
+            // Pasta") — mutable content lets it. Subscriptions are per iCloud account,
+            // not per device, so the text is a localization key each receiving phone
+            // resolves in its own language (`changeAlertText` keeps it in the catalog).
+            notificationInfo.alertLocalizationKey = changeAlertKey
+            notificationInfo.shouldSendMutableContent = true
             subscription.notificationInfo = notificationInfo
 
             let operation = CKModifySubscriptionsOperation(subscriptionsToSave: [subscription], subscriptionIDsToDelete: nil)
@@ -227,6 +242,8 @@ enum CloudSyncController {
                         shareRecordName: share.recordID.recordName
                     ))
                     CloudLinkStore.setShareURL(url, timerID: payload.id)
+                    // Newly shared: an open detail screen shows its Manage Sharing button.
+                    DispatchQueue.main.async { NotificationCenter.default.post(name: sharingChanged, object: payload.id) }
                     completeOnce(url)
                 case .failure(let error):
                     log("createShare(\(payload.id)) modifyRecords failed: \(error)")
@@ -275,16 +292,20 @@ enum CloudSyncController {
                 zoneName: zoneID.zoneName,
                 zoneOwnerName: zoneID.ownerName,
                 isOwner: metadata.participantRole == .owner,
-                shareRecordName: nil
+                // Participants keep it too: a permission change arrives as this CKShare
+                // record in zone changes, and this is how it maps back to the timer.
+                shareRecordName: metadata.share.recordID.recordName
             )
 
             // The sharer re-opening their own link — already owns it, nothing to accept.
             guard metadata.participantRole != .owner else {
                 CloudLinkStore.clearLeft(timerID: payload.id)
                 CloudLinkStore.set(link)
+                TimerStore.setReadOnly(id: payload.id, false)
                 completion(payload)
                 return
             }
+            let readOnly = metadata.participantPermission == .readOnly
 
             let acceptOp = CKAcceptSharesOperation(shareMetadatas: [metadata])
             acceptOp.acceptSharesResultBlock = { result in
@@ -293,6 +314,7 @@ enum CloudSyncController {
                     // Opening the link again is an explicit re-join.
                     CloudLinkStore.clearLeft(timerID: payload.id)
                     CloudLinkStore.set(link)
+                    TimerStore.setReadOnly(id: payload.id, readOnly)
                     completion(payload)
                 case .failure(let error):
                     log("acceptShare(\(payload.id)) CKAcceptSharesOperation failed: \(error)")
@@ -355,6 +377,13 @@ enum CloudSyncController {
         operation.savePolicy = .ifServerRecordUnchanged
         operation.modifyRecordsResultBlock = { result in
             guard case .failure(let error) = result else { return completion() }
+            if isPermissionFailure(error, for: record.recordID) {
+                // The owner made this share view-only since we last checked: CloudKit
+                // refused the write. Stop offering changes here and put the server's
+                // state back over the local edit.
+                revertToServer(record.recordID, in: database)
+                return completion()
+            }
             guard retryOnConflict,
                   let conflict = serverRecordChangedError(from: error, for: record.recordID),
                   let serverRecord = conflict.serverRecord else {
@@ -383,6 +412,96 @@ enum CloudSyncController {
             server[key] = client[key]
         }
         return server
+    }
+
+    private static func isPermissionFailure(_ error: Error, for recordID: CKRecord.ID) -> Bool {
+        guard let ckError = error as? CKError else { return false }
+        if ckError.code == .permissionFailure { return true }
+        return ckError.code == .partialFailure
+            && (ckError.partialErrorsByItemID?[recordID] as? CKError)?.code == .permissionFailure
+    }
+
+    /// Posted on main with the server's copy (`object`) after a refused write was undone
+    /// locally; the visible list/detail reload and re-arm from it.
+    static let revertedToServer = Notification.Name("SharedTimerRevertedToServer")
+
+    private static func revertToServer(_ recordID: CKRecord.ID, in database: CKDatabase) {
+        guard let link = CloudLinkStore.all().values.first(where: { $0.recordName == recordID.recordName }) else { return }
+        TimerStore.setReadOnly(id: link.timerID, true)
+        database.fetch(withRecordID: recordID) { record, _ in
+            guard let record, let payload = makePayload(from: record) else {
+                // Couldn't read the server copy now. A refused write changed nothing on
+                // the server, so the database won't report this zone again on its own:
+                // forget both tokens, and the next pull refetches every record.
+                clearToken(key: zoneTokenKey(recordID.zoneID))
+                clearToken(key: "dbChangeToken.\(link.isOwner ? SyncScope.owner.rawValue : SyncScope.participant.rawValue)")
+                DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: [link.timerID]) }
+                return
+            }
+            DispatchQueue.main.async {
+                // Store the server copy first, so the re-arm the permission change
+                // triggers works from it, never from the refused edit.
+                TimerStore.save(payload)
+                NotificationCenter.default.post(name: revertedToServer, object: payload)
+                NotificationCenter.default.post(name: permissionsChanged, object: [link.timerID])
+            }
+        }
+    }
+
+    /// Posted on main after a participant permission changed (zone changes, the
+    /// explicit refresh, a refused write); `object` is the `[String]` of timer ids that
+    /// changed. Screens re-read `TimerStore.isReadOnly`; the app re-arms just those.
+    static let permissionsChanged = Notification.Name("SharedTimerPermissionsChanged")
+
+    /// Posted on main when a timer became shared or stopped being shared on this phone
+    /// (`object`: its id) — the Manage Sharing button and remove wording follow it, and
+    /// the app re-arms it (a timer that left a view-only share gets its buttons back).
+    static let sharingChanged = Notification.Name("SharedTimerSharingChanged")
+
+    private static func applyPermission(_ permission: CKShare.ParticipantPermission, shareRecordName: String) {
+        let readOnly = permission == .readOnly
+        let links = CloudLinkStore.all().values.filter { !$0.isOwner && $0.shareRecordName == shareRecordName }
+        var changed: [String] = []
+        for link in links where TimerStore.isReadOnly(id: link.timerID) != readOnly {
+            TimerStore.setReadOnly(id: link.timerID, readOnly)
+            changed.append(link.timerID)
+        }
+        if !changed.isEmpty {
+            DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: changed) }
+        }
+    }
+
+    /// Re-reads whether this device may change each timer shared with it — the owner can
+    /// switch a share between "view only" and "can make changes" at any time in Manage
+    /// Sharing. Participant links only; the owner can always write. Calls back on main.
+    static func refreshPermissions(for timerIDs: [String]? = nil, completion: @escaping () -> Void = {}) {
+        let links = CloudLinkStore.all().values.filter { !$0.isOwner && (timerIDs?.contains($0.timerID) ?? true) }
+        guard !links.isEmpty else { return DispatchQueue.main.async(execute: completion) }
+        let group = DispatchGroup()
+        for link in links {
+            group.enter()
+            let zoneID = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
+            let database = SyncScope.participant.database
+            database.fetch(withRecordID: CKRecord.ID(recordName: link.recordName, zoneID: zoneID)) { record, _ in
+                guard let shareID = record?.share?.recordID else { return group.leave() }
+                // Links from before participants stored this get it now, so later
+                // permission changes in zone changes can find their timer.
+                if link.shareRecordName == nil {
+                    CloudLinkStore.update(timerID: link.timerID) { current in
+                        CloudLink(timerID: current.timerID, recordName: current.recordName, zoneName: current.zoneName,
+                                  zoneOwnerName: current.zoneOwnerName, isOwner: current.isOwner,
+                                  shareRecordName: current.shareRecordName ?? shareID.recordName)
+                    }
+                }
+                database.fetch(withRecordID: shareID) { share, _ in
+                    if let permission = (share as? CKShare)?.currentUserParticipant?.permission {
+                        applyPermission(permission, shareRecordName: shareID.recordName)
+                    }
+                    group.leave()
+                }
+            }
+        }
+        group.notify(queue: .main, execute: completion)
     }
 
     private static func serverRecordChangedError(from error: Error, for recordID: CKRecord.ID) -> CKError? {
@@ -426,7 +545,12 @@ enum CloudSyncController {
     /// Walks both databases via the change-token APIs (not CKQuerySubscription, which
     /// doesn't work on the shared database) so deletes are reported explicitly rather
     /// than inferred from a failed fetch.
-    static func pullChanges(completion: @escaping (_ updated: [TimerPayload], _ deletedIDs: [String]) -> Void) {
+    ///
+    /// `peek`: read the changes without moving any change token or dropping links — for
+    /// the notification service extension, which only describes a change. The app's own
+    /// pull (woken by the same push, or on opening) must still see it, or it would never
+    /// re-arm the AlarmKit alarm for it.
+    static func pullChanges(peek: Bool = false, completion: @escaping (_ updated: [TimerPayload], _ deletedIDs: [String]) -> Void) {
         let group = DispatchGroup()
         var updated: [TimerPayload] = []
         var deletedIDs: [String] = []
@@ -434,7 +558,7 @@ enum CloudSyncController {
 
         for scope in SyncScope.allCases {
             group.enter()
-            pullChanges(scope: scope) { u, d in
+            pullChanges(scope: scope, peek: peek) { u, d in
                 lock.lock()
                 updated.append(contentsOf: u)
                 deletedIDs.append(contentsOf: d)
@@ -451,7 +575,7 @@ enum CloudSyncController {
     }
 
     /// `isRetry` bounds the `.changeTokenExpired` recovery below to a single re-run.
-    private static func pullChanges(scope: SyncScope, isRetry: Bool = false, completion: @escaping ([TimerPayload], [String]) -> Void) {
+    private static func pullChanges(scope: SyncScope, isRetry: Bool = false, peek: Bool = false, completion: @escaping ([TimerPayload], [String]) -> Void) {
         let database = scope.database
         let tokenKey = "dbChangeToken.\(scope.rawValue)"
 
@@ -478,7 +602,7 @@ enum CloudSyncController {
             case .failure(let error):
                 // An expired token fails every fetch that reuses it, so without this
                 // reset live sync dies silently and permanently for this scope.
-                if !isRetry, (error as? CKError)?.code == .changeTokenExpired {
+                if !isRetry, !peek, (error as? CKError)?.code == .changeTokenExpired {
                     log("pullChanges(\(scope.rawValue)) database token expired — refetching from scratch")
                     clearToken(key: tokenKey)
                     pullChanges(scope: scope, isRetry: true, completion: completion)
@@ -496,17 +620,17 @@ enum CloudSyncController {
                 for (timerID, link) in CloudLinkStore.all()
                 where deletedZoneIDs.contains(where: { $0.zoneName == link.zoneName && $0.ownerName == link.zoneOwnerName }) {
                     deletedIDs.append(timerID)
-                    CloudLinkStore.remove(timerID: timerID)
+                    if !peek { CloudLinkStore.remove(timerID: timerID) }
                 }
             }
 
             guard !changedZoneIDs.isEmpty else {
-                saveToken(databaseToken, key: tokenKey)
+                if !peek { saveToken(databaseToken, key: tokenKey) }
                 completion([], deletedIDs)
                 return
             }
-            fetchZoneChanges(changedZoneIDs, database: database) { updated, deleted, complete in
-                if complete {
+            fetchZoneChanges(changedZoneIDs, database: database, peek: peek) { updated, deleted, complete in
+                if complete && !peek {
                     saveToken(databaseToken, key: tokenKey)
                 }
                 completion(updated, deletedIDs + deleted)
@@ -519,7 +643,7 @@ enum CloudSyncController {
     /// zone itself being gone) — the caller then keeps its old database token so the
     /// next pull reports those zones again. A zone whose own token expired is retried
     /// once immediately from a nil token, same recovery as the database level.
-    private static func fetchZoneChanges(_ zoneIDs: [CKRecordZone.ID], database: CKDatabase, isRetry: Bool = false, completion: @escaping ([TimerPayload], [String], _ complete: Bool) -> Void) {
+    private static func fetchZoneChanges(_ zoneIDs: [CKRecordZone.ID], database: CKDatabase, isRetry: Bool = false, peek: Bool = false, completion: @escaping ([TimerPayload], [String], _ complete: Bool) -> Void) {
         var configs: [CKRecordZone.ID: CKFetchRecordZoneChangesOperation.ZoneConfiguration] = [:]
         for zoneID in zoneIDs {
             configs[zoneID] = CKFetchRecordZoneChangesOperation.ZoneConfiguration(
@@ -539,7 +663,14 @@ enum CloudSyncController {
         operation.recordWasChangedBlock = { recordID, result in
             switch result {
             case .success(let record):
-                if let payload = makePayload(from: record) {
+                if let share = record as? CKShare {
+                    // The owner switched "view only" / "can make changes" in Manage
+                    // Sharing — apply it so open screens update without a restart. Not
+                    // when peeking: the app must still see the change to re-arm.
+                    if !peek, let permission = share.currentUserParticipant?.permission {
+                        applyPermission(permission, shareRecordName: share.recordID.recordName)
+                    }
+                } else if let payload = makePayload(from: record) {
                     updated.append(payload)
                 } else {
                     log("fetchZoneChanges: record \(recordID.recordName) fetched but unparseable")
@@ -554,17 +685,20 @@ enum CloudSyncController {
             deletedIDs.append(recordID.recordName)
         }
         operation.recordZoneChangeTokensUpdatedBlock = { zoneID, token, _ in
-            if let token, !failedZoneIDs.contains(zoneID) { saveToken(token, key: zoneTokenKey(zoneID)) }
+            if let token, !peek, !failedZoneIDs.contains(zoneID) { saveToken(token, key: zoneTokenKey(zoneID)) }
         }
         operation.recordZoneFetchResultBlock = { zoneID, result in
             switch result {
             case .success(let value):
-                if !failedZoneIDs.contains(zoneID) { saveToken(value.serverChangeToken, key: zoneTokenKey(zoneID)) }
+                if !peek, !failedZoneIDs.contains(zoneID) { saveToken(value.serverChangeToken, key: zoneTokenKey(zoneID)) }
             case .failure(let error):
                 switch (error as? CKError)?.code {
                 case .changeTokenExpired?:
-                    clearToken(key: zoneTokenKey(zoneID))
-                    expiredZoneIDs.append(zoneID)
+                    // A peek leaves recovery to the app's own pull.
+                    if !peek {
+                        clearToken(key: zoneTokenKey(zoneID))
+                        expiredZoneIDs.append(zoneID)
+                    }
                 case .zoneNotFound?, .userDeletedZone?:
                     // Gone for good — nothing left to fetch, so this doesn't hold back
                     // the database token (that would refetch a dead zone forever).
@@ -734,6 +868,27 @@ enum CloudSyncController {
         let wasOwner = CloudLinkStore.get(timerID: timerID)?.isOwner ?? true
         CloudLinkStore.remove(timerID: timerID)
         if !wasOwner { CloudLinkStore.markLeft(timerID: timerID) }
+        DispatchQueue.main.async { NotificationCenter.default.post(name: sharingChanged, object: timerID) }
+    }
+
+    /// "Sam paused" — the record's `lastAction` is an English wire verb, so the whole
+    /// phrase is translated, not the verb on its own. An unknown verb (a newer app)
+    /// shows the name alone. Shared by the detail screen and the notification service
+    /// extension's rewritten banner.
+    static func attributionPhrase(name: String, action: String) -> String {
+        switch action {
+        case "created": return String(localized: "\(name) created")
+        case "paused": return String(localized: "\(name) paused")
+        case "resumed": return String(localized: "\(name) resumed")
+        case "extended": return String(localized: "\(name) extended")
+        case "repeated": return String(localized: "\(name) repeated")
+        case "edited": return String(localized: "\(name) edited")
+        case "advanced": return String(localized: "\(name) skipped ahead")
+        case "cancelled", "stopped": return String(localized: "\(name) stopped")
+        case "startedEarly": return String(localized: "\(name) started early")
+        case "updated", "updatedFromLink": return String(localized: "\(name) updated")
+        default: return name
+        }
     }
 
     /// Who last touched this timer and what they did, or nil if there's no CloudLink or

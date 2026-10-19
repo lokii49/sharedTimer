@@ -129,6 +129,443 @@
         }
       }
     },
+    "%dd %02d:%02d:%02d": {
+      "comment": "Days, then hours:minutes:seconds",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d ي %2$02d:%3$02d:%4$02d"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d দি %2$02d:%3$02d:%4$02d"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$dd %2$02d:%3$02d:%4$02d"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d d %2$02d:%3$02d:%4$02d"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d j %2$02d:%3$02d:%4$02d"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d दि %2$02d:%3$02d:%4$02d"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d h %2$02d:%3$02d:%4$02d"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d d %2$02d:%3$02d:%4$02d"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d д %2$02d:%3$02d:%4$02d"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d天 %2$02d:%3$02d:%4$02d"
+          }
+        }
+      }
+    },
+    "%lldd": {
+      "comment": "Compact days",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ي"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld দি"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld d"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld j"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld दि"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld h"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld d"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld д"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld天"
+          }
+        }
+      }
+    },
+    "%lldd %lldh": {
+      "comment": "Compact days and hours",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld ي %2$lld س"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld দি %2$lld ঘ"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lldd %2$lldh"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld d %2$lld h"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld j %2$lld h"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld दि %2$lld घं"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld h %2$lld j"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld d %2$lld h"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld д %2$lld ч"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld天%2$lld小时"
+          }
+        }
+      }
+    },
+    "%lldmo": {
+      "comment": "Compact months",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ش"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld মা"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld mes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld mois"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld मा"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld bln"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld mês"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld мес"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld个月"
+          }
+        }
+      }
+    },
+    "%lldmo %lldd": {
+      "comment": "Compact months and days",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld ش %2$lld ي"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld মা %2$lld দি"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lldmo %2$lldd"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld mes %2$lld d"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld mois %2$lld j"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld मा %2$lld दि"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld bln %2$lld h"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld mês %2$lld d"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld мес %2$lld д"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld个月%2$lld天"
+          }
+        }
+      }
+    },
+    "%lldy": {
+      "comment": "Compact years",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld سنة"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ব"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld a"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld an"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld व"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld thn"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld a"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld г"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld年"
+          }
+        }
+      }
+    },
+    "%lldy %lldmo": {
+      "comment": "Compact years and months",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld سنة %2$lld ش"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld ব %2$lld মা"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lldy %2$lldmo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld a %2$lld mes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld an %2$lld mois"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld व %2$lld मा"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld thn %2$lld bln"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld a %2$lld mês"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld г %2$lld мес"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld年%2$lld个月"
+          }
+        }
+      }
+    },
     "Anniversary reached!": {
       "localizations": {
         "ar": {
@@ -241,6 +678,64 @@
           "stringUnit": {
             "state": "translated",
             "value": "经典"
+          }
+        }
+      }
+    },
+    "Countdown": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "倒计时"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "काउंटडाउन"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta atrás"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عد تنازلي"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte à rebours"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "কাউন্টডাউন"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contagem Regressiva"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отсчет"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hitung Mundur"
           }
         }
       }
@@ -421,16 +916,16 @@
     },
     "Finished %@": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 已结束"
+            "value": "انتهى %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ पर समाप्त"
+            "value": "শেষ হয়েছে %@"
           }
         },
         "es": {
@@ -439,22 +934,22 @@
             "value": "Terminó a las %@"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "انتهى %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Terminé à %@"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "শেষ হয়েছে %@"
+            "value": "%@ पर समाप्त"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selesai %@"
           }
         },
         "pt-BR": {
@@ -469,10 +964,10 @@
             "value": "Завершено в %@"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Selesai %@"
+            "value": "%@ 已结束"
           }
         }
       }
@@ -1767,16 +2262,16 @@
     },
     "ends at %@": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 结束"
+            "value": "ينتهي عند %@"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ पर खत्म"
+            "value": "শেষ হবে %@"
           }
         },
         "es": {
@@ -1785,22 +2280,22 @@
             "value": "termina a las %@"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ينتهي عند %@"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "fin à %@"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "শেষ হবে %@"
+            "value": "%@ पर खत्म"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "berakhir pukul %@"
           }
         },
         "pt-BR": {
@@ -1815,10 +2310,10 @@
             "value": "конец в %@"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "berakhir pukul %@"
+            "value": "%@ 结束"
           }
         }
       }

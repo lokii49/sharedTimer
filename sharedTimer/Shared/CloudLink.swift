@@ -60,16 +60,36 @@ enum CloudLinkStore {
     }
 
     static func set(_ link: CloudLink) {
-        var links = all()
-        links[link.timerID] = link
-        persist(links)
+        lock.withLock {
+            var links = all()
+            links[link.timerID] = link
+            persist(links)
+        }
     }
 
+    /// Read-modify-write of one existing link under the lock — `transform` sees the
+    /// current stored value, so a concurrent `set`/`remove` isn't overwritten with a
+    /// copy captured earlier (CloudKit callbacks run concurrently). No-op if absent.
+    static func update(timerID: String, _ transform: (CloudLink) -> CloudLink) {
+        lock.withLock {
+            var links = all()
+            guard let link = links[timerID] else { return }
+            links[timerID] = transform(link)
+            persist(links)
+        }
+    }
+
+    /// Serializes this process's read-modify-writes of the links dictionary.
+    private static let lock = NSLock()
+
     static func remove(timerID: String) {
-        var links = all()
-        links.removeValue(forKey: timerID)
-        persist(links)
+        lock.withLock {
+            var links = all()
+            links.removeValue(forKey: timerID)
+            persist(links)
+        }
         setShareURL(nil, timerID: timerID)
+        TimerStore.setReadOnly(id: timerID, false)
     }
 
     // MARK: - Share URL cache

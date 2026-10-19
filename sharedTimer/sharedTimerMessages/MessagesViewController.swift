@@ -13,8 +13,28 @@ class MessagesViewController: MSMessagesAppViewController {
     /// Reset each time presentRunningView shows a timer — see stageAttributionText.
     private var hasStagedAttribution = false
 
+    private var revertObserver: NSObjectProtocol?
+
+    deinit {
+        if let revertObserver { NotificationCenter.default.removeObserver(revertObserver) }
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
+        // CloudKit refused a change made here (the share became view only) and put the
+        // server's copy back in the store: move this extension's alert and Live
+        // Activity to it too, as `persist` would.
+        revertObserver = NotificationCenter.default.addObserver(forName: CloudSyncController.revertedToServer, object: nil, queue: .main) { note in
+            guard let payload = note.object as? TimerPayload else { return }
+            NotificationScheduler.cancel(id: payload.id)
+            guard !TimerStore.isAlarmKitArmed(id: payload.id) else { return }
+            if payload.isPaused || payload.isExpired {
+                LiveActivityController.update(for: payload)
+            } else {
+                NotificationScheduler.scheduleAlert(for: payload)
+                LiveActivityController.start(for: payload)
+            }
+        }
         // Horizon is dark-first; Messages.app owns this extension's trait environment,
         // so the dark trait has to be forced on the controller itself for UIKit-hosted
         // SwiftUI colors to resolve against the dark room.
@@ -160,6 +180,8 @@ class MessagesViewController: MSMessagesAppViewController {
     }
 
     private func persist(_ payload: TimerPayload, action: String) {
+        // View-only share: only the clock-driven phase advance may be stored.
+        guard action == "sequenceAdvanced" || !TimerStore.isReadOnly(id: payload.id) else { return }
         TimerStore.save(payload)
         if action != "sequenceAdvanced" || !TimerStore.isAlarmKitArmed(id: payload.id) {
             NotificationScheduler.cancel(id: payload.id)
