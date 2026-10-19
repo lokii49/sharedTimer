@@ -1,11 +1,9 @@
-• Nouveau : Timer parle désormais dix langues : anglais, chinois, hindi, espagnol, arabe, français, bengali, portugais, russe et indonésien.
-• Nouveau : des aperçus de lien qui disent ce qu’ils sont. Messages affiche le nom et la durée du minuteur avant même que quelqu’un touche le lien.
-• Nouveau : l’écran de partage indique si un lien est En direct (synchronisé pour tout le monde) ou un Instantané, et il est prêt immédiatement.
-• Nouveau : partagez avec toute la salle grâce à un code QR. Les personnes qui le scannent peuvent suivre le compte à rebours, sans pouvoir le modifier.
-• Nouveau : Gérer le partage. Voyez qui a accès à un minuteur partagé, retirez quelqu’un ou arrêtez le partage.
-• Nouveau : enregistrez comme modèle personnel une séquence que l’on vous a envoyée.
-• Nouveau : Réglages. Définissez le nom que voient les autres quand vous partagez, choisissez parmi quatre sonneries d’alarme et revoyez les Nouveautés.
-• Descriptions VoiceOver améliorées et prise en charge des textes plus grands.
-• Les séquences et les comptes à rebours annuels programment désormais leurs prochaines alarmes en arrière-plan.
-• Corrigé : le partage fonctionne de nouveau depuis l’écran du minuteur.
-• Les liens partagés s’ouvrent désormais depuis mirrornotes.org. Les liens déjà envoyés continuent de fonctionner.
+• Nouveau : Partagez en lecture seule. Dans « Gérer le partage », choisissez si les autres peuvent modifier ou seulement regarder — ils le voient, et c'est mis à jour en direct.
+• Nouveau : Sachez ce qui a changé. Quand quelqu'un met en pause, prolonge ou arrête un minuteur partagé, vous recevez « Sam l'a mis en pause : Pasta », même Timer fermée.
+• Nouveau : Ajoutez plus d'une minute. Touchez +1:00 comme avant, ou la flèche à côté pour +5, +10, +15, +30 ou une durée personnalisée.
+• Nouveau : « Gérer le partage » se trouve juste à côté de « Partager » dès qu'un minuteur est partagé.
+• Retrait plus clair : « Retirer de mes minuteurs » pour ceux partagés avec vous, et « Supprimer pour tous » (avec confirmation) pour ceux que vous avez partagés.
+• L'anneau continue de défiler en douceur après un ajout de temps.
+• L'app Apple Watch s'appelle désormais Timer et parle votre langue, et les durées comme « 3 j 4 h » s'affichent partout dans votre langue.
+• Les minuteurs partagés se mettent à jour plus fiablement sur l'iPhone de chacun après une pause ou une prolongation.
+• Nombreuses petites corrections pour les alarmes, séquences, widgets et Activités en direct.

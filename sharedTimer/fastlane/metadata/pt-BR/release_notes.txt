@@ -1,11 +1,9 @@
-• Novo: o Timer agora fala dez idiomas — inglês, chinês, hindi, espanhol, árabe, francês, bengali, português, russo e indonésio.
-• Novo: prévias de link que dizem o que são. O app Mensagens mostra o nome e a duração do timer antes de alguém tocar.
-• Novo: a tela de compartilhamento informa se um link é Ao vivo (fica sincronizado para todos) ou um Instantâneo, e fica pronta na hora.
-• Novo: compartilhe com todo mundo no ambiente usando um código QR. Quem escanear pode acompanhar a contagem, mas não pode alterá-la.
-• Novo: Gerenciar Compartilhamento. Veja quem tem um timer compartilhado, remova alguém ou pare de compartilhar.
-• Novo: salve como seu próprio modelo uma sequência que alguém enviou a você.
-• Novo: Ajustes. Defina o nome que as pessoas veem quando você compartilha, escolha entre quatro toques de alarme e reveja as Novidades.
-• Descrições melhores no VoiceOver e suporte a textos maiores.
-• Sequências e contagens regressivas anuais agora repõem seus próximos alarmes em segundo plano.
-• Corrigido: compartilhar voltou a funcionar na tela do próprio timer.
-• Links compartilhados agora abrem a partir de mirrornotes.org. Os links que você já enviou continuam funcionando.
+• Novo: Compartilhe somente para visualização. Em "Gerenciar Compartilhamento", escolha se as pessoas podem fazer alterações ou só acompanhar — elas veem qual é, e isso atualiza na hora.
+• Novo: Saiba o que mudou. Quando alguém pausa, estende ou para um timer compartilhado, você recebe "Sam pausou Pasta", mesmo com o Timer fechado.
+• Novo: Adicione mais de um minuto. Toque em +1:00 como antes, ou use a seta ao lado para +5, +10, +15, +30 ou um tempo personalizado.
+• Novo: "Gerenciar Compartilhamento" fica ao lado de "Compartilhar" assim que um timer é compartilhado.
+• Remoção mais clara: "Remover dos meus timers" para timers compartilhados com você, e "Apagar para todos" (com confirmação) para os que você compartilhou.
+• O anel continua a contagem suavemente depois que você adiciona tempo.
+• O app do Apple Watch agora se chama Timer e fala o seu idioma, e tempos como "3 d 4 h" aparecem no seu idioma em todo lugar.
+• Timers compartilhados agora atualizam com mais confiabilidade no iPhone de todos após uma pausa ou extensão.
+• Muitas pequenas correções em alarmes, sequências, widgets e Atividades ao Vivo.
