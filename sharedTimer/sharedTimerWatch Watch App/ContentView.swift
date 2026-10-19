@@ -113,6 +113,9 @@ private struct TimerDetailView: View {
                         }
                     }
                     .buttonStyle(.bordered)
+                    // Shared with the phone as view only: same as the phone, shown but
+                    // disabled (the phone would refuse the change anyway).
+                    .disabled(payload.readOnly)
                 }
             }
         }

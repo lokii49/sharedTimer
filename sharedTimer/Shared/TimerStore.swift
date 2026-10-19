@@ -124,7 +124,10 @@ enum TimerStore {
     /// offers only silence/remove. In TimerStore, not CloudLink, so the widget (which
     /// can't see CloudLink) can hide its buttons too. Written by CloudSyncController.
     static func setReadOnly(id: String, _ readOnly: Bool) {
+        guard isReadOnly(id: id) != readOnly else { return }
         withWriteLock { updateIDSet(readOnlyKey, id: id, member: readOnly) }
+        // The widgets show or hide their buttons by this; they only re-read when told.
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     static func isReadOnly(id: String) -> Bool {

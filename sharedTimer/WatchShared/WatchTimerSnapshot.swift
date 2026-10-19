@@ -32,7 +32,8 @@ struct WatchTimerSnapshot {
         if remaining <= 0 { return String(localized: "Done") }
         return timer.isPaused ? String(localized: "Paused") : String(localized: "Remaining")
     }
-    var progress: Double { min(1, remaining / max(1, timer?.duration ?? 1)) }
+    /// Against the whole run, extends included (the phone's `span`).
+    var progress: Double { min(1, remaining / max(1, timer.map { $0.duration + $0.extraTime } ?? 1)) }
 
     static func select(_ timers: [TimerPayload], id: String? = nil, at date: Date) -> WatchTimerSnapshot {
         // A removed configured timer stays empty; never silently switch to another.

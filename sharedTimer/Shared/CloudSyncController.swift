@@ -228,7 +228,7 @@ enum CloudSyncController {
                     ))
                     CloudLinkStore.setShareURL(url, timerID: payload.id)
                     // Newly shared: an open detail screen shows its Manage Sharing button.
-                    DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: nil) }
+                    DispatchQueue.main.async { NotificationCenter.default.post(name: sharingChanged, object: payload.id) }
                     completeOnce(url)
                 case .failure(let error):
                     log("createShare(\(payload.id)) modifyRecords failed: \(error)")
@@ -413,30 +413,44 @@ enum CloudSyncController {
     private static func revertToServer(_ recordID: CKRecord.ID, in database: CKDatabase) {
         guard let link = CloudLinkStore.all().values.first(where: { $0.recordName == recordID.recordName }) else { return }
         TimerStore.setReadOnly(id: link.timerID, true)
-        DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: nil) }
         database.fetch(withRecordID: recordID) { record, _ in
-            guard let record, let payload = makePayload(from: record) else { return }
+            guard let record, let payload = makePayload(from: record) else {
+                // Couldn't read the server copy now: forget this zone's change token so
+                // the next pull refetches every record in it, the refused edit included.
+                clearToken(key: zoneTokenKey(recordID.zoneID))
+                DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: [link.timerID]) }
+                return
+            }
             DispatchQueue.main.async {
+                // Store the server copy first, so the re-arm the permission change
+                // triggers works from it, never from the refused edit.
                 TimerStore.save(payload)
                 NotificationCenter.default.post(name: revertedToServer, object: payload)
+                NotificationCenter.default.post(name: permissionsChanged, object: [link.timerID])
             }
         }
     }
 
-    /// Posted on main after any participant permission changed (zone changes, the
-    /// explicit refresh, a refused write) — screens re-read `TimerStore.isReadOnly`.
+    /// Posted on main after a participant permission changed (zone changes, the
+    /// explicit refresh, a refused write); `object` is the `[String]` of timer ids that
+    /// changed. Screens re-read `TimerStore.isReadOnly`; the app re-arms just those.
     static let permissionsChanged = Notification.Name("SharedTimerPermissionsChanged")
+
+    /// Posted on main when a timer became shared or stopped being shared on this phone
+    /// (`object`: its id) — the Manage Sharing button and remove wording follow it, and
+    /// the app re-arms it (a timer that left a view-only share gets its buttons back).
+    static let sharingChanged = Notification.Name("SharedTimerSharingChanged")
 
     private static func applyPermission(_ permission: CKShare.ParticipantPermission, shareRecordName: String) {
         let readOnly = permission == .readOnly
         let links = CloudLinkStore.all().values.filter { !$0.isOwner && $0.shareRecordName == shareRecordName }
-        var changed = false
+        var changed: [String] = []
         for link in links where TimerStore.isReadOnly(id: link.timerID) != readOnly {
             TimerStore.setReadOnly(id: link.timerID, readOnly)
-            changed = true
+            changed.append(link.timerID)
         }
-        if changed {
-            DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: nil) }
+        if !changed.isEmpty {
+            DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: changed) }
         }
     }
 
@@ -456,8 +470,11 @@ enum CloudSyncController {
                 // Links from before participants stored this get it now, so later
                 // permission changes in zone changes can find their timer.
                 if link.shareRecordName == nil {
-                    CloudLinkStore.set(CloudLink(timerID: link.timerID, recordName: link.recordName, zoneName: link.zoneName,
-                                                 zoneOwnerName: link.zoneOwnerName, isOwner: false, shareRecordName: shareID.recordName))
+                    CloudLinkStore.update(timerID: link.timerID) { current in
+                        CloudLink(timerID: current.timerID, recordName: current.recordName, zoneName: current.zoneName,
+                                  zoneOwnerName: current.zoneOwnerName, isOwner: current.isOwner,
+                                  shareRecordName: current.shareRecordName ?? shareID.recordName)
+                    }
                 }
                 database.fetch(withRecordID: shareID) { share, _ in
                     if let permission = (share as? CKShare)?.currentUserParticipant?.permission {
@@ -825,6 +842,7 @@ enum CloudSyncController {
         let wasOwner = CloudLinkStore.get(timerID: timerID)?.isOwner ?? true
         CloudLinkStore.remove(timerID: timerID)
         if !wasOwner { CloudLinkStore.markLeft(timerID: timerID) }
+        DispatchQueue.main.async { NotificationCenter.default.post(name: sharingChanged, object: timerID) }
     }
 
     /// Who last touched this timer and what they did, or nil if there's no CloudLink or

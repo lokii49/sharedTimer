@@ -276,6 +276,7 @@
   const duration = strictNumber(durParam);
   const pausedParam = qs("paused");
   const pausedSeconds = strictNumber(pausedParam);
+  const extraSeconds = strictNumber(qs("ext"));
   // "alarm=0" means the sender turned the finish alarm off. This page plays no sound
   // either way, so it's only surfaced as a body data-attribute to keep every wire
   // param accounted for (see TimerModel.swift url()/from(url:)).
@@ -348,7 +349,11 @@
       : kind === "countdown" ? formatTargetDate(annualEnd * 1000) : "counting down";
     const currentDuration = projected ? projected.phase.duration : (Number.isFinite(duration) && duration > 0 ? duration : Math.max(1, endSeconds - now));
     const family = done ? "over" : Number.isFinite(pausedSeconds) ? "mist" : familyFor(currentDuration);
-    paintSky(family, done || pending || Number.isFinite(pausedSeconds) ? 0 : 1 - remaining / Math.max(1, currentDuration));
+    // Drain against the whole run, extends included (`ext`, TimerPayload.extraTime);
+    // without it an extended link drained below zero. Plain timers only — a sequence
+    // projected to a later phase has started a fresh run.
+    const span = currentDuration + (!projected && Number.isFinite(extraSeconds) && extraSeconds > 0 ? extraSeconds : 0);
+    paintSky(family, done || pending || Number.isFinite(pausedSeconds) ? 0 : Math.min(1, Math.max(0, 1 - remaining / Math.max(1, span))));
     return !done && !Number.isFinite(pausedSeconds);
   }
   if (tick()) {

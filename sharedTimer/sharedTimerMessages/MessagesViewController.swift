@@ -15,6 +15,20 @@ class MessagesViewController: MSMessagesAppViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // CloudKit refused a change made here (the share became view only) and put the
+        // server's copy back in the store: move this extension's alert and Live
+        // Activity to it too, as `persist` would.
+        NotificationCenter.default.addObserver(forName: CloudSyncController.revertedToServer, object: nil, queue: .main) { note in
+            guard let payload = note.object as? TimerPayload else { return }
+            NotificationScheduler.cancel(id: payload.id)
+            guard !TimerStore.isAlarmKitArmed(id: payload.id) else { return }
+            if payload.isPaused || payload.isExpired {
+                LiveActivityController.update(for: payload)
+            } else {
+                NotificationScheduler.scheduleAlert(for: payload)
+                LiveActivityController.start(for: payload)
+            }
+        }
         // Horizon is dark-first; Messages.app owns this extension's trait environment,
         // so the dark trait has to be forced on the controller itself for UIKit-hosted
         // SwiftUI colors to resolve against the dark room.

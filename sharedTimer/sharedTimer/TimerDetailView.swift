@@ -26,6 +26,7 @@ struct TimerDetailView: View {
     @State private var readOnly = false
     /// Shared with this phone by someone else (shows the permission badge).
     @State private var isParticipant = false
+    @State private var showingCustomExtend = false
     /// Has a CloudKit share (owner or participant) — shows the Manage Sharing button.
     @State private var isShared = false
     @State private var cloudShare: CloudShareItem?
@@ -135,7 +136,7 @@ struct TimerDetailView: View {
                         .opacity(readOnly ? 0.45 : 1)
                     } else if !done {
                         HStack(spacing: 12) {
-                            ExtendTimeMenu { extend(by: $0) }
+                            ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
 
                             Button(payload.isPaused ? "Resume" : "Pause") {
                                 togglePause()
@@ -307,7 +308,6 @@ struct TimerDetailView: View {
             CloudSharingView(item: item, title: payload.label) {
                 CloudSyncController.didStopSharing(timerID: payload.id)
                 refreshSharingState()
-                NotificationCenter.default.post(name: CloudSyncController.permissionsChanged, object: nil)
             }
             .ignoresSafeArea()
         }
@@ -326,7 +326,17 @@ struct TimerDetailView: View {
             CloudSyncController.fetchParticipantCount(for: payload) { participantCount = $0 }
             CloudSyncController.fetchAttribution(for: payload) { attribution = $0 }
         }
+        // Presented from here, outside the 1s TimelineView's running branch, so it stays
+        // open if the timer ends mid-pick (the add is then skipped).
+        .sheet(isPresented: $showingCustomExtend) {
+            CustomExtendSheet { interval in
+                if !payload.isFinished { extend(by: interval) }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.permissionsChanged)) { _ in
+            refreshSharingState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.sharingChanged)) { _ in
             refreshSharingState()
         }
         // Fallback for a delayed silent push: while someone it was shared with is
@@ -372,6 +382,17 @@ struct TimerDetailView: View {
         return link.isOwner ? .deleteForEveryone : .removeMine
     }
 
+    /// Re-checks the stored permission at the moment of a change: the on-screen
+    /// `readOnly` can lag (another process refreshed it, or a sheet was already open),
+    /// and changing the local copy first would show an edit the app then drops.
+    private func canChange() -> Bool {
+        if TimerStore.isReadOnly(id: payload.id) {
+            refreshSharingState()
+            return false
+        }
+        return true
+    }
+
     private func refreshSharingState() {
         let link = CloudLinkStore.get(timerID: payload.id)
         isShared = link != nil
@@ -407,6 +428,7 @@ struct TimerDetailView: View {
     }
 
     private func togglePause() {
+        guard canChange() else { return }
         payload = payload.isPaused ? payload.resumed() : payload.paused()
         onUpdate(payload, payload.isPaused ? "paused" : "resumed")
     }
@@ -414,11 +436,13 @@ struct TimerDetailView: View {
     /// Row's own `startEarly` action, mirrored here the same way `togglePause`/`extend`
     /// mirror the row's -- see the row's `startEarly` doc comment for why `repeated()`.
     private func startEarly() {
+        guard canChange() else { return }
         payload = payload.repeated()
         onUpdate(payload, "startedEarly")
     }
 
     private func extend(by interval: TimeInterval) {
+        guard canChange() else { return }
         payload = payload.extended(by: interval)
         onUpdate(payload, "extended")
     }
@@ -426,6 +450,7 @@ struct TimerDetailView: View {
     /// A countdown moved to a future date is running again: silence the finished
     /// alert and let its new zero-crossing buzz, same as `repeatTimer`.
     private func applyEdit(_ edited: TimerPayload) {
+        guard canChange() else { return }
         if payload.isFinished && !edited.isFinished {
             alarm.stop()
             vibration.stop()
@@ -439,6 +464,7 @@ struct TimerDetailView: View {
     /// re-arm the finish handler, and run the standard mutation path (which reschedules
     /// the AlarmKit alarm / notification and Live Activity).
     private func repeatTimer() {
+        guard canChange() else { return }
         alarm.stop()
         vibration.stop()
         hasBuzzedFinish = false

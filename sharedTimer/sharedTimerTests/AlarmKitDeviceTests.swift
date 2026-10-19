@@ -318,6 +318,24 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
+    /// A view-only share still gets its full-screen alarm (with an Open button instead
+    /// of Repeat), and a permission change re-creates an alarm already armed.
+    @Test func viewOnlyTimerStillArmsAndPermissionChangeRecreatesTheAlarm() async {
+        let payload = TimerPayload(id: UUID().uuidString, label: "View only alarm", duration: 120)
+        created.append(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        // A UUID-string timer id is its own alarm id (AlarmController.alarmID(for:)).
+        let id = UUID(uuidString: payload.id)!
+        #expect(alarmsByID()[id] != nil)
+        #expect(signature(id)?.hasSuffix("|viewonly") == false)
+        TimerStore.setReadOnly(id: payload.id, true)
+        defer { TimerStore.setReadOnly(id: payload.id, false) }
+        await AlarmController.rescheduleAwaiting(for: payload)
+        #expect(alarmsByID()[id] != nil)
+        #expect(signature(id)?.hasSuffix("|viewonly") == true)
+        await tearDown()
+    }
+
     @Test func editingAPausedTimerReplacesItsPausedAlarm() async {
         let payload = TimerPayload(label: "Edit paused", duration: 300)
         created.append(payload)

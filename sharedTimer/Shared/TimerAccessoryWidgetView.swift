@@ -93,8 +93,11 @@ struct TimerAccessoryWidgetView: View {
                 if family == .accessoryCircular {
                     if Calendar.current.isDate(start, inSameDayAs: snapshot.date) {
                         Text(start, style: .time)
-                    } else {
+                    } else if let week = Calendar.current.date(byAdding: .day, value: 6, to: snapshot.date), start < week {
                         Text(start.formatted(.dateTime.weekday(.abbreviated)))
+                    } else {
+                        // A week or more out a weekday would read as this week's.
+                        Text(start.formatted(.dateTime.day().month(.abbreviated)))
                     }
                 } else {
                     Text(Sky.pendingStartText(for: start, at: snapshot.date))

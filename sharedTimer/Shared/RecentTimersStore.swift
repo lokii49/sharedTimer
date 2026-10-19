@@ -100,7 +100,7 @@ enum RecentTimersStore {
         defaults?.set(true, forKey: seededKey)
         let started = payloads
             .filter { $0.kind == .timer && $0.sequence == nil }
-            .sorted { $0.endDate.addingTimeInterval(-$0.duration) < $1.endDate.addingTimeInterval(-$1.duration) }
+            .sorted { $0.endDate.addingTimeInterval(-$0.span) < $1.endDate.addingTimeInterval(-$1.span) }
         for payload in started {
             record(payload)  // oldest first, so the newest ends up at the front
         }

@@ -32,6 +32,9 @@ struct TimerRunningView: View {
     /// at all — both re-read when CloudKit reports a permission change.
     @State private var readOnly = false
     @State private var isParticipant = false
+    @State private var showingCustomExtend = false
+    @State private var isShared = false
+    @State private var confirmingDeleteForEveryone = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -98,7 +101,7 @@ struct TimerRunningView: View {
                             }
                             .buttonStyle(.glassPill)
 
-                            ExtendTimeMenu { extend(by: $0) }
+                            ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
                         }
                         // View only: shown but disabled, so it's clear why they don't work.
                         .disabled(readOnly)
@@ -113,12 +116,24 @@ struct TimerRunningView: View {
                                 .font(.footnote.weight(.medium))
                                 .foregroundStyle(.white.opacity(0.75))
                         }
+                        // Same words and confirmation as the app: the owner of a shared
+                        // timer deletes it for everyone, anyone else removes their copy.
                         Button {
-                            onDelete(payload)
+                            if isShared && !isParticipant {
+                                confirmingDeleteForEveryone = true
+                            } else {
+                                onDelete(payload)
+                            }
                         } label: {
-                            Text("Delete")
+                            Text(isShared ? (isParticipant ? String(localized: "Remove from My Timers") : String(localized: "Delete for Everyone"))
+                                          : String(localized: "Delete"))
                                 .font(.footnote.weight(.medium))
                                 .foregroundStyle(.white.opacity(0.55))
+                        }
+                        .confirmationDialog(String(localized: "Delete for everyone?"), isPresented: $confirmingDeleteForEveryone, titleVisibility: .visible) {
+                            Button(String(localized: "Delete for Everyone"), role: .destructive) { onDelete(payload) }
+                        } message: {
+                            Text("It stops for everyone you shared it with.")
                         }
                     }
                     .padding(.top, 14)
@@ -145,8 +160,25 @@ struct TimerRunningView: View {
                 }
             }
         }
-        .onAppear { refreshPermissionState() }
+        .onAppear {
+            refreshPermissionState()
+            // Opening a bubble of a timer already shared with this phone: re-check now,
+            // rather than wait for the main app or the 30s check below.
+            if isParticipant {
+                CloudSyncController.refreshPermissions(for: [payload.id]) { refreshPermissionState() }
+            }
+        }
+        // Presented from here, outside the 1s TimelineView's running branch, so it stays
+        // open if the timer ends mid-pick (the add is then skipped).
+        .sheet(isPresented: $showingCustomExtend) {
+            CustomExtendSheet { interval in
+                if !payload.isFinished { extend(by: interval) }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.permissionsChanged)) { _ in
+            refreshPermissionState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.sharingChanged)) { _ in
             refreshPermissionState()
         }
         // The owner can change it while this is open; a delayed silent push is covered
@@ -197,7 +229,9 @@ struct TimerRunningView: View {
 
     private func refreshPermissionState() {
         readOnly = TimerStore.isReadOnly(id: payload.id)
-        isParticipant = CloudLinkStore.get(timerID: payload.id)?.isOwner == false
+        let link = CloudLinkStore.get(timerID: payload.id)
+        isShared = link != nil
+        isParticipant = link?.isOwner == false
     }
 
     private func togglePause() {

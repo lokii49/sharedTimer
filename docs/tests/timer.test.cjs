@@ -91,6 +91,11 @@ test('numbers parse strictly and out-of-range values are rejected like the app',
   assert(page({ dur: '0' }).elements.status.textContent.includes('invalid'));
   assert.equal(page({ paused: '80' }).elements.clock.textContent, '01:20');
 });
+test('an extended link drains against the whole run without throwing', () => {
+  const p = page({ end: String(epoch + 240), dur: '300', ext: '300' });
+  assert.equal(p.elements.clock.textContent, '04:00');
+  assert.equal(p.intervalCount, 1);
+});
 test('Unicode and HTML in phase labels remain plain text', () => {
   const p = page({ seq: seq({ phases: [{ ...phases[0], label: '<script>alert(1)</script> 💫' }] }) });
   assert.equal(p.elements.label.textContent, '<script>alert(1)</script> 💫');

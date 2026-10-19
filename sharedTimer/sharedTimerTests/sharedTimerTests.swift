@@ -968,7 +968,7 @@ struct sharedTimerTests {
         #expect(snapshot.first?.label == "Rest")
         let data = try JSONEncoder().encode(snapshot)
         let keys = Set(try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]]).flatMap(\.keys))
-        #expect(keys.isSubset(of: ["id", "label", "endDate", "duration", "pausedRemaining", "extraTime", "kind", "alarmEnabled", "vibrationEnabled"]))
+        #expect(keys.isSubset(of: ["id", "label", "endDate", "duration", "pausedRemaining", "extraTime", "readOnly", "kind", "alarmEnabled", "vibrationEnabled"]))
     }
 
     @Test func extendedTimerKeepsDrainingInsteadOfSittingFull() throws {

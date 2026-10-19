@@ -30,7 +30,7 @@ struct WatchTimerWidgetView: View {
         ZStack {
             Group {
                 if snapshot.isRunning, let timer = snapshot.timer {
-                    ProgressView(timerInterval: timer.endDate.addingTimeInterval(-max(timer.duration, snapshot.remaining))...timer.endDate, countsDown: true) {
+                    ProgressView(timerInterval: timer.endDate.addingTimeInterval(-max(timer.duration + timer.extraTime, snapshot.remaining))...timer.endDate, countsDown: true) {
                         EmptyView()
                     } currentValueLabel: { EmptyView() }
                         .progressViewStyle(.circular)

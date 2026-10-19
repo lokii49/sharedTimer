@@ -179,3 +179,13 @@ struct AdvanceAnnualCountdownIntent: LiveActivityIntent {
         return .result()
     }
 }
+
+/// The full-screen alert's second button for a timer shared with this phone as view
+/// only: Next / Repeat / Next Year would change it for everyone, but AlarmKit needs a
+/// second button to present the alert at all when the phone is unlocked. So it just
+/// opens the app (harmless if the system doesn't open it).
+struct OpenTimerAppIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Open Timer"
+    static var openAppWhenRun = true
+    func perform() async throws -> some IntentResult { .result() }
+}

@@ -981,6 +981,64 @@
         }
       }
     },
+    "Add 1 minute": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "增加 1 分钟"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 मिनट जोड़ें"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir 1 minuto"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إضافة دقيقة واحدة"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter 1 minute"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "১ মিনিট যোগ করুন"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adicionar 1 minuto"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить 1 минуту"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambah 1 menit"
+          }
+        }
+      }
+    },
     "Add Time": {
       "localizations": {
         "ar": {
@@ -1331,16 +1389,16 @@
     },
     "Can make changes": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "可以更改"
+            "value": "يمكن إجراء تغييرات"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "बदलाव कर सकते हैं"
+            "value": "পরিবর্তন করতে পারেন"
           }
         },
         "es": {
@@ -1349,22 +1407,22 @@
             "value": "Puede hacer cambios"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يمكن إجراء تغييرات"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Peut modifier"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "পরিবর্তন করতে পারেন"
+            "value": "बदलाव कर सकते हैं"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bisa mengubah"
           }
         },
         "pt-BR": {
@@ -1379,10 +1437,10 @@
             "value": "Можно изменять"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bisa mengubah"
+            "value": "可以更改"
           }
         }
       }
@@ -1967,6 +2025,122 @@
         }
       }
     },
+    "Delete for Everyone": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为所有人删除"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सभी के लिए डिलीट करें"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar para todos"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "حذف للجميع"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer pour tous"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "সবার জন্য মুছুন"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apagar para todos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить для всех"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus untuk Semua"
+          }
+        }
+      }
+    },
+    "Delete for everyone?": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要为所有人删除吗？"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सभी के लिए डिलीट करें?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Eliminar para todos?"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "هل تريد الحذف للجميع؟"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer pour tous ?"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "সবার জন্য মুছবেন?"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apagar para todos?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить для всех?"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus untuk semua?"
+          }
+        }
+      }
+    },
     "Ember": {
       "localizations": {
         "ar": {
@@ -2373,6 +2547,64 @@
         }
       }
     },
+    "It stops for everyone you shared it with.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "与你共享的所有人都会停止该计时器。"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जिनके साथ आपने इसे शेयर किया, उन सभी के लिए यह रुक जाएगा।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se detendrá para todas las personas con las que lo compartiste."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "سيتوقف لدى كل من شاركته معهم."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il s’arrête pour toutes les personnes avec qui vous l’avez partagé."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আপনি যাদের সাথে শেয়ার করেছেন, তাদের সবার জন্য এটি থেমে যাবে।"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ele para para todas as pessoas com quem você compartilhou."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Он остановится у всех, с кем вы им поделились."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer ini berhenti untuk semua orang yang Anda bagikan."
+          }
+        }
+      }
+    },
     "Label": {
       "localizations": {
         "ar": {
@@ -2607,16 +2839,16 @@
     },
     "Only the owner can pause or change this timer.": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "只有所有者可以暂停或更改此计时器。"
+            "value": "لا يمكن إلا للمالك إيقاف هذا المؤقت مؤقتًا أو تغييره."
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "इस टाइमर को सिर्फ़ इसका मालिक पॉज़ कर सकता है या बदल सकता है।"
+            "value": "শুধু মালিক এই টাইমার বিরতি দিতে বা বদলাতে পারেন।"
           }
         },
         "es": {
@@ -2625,22 +2857,22 @@
             "value": "Solo el propietario puede pausar o cambiar este temporizador."
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لا يمكن إلا للمالك إيقاف هذا المؤقت مؤقتًا أو تغييره."
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Seul le propriétaire peut mettre en pause ou modifier ce minuteur."
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "শুধু মালিক এই টাইমার বিরতি দিতে বা বদলাতে পারেন।"
+            "value": "इस टाइमर को सिर्फ़ इसका मालिक पॉज़ कर सकता है या बदल सकता है।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hanya pemilik yang bisa menjeda atau mengubah timer ini."
           }
         },
         "pt-BR": {
@@ -2655,10 +2887,10 @@
             "value": "Только владелец может приостановить или изменить этот таймер."
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hanya pemilik yang bisa menjeda atau mengubah timer ini."
+            "value": "只有所有者可以暂停或更改此计时器。"
           }
         }
       }
@@ -2961,6 +3193,64 @@
           "stringUnit": {
             "state": "translated",
             "value": "每轮阶段数：%lld · 轮数：%lld"
+          }
+        }
+      }
+    },
+    "Remove from My Timers": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从我的计时器中移除"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मेरे टाइमर से हटाएँ"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar de mis temporizadores"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إزالة من مؤقتاتي"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer de mes minuteurs"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আমার টাইমার থেকে সরান"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remover dos meus timers"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убрать из моих таймеров"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hapus dari Timer Saya"
           }
         }
       }
@@ -4533,16 +4823,16 @@
     },
     "View only": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "仅查看"
+            "value": "للعرض فقط"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "सिर्फ़ देखें"
+            "value": "শুধু দেখা"
           }
         },
         "es": {
@@ -4551,22 +4841,22 @@
             "value": "Solo ver"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "للعرض فقط"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Lecture seule"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "শুধু দেখা"
+            "value": "सिर्फ़ देखें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hanya lihat"
           }
         },
         "pt-BR": {
@@ -4581,10 +4871,10 @@
             "value": "Только просмотр"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hanya lihat"
+            "value": "仅查看"
           }
         }
       }

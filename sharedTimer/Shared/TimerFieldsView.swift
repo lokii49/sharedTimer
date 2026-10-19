@@ -203,12 +203,17 @@ struct TimerFieldsView: View {
 /// widget and Clip never compile it.
 struct ExtendTimeMenu: View {
     let onExtend: (TimeInterval) -> Void
-    @State private var showingCustom = false
+    /// Opens the Custom… sheet, which the caller presents from outside the timer's
+    /// running-state branch — attached here it vanished mid-pick when the timer ended.
+    let onCustom: () -> Void
 
     var body: some View {
         HStack(spacing: 0) {
             Button("+1:00") { onExtend(60) }
                 .buttonStyle(SplitPillSegmentStyle(leading: 22, trailing: 14))
+                .accessibilityLabel(String(localized: "Add 1 minute"))
+                // Stable hook for UI tests/automation, whatever the spoken label says.
+                .accessibilityIdentifier("+1:00")
 
             Rectangle()
                 .fill(.white.opacity(0.3))
@@ -219,7 +224,7 @@ struct ExtendTimeMenu: View {
                 ForEach([5, 10, 15, 30], id: \.self) { minutes in
                     Button(String(localized: "+\(minutes) min")) { onExtend(TimeInterval(minutes * 60)) }
                 }
-                Button(String(localized: "Custom…")) { showingCustom = true }
+                Button(String(localized: "Custom…")) { onCustom() }
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 13, weight: .bold))
@@ -231,9 +236,6 @@ struct ExtendTimeMenu: View {
         .background(.white.opacity(0.17), in: Capsule())
         .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 1))
         .clipShape(Capsule())
-        .sheet(isPresented: $showingCustom) {
-            CustomExtendSheet(onAdd: onExtend)
-        }
     }
 }
 
@@ -266,15 +268,20 @@ struct CustomExtendSheet: View {
     var body: some View {
         NavigationStack {
             HStack(spacing: 0) {
+                // Clipped: side-by-side wheels otherwise steal each other's drags.
                 Picker(String(localized: "hours"), selection: $hours) {
                     ForEach(0...23, id: \.self) { Text("\($0)").tag($0) }
                 }
                 .pickerStyle(.wheel)
+                .frame(maxWidth: .infinity)
+                .clipped()
                 Text(String(localized: "hours")).foregroundStyle(.secondary)
                 Picker(String(localized: "min"), selection: $minutes) {
                     ForEach(0...59, id: \.self) { Text("\($0)").tag($0) }
                 }
                 .pickerStyle(.wheel)
+                .frame(maxWidth: .infinity)
+                .clipped()
                 Text(String(localized: "min")).foregroundStyle(.secondary)
             }
             .padding(.horizontal)

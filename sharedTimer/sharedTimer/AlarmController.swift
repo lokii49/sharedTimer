@@ -420,6 +420,9 @@ enum AlarmController {
     private static func signature(of payload: TimerPayload) -> String {
         // The tone joins the signature so changing it in Settings re-creates armed alarms.
         "\(payload.label)|\(payload.alarmEnabled ? AlarmTone.selected.rawValue : "silent")"
+            // A view-only alert has a different second button; a permission change must
+            // re-create kept alarms.
+            + (TimerStore.isReadOnly(id: payload.id) ? "|viewonly" : "")
     }
 
     /// No recorded signature (an alarm scheduled before this existed) counts as a
@@ -534,7 +537,10 @@ enum AlarmController {
         // `advancedSequence` — which callers must run *before* this, not after. Only
         // treat it as legitimately "revive from an AlarmKit repeat" once the whole
         // sequence is exhausted.
+        // A view-only share can't be repeated (the push would be refused); its alarm
+        // is re-armed with an Open button instead — see `scheduleAlarm`.
         for index in timers.indices where timers[index].isFinished && timers[index].recurrence == nil
+            && !TimerStore.isReadOnly(id: timers[index].id)
             && (timers[index].sequence == nil || timers[index].sequence!.loopIndex >= timers[index].sequence!.loopCount) {
             let id = alarmID(for: timers[index].id)
             guard let alarm = alarms.first(where: { $0.id == id }),
@@ -543,6 +549,8 @@ enum AlarmController {
             var revived = timers[index]
             revived.endDate = Date().addingTimeInterval(length)
             revived.pausedRemaining = nil
+            // A fresh run, like `repeated()`: the old run's extends don't count against it.
+            revived.extraTime = 0
             // A user's Repeat, like every other mutation: stamped so it syncs and wins.
             revived.updatedAt = Date()
             timers[index] = revived
@@ -583,8 +591,14 @@ enum AlarmController {
         let isFinalSequencePhase = payload.sequence.map {
             $0.phaseIndex == $0.phases.count - 1 && $0.loopIndex == $0.loopCount - 1
         } ?? false
+        let readOnly = TimerStore.isReadOnly(id: payload.id)
         let alert: AlarmPresentation.Alert
-        if payload.recurrence != nil {
+        if readOnly {
+            // View-only share: no button may change it (see OpenTimerAppIntent).
+            alert = AlarmPresentation.Alert(title: LocalizedStringResource("\(payload.label)"),
+                secondaryButton: AlarmButton(text: "Open", textColor: .white, systemImageName: "arrow.up.forward.app"),
+                secondaryButtonBehavior: .custom)
+        } else if payload.recurrence != nil {
             alert = AlarmPresentation.Alert(title: LocalizedStringResource("\(payload.label)"),
                 secondaryButton: AlarmButton(text: "Next Year", textColor: .white, systemImageName: "calendar.badge.clock"),
                 secondaryButtonBehavior: .custom)
@@ -677,7 +691,9 @@ enum AlarmController {
         // otherwise. If it doesn't stick, a sequence still advances correctly on next
         // app foreground (the `advancedSequence` re-derivation guarantee).
         var secondaryIntent: (any LiveActivityIntent)?
-        if payload.recurrence != nil {
+        if readOnly {
+            secondaryIntent = OpenTimerAppIntent()
+        } else if payload.recurrence != nil {
             secondaryIntent = AdvanceAnnualCountdownIntent(timerID: payload.id, occurrenceEnd: payload.endDate.timeIntervalSince1970)
         } else if payload.sequence != nil {
             secondaryIntent = isFinalSequencePhase

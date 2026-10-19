@@ -25,6 +25,8 @@ struct TimerPayload: Codable, Identifiable {
     /// Time added by Extend since this run started (phone's `TimerPayload.extraTime`);
     /// progress is measured against `duration + extraTime`.
     var extraTime: TimeInterval = 0
+    /// Shared with the phone as view only (phone's `TimerStore.isReadOnly`).
+    var readOnly: Bool = false
     let kind: TimerKind
     /// When false, finishing raises only a quiet notification (standard sound, no
     /// AlarmKit full-screen ring, no in-app alarm loop) — the compose-sheet "Alarm"
@@ -60,7 +62,7 @@ struct TimerPayload: Codable, Identifiable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, label, endDate, duration, pausedRemaining, extraTime, kind, alarmEnabled, vibrationEnabled
+        case id, label, endDate, duration, pausedRemaining, extraTime, readOnly, kind, alarmEnabled, vibrationEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -71,6 +73,7 @@ struct TimerPayload: Codable, Identifiable {
         duration = try container.decode(TimeInterval.self, forKey: .duration)
         pausedRemaining = try container.decodeIfPresent(TimeInterval.self, forKey: .pausedRemaining)
         extraTime = max(0, try container.decodeIfPresent(TimeInterval.self, forKey: .extraTime) ?? 0)
+        readOnly = try container.decodeIfPresent(Bool.self, forKey: .readOnly) ?? false
         // Older shared links/stored timers predate `kind`; treat them as plain timers.
         kind = try container.decodeIfPresent(TimerKind.self, forKey: .kind) ?? .timer
         // Predates the alarm toggle -> keep the old always-alarm behavior.

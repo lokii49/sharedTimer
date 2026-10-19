@@ -197,9 +197,16 @@ struct ContentView: View {
                 }
                 timers = fresh
             }
-            .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.permissionsChanged)) { _ in
-                // Re-render so the menus' enabled state follows the new permission.
-                timers = TimerStore.loadAll()
+            .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.permissionsChanged)) { notification in
+                // Re-render so the menus' enabled state follows the new permission, and
+                // re-arm just the timers whose permission changed: their full-screen
+                // alert's second button depends on it (Open when view only).
+                rearmAfterSharingChange(ids: notification.object as? [String] ?? [])
+            }
+            .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.sharingChanged)) { notification in
+                // Shared or unshared (Stop Sharing / Remove Me): a timer that left a
+                // view-only share needs its normal alert buttons back.
+                rearmAfterSharingChange(ids: (notification.object as? String).map { [$0] } ?? [])
             }
             .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.revertedToServer)) { notification in
                 // CloudKit refused a change (the share became view-only): the store
@@ -703,6 +710,14 @@ struct ContentView: View {
     private func removalTitle(for payload: TimerPayload) -> String {
         guard let link = CloudLinkStore.get(timerID: payload.id) else { return String(localized: "Delete") }
         return link.isOwner ? String(localized: "Delete for Everyone") : String(localized: "Remove from My Timers")
+    }
+
+    private func rearmAfterSharingChange(ids: [String]) {
+        timers = TimerStore.loadAll()
+        for payload in timers where ids.contains(payload.id) && !payload.isExpired {
+            armAlerts(for: payload)
+        }
+        WatchSyncController.pushCurrentState()
     }
 
     private func manageSharing(_ payload: TimerPayload) {
