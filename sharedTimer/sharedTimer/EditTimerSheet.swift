@@ -38,6 +38,27 @@ struct EditTimerSheet: View {
                         targetDate: kind == .countdown ? targetDate : nil)
     }
 
+    /// A moved countdown target that has passed while the sheet was open would end the
+    /// countdown on Save; a yearly one rolls to its next anniversary instead.
+    private func targetStillValid(at date: Date) -> Bool {
+        guard kind == .countdown, original.recurrence == nil,
+              abs(targetDate.timeIntervalSince(original.endDate)) >= 1 else { return true }
+        return targetDate > date
+    }
+
+    /// What Save writes: the fields this sheet actually changed, applied to the newest
+    /// stored copy rather than the one it opened with — a pause, extend or rename that
+    /// landed meanwhile (Live Activity, Watch, CloudKit) would otherwise be overwritten.
+    private func editedLatest() -> TimerPayload {
+        let latest = (TimerStore.loadAll().first { $0.id == original.id } ?? original).advancedSequence()
+        let movedTarget = kind == .countdown && abs(targetDate.timeIntervalSince(original.endDate)) >= 1
+        return latest.edited(
+            label: label != original.label ? label : latest.label,
+            alarmEnabled: alarmEnabled != original.alarmEnabled ? alarmEnabled : latest.alarmEnabled,
+            vibrationEnabled: vibrationEnabled != original.vibrationEnabled ? vibrationEnabled : latest.vibrationEnabled,
+            targetDate: movedTarget ? targetDate : nil)
+    }
+
     /// `edited` always restamps `updatedAt`, so compare the fields an edit can change.
     private var hasChanges: Bool {
         let next = edited
@@ -84,12 +105,15 @@ struct EditTimerSheet: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        onSave(edited)
-                        dismiss()
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Button("Save") {
+                            guard targetStillValid(at: Date()) else { return }
+                            onSave(editedLatest())
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
+                        .disabled(!hasChanges || !targetStillValid(at: context.date))
                     }
-                    .fontWeight(.semibold)
-                    .disabled(!hasChanges)
                 }
             }
         }

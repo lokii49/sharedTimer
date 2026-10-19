@@ -12,7 +12,7 @@ struct TimerAccessoryWidgetView: View {
                 HStack(spacing: 8) {
                     ring(showTime: false).frame(width: 38, height: 38)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(snapshot.payload?.label ?? "No Timers")
+                        Text(snapshot.payload?.label ?? String(localized: "No Timers"))
                             .font(.caption.weight(.semibold))
                             .lineLimit(1)
                         HStack(spacing: 4) {
@@ -39,7 +39,7 @@ struct TimerAccessoryWidgetView: View {
         .widgetURL(snapshot.payload.map { TimerAppLink.url(for: $0.id) })
         .privacySensitive()
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(snapshot.payload?.label ?? "No timers")
+        .accessibilityLabel(snapshot.payload?.label ?? String(localized: "No timers"))
         .accessibilityValue(accessibilityValue)
         .accessibilityHint(snapshot.payload == nil ? "Open Timer" : "Open timer details")
     }
@@ -88,7 +88,17 @@ struct TimerAccessoryWidgetView: View {
         case .finished: Text("Done")
         case .scheduled:
             if let start = snapshot.payload?.scheduledStartDate {
-                Text(start, style: .time)
+                // With the day, like SkyCard and the home-screen widget ("Tomorrow
+                // 7:00 AM"); the small circle only fits the day when it isn't today.
+                if family == .accessoryCircular {
+                    if Calendar.current.isDate(start, inSameDayAs: snapshot.date) {
+                        Text(start, style: .time)
+                    } else {
+                        Text(start.formatted(.dateTime.weekday(.abbreviated)))
+                    }
+                } else {
+                    Text(Sky.pendingStartText(for: start, at: snapshot.date))
+                }
             }
         case .paused:
             Text(family == .accessoryCircular && snapshot.remaining >= 86400
@@ -119,13 +129,13 @@ struct TimerAccessoryWidgetView: View {
 
     private var accessibilityValue: String {
         switch snapshot.status {
-        case .empty: return "Add a timer in the app"
-        case .finished: return "Finished"
-        case .paused: return "Paused, \(TimeFormat.display(snapshot.remaining, at: snapshot.date)) remaining"
+        case .empty: return String(localized: "Add a timer in the app")
+        case .finished: return String(localized: "Finished")
+        case .paused: return String(localized: "Paused, \(TimeFormat.display(snapshot.remaining, at: snapshot.date)) remaining")
         case .scheduled:
-            return "Scheduled to start \(snapshot.payload!.scheduledStartDate!.formatted(date: .abbreviated, time: .shortened))"
+            return String(localized: "Scheduled to start \(snapshot.payload!.scheduledStartDate!.formatted(date: .abbreviated, time: .shortened))")
         case .running:
-            return "Running, ends \(snapshot.payload!.endDate.formatted(date: .abbreviated, time: .shortened))"
+            return String(localized: "Running, ends \(snapshot.payload!.endDate.formatted(date: .abbreviated, time: .shortened))")
         }
     }
 }

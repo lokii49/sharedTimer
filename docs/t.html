@@ -266,11 +266,16 @@
   labelEl.textContent = label;
   document.title = label + " · Timer";
 
-  const endSeconds = endParam ? parseFloat(endParam) : NaN;
+  // Strict parsing like Swift's Double(_:): parseFloat read "123abc" as 123, so a link
+  // the app rejects still rendered here.
+  function strictNumber(value) {
+    return value === null || value.trim() === "" ? NaN : Number(value);
+  }
+  const endSeconds = strictNumber(endParam);
   const durParam = qs("dur");
-  const duration = durParam ? parseFloat(durParam) : NaN;
+  const duration = strictNumber(durParam);
   const pausedParam = qs("paused");
-  const pausedSeconds = pausedParam !== null ? parseFloat(pausedParam) : NaN;
+  const pausedSeconds = strictNumber(pausedParam);
   // "alarm=0" means the sender turned the finish alarm off. This page plays no sound
   // either way, so it's only surfaced as a body data-attribute to keep every wire
   // param accounted for (see TimerModel.swift url()/from(url:)).
@@ -296,6 +301,10 @@
   try { sequence = decodeSequence(qs("seq")); recurrence = decodeAnnual(qs("annual"));
     if (recurrence && (sequence || kind !== "countdown")) throw new Error("Invalid anniversary");
   } catch (_) { invalidSequence = true; }
+  // TimerPayload.from(url:) rejects a negative pause and a non-positive length.
+  if ((Number.isFinite(pausedSeconds) && pausedSeconds < 0) || (Number.isFinite(duration) && duration <= 0)) {
+    invalidSequence = true;
+  }
   if (sequence && startParam !== null && (!Number.isFinite(startSeconds) || Math.abs(startSeconds) > 253402300799 ||
       (startSeconds > Date.now() / 1000 && (sequence.phaseIndex !== 0 || sequence.loopIndex !== 0 || Number.isFinite(pausedSeconds))))) {
     invalidSequence = true;

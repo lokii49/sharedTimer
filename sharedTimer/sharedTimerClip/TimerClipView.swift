@@ -11,6 +11,7 @@ struct TimerClipView: View {
     let payload: TimerPayload
     @State private var current: TimerPayload?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @State private var hasAlarmed = false
     @ObservedObject private var alarm = AlarmPlayer.shared
     @ObservedObject private var vibration = VibrationPlayer.shared
@@ -122,19 +123,27 @@ struct TimerClipView: View {
             alarm.stop()
             vibration.stop()
         }
+        // The loops can't run in the background anyway; stop them so `isPlaying` and the
+        // Stop button don't linger in a stale "ringing" state (same as the main app).
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                alarm.stop()
+                vibration.stop()
+            }
+        }
     }
 
     private func subtitle(payload: TimerPayload, done: Bool) -> String {
-        if payload.isPending(), let sequence = payload.sequence { return Sky.pendingFirstPhaseText(sequence) ?? "Scheduled" }
+        if payload.isPending(), let sequence = payload.sequence { return Sky.pendingFirstPhaseText(sequence) ?? String(localized: "Scheduled") }
         if done {
-            return "Finished \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+            return String(localized: "Finished \(payload.endDate.formatted(date: .omitted, time: .shortened))")
         }
         if payload.isPaused {
-            return "Paused"
+            return String(localized: "Paused")
         }
         if payload.kind == .countdown {
             return TimeFormat.targetDate(payload.endDate)
         }
-        return "ends at \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+        return String(localized: "ends at \(payload.endDate.formatted(date: .omitted, time: .shortened))")
     }
 }

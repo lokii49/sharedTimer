@@ -17,7 +17,13 @@ struct TimerComposeView: View {
     @State private var pickedExisting: TimerPayload?
     @FocusState private var labelFocused: Bool
 
-    let onStart: (TimerPayload, TimerShareMode) -> Void
+    /// (payload, mode, isExisting) — `isExisting` when re-sharing a picked timer.
+    let onStart: (TimerPayload, TimerShareMode, Bool) -> Void
+
+    private func canStart(at date: Date) -> Bool {
+        if pickedExisting != nil { return true }
+        return kind == .timer ? minutes * 60 >= 1 : targetDate > date
+    }
 
     var body: some View {
         Form {
@@ -82,15 +88,21 @@ struct TimerComposeView: View {
         .scrollContentBackground(.hidden)
         .background(Sky.room)
         .safeAreaInset(edge: .bottom) {
-            Button {
-                labelFocused = false
-                let toShare = pickedExisting ?? TimerPayload.compose(label: label, kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
-                onStart(toShare, shareMode)
-            } label: {
-                Label(pickedExisting == nil ? "Start & Share" : "Share", systemImage: "paperplane.fill")
-                    .frame(maxWidth: .infinity)
+            // Re-checked every second, like the app's New Timer sheet: a 0:00:00 timer or a
+            // target that passed while the sheet was open would ring at once.
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Button {
+                    guard canStart(at: Date()) else { return }
+                    labelFocused = false
+                    let toShare = pickedExisting ?? TimerPayload.compose(label: label, kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
+                    onStart(toShare, shareMode, pickedExisting != nil)
+                } label: {
+                    Label(pickedExisting == nil ? "Start & Share" : "Share", systemImage: "paperplane.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glassPill)
+                .disabled(!canStart(at: context.date))
             }
-            .buttonStyle(.glassPill)
             .padding()
             .background(Sky.room.opacity(0.92))
         }
@@ -116,10 +128,10 @@ struct TimerComposeView: View {
                     .font(.body)
                     .lineLimit(1)
                 Text(timer.isPaused
-                     ? "Paused"
+                     ? String(localized: "Paused")
                      : (timer.kind == .countdown
                         ? TimeFormat.targetDate(timer.endDate)
-                        : "Ends \(timer.endDate.formatted(date: .omitted, time: .shortened))"))
+                        : String(localized: "Ends \(timer.endDate.formatted(date: .omitted, time: .shortened))")))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

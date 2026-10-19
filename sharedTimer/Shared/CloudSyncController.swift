@@ -215,6 +215,9 @@ enum CloudSyncController {
                         completeOnce(nil)
                         return
                     }
+                    // A participant who left and now shares the timer themselves owns this
+                    // new share; the old "left" mark would make pullChanges drop it.
+                    CloudLinkStore.clearLeft(timerID: payload.id)
                     CloudLinkStore.set(CloudLink(
                         timerID: payload.id,
                         recordName: payload.id,
@@ -236,16 +239,22 @@ enum CloudSyncController {
 
     // MARK: - Accept
 
-    /// Main app only, called from `onOpenURL` when an incoming link carries a `ckshare`
-    /// param. Accepts programmatically via CKFetchShareMetadataOperation +
+    /// Called by the main app's `onOpenURL` and the Messages extension's bubble-open
+    /// path when an incoming link carries a `ckshare` param. Accepts programmatically
+    /// via CKFetchShareMetadataOperation +
     /// CKAcceptSharesOperation — never relies on the scene-delegate
     /// `userDidAcceptCloudKitShareWith` callback, since the raw icloud.com share URL is
     /// never the tappable link a recipient sees.
     static func acceptShare(from url: URL, completion: @escaping (TimerPayload?) -> Void) {
         let metadataOp = CKFetchShareMetadataOperation(shareURLs: [url])
         metadataOp.shouldFetchRootRecord = true
+        // Set once a per-share result arrives; an operation that fails outright (no
+        // account, offline) never reaches that block and must still call back.
+        let lock = NSLock()
+        var gotShareResult = false
 
         metadataOp.perShareMetadataResultBlock = { _, result in
+            lock.lock(); gotShareResult = true; lock.unlock()
             guard case .success(let metadata) = result else {
                 if case .failure(let error) = result {
                     log("acceptShare fetchMetadata failed: \(error)")
@@ -296,6 +305,8 @@ enum CloudSyncController {
             if case .failure(let error) = result {
                 log("acceptShare fetchShareMetadataResultBlock failed: \(error)")
             }
+            lock.lock(); let handled = gotShareResult; lock.unlock()
+            if !handled { completion(nil) }
         }
         container.add(metadataOp)
     }
@@ -303,8 +314,8 @@ enum CloudSyncController {
     // MARK: - Push local mutations up
 
     /// Fire-and-forget. No-ops silently if this timer has no CloudLink (pure local
-    /// timer). Retries once on a write conflict, taking the server record and reapplying
-    /// this device's field values on top — last-writer-wins on endDate/pausedRemaining.
+    /// timer). Retries once on a write conflict, reapplying only the fields this device
+    /// changed onto the server's newer record (see `merged`).
     /// `action` is a short human-readable verb ("paused", "resumed", "extended") written
     /// alongside this device's DisplayNameStore name for the "who did what" surfaces.
     static func pushUp(_ payload: TimerPayload, action: String, completion: @escaping () -> Void = {}) {
@@ -338,7 +349,10 @@ enum CloudSyncController {
 
     private static func save(_ record: CKRecord, to database: CKDatabase, retryOnConflict: Bool, completion: @escaping () -> Void) {
         let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
-        operation.savePolicy = .changedKeys
+        // `.changedKeys` never compares change tags, so it never reported a conflict
+        // and the merge below never ran — every push overwrote every field. pushUp
+        // always saves a just-fetched record, so this only trips on a real race.
+        operation.savePolicy = .ifServerRecordUnchanged
         operation.modifyRecordsResultBlock = { result in
             guard case .failure(let error) = result else { return completion() }
             guard retryOnConflict,
@@ -348,12 +362,27 @@ enum CloudSyncController {
                 completion()
                 return
             }
-            for key in Set(record.allKeys()).union(record.changedKeys()) {
-                serverRecord[key] = record[key]
-            }
-            save(serverRecord, to: database, retryOnConflict: false, completion: completion)
+            let merged = merged(client: record, ancestor: conflict.ancestorRecord, server: serverRecord)
+            save(merged, to: database, retryOnConflict: false, completion: completion)
         }
         database.add(operation)
+    }
+
+    /// Three-way merge for a write conflict: only the keys this device changed since
+    /// its fetch (`ancestor`) go onto the server's newer record, so a concurrent change
+    /// to another field (their extend, our pause) survives. A key cleared to nil counts
+    /// as changed. Without an ancestor every local key wins, as before.
+    static func merged(client: CKRecord, ancestor: CKRecord?, server: CKRecord) -> CKRecord {
+        let keys = Set(client.allKeys()).union(client.changedKeys()).union(ancestor?.allKeys() ?? [])
+        for key in keys {
+            if let ancestor {
+                let mine = client[key] as? NSObject
+                let base = ancestor[key] as? NSObject
+                guard mine != base else { continue }
+            }
+            server[key] = client[key]
+        }
+        return server
     }
 
     private static func serverRecordChangedError(from error: Error, for recordID: CKRecord.ID) -> CKError? {
@@ -432,6 +461,10 @@ enum CloudSyncController {
 
         dbOp.recordZoneWithIDChangedBlock = { zoneID in changedZoneIDs.append(zoneID) }
         dbOp.recordZoneWithIDWasDeletedBlock = { zoneID in deletedZoneIDs.append(zoneID) }
+        // Purged (the user removed the app's iCloud data) or wiped by an encrypted-data
+        // reset: just as gone, and never reported as a plain deletion.
+        dbOp.recordZoneWithIDWasPurgedBlock = { zoneID in deletedZoneIDs.append(zoneID) }
+        dbOp.recordZoneWithIDWasDeletedDueToUserEncryptedDataResetBlock = { zoneID in deletedZoneIDs.append(zoneID) }
         // Deliberately no `changeTokenUpdatedBlock` save: the database token is only
         // persisted once every changed zone's records have actually been fetched (see
         // below). Saving it any earlier meant a failed zone fetch was never retried —
@@ -498,6 +531,9 @@ enum CloudSyncController {
         var updated: [TimerPayload] = []
         var deletedIDs: [String] = []
         var expiredZoneIDs: [CKRecordZone.ID] = []
+        // Zones where a record failed to download: their token must not move past it,
+        // or that record is skipped until its next change.
+        var failedZoneIDs: Set<CKRecordZone.ID> = []
         var complete = true
 
         operation.recordWasChangedBlock = { recordID, result in
@@ -510,18 +546,20 @@ enum CloudSyncController {
                 }
             case .failure(let error):
                 log("fetchZoneChanges: record \(recordID.recordName) failed: \(error)")
+                failedZoneIDs.insert(recordID.zoneID)
+                complete = false
             }
         }
         operation.recordWithIDWasDeletedBlock = { recordID, _ in
             deletedIDs.append(recordID.recordName)
         }
         operation.recordZoneChangeTokensUpdatedBlock = { zoneID, token, _ in
-            if let token { saveToken(token, key: zoneTokenKey(zoneID)) }
+            if let token, !failedZoneIDs.contains(zoneID) { saveToken(token, key: zoneTokenKey(zoneID)) }
         }
         operation.recordZoneFetchResultBlock = { zoneID, result in
             switch result {
             case .success(let value):
-                saveToken(value.serverChangeToken, key: zoneTokenKey(zoneID))
+                if !failedZoneIDs.contains(zoneID) { saveToken(value.serverChangeToken, key: zoneTokenKey(zoneID)) }
             case .failure(let error):
                 switch (error as? CKError)?.code {
                 case .changeTokenExpired?:
@@ -614,7 +652,7 @@ enum CloudSyncController {
             sequence: sequence,
             scheduledStartDate: sequence == nil ? nil : record["scheduledStartDate"] as? Date,
             updatedAt: record["updatedAt"] as? Date, recurrence: recurrence
-        ).advancedSequence()
+        ).alignedToCurrentPhase().advancedSequence()
     }
 
     // MARK: - Attribution

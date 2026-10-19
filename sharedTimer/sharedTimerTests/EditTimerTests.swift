@@ -38,7 +38,7 @@ struct EditTimerTests {
     }
 
     @Test func sequencesAreNeverEdited() {
-        let sequence = TimerPayload.composeSequence(label: "Work", phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 2)
+        let sequence = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 2)
         let edited = sequence.edited(label: "Renamed", alarmEnabled: false, vibrationEnabled: false)
         #expect(edited.label == "Work")
         #expect(edited.alarmEnabled == sequence.alarmEnabled)

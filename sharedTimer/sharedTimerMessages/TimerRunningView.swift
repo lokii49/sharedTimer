@@ -155,17 +155,17 @@ struct TimerRunningView: View {
     }
 
     private func subtitle(done: Bool) -> String {
-        if payload.isPending(), let sequence = payload.sequence { return Sky.pendingFirstPhaseText(sequence) ?? "Scheduled" }
+        if payload.isPending(), let sequence = payload.sequence { return Sky.pendingFirstPhaseText(sequence) ?? String(localized: "Scheduled") }
         if done {
-            return "Finished \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+            return String(localized: "Finished \(payload.endDate.formatted(date: .omitted, time: .shortened))")
         }
         if payload.isPaused {
-            return "Paused"
+            return String(localized: "Paused")
         }
         if payload.kind == .countdown {
             return TimeFormat.targetDate(payload.endDate)
         }
-        return "ends at \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+        return String(localized: "ends at \(payload.endDate.formatted(date: .omitted, time: .shortened))")
     }
 
     private func togglePause() {

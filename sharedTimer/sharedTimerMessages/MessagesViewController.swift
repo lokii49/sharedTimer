@@ -32,6 +32,14 @@ class MessagesViewController: MSMessagesAppViewController {
         }
     }
 
+    /// Messages backgrounded or switched away: the foreground loops can't keep running,
+    /// so stop them rather than leave `isPlaying` and the Stop button stale.
+    override func willResignActive(with conversation: MSConversation) {
+        super.willResignActive(with: conversation)
+        AlarmPlayer.shared.stop()
+        VibrationPlayer.shared.stop()
+    }
+
     override func didReceive(_ message: MSMessage, conversation: MSConversation) {
         presentView(for: conversation)
     }
@@ -102,6 +110,13 @@ class MessagesViewController: MSMessagesAppViewController {
         CloudSyncController.acceptShare(from: shareURL) { authoritative in
             guard let authoritative else { return }
             DispatchQueue.main.async {
+                // A pause/extend made while the accept was in flight couldn't push (no
+                // CloudLink yet) and is newer than the record — keep it and push it now.
+                if let local = TimerStore.loadAll().first(where: { $0.id == authoritative.id }),
+                   authoritative.shouldAdopt(local) {
+                    CloudSyncController.pushUp(local, action: "updated")
+                    return
+                }
                 TimerStore.save(authoritative)
                 NotificationCenter.default.post(name: TimerRunningView.storeChange, object: nil)
                 guard !TimerStore.isAlarmKitArmed(id: authoritative.id) else { return }
@@ -117,8 +132,8 @@ class MessagesViewController: MSMessagesAppViewController {
     }
 
     private func presentComposeView() {
-        let root = AnyView(TimerComposeView { [weak self] payload, mode in
-            self?.send(payload: payload, mode: mode)
+        let root = AnyView(TimerComposeView { [weak self] payload, mode, isExisting in
+            self?.send(payload: payload, mode: mode, isExisting: isExisting)
         })
         presentRoot(root)
     }
@@ -208,20 +223,40 @@ class MessagesViewController: MSMessagesAppViewController {
     /// own internal ~4s timeout and always calls back with either a share URL or nil;
     /// nil means "send exactly today's plain link," which is what makes the added
     /// network dependency safe rather than a regression.
-    private func send(payload: TimerPayload, mode: TimerShareMode) {
-        guard let conversation = activeConversation else { return }
+    private func send(payload picked: TimerPayload, mode: TimerShareMode, isExisting: Bool) {
+        // A second tap while the share is being prepared (up to ~4s) created a second
+        // timer, share and bubble.
+        guard let conversation = activeConversation, !isSending else { return }
+        isSending = true
 
-        TimerStore.save(payload)
-        NotificationScheduler.scheduleAlert(for: payload)
+        let payload: TimerPayload
+        if let stored = TimerStore.loadAll().first(where: { $0.id == picked.id }) {
+            // Re-sharing an existing timer: send its newest state, and leave its alerts
+            // alone — re-saving the copy the picker loaded overwrote changes made since,
+            // and a notification here doubled up on an AlarmKit alarm the app owns.
+            payload = stored.advancedSequence()
+        } else if isExisting {
+            // Deleted (here or on another device) after the picker loaded it — saving the
+            // picker's copy would bring it back.
+            isSending = false
+            return
+        } else {
+            payload = picked
+            TimerStore.save(payload)
+            NotificationScheduler.scheduleAlert(for: payload)
+        }
 
         promptForDisplayNameIfNeeded {
             CloudSyncController.createShare(for: payload) { [weak self] shareURL in
                 DispatchQueue.main.async {
+                    self?.isSending = false
                     self?.deliver(payload: payload, mode: mode, shareURL: shareURL, conversation: conversation)
                 }
             }
         }
     }
+
+    private var isSending = false
 
     /// One-time prompt for DisplayNameStore.name — see DisplayNameStore.swift. Skipping
     /// (Skip, or dismissing) just falls back to "Someone" in attribution; nothing here
@@ -232,16 +267,16 @@ class MessagesViewController: MSMessagesAppViewController {
             return
         }
         let alert = UIAlertController(
-            title: "What should we call you?",
+            title: String(localized: "What should we call you?"),
             message: String(localized: "Shown to people you share timers with, like \"Sam paused Pasta.\" You can change it any time in Timer's Settings."),
             preferredStyle: .alert
         )
-        alert.addTextField { $0.placeholder = "Your name" }
-        alert.addAction(UIAlertAction(title: "Skip", style: .cancel) { _ in
+        alert.addTextField { $0.placeholder = String(localized: "Your name") }
+        alert.addAction(UIAlertAction(title: String(localized: "Skip"), style: .cancel) { _ in
             DisplayNameStore.declined = true
             completion()
         })
-        alert.addAction(UIAlertAction(title: "Continue", style: .default) { [weak alert] _ in
+        alert.addAction(UIAlertAction(title: String(localized: "Continue"), style: .default) { [weak alert] _ in
             let trimmed = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             if !trimmed.isEmpty { DisplayNameStore.name = trimmed }
             completion()

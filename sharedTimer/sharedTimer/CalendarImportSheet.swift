@@ -74,7 +74,7 @@ final class CalendarCountdownImporter {
             } else { granted = status == .fullAccess }
             guard granted else {
                 needsSettings = source.authorizationStatus != .restricted
-                message = "Allow Calendar access in Settings to choose an event. You can also enter a date yourself."
+                message = String(localized: "Allow Calendar access in Settings to choose an event. You can also enter a date yourself.")
                 return
             }
             let now = Date()
@@ -82,10 +82,10 @@ final class CalendarCountdownImporter {
             choices = try source.events(from: now, to: end)
                 .filter { $0.startDate > now }.sorted { $0.startDate < $1.startDate }
                 .map(CalendarCountdownChoice.init)
-            message = choices.isEmpty ? "No upcoming events in the next year. You can enter a date yourself." : nil
+            message = choices.isEmpty ? String(localized: "No upcoming events in the next year. You can enter a date yourself.") : nil
             needsSettings = false
         } catch {
-            message = "Calendar events couldn’t be loaded. Try again or enter a date yourself."
+            message = String(localized: "Calendar events couldn’t be loaded. Try again or enter a date yourself.")
         }
     }
 }

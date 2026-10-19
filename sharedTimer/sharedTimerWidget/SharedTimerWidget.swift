@@ -32,6 +32,17 @@ func remainingText(endDate: Date, pausedRemaining: TimeInterval?) -> some View {
     }
 }
 
+/// Home-screen digits: a scheduled sequence shows its start time ("Tomorrow 7:00 AM"),
+/// like SkyCard and the Lock Screen widget — not a countdown to the end of phase 0.
+@ViewBuilder
+func pendingAwareRemaining(_ payload: TimerPayload) -> some View {
+    if payload.isPending(), let start = payload.scheduledStartDate {
+        Text(Sky.pendingStartText(for: start, at: Date()))
+    } else {
+        remainingText(endDate: payload.endDate, pausedRemaining: payload.pausedRemaining)
+    }
+}
+
 func staticRemainingString(endDate: Date, pausedRemaining: TimeInterval?) -> String {
     if let pausedRemaining {
         return TimeFormat.display(pausedRemaining)
@@ -52,13 +63,20 @@ func nextRefresh(for payload: TimerPayload?) -> Date {
     guard let payload, !payload.isExpired, !payload.isPaused else {
         return Date().addingTimeInterval(15 * 60)
     }
+    // A scheduled sequence shows its start time until then; refresh exactly at start,
+    // or at midnight first so "Tomorrow 7:00 AM" turns into "Today 7:00 AM".
+    if let start = payload.scheduledStartDate, start > Date() {
+        let midnight = Calendar.current.startOfDay(for: Date()).addingTimeInterval(86400)
+        return min(start, midnight)
+    }
     let remaining = payload.remaining
     if remaining > TimeFormat.calendarThreshold {
         return Date().addingTimeInterval(min(remaining - TimeFormat.calendarThreshold, 6 * 3600))
     }
     if remaining > 86400 {
-        // "3d 4h" only changes on the hour.
-        return Date().addingTimeInterval(3600)
+        // "3d 4h" only changes on the hour — but switch to the live countdown the
+        // moment it drops under a day, not up to an hour later.
+        return Date().addingTimeInterval(min(3600, remaining - 86400))
     }
     return Date().addingTimeInterval(max(remaining, 1))
 }
@@ -177,7 +195,7 @@ struct BigCountdownWidgetView: View {
 
             Spacer(minLength: 0)
 
-            remainingText(endDate: payload.endDate, pausedRemaining: payload.pausedRemaining)
+            pendingAwareRemaining(payload)
                 // Shimmers while a tapped button's update is in flight (pause/resume
                 // only lands after the app runs the intent and the timeline reloads).
                 .invalidatableContent()
@@ -205,17 +223,9 @@ struct BigCountdownWidgetView: View {
         .padding(isSmall ? 2 : 4)
     }
 
+    /// Same line SkyCard shows (localized there).
     private func footerText(for payload: TimerPayload) -> String {
-        if payload.isPaused {
-            return "held"
-        }
-        if payload.isExpired {
-            return "finished \(payload.endDate.formatted(date: .omitted, time: .shortened))"
-        }
-        if payload.kind == .countdown {
-            return TimeFormat.targetDate(payload.endDate)
-        }
-        return "ends \(payload.endDate.formatted(date: .omitted, time: .shortened))"
+        Sky.endText(for: payload, at: Date())
     }
 
     private var emptyView: some View {
@@ -335,11 +345,7 @@ struct TimerListWidgetView: View {
                 Text(payload.label)
                     .skyLabel(10)
                     .lineLimit(1)
-                Text(payload.isPaused
-                     ? "held"
-                     : (payload.kind == .countdown
-                        ? TimeFormat.targetDate(payload.endDate)
-                        : "ends \(payload.endDate.formatted(date: .omitted, time: .shortened))"))
+                Text(Sky.endText(for: payload, at: Date()))
                     .skyLabel(9.5)
                     .foregroundStyle(.white.opacity(0.8))
                     .lineLimit(1)
@@ -348,7 +354,7 @@ struct TimerListWidgetView: View {
 
             Spacer(minLength: 6)
 
-            remainingText(endDate: payload.endDate, pausedRemaining: payload.pausedRemaining)
+            pendingAwareRemaining(payload)
                 // Shimmers while a tapped button's update is in flight (pause/resume
                 // only lands after the app runs the intent and the timeline reloads).
                 .invalidatableContent()

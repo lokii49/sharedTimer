@@ -7,6 +7,7 @@
 
 import Foundation
 import Testing
+import CloudKit
 @testable import sharedTimer
 
 // .serialized: the TimerStore tests below share one real App Group UserDefaults key
@@ -82,6 +83,13 @@ struct sharedTimerTests {
         // The JSONSerialization round-trip is where a Date-as-Double could drift —
         // assert the field that's actually at risk, not just that decoding succeeded.
         #expect(loaded.first?.endDate == good.endDate)
+
+        // A later save must not delete the entry this build can't read.
+        TimerStore.save(TimerPayload(id: "good-2", label: "Also good", duration: 60))
+        let stored = try #require(defaults.data(forKey: "sharedTimers"))
+        let ids = try #require(JSONSerialization.jsonObject(with: stored) as? [[String: Any]]).compactMap { $0["id"] as? String }
+        #expect(Set(ids) == ["good-1", "good-2", "bad-1"])
+        #expect(TimerStore.loadAll().count == 2)
     }
 
     @Test func loadAllSkipsAWronglyTypedArrayElement() throws {
@@ -403,7 +411,7 @@ struct sharedTimerTests {
     @Test func composeSequenceWithFutureStartSetsFirstPhaseEndDateFromStart() {
         let start = Date().addingTimeInterval(1800)
         let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
-        let payload = TimerPayload.composeSequence(label: "Pomodoro", phases: phases, loopCount: 2, startDate: start)
+        let payload = TimerPayload.composeSequence(phases: phases, loopCount: 2, startDate: start)
 
         #expect(payload.scheduledStartDate == start)
         #expect(payload.endDate == start.addingTimeInterval(60))
@@ -414,7 +422,7 @@ struct sharedTimerTests {
     @Test func composeSequenceWithPastStartClampsToStartingNow() {
         let past = Date().addingTimeInterval(-600)
         let phases = [SequencePhase(label: "Work", duration: 60)]
-        let payload = TimerPayload.composeSequence(label: "Pomodoro", phases: phases, loopCount: 1, startDate: past)
+        let payload = TimerPayload.composeSequence(phases: phases, loopCount: 1, startDate: past)
 
         // A start at/before now means "start now" -- never a payload whose own
         // scheduled start already lies in the past. Same clamp `compose` used to have
@@ -431,7 +439,7 @@ struct sharedTimerTests {
         let now = Date()
         let start = now.addingTimeInterval(3600)
         let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
-        let pending = TimerPayload.composeSequence(label: "Pomodoro", phases: phases, loopCount: 2, startDate: start)
+        let pending = TimerPayload.composeSequence(phases: phases, loopCount: 2, startDate: start)
         #expect(pending.isPending(at: now) == true)
 
         let started = pending.repeated(at: now)
@@ -618,7 +626,7 @@ struct sharedTimerTests {
         #expect(RecentTimersStore.all().first?.alarmEnabled == false)
 
         RecentTimersStore.record(TimerPayload.compose(label: "Trip", kind: .countdown, minutes: 0, targetDate: Date().addingTimeInterval(86400)))
-        RecentTimersStore.record(TimerPayload.composeSequence(label: "Pomodoro", phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1))
+        RecentTimersStore.record(TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1))
         #expect(RecentTimersStore.all().first?.label == "T5")
 
         RecentTimersStore.remove(id: "T5|300")
@@ -733,7 +741,7 @@ struct sharedTimerTests {
 
     @Test func siriScheduledSequenceCanBeReadButNotChanged() throws {
         let now = Date()
-        let pending = TimerPayload.composeSequence(label: "Later", phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1, startDate: now.addingTimeInterval(120))
+        let pending = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60)], loopCount: 1, startDate: now.addingTimeInterval(120))
         let current = try TimerIntentActions.snapshot(pending, at: now)
         #expect(current.status == .scheduled)
         #expect(current.seconds == 180)
@@ -865,6 +873,102 @@ struct sharedTimerTests {
         #expect(throws: TimerIntentError.timerFinished) {
             try TimerIntentActions.updated(cancelled, mutation: .resume, at: now)
         }
+    }
+
+    @Test func finishAcknowledgementSurvivesSavesThatLeaveTheFinishInPlace() {
+        let now = Date()
+        let stopped = TimerPayload(id: "ack", label: "Pasta", endDate: now, duration: 60)
+        // A CloudKit echo of this device's own Stop, rounded to the millisecond.
+        var echo = stopped
+        echo.endDate = Date(timeIntervalSince1970: (now.timeIntervalSince1970 * 1000).rounded() / 1000)
+        #expect(!TimerStore.finishMoved(from: stopped, to: echo))
+        var renamed = stopped
+        renamed.label = "Spaghetti"
+        #expect(!TimerStore.finishMoved(from: stopped, to: renamed))
+        #expect(TimerStore.finishMoved(from: stopped, to: stopped.extended(by: 60)))
+        #expect(TimerStore.finishMoved(from: stopped, to: stopped.repeated(at: now)))
+        #expect(TimerStore.finishMoved(from: nil, to: stopped))
+    }
+
+    @Test func conflictMergeKeepsAConcurrentChangeToAnotherField() {
+        func record(_ end: Date, _ paused: Double?) -> CKRecord {
+            let record = CKRecord(recordType: "Timer", recordID: CKRecord.ID(recordName: "merge"))
+            record["endDate"] = end as CKRecordValue
+            record["pausedRemaining"] = paused as CKRecordValue?
+            return record
+        }
+        let t0 = Date(timeIntervalSince1970: 1_000), t1 = Date(timeIntervalSince1970: 1_060)
+        // We paused; someone else extended in between.
+        let mine = record(t0, 30)
+        let merged = CloudSyncController.merged(client: mine, ancestor: record(t0, nil), server: record(t1, nil))
+        #expect(merged["endDate"] as? Date == t1)
+        #expect(merged["pausedRemaining"] as? Double == 30)
+        // We resumed (cleared to nil); the server still has the pause.
+        let resumed = CloudSyncController.merged(client: record(t0, nil), ancestor: record(t0, 30), server: record(t1, 30))
+        #expect(resumed["pausedRemaining"] == nil)
+        #expect(resumed["endDate"] as? Date == t1)
+        // No ancestor: every local key wins, as before.
+        let fallback = CloudSyncController.merged(client: record(t0, 30), ancestor: nil, server: record(t1, nil))
+        #expect(fallback["endDate"] as? Date == t0)
+    }
+
+    @Test func sequenceLinkScalarsFollowTheCurrentPhase() throws {
+        var payload = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)], loopCount: 2)
+        payload.label = "Pomodoro"  // what a pre-1.0.6 link carried for phase 0
+        payload.vibrationEnabled = false
+        let decoded = try #require(TimerPayload.from(url: payload.url()))
+        #expect(decoded.label == "Work")
+        #expect(decoded.vibrationEnabled)
+        // Cancel's silent snapshot of an exhausted sequence keeps its own scalars.
+        var cancelled = payload
+        cancelled.sequence!.loopIndex = 2
+        cancelled.alarmEnabled = false
+        #expect(cancelled.alignedToCurrentPhase().alarmEnabled == false)
+    }
+
+    @Test func modelTypesDecodeWithLaterFieldsMissing() throws {
+        let phase = try JSONDecoder().decode(SequencePhase.self, from: Data(#"{"label":"Work","duration":60}"#.utf8))
+        #expect(phase.kind == .timer && phase.alarmEnabled && !phase.vibrationEnabled)
+        let info = try JSONDecoder().decode(SequenceInfo.self, from: Data(#"{"phases":[{"label":"Work","duration":60}]}"#.utf8))
+        #expect(info.loopCount == 1 && info.phaseIndex == 0 && info.loopIndex == 0)
+        let saved = try JSONDecoder().decode(SavedSequence.self, from: Data(#"{"id":"s1","phases":[{"label":"Work","duration":60}]}"#.utf8))
+        #expect(saved.name == "Sequence" && saved.loopCount == 1)
+        let annual = try JSONDecoder().decode(AnnualRecurrence.self, from: Data(#"{"month":2,"day":29,"timeZoneID":"UTC"}"#.utf8))
+        #expect(annual.hour == 0 && annual.isValid)
+    }
+
+    @Test func quietSequenceLiveActivityMovesToTheNextPhaseWhenStale() {
+        let now = Date()
+        let payload = TimerPayload.composeSequence(phases: [
+            SequencePhase(label: "Work", duration: 60, alarmEnabled: false, vibrationEnabled: false),
+            SequencePhase(label: "Rest", duration: 30, alarmEnabled: false, vibrationEnabled: false),
+            SequencePhase(label: "Loud", duration: 30)
+        ], loopCount: 1)
+        let upcoming = LiveActivityController.upcomingQuietPhases(of: payload) ?? []
+        // Stops at the first phase AlarmKit owns.
+        #expect(upcoming.map(\.label) == ["Rest"])
+        let state = TimerActivityAttributes.ContentState(endDate: payload.endDate, pausedRemaining: nil,
+                                                         label: "Work", kind: .timer, upcoming: upcoming)
+        #expect(state.current(at: now).label == "Work")
+        let afterFirst = state.current(at: payload.endDate.addingTimeInterval(1))
+        #expect(afterFirst.label == "Rest")
+        #expect(afterFirst.endDate == upcoming[0].endDate)
+        // Past every carried phase: unchanged, so the card reads Finished.
+        #expect(state.current(at: upcoming[0].endDate.addingTimeInterval(1)).label == "Work")
+    }
+
+    @Test func watchSnapshotSendsCurrentPhasesOnlyAndSlimFields() throws {
+        let now = Date()
+        var stale = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 600)], loopCount: 1)
+        stale.endDate = now.addingTimeInterval(-5)
+        let pending = TimerPayload.composeSequence(phases: [SequencePhase(label: "Later", duration: 60)], loopCount: 1, startDate: now.addingTimeInterval(3600))
+        let plain = TimerPayload(id: "plain", label: "Tea", duration: 300)
+        let snapshot = WatchSyncController.watchSnapshot([stale, pending, plain], at: now)
+        #expect(snapshot.map(\.id) == [stale.id, "plain"])
+        #expect(snapshot.first?.label == "Rest")
+        let data = try JSONEncoder().encode(snapshot)
+        let keys = Set(try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]]).flatMap(\.keys))
+        #expect(keys.isSubset(of: ["id", "label", "endDate", "duration", "pausedRemaining", "kind", "alarmEnabled", "vibrationEnabled"]))
     }
 
 }

@@ -167,7 +167,6 @@ final class AlarmKitDeviceTests {
     @Test func pendingSequencePinsPhaseZeroToFixedEndDate() async {
         let start = Date().addingTimeInterval(600)
         let payload = TimerPayload.composeSequence(
-            label: "Later",
             phases: [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)],
             loopCount: 1, startDate: start
         )
@@ -182,6 +181,23 @@ final class AlarmKitDeviceTests {
         }
         #expect(abs(date.timeIntervalSince(start.addingTimeInterval(60))) < 1)
         #expect(abs((first?.countdownDuration?.preAlert ?? 0) - 60) < 1)
+        await tearDown()
+    }
+
+    /// Pause from a Live Activity/widget on a sequence whose stored phase already
+    /// ended: the action must catch up to the running phase, not bail out as finished.
+    @Test @MainActor func livePauseCatchesUpAMissedSequencePhase() async {
+        var payload = TimerPayload.composeSequence(
+            phases: [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 600)],
+            loopCount: 1
+        )
+        payload.endDate = Date().addingTimeInterval(-5)
+        created.append(payload)
+        TimerStore.save(payload)
+        await LiveActivityActions.setPaused(timerID: payload.id, paused: true)
+        let stored = TimerStore.loadAll().first { $0.id == payload.id }
+        #expect(stored?.isPaused == true)
+        #expect(stored?.sequence?.phaseIndex == 1)
         await tearDown()
     }
 
@@ -284,6 +300,22 @@ final class AlarmKitDeviceTests {
     /// when an alarm is actually (re)scheduled, so a changed value proves re-creation.
     private func signature(_ id: UUID) -> String? {
         (UserDefaults(suiteName: "group.com.lokesh.sharedTimer")?.dictionary(forKey: "alarmPresentationSignature") as? [String: String])?[id.uuidString]
+    }
+
+    /// Changing the tone re-creates a sequence's kept alarms, current and pre-armed.
+    @Test func toneChangeReachesKeptSequenceAlarms() async {
+        let original = AlarmTone.selected
+        let other = AlarmTone.allCases.first { $0 != original }!
+        let payload = sequence(loops: 2, end: Date().addingTimeInterval(60))
+        created.append(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let ids = phaseIDs(payload, 0..<4)
+        #expect(ids.allSatisfy { signature($0)?.hasSuffix("|\(original.rawValue)") == true })
+        AlarmTone.selected = other
+        await AlarmController.rescheduleAwaiting(for: payload)
+        #expect(ids.allSatisfy { alarmsByID()[$0] != nil && signature($0)?.hasSuffix("|\(other.rawValue)") == true })
+        AlarmTone.selected = original
+        await tearDown()
     }
 
     @Test func editingAPausedTimerReplacesItsPausedAlarm() async {
@@ -618,6 +650,36 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
+    @Test func turningBothTogglesOffCancelsArmedAnnualAlarms() async {
+        let payload = TimerPayload.composeAnnual(label: "Annual quiet edit test", targetDate: Date().addingTimeInterval(3600), timeZone: .gmt)
+        created.append(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let ids = payload.upcomingAnnualDates().map { AlarmController.annualAlarmID(timerID: payload.id, year: payload.recurrence!.year(of: $0)) }
+        #expect(ids.allSatisfy { alarmsByID()[$0] != nil })
+        let quiet = payload.edited(label: payload.label, alarmEnabled: false, vibrationEnabled: false, targetDate: payload.endDate)
+        await AlarmController.rescheduleAwaiting(for: quiet)
+        #expect(ids.allSatisfy { alarmsByID()[$0] == nil })
+        #expect(!TimerStore.isAlarmKitArmed(id: payload.id))
+        await tearDown()
+    }
+
+    /// The receiving side of a remote Stop: the synced payload has no recurrence, so it
+    /// takes the plain path, which must still cancel the annual slots.
+    @Test func remoteStopOfAnnualCountdownCancelsItsYearlyAlarms() async {
+        let payload = TimerPayload.composeAnnual(label: "Annual remote stop test", targetDate: Date().addingTimeInterval(3600), timeZone: .gmt)
+        created.append(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let ids = payload.upcomingAnnualDates().map { AlarmController.annualAlarmID(timerID: payload.id, year: payload.recurrence!.year(of: $0)) }
+        #expect(ids.allSatisfy { alarmsByID()[$0] != nil })
+        var stopped = payload
+        stopped.recurrence = nil
+        stopped.endDate = Date()
+        stopped.updatedAt = Date()
+        await AlarmController.rescheduleAwaiting(for: stopped)
+        #expect(ids.allSatisfy { alarmsByID()[$0] == nil })
+        await tearDown()
+    }
+
     @Test func extendingNewYearsEveDoesNotCollideWithNextOccurrence() async {
         var calendar = Calendar(identifier: .gregorian); calendar.timeZone = .gmt
         let year = calendar.component(.year, from: Date()) + 1
@@ -680,7 +742,7 @@ final class AlarmKitDeviceTests {
     @Test func sweepStrayTestAlarms() async {
         var owned: Set<UUID> = []
         let stored = TimerStore.loadAll()
-        let fixtureTitles: Set<String> = ["Annual device test", "Annual pause test", "Annual intent test", "Annual deletion test", "Annual year boundary test", "Quiet annual device test"]
+        let fixtureTitles: Set<String> = ["Annual device test", "Annual pause test", "Annual intent test", "Annual deletion test", "Annual year boundary test", "Quiet annual device test", "Annual quiet edit test", "Annual remote stop test"]
         let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
         let orphanedFixtures = requests.filter { request in
             guard fixtureTitles.contains(request.content.title), let id = request.content.userInfo["timerID"] as? String else { return false }

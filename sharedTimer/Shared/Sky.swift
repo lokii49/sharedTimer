@@ -250,10 +250,20 @@ struct SkyCard: View {
                 Text(Sky.pendingSequenceCaption(sequence))
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.6))
+                    // Capped like skyLabel: the card is a fixed 104pt, and an uncapped
+                    // accessibility size wrapped this line into the digits.
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             } else if let caption = payload.sequenceCaption {
                 Text(caption)
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.6))
+                    // Capped like skyLabel: the card is a fixed 104pt, and an uncapped
+                    // accessibility size wrapped this line into the digits.
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
 
             Spacer(minLength: 0)
@@ -323,7 +333,14 @@ struct SkyCard: View {
         return Sky.pendingStartText(for: start, at: date)
     }
 
-    private var endText: String {
+    private var endText: String { Sky.endText(for: payload, at: date) }
+}
+
+extension Sky {
+    /// The small line under the digits — "held", "finished 3:05 PM", "ends 3:05 PM", a
+    /// countdown's target date, or a scheduled sequence's first phase. Shared by SkyCard
+    /// and the home-screen widgets so every surface says (and translates) the same thing.
+    static func endText(for payload: TimerPayload, at date: Date) -> String {
         // What phase 0 actually is, not the start time again (the big digits already
         // show that) -- e.g. "Fast · 0d 16h".
         if payload.isPending(at: date), let sequence = payload.sequence, let phaseText = Sky.pendingFirstPhaseText(sequence) {

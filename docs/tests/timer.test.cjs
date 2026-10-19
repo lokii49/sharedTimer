@@ -85,6 +85,12 @@ test('invalid definitions and unsupported versions fail clearly', () => {
     assert(p.elements.status.textContent.includes('invalid'));
   }
 });
+test('numbers parse strictly and out-of-range values are rejected like the app', () => {
+  assert.equal(page({ end: String(epoch + 60) + 'abc' }).elements.status.textContent, 'No timer data in this link.');
+  assert(page({ paused: '-5' }).elements.status.textContent.includes('invalid'));
+  assert(page({ dur: '0' }).elements.status.textContent.includes('invalid'));
+  assert.equal(page({ paused: '80' }).elements.clock.textContent, '01:20');
+});
 test('Unicode and HTML in phase labels remain plain text', () => {
   const p = page({ seq: seq({ phases: [{ ...phases[0], label: '<script>alert(1)</script> 💫' }] }) });
   assert.equal(p.elements.label.textContent, '<script>alert(1)</script> 💫');

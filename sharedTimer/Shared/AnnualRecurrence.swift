@@ -10,6 +10,19 @@ struct AnnualRecurrence: Codable, Equatable {
     var second: Int
     var timeZoneID: String
 
+    // Hand-written so a field added later can default instead of failing the decode
+    // (a nested failure drops the whole TimerPayload). New fields: `decodeIfPresent` +
+    // default.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        month = try container.decode(Int.self, forKey: .month)
+        day = try container.decode(Int.self, forKey: .day)
+        hour = try container.decodeIfPresent(Int.self, forKey: .hour) ?? 0
+        minute = try container.decodeIfPresent(Int.self, forKey: .minute) ?? 0
+        second = try container.decodeIfPresent(Int.self, forKey: .second) ?? 0
+        timeZoneID = try container.decode(String.self, forKey: .timeZoneID)
+    }
+
     init(date: Date, timeZone: TimeZone = .current) {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone

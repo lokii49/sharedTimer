@@ -4,8 +4,9 @@
 //
 //  Renders the Live Activity / Dynamic Island for an AlarmKit alarm (see
 //  AlarmController in the main app). AlarmKit drives one of these per running timer or
-//  countdown whose "Alarm" toggle is on, replacing the custom per-timer
-//  TimerLiveActivityWidget — the custom one now only runs for the alarm-off case.
+//  countdown whose "Alarm" or "Vibrate" toggle is on (`AlarmController.ownsAlert`),
+//  replacing the custom per-timer TimerLiveActivityWidget — the custom one now only runs
+//  when both toggles are off.
 //
 //  Kept deliberately plain for now: verify the AlarmKit Live Activity renders on device
 //  before investing in the sky styling the rest of the app uses.
@@ -25,7 +26,7 @@ struct TimerAlarmActivityWidget: Widget {
             // any label longer than a few characters (see the "Alarm only cou…" report).
             // Full width to the label, wrapping up to 2 lines, fixes that.
             VStack(alignment: .leading, spacing: 4) {
-                Label(context.attributes.metadata?.label ?? "Timer", systemImage: kind.symbolName)
+                Label(context.attributes.metadata?.label ?? String(localized: "Timer"), systemImage: kind.symbolName)
                     .font(.headline)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
@@ -49,7 +50,7 @@ struct TimerAlarmActivityWidget: Widget {
             let kind = context.attributes.metadata?.kind ?? .timer
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.attributes.metadata?.label ?? "Timer", systemImage: kind.symbolName)
+                    Label(context.attributes.metadata?.label ?? String(localized: "Timer"), systemImage: kind.symbolName)
                         .font(.headline)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)

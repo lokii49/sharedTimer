@@ -76,7 +76,17 @@ struct TimerWidgetSnapshot {
         let first = TimerWidgetSnapshot(payload: payload, at: date)
         guard let current = first.payload, first.status == .scheduled || first.status == .running else { return [first] }
         var dates: [Date] = []
-        if first.status == .scheduled, let start = current.scheduledStartDate { dates.append(start) }
+        if first.status == .scheduled, let start = current.scheduledStartDate {
+            dates.append(start)
+            // "Tomorrow 7:00 AM" must read "Today 7:00 AM" after midnight.
+            let calendar = Calendar.current
+            var midnight = calendar.startOfDay(for: date)
+            for _ in 0..<2 {
+                guard let next = calendar.date(byAdding: .day, value: 1, to: midnight), next < start else { break }
+                dates.append(next)
+                midnight = next
+            }
+        }
         if current.sequence != nil {
             dates += current.upcomingSequencePhases(limit: max(1, limit)).map(\.endDate)
         } else {

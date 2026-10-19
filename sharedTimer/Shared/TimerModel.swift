@@ -34,6 +34,19 @@ struct SequencePhase: Codable, Hashable {
         self.alarmEnabled = alarmEnabled
         self.vibrationEnabled = vibrationEnabled
     }
+
+    // Hand-written so a field added later can default instead of failing the decode:
+    // this struct is a decode root for saved templates, and a nested failure also
+    // drops the whole TimerPayload (`decodeIfPresent` rethrows). Every new field goes
+    // in as `decodeIfPresent` + default.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        label = try container.decode(String.self, forKey: .label)
+        duration = try container.decode(TimeInterval.self, forKey: .duration)
+        kind = try container.decodeIfPresent(TimerKind.self, forKey: .kind) ?? .timer
+        alarmEnabled = try container.decodeIfPresent(Bool.self, forKey: .alarmEnabled) ?? true
+        vibrationEnabled = try container.decodeIfPresent(Bool.self, forKey: .vibrationEnabled) ?? false
+    }
 }
 
 /// Carried on a sequence-owning `TimerPayload`. `phaseIndex`/`loopIndex` name whichever
@@ -44,6 +57,22 @@ struct SequenceInfo: Codable, Hashable {
     var loopCount: Int
     var phaseIndex: Int
     var loopIndex: Int
+
+    init(phases: [SequencePhase], loopCount: Int, phaseIndex: Int, loopIndex: Int) {
+        self.phases = phases
+        self.loopCount = loopCount
+        self.phaseIndex = phaseIndex
+        self.loopIndex = loopIndex
+    }
+
+    // Same rule as SequencePhase: new fields are `decodeIfPresent` + default.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        phases = try container.decode([SequencePhase].self, forKey: .phases)
+        loopCount = try container.decodeIfPresent(Int.self, forKey: .loopCount) ?? 1
+        phaseIndex = try container.decodeIfPresent(Int.self, forKey: .phaseIndex) ?? 0
+        loopIndex = try container.decodeIfPresent(Int.self, forKey: .loopIndex) ?? 0
+    }
 }
 
 /// One entry of `TimerPayload.upcomingSequencePhases(limit:)` — a phase boundary
@@ -328,7 +357,10 @@ struct TimerPayload: Codable, Identifiable {
                 seq.loopIndex += 1
             }
             guard seq.loopIndex < seq.loopCount else {
-                // Sequence exhausted — settle permanently on the last-run phase, isExpired forever after.
+                // Sequence exhausted — the top-level fields keep the last-run phase,
+                // isExpired forever after. Canonical exhausted shape everywhere:
+                // phaseIndex 0, loopIndex == loopCount (global index == total).
+                seq.phaseIndex = 0
                 seq.loopIndex = seq.loopCount
                 copy.sequence = seq
                 break
@@ -375,6 +407,8 @@ struct TimerPayload: Codable, Identifiable {
         let count = seq.phases.count
         copy.updatedAt = date
         guard globalIndex < count * seq.loopCount else {
+            // Same exhausted shape as advancedSequence.
+            seq.phaseIndex = 0
             seq.loopIndex = seq.loopCount
             copy.sequence = seq
             return copy
@@ -435,13 +469,15 @@ struct TimerPayload: Codable, Identifiable {
     /// Builds a sequence-owning payload (Pomodoro/Intermittent-Fasting style) from a
     /// preset's phase list + loop count. Links and CloudKit preserve the full sequence.
     /// `startDate` in the past (or omitted) means "start now" -- same clamp as `compose`.
-    static func composeSequence(label: String, phases: [SequencePhase], loopCount: Int, startDate: Date? = nil) -> TimerPayload {
+    /// The payload's `label` is phase 0's, like every later phase's projection — the
+    /// sequence name used to show for phase 0 only, then vanish at the first boundary.
+    static func composeSequence(phases: [SequencePhase], loopCount: Int, startDate: Date? = nil) -> TimerPayload {
         precondition(!phases.isEmpty, "a sequence needs at least one phase")
         let first = phases[0]
         let effectiveStart = startDate.flatMap { $0 > Date() ? $0 : nil }
         let seq = SequenceInfo(phases: phases, loopCount: max(1, loopCount), phaseIndex: 0, loopIndex: 0)
         return TimerPayload(
-            id: UUID().uuidString, label: label,
+            id: UUID().uuidString, label: first.label,
             endDate: (effectiveStart ?? Date()).addingTimeInterval(first.duration),
             duration: first.duration, kind: first.kind,
             alarmEnabled: first.alarmEnabled, vibrationEnabled: first.vibrationEnabled,
@@ -508,6 +544,24 @@ struct TimerPayload: Codable, Identifiable {
         return components.url!
     }
 
+    /// A sequence's top-level label/duration/kind/toggles are the current phase's
+    /// projection. A link or record carries both, so take the phase list as the truth
+    /// rather than trust the scalars (a hand-edited or pre-1.0.6 link could disagree —
+    /// the old phase-0 sequence name, say). An exhausted sequence keeps its scalars:
+    /// Cancel deliberately stores a silent snapshot.
+    func alignedToCurrentPhase() -> TimerPayload {
+        guard let sequence, sequence.loopIndex < sequence.loopCount,
+              sequence.phases.indices.contains(sequence.phaseIndex) else { return self }
+        let phase = sequence.phases[sequence.phaseIndex]
+        var copy = self
+        copy.label = phase.label
+        copy.duration = phase.duration
+        copy.kind = phase.kind
+        copy.alarmEnabled = phase.alarmEnabled
+        copy.vibrationEnabled = phase.vibrationEnabled
+        return copy
+    }
+
     static func from(url: URL?) -> TimerPayload? {
         guard let url,
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
@@ -551,7 +605,8 @@ struct TimerPayload: Codable, Identifiable {
             if start! > Date(), (sequence!.loopIndex != 0 || sequence!.phaseIndex != 0 || pausedRemaining != nil) { return nil }
         }
         let updatedAt = items.first(where: { $0.name == "upd" })?.value.flatMap(Double.init).flatMap { $0.isFinite && abs($0) <= 253_402_300_799 ? Date(timeIntervalSince1970: $0) : nil }
-        return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled, sequence: sequence, scheduledStartDate: start, updatedAt: updatedAt, recurrence: recurrence).advancedSequence()
+        return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled, sequence: sequence, scheduledStartDate: start, updatedAt: updatedAt, recurrence: recurrence)
+            .alignedToCurrentPhase().advancedSequence()
     }
 }
 

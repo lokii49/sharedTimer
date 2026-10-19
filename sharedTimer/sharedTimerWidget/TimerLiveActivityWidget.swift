@@ -10,19 +10,19 @@ import SwiftUI
 struct TimerLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TimerActivityAttributes.self) { context in
-            LockScreenTimerView(attributes: context.attributes, state: context.state, isFinished: isFinished(context))
+            LockScreenTimerView(timerID: context.attributes.timerID, label: liveLabel(context), kind: liveKind(context), state: liveState(context), isFinished: isFinished(context))
                 .padding()
-                .background(Sky.gradient(endDate: context.state.endDate, pausedRemaining: context.state.pausedRemaining))
+                .background(Sky.gradient(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining))
                 .activityBackgroundTint(Color.clear)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.attributes.label, systemImage: context.attributes.kind.symbolName)
+                    Label(liveLabel(context), systemImage: liveKind(context).symbolName)
                         .font(.headline)
                         .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    remainingText(endDate: context.state.endDate, pausedRemaining: context.state.pausedRemaining)
+                    liveActivityRemainingText(liveState(context))
                         .font(.title3.weight(.medium))
                         .monospacedDigit()
                         .minimumScaleFactor(0.6)
@@ -37,7 +37,7 @@ struct TimerLiveActivityWidget: Widget {
                         if !isFinished(context) {
                         LiveActivityControls(
                             timerID: context.attributes.timerID,
-                            isPaused: context.state.pausedRemaining != nil,
+                            isPaused: liveState(context).pausedRemaining != nil,
                             secondary: .stop,
                             size: 38
                         )
@@ -45,16 +45,16 @@ struct TimerLiveActivityWidget: Widget {
                     }
                 }
             } compactLeading: {
-                Image(systemName: context.attributes.kind.symbolName)
-                    .foregroundStyle(context.attributes.kind.accentColor)
+                Image(systemName: liveKind(context).symbolName)
+                    .foregroundStyle(liveKind(context).accentColor)
             } compactTrailing: {
-                compactCountdownText(state: context.state)
+                compactCountdownText(state: liveState(context))
                     .monospacedDigit()
                     .foregroundStyle(.white)
                     .frame(width: 44)
             } minimal: {
-                Image(systemName: context.attributes.kind.symbolName)
-                    .foregroundStyle(context.attributes.kind.accentColor)
+                Image(systemName: liveKind(context).symbolName)
+                    .foregroundStyle(liveKind(context).accentColor)
             }
         }
     }
@@ -65,24 +65,43 @@ struct TimerLiveActivityWidget: Widget {
 /// Past its end (or marked stale by the system at `staleDate` = endDate): render the
 /// finished state instead of a 0:00 that would otherwise sit there for hours, since the
 /// app may not be running to end the activity. See LiveActivityController.endFinished.
+/// A sequence's stale render moves on to its next quiet phase (`current(at:)`) instead.
 private func isFinished(_ context: ActivityViewContext<TimerActivityAttributes>) -> Bool {
-    context.state.pausedRemaining == nil && (context.isStale || context.state.endDate <= Date())
+    let state = liveState(context)
+    let advanced = state.endDate != context.state.endDate
+    return state.pausedRemaining == nil && ((context.isStale && !advanced) || state.endDate <= Date())
+}
+
+private func liveState(_ context: ActivityViewContext<TimerActivityAttributes>) -> TimerActivityAttributes.ContentState {
+    context.state.current(at: Date())
+}
+
+/// Label/kind from the content state (they change with each phase and with Edit),
+/// falling back to the attributes for an activity started by an older build.
+private func liveLabel(_ context: ActivityViewContext<TimerActivityAttributes>) -> String {
+    liveState(context).label ?? context.attributes.label
+}
+
+private func liveKind(_ context: ActivityViewContext<TimerActivityAttributes>) -> TimerKind {
+    liveState(context).kind ?? context.attributes.kind
 }
 
 private struct LockScreenTimerView: View {
-    let attributes: TimerActivityAttributes
+    let timerID: String
+    let label: String
+    let kind: TimerKind
     let state: TimerActivityAttributes.ContentState
     let isFinished: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
-                Text(attributes.label)
+                Text(label)
                     .skyLabel(12)
                     .foregroundStyle(.white.opacity(0.85))
                     .lineLimit(1)
                 Spacer()
-                remainingText(endDate: state.endDate, pausedRemaining: state.pausedRemaining)
+                liveActivityRemainingText(state)
                     .font(.system(size: 30, weight: .light))
                     .monospacedDigit()
                     .minimumScaleFactor(0.6)
@@ -100,7 +119,7 @@ private struct LockScreenTimerView: View {
                     Text("Paused")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.7))
-                } else if attributes.kind == .countdown {
+                } else if kind == .countdown {
                     Text(TimeFormat.targetDate(state.endDate))
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.7))
@@ -111,13 +130,27 @@ private struct LockScreenTimerView: View {
                 // LiveActivityActions.stop.
                 if !isFinished {
                     LiveActivityControls(
-                        timerID: attributes.timerID,
+                        timerID: timerID,
                         isPaused: state.pausedRemaining != nil,
                         secondary: .stop
                     )
                 }
             }
         }
+    }
+}
+
+/// The card's big time. Unlike the widgets' `remainingText`, a running countdown under
+/// a week ticks live even past 24h ("30:12:05"): a Live Activity only redraws on an
+/// update or at its stale date, so a static "1d 6h" stayed on screen long after it had
+/// dropped under a day. Further out (or paused) the static string is fine.
+@ViewBuilder
+private func liveActivityRemainingText(_ state: TimerActivityAttributes.ContentState) -> some View {
+    let remaining = state.endDate.timeIntervalSinceNow
+    if state.pausedRemaining == nil && remaining > 0 && remaining < 7 * 86400 {
+        Text(timerInterval: Date.now...state.endDate, countsDown: true)
+    } else {
+        remainingText(endDate: state.endDate, pausedRemaining: state.pausedRemaining)
     }
 }
 

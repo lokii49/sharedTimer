@@ -76,14 +76,27 @@ final class WatchSyncController: NSObject, ObservableObject, WCSessionDelegate {
         // (only the replyHandler-taking variant) — confirmed via WCErrorCodeDeliveryFailed
         // in the phone's WCD logs ("delegate does not implement delegate method") when this
         // was nil. A real closure here selects the matching selector.
-        WCSession.default.sendMessage(["id": id, "op": op], replyHandler: { _ in }) { [weak self] error in
+        let optimistic = timers[index]
+        WCSession.default.sendMessage(["id": id, "op": op], replyHandler: { [weak self] reply in
+            // The phone rejected it (finished, scheduled, gone): undo. It also pushes
+            // its real state, which lands separately.
+            guard reply["ok"] as? Bool == false else { return }
+            Task { @MainActor in self?.rollBack(id: id, to: before, ifStill: optimistic) }
+        }) { [weak self] error in
             print("WatchSync: sendMessage(\(op)) failed: \(error)")
-            Task { @MainActor in
-                guard let self, let i = self.timers.firstIndex(where: { $0.id == id }) else { return }
-                self.timers[i] = before
-                self.persistSnapshot()
-            }
+            Task { @MainActor in self?.rollBack(id: id, to: before, ifStill: optimistic) }
         }
+    }
+
+    /// Restores `before` only while the timer still shows this tap's optimistic state —
+    /// if the phone's newer context already replaced it (an error can arrive after the
+    /// phone applied the change), that newer state wins.
+    private func rollBack(id: String, to before: TimerPayload, ifStill optimistic: TimerPayload) {
+        guard let i = timers.firstIndex(where: { $0.id == id }),
+              timers[i].endDate == optimistic.endDate,
+              timers[i].pausedRemaining == optimistic.pausedRemaining else { return }
+        timers[i] = before
+        persistSnapshot()
     }
 
     private func persistSnapshot() {

@@ -33,13 +33,19 @@ enum TimerStore {
     static func save(_ payload: TimerPayload) {
         withWriteLock {
             var all = loadAll()
+            let prior = all.first { $0.id == payload.id }
             all.removeAll { $0.id == payload.id }
             all.append(payload)
             persist(all)
             // Any prior "Stop" on this id was about the finish event it stopped — a
-            // fresh mutation (repeat, extend past finish, a new share of the same id)
-            // means a future finish should be free to alert again.
-            clearAcknowledgedFinish(id: payload.id)
+            // mutation that moves that finish (repeat, extend past finish, resume) means
+            // a future finish should be free to alert again. A save that leaves the
+            // finish where it was (a CloudKit echo of this device's own Stop, a rename)
+            // must keep the Stop, or the app re-alerts on next open. 1s absorbs the
+            // CloudKit Date round-trip.
+            if finishMoved(from: prior, to: payload) {
+                clearAcknowledgedFinish(id: payload.id)
+            }
         }
     }
 
@@ -68,7 +74,8 @@ enum TimerStore {
         let fd = open(url.path, O_CREAT | O_RDWR, 0o644)
         guard fd >= 0 else { return body() }
         defer { close(fd) }
-        flock(fd, LOCK_EX)
+        // A signal can interrupt the wait; retry rather than run unlocked.
+        while flock(fd, LOCK_EX) != 0 && errno == EINTR {}
         defer { flock(fd, LOCK_UN) }
         body()
     }
@@ -122,6 +129,11 @@ enum TimerStore {
         (defaults?.stringArray(forKey: acknowledgedFinishKey) ?? []).contains(id)
     }
 
+    static func finishMoved(from prior: TimerPayload?, to payload: TimerPayload) -> Bool {
+        guard let prior else { return true }
+        return abs(prior.endDate.timeIntervalSince(payload.endDate)) >= 1 || prior.isPaused != payload.isPaused
+    }
+
     /// Caller holds the write lock.
     private static func clearAcknowledgedFinish(id: String) {
         updateIDSet(acknowledgedFinishKey, id: id, member: false)
@@ -150,6 +162,19 @@ enum TimerStore {
         }
     }
 
+    private static func undecodableEntries(excluding ids: Set<String>) -> [Any] {
+        guard let data = defaults?.data(forKey: key),
+              (try? JSONDecoder().decode([TimerPayload].self, from: data)) == nil,
+              let rawArray = try? JSONSerialization.jsonObject(with: data) as? [Any] else { return [] }
+        let decoder = JSONDecoder()
+        return rawArray.filter { entry in
+            guard let dict = entry as? [String: Any] else { return false }
+            if let id = dict["id"] as? String, ids.contains(id) { return false }
+            guard let entryData = try? JSONSerialization.data(withJSONObject: dict) else { return false }
+            return (try? decoder.decode(TimerPayload.self, from: entryData)) == nil
+        }
+    }
+
     private static func persist(_ payloads: [TimerPayload]) {
         let cutoff = Date().addingTimeInterval(-86400)
         // A sequence-owning payload's raw `endDate` is only the CURRENT phase's — a
@@ -161,7 +186,16 @@ enum TimerStore {
             let projected = $0.advancedSequence()
             return projected.isPaused || projected.endDate > cutoff
         }
-        guard let data = try? JSONEncoder().encode(trimmed) else { return }
+        guard var data = try? JSONEncoder().encode(trimmed) else { return }
+        // Entries this build can't decode (written by a newer version, say) were left out
+        // of `payloads` by loadAll; writing without them deleted those timers for good.
+        // Carry them over untouched, unless a decodable payload now has the same id.
+        let undecodable = undecodableEntries(excluding: Set(trimmed.map(\.id)))
+        if !undecodable.isEmpty,
+           let encoded = try? JSONSerialization.jsonObject(with: data) as? [Any],
+           let merged = try? JSONSerialization.data(withJSONObject: encoded + undecodable) {
+            data = merged
+        }
         defaults?.set(data, forKey: key)
         // The home-screen widget only re-reads the App Group store when told to — otherwise
         // it keeps showing its last timeline entry until whatever refresh date it computed

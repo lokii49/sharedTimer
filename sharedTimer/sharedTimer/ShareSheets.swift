@@ -109,7 +109,9 @@ struct ShareTimerSheet: View {
             CloudSharingView(item: item, title: payload.label) {
                 CloudSyncController.didStopSharing(timerID: payload.id)
                 isLive = false
-                Task { await prepare() }
+                // Snapshot only: re-preparing a live link here silently created a fresh
+                // read-write share right after the person stopped sharing.
+                Task { await prepare(live: false) }
             }
             .ignoresSafeArea()
         }
@@ -119,11 +121,11 @@ struct ShareTimerSheet: View {
         }
     }
 
-    private func prepare() async {
+    private func prepare(live: Bool = true) async {
         let current = (TimerStore.loadAll().first { $0.id == payload.id } ?? payload).advancedSequence()
-        let shareURL: URL? = await withCheckedContinuation { continuation in
+        let shareURL: URL? = live ? await withCheckedContinuation { continuation in
             CloudSyncController.createShare(for: current) { continuation.resume(returning: $0) }
-        }
+        } : nil
         var components = URLComponents(url: current.url(), resolvingAgainstBaseURL: false)!
         if let shareURL {
             components.queryItems = (components.queryItems ?? []) + [URLQueryItem(name: "ckshare", value: shareURL.absoluteString)]

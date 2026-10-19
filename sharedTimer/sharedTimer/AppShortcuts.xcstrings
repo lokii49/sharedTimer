@@ -1,0 +1,556 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Extend a timer in ${applicationName}": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "مدّد مؤقتًا في ${applicationName}",
+              "مدّد ${timer} في ${applicationName}"
+            ]
+          }
+        },
+        "bn": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}-এ টাইমারের সময় বাড়াও",
+              "${applicationName}-এ ${timer}-এর সময় বাড়াও"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "new",
+            "values": [
+              "Extend a timer in ${applicationName}",
+              "Extend ${timer} in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Amplía un temporizador en ${applicationName}",
+              "Amplía ${timer} en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Prolonge un minuteur dans ${applicationName}",
+              "Prolonge ${timer} dans ${applicationName}"
+            ]
+          }
+        },
+        "hi": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} में टाइमर बढ़ाओ",
+              "${applicationName} में ${timer} बढ़ाओ"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Perpanjang timer di ${applicationName}",
+              "Perpanjang ${timer} di ${applicationName}"
+            ]
+          }
+        },
+        "pt-BR": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Estenda um timer no ${applicationName}",
+              "Estenda ${timer} no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Продли таймер в ${applicationName}",
+              "Продли ${timer} в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中延长计时器",
+              "在${applicationName}中延长${timer}"
+            ]
+          }
+        }
+      }
+    },
+    "How long is left in ${applicationName}": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "كم تبقّى في ${applicationName}",
+              "كم تبقّى على ${timer} في ${applicationName}"
+            ]
+          }
+        },
+        "bn": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}-এ আর কত সময় বাকি",
+              "${applicationName}-এ ${timer}-এ আর কত সময় বাকি"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "new",
+            "values": [
+              "How long is left in ${applicationName}",
+              "How long is left on ${timer} in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Cuánto queda en ${applicationName}",
+              "Cuánto le queda a ${timer} en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Combien de temps reste-t-il dans ${applicationName}",
+              "Combien de temps reste-t-il sur ${timer} dans ${applicationName}"
+            ]
+          }
+        },
+        "hi": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} में कितना समय बचा है",
+              "${applicationName} में ${timer} में कितना समय बचा है"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Berapa lama lagi di ${applicationName}",
+              "Berapa lama lagi ${timer} di ${applicationName}"
+            ]
+          }
+        },
+        "pt-BR": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Quanto tempo falta no ${applicationName}",
+              "Quanto falta para ${timer} no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Сколько осталось в ${applicationName}",
+              "Сколько осталось на ${timer} в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}里还剩多久",
+              "${applicationName}里${timer}还剩多久"
+            ]
+          }
+        }
+      }
+    },
+    "Pause a timer in ${applicationName}": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "أوقف مؤقتًا مؤقتًا في ${applicationName}",
+              "أوقف ${timer} مؤقتًا في ${applicationName}"
+            ]
+          }
+        },
+        "bn": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}-এ টাইমার বিরতি দাও",
+              "${applicationName}-এ ${timer} বিরতি দাও"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "new",
+            "values": [
+              "Pause a timer in ${applicationName}",
+              "Pause ${timer} in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Pausa un temporizador en ${applicationName}",
+              "Pausa ${timer} en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Mets un minuteur en pause dans ${applicationName}",
+              "Mets ${timer} en pause dans ${applicationName}"
+            ]
+          }
+        },
+        "hi": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} में टाइमर पॉज़ करो",
+              "${applicationName} में ${timer} पॉज़ करो"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Jeda timer di ${applicationName}",
+              "Jeda ${timer} di ${applicationName}"
+            ]
+          }
+        },
+        "pt-BR": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Pause um timer no ${applicationName}",
+              "Pause ${timer} no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Поставь таймер на паузу в ${applicationName}",
+              "Поставь ${timer} на паузу в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中暂停计时器",
+              "在${applicationName}中暂停${timer}"
+            ]
+          }
+        }
+      }
+    },
+    "Resume a timer in ${applicationName}": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "استأنف مؤقتًا في ${applicationName}",
+              "استأنف ${timer} في ${applicationName}"
+            ]
+          }
+        },
+        "bn": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}-এ টাইমার আবার শুরু করো",
+              "${applicationName}-এ ${timer} আবার শুরু করো"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "new",
+            "values": [
+              "Resume a timer in ${applicationName}",
+              "Resume ${timer} in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Reanuda un temporizador en ${applicationName}",
+              "Reanuda ${timer} en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Reprends un minuteur dans ${applicationName}",
+              "Reprends ${timer} dans ${applicationName}"
+            ]
+          }
+        },
+        "hi": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} में टाइमर फिर शुरू करो",
+              "${applicationName} में ${timer} फिर शुरू करो"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Lanjutkan timer di ${applicationName}",
+              "Lanjutkan ${timer} di ${applicationName}"
+            ]
+          }
+        },
+        "pt-BR": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Retome um timer no ${applicationName}",
+              "Retome ${timer} no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Продолжи таймер в ${applicationName}",
+              "Продолжи ${timer} в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中继续计时器",
+              "在${applicationName}中继续${timer}"
+            ]
+          }
+        }
+      }
+    },
+    "Start a countdown in ${applicationName}": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "ابدأ عدًا تنازليًا في ${applicationName}"
+            ]
+          }
+        },
+        "bn": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}-এ কাউন্টডাউন শুরু করো"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "new",
+            "values": [
+              "Start a countdown in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Inicia una cuenta atrás en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Démarre un compte à rebours dans ${applicationName}"
+            ]
+          }
+        },
+        "hi": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} में काउंटडाउन शुरू करो"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Mulai hitung mundur di ${applicationName}"
+            ]
+          }
+        },
+        "pt-BR": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Inicie uma contagem regressiva no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Запусти отсчёт в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中开始倒计时"
+            ]
+          }
+        }
+      }
+    },
+    "Start a timer in ${applicationName}": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "ابدأ مؤقتًا في ${applicationName}"
+            ]
+          }
+        },
+        "bn": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}-এ টাইমার শুরু করো"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "new",
+            "values": [
+              "Start a timer in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Inicia un temporizador en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Démarre un minuteur dans ${applicationName}"
+            ]
+          }
+        },
+        "hi": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} में टाइमर शुरू करो"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Mulai timer di ${applicationName}"
+            ]
+          }
+        },
+        "pt-BR": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Inicie um timer no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Запусти таймер в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中开始计时器"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

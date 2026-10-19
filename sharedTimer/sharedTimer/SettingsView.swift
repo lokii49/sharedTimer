@@ -48,7 +48,12 @@ struct SettingsView: View {
             TextField("Your name", text: $nameInput)
             Button("Save") {
                 let trimmed = nameInput.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmed.isEmpty {
+                if trimmed.isEmpty {
+                    // As the message says: empty shows "Someone" (same as Clear).
+                    DisplayNameStore.name = nil
+                    DisplayNameStore.declined = true
+                    name = nil
+                } else {
                     DisplayNameStore.name = trimmed
                     name = trimmed
                 }
@@ -70,10 +75,14 @@ struct SettingsView: View {
         .onChange(of: tone) { _, newTone in
             AlarmTone.selected = newTone
             play(newTone)
-            // Armed AlarmKit alarms and notifications carry the old tone; re-arm them.
-            for payload in TimerStore.loadAll() { TimerArming.arm(payload) }
+            // Armed AlarmKit alarms and notifications carry the old tone; re-arm them —
+            // at their current phase, and never one that's ringing right now (re-arming
+            // cancels its alert first).
+            for payload in TimerStore.loadAll().map({ $0.advancedSequence() }) where !payload.isExpired {
+                TimerArming.arm(payload)
+            }
         }
-        .onDisappear { preview?.stop() }
+        .onDisappear { stopPreview() }
     }
 
     // MARK: Cards
@@ -173,6 +182,19 @@ struct SettingsView: View {
         try? AVAudioSession.sharedInstance().setActive(true)
         player.play()
         preview = player
+        // Hand the audio back (music resumes) once this preview has finished, unless a
+        // newer preview took over meanwhile.
+        DispatchQueue.main.asyncAfter(deadline: .now() + player.duration + 0.2) {
+            if preview === player { stopPreview() }
+        }
+    }
+
+    private func stopPreview() {
+        preview?.stop()
+        preview = nil
+        // Leave the session alone while the in-app alarm loop owns it.
+        guard !AlarmPlayer.shared.isPlaying else { return }
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
 

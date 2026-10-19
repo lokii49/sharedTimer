@@ -158,7 +158,14 @@ struct ContentView: View {
                 // Watch-relayed mutation or CloudKit silent push landed while this view
                 // is already foregrounded — scenePhase alone won't fire here since we
                 // never left .active. Re-read TimerStore directly.
-                timers = TimerStore.loadAll()
+                let fresh = TimerStore.loadAll()
+                // A remote delete (silent push) of a timer ringing in-app must silence it,
+                // as pullCloudChanges does. Before the reassign: it reads `timers`.
+                let freshIDs = Set(fresh.map(\.id))
+                for payload in timers where !freshIDs.contains(payload.id) {
+                    stopInAppAlertIfRinging(for: payload.id)
+                }
+                timers = fresh
             }
             .onReceive(NotificationCenter.default.publisher(for: NotificationScheduler.permissionDeniedNotification)) { _ in
                 showingNotificationPermissionAlert = true
@@ -235,7 +242,11 @@ struct ContentView: View {
             // Fold any "Repeat" tapped on a fired timer's AlarmKit panel back in before
             // arming — the arm loop below then re-aligns the alarm to the revived endDate.
             for id in AlarmController.reconcileRepeat(into: &timers) {
-                if let revived = timers.first(where: { $0.id == id }) { TimerStore.save(revived) }
+                if let revived = timers.first(where: { $0.id == id }) {
+                    TimerStore.save(revived)
+                    // Other participants of a shared timer never saw this Repeat before.
+                    CloudSyncController.pushUp(revived, action: "repeated")
+                }
             }
             for payload in timers where !payload.isExpired {
                 armAlerts(for: payload)
@@ -278,6 +289,7 @@ struct ContentView: View {
             // Re-read TimerStore first — a timer created while backgrounded (e.g. via
             // TimerIntents.swift's Siri intents) writes straight to the App Group and has
             // no CloudLink, so pullCloudChanges alone would never surface it here.
+            let beforeBackground = Dictionary(timers.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             timers = TimerStore.loadAll()
             // Same sequence re-derivation as onAppear, and for the same reason: must
             // run before reconcileRepeat, since a mid-sequence payload sitting
@@ -299,11 +311,23 @@ struct ContentView: View {
                     if let revived = timers.first(where: { $0.id == id }) {
                         TimerStore.save(revived)
                         armAlerts(for: revived)
+                        CloudSyncController.pushUp(revived, action: "repeated")
                     }
                 }
                 WatchSyncController.pushCurrentState()
             }
             for payload in timers where payload.recurrence != nil { armAlerts(for: payload) }
+            // A change made while backgrounded by something that can't move AlarmKit (an
+            // extend/pause in Messages, a timer composed there) left AlarmKit at its old
+            // time or unarmed. Re-arm only new or changed payloads that aren't finished — re-arming an unchanged or
+            // ringing one would cancel the alert the person is opening the app from.
+            for payload in timers where payload.recurrence == nil && payload.sequence == nil && !payload.isExpired {
+                if let old = beforeBackground[payload.id], Self.alertShape(old) == Self.alertShape(payload) { continue }
+                armAlerts(for: payload)
+            }
+            // An open TimerDetailView holds its own copy; without this it kept showing
+            // (and on Pause/+1:00, saving and pushing) the pre-background state.
+            NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
             pullCloudChanges()
             // Opportunistic Live Activity keep-alive: there's no server here to push a
             // periodic refresh while the app isn't running, so a multi-day countdown's
@@ -410,6 +434,11 @@ struct ContentView: View {
             Button("Stop") {
                 alarm.stop()
                 vibration.stop()
+                // Same acknowledgment as the detail screen's Stop. The banner covers every
+                // timer that's ringing, so record it for each finished one.
+                for payload in timers where payload.isExpired {
+                    TimerStore.acknowledgeFinish(id: payload.id)
+                }
             }
             .buttonStyle(.glassPill)
         }
@@ -750,9 +779,9 @@ struct ContentView: View {
     }
 
     /// Universal link / App Clip handoff into the full app. A timer already in the local
-    /// store is left as-is (the link's snapshot may be older than what's stored — the link
-    /// carries no recency marker; same in the Messages extension); a genuinely new one
-    /// surfaces the add-confirmation sheet instead of merging straight in.
+    /// store adopts the link's snapshot only when its `upd` stamp is strictly newer and
+    /// the timer has no CloudLink (`shouldAdopt`; same in the Messages extension); a
+    /// genuinely new one surfaces the add-confirmation sheet instead of merging straight in.
     ///
     /// A `ckshare` query param means the sender's Messages extension successfully created
     /// a live-synced timer — accept it in the background and upgrade the stored copy to
@@ -786,10 +815,16 @@ struct ContentView: View {
                     // Still showing the add-confirmation sheet for this timer — upgrade
                     // it to the authoritative cloud state before the user taps Add.
                     incomingPayload = authoritative
-                } else if timers.contains(where: { $0.id == authoritative.id }) {
+                } else if let local = timers.first(where: { $0.id == authoritative.id }) {
                     // Already added (e.g. re-tapping the link after accepting once, or
                     // the sender re-opening their own link) — refresh in place instead of
-                    // resurfacing a sheet that's already been dismissed.
+                    // resurfacing a sheet that's already been dismissed. A change made here
+                    // while the accept was in flight (it couldn't push: no CloudLink yet)
+                    // is newer than the record — keep it and push it now instead.
+                    if authoritative.shouldAdopt(local) {
+                        CloudSyncController.pushUp(local, action: "updated")
+                        return
+                    }
                     TimerStore.save(authoritative)
                     armAlerts(for: authoritative)
                     if let index = timers.firstIndex(where: { $0.id == authoritative.id }) { timers[index] = authoritative }
@@ -797,6 +832,11 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    /// What the armed alert depends on — a difference means it's out of date.
+    private static func alertShape(_ payload: TimerPayload) -> String {
+        "\(payload.endDate.timeIntervalSince1970)|\(payload.pausedRemaining ?? -1)|\(payload.alarmEnabled)|\(payload.vibrationEnabled)|\(payload.label)"
     }
 
     /// Applies remote changes pulled from CloudKit through the same local mutation
@@ -819,6 +859,10 @@ struct ContentView: View {
                     AlarmController.clear(id: id)
                     LiveActivityController.end(id: id)
                     timers.removeAll { $0.id == id }
+                }
+                // Same reason as the scenePhase post: refresh an open detail screen.
+                if !updated.isEmpty || !deletedIDs.isEmpty {
+                    NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
                 }
                 // Unconditional, not gated on updated/deletedIDs being non-empty — this
                 // is also where the scenePhase handler's TimerStore.loadAll() re-read

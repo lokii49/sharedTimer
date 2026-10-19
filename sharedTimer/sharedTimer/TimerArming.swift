@@ -30,7 +30,15 @@ enum TimerArming {
     /// `rescheduleAwaiting`).
     static func armAwaiting(_ payload: TimerPayload) async {
         await AlarmController.rescheduleAwaiting(for: payload)
-        armLiveActivity(for: payload)
+        // Awaited too: a Live Activity button's intent returned before the card was
+        // updated or ended, and could be torn down first.
+        if AlarmController.ownsAlert(for: payload) {
+            await LiveActivityController.endAwaiting(id: payload.id)
+        } else if payload.isPaused {
+            await LiveActivityController.updateAwaiting(for: payload)
+        } else {
+            await LiveActivityController.startAwaiting(for: payload)
+        }
     }
 
     private static func armLiveActivity(for payload: TimerPayload) {

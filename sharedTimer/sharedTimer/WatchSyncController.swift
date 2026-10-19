@@ -49,12 +49,41 @@ enum WatchSyncController {
     static func pushCurrentState() {
         guard WCSession.isSupported(), session.activationState == .activated,
               session.isPaired, session.isWatchAppInstalled else { return }
-        let payloads = TimerStore.loadAll()
-        guard let data = try? JSONEncoder().encode(payloads) else { return }
+        guard let data = try? JSONEncoder().encode(watchSnapshot(TimerStore.loadAll())) else { return }
         do {
             try session.updateApplicationContext(["timers": data])
         } catch {
             log("pushCurrentState failed: \(error)")
+        }
+    }
+
+    /// What the watch can actually show. Its model has no sequence, schedule or
+    /// recurrence awareness, so each payload is projected to its current phase /
+    /// occurrence first (a raw stored phase read as finished mid-sequence), a still
+    /// pending sequence is left out (it would count down wait + phase 0 as one timer),
+    /// and only the fields the watch decodes are sent — the full sequence envelope can
+    /// be 64 KiB per timer, and an oversized context fails every push.
+    static func watchSnapshot(_ payloads: [TimerPayload], at date: Date = Date()) -> [WatchTimer] {
+        payloads.map { $0.advancedSequence(at: date) }
+            .filter { !$0.isPending(at: date) }
+            .map(WatchTimer.init)
+    }
+
+    /// The watch's `TimerPayload` coding keys, nothing else (WatchShared/TimerModel.swift).
+    struct WatchTimer: Encodable {
+        let id: String
+        let label: String
+        let endDate: Date
+        let duration: TimeInterval
+        let pausedRemaining: TimeInterval?
+        let kind: TimerKind
+        let alarmEnabled: Bool
+        let vibrationEnabled: Bool
+
+        init(_ payload: TimerPayload) {
+            id = payload.id; label = payload.label; endDate = payload.endDate
+            duration = payload.duration; pausedRemaining = payload.pausedRemaining
+            kind = payload.kind; alarmEnabled = payload.alarmEnabled; vibrationEnabled = payload.vibrationEnabled
         }
     }
 
@@ -63,7 +92,9 @@ enum WatchSyncController {
             if let error {
                 log("activation failed: \(error)")
             } else if state == .activated {
-                pushCurrentState()
+                // Delegate callbacks arrive on a background queue; keep store reads on main
+                // like the message handler below.
+                DispatchQueue.main.async { pushCurrentState() }
             }
         }
 
@@ -73,9 +104,9 @@ enum WatchSyncController {
         /// A mutation relayed from the watch. Applied independently of ContentView — same
         /// pattern AppDelegate's silent-push handler already uses — through the exact
         /// same static calls every other surface uses, so it schedules
-        /// notifications/Live Activity/CloudKit push identically. ContentView picks up
-        /// the result on next foreground via its scenePhase reload (reads
-        /// TimerStore.loadAll() there).
+        /// notifications/Live Activity/CloudKit push identically. A foregrounded
+        /// ContentView/TimerDetailView picks up the result through the
+        /// `.externalTimerStoreChange` post below.
         func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
             // WCSessionDelegate callbacks land on a background queue — every other
             // async-callback path here hops to main before touching TimerStore/
@@ -85,24 +116,40 @@ enum WatchSyncController {
             // Activity.request and TimerStore.persist's WidgetCenter.reloadAllTimelines
             // both assume it.
             DispatchQueue.main.async {
+                // A rejected command says so (`ok: false`) and re-sends the real state:
+                // the watch applied it optimistically and otherwise kept showing it.
+                func reject() {
+                    pushCurrentState()
+                    replyHandler(["ok": false])
+                }
                 guard let id = message["id"] as? String, let op = message["op"] as? String else {
-                    replyHandler([:]); return
+                    reject(); return
                 }
                 let all = TimerStore.loadAll()
-                guard let existing = all.first(where: { $0.id == id })?.advancedRecurrence() else { replyHandler([:]); return }
+                guard let existing = all.first(where: { $0.id == id })?.advancedSequence() else { reject(); return }
                 // The watch has no pending-state awareness at all (its TimerModel copy
                 // doesn't even carry scheduledStartDate) -- it would show Pause/+1:00
                 // for a still-pending timer with no way to know that's meaningless.
                 // Guard it here, on the phone side, same as the main app's own row/
                 // detail controls already do.
-                guard !existing.isPending() else { replyHandler([:]); return }
+                guard !existing.isPending() else { reject(); return }
+                // Same rejection as Siri's `.timerFinished`: pausing a finished timer
+                // froze it at 0s, and a paused sequence never advances again.
+                guard !existing.isFinished else { reject(); return }
                 let action: String
                 let updated: TimerPayload
                 switch op {
                 case "pause": updated = existing.paused(); action = "paused"
                 case "resume": updated = existing.resumed(); action = "resumed"
                 case "extend": updated = existing.extended(by: 60); action = "extended"
-                default: replyHandler([:]); return
+                default: reject(); return
+                }
+                // Pause on an already-paused timer (a stale watch view) is a no-op —
+                // don't save or push a CloudKit write that changes nothing.
+                if (op == "pause" && existing.isPaused) || (op == "resume" && !existing.isPaused) {
+                    pushCurrentState()
+                    replyHandler(["ok": true])
+                    return
                 }
                 TimerStore.save(updated)
                 // Same arming sequence as ContentView.armAlerts: AlarmKit alarm when

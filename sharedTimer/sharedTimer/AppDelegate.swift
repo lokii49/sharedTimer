@@ -59,28 +59,39 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         let priorState = Dictionary(uniqueKeysWithValues: TimerStore.loadAll().map { ($0.id, $0) })
 
         CloudSyncController.pullChanges { updated, deletedIDs in
-            for payload in updated {
-                let existing = priorState[payload.id]
-                TimerStore.save(payload)
-                // Same arming sequence as ContentView.armAlerts: AlarmKit alarm when
-                // either toggle is on (either kind), local notification only when both
-                // are off, and the custom Live Activity only for that both-off case
-                // (AlarmKit runs its own whenever it owns the alert).
-                TimerArming.arm(payload)
-                if let existing {
-                    self.notifyIfExtended(existing: existing, updated: payload)
+            // iOS may suspend the app as soon as `completionHandler` runs, so every
+            // alarm/notification change is awaited before it — a fire-and-forget
+            // reschedule left a locked recipient's alarm at the old time.
+            Task { @MainActor in
+                var extended: [(existing: TimerPayload, updated: TimerPayload)] = []
+                for payload in updated {
+                    TimerStore.save(payload)
+                    // Same arming sequence as ContentView.armAlerts: AlarmKit alarm when
+                    // either toggle is on (either kind), local notification only when both
+                    // are off, and the custom Live Activity only for that both-off case
+                    // (AlarmKit runs its own whenever it owns the alert).
+                    await TimerArming.armAwaiting(payload)
+                    if let existing = priorState[payload.id] {
+                        extended.append((existing, payload))
+                    }
                 }
+                for id in deletedIDs {
+                    TimerStore.delete(id: id)
+                    await AlarmController.clearAwaiting(id: id)
+                    LiveActivityController.end(id: id)
+                }
+                if !updated.isEmpty || !deletedIDs.isEmpty {
+                    WatchSyncController.pushCurrentState()
+                    NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
+                }
+                // One deadline for the whole batch, so several extends while CloudKit is
+                // unreachable can't stack past the background budget.
+                let deadline = Date().addingTimeInterval(8)
+                for change in extended {
+                    await self.notifyIfExtended(existing: change.existing, updated: change.updated, deadline: deadline)
+                }
+                completionHandler(updated.isEmpty && deletedIDs.isEmpty ? .noData : .newData)
             }
-            for id in deletedIDs {
-                TimerStore.delete(id: id)
-                AlarmController.clear(id: id)
-                LiveActivityController.end(id: id)
-            }
-            if !updated.isEmpty || !deletedIDs.isEmpty {
-                WatchSyncController.pushCurrentState()
-                NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
-            }
-            completionHandler(updated.isEmpty && deletedIDs.isEmpty ? .noData : .newData)
         }
     }
 
@@ -99,29 +110,63 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     /// often and would make this noisy, and a repeat looks superficially similar (its
     /// `endDate` also jumps forward) but always starts from a finished payload, which
     /// `existing.remaining > 0` excludes.
-    private func notifyIfExtended(existing: TimerPayload, updated: TimerPayload) {
+    private func notifyIfExtended(existing: TimerPayload, updated: TimerPayload, deadline: Date) async {
         let delta = updated.endDate.timeIntervalSince(existing.endDate)
         guard !existing.isPaused, !updated.isPaused,
               existing.duration == updated.duration,
               existing.remaining > 0,
-              delta >= 5 else { return }
+              delta >= 5,
+              // "Next" between two equal-length phases has the same shape.
+              existing.sequence?.phaseIndex == updated.sequence?.phaseIndex,
+              existing.sequence?.loopIndex == updated.sequence?.loopIndex else { return }
 
-        CloudSyncController.fetchAttribution(for: updated) { attribution in
-            let who = attribution?.name ?? String(localized: "Someone")
-            let content = UNMutableNotificationContent()
-            content.title = updated.label
-            content.body = String(localized: "\(who) added \(Self.deltaText(delta)) — now ends at \(updated.endDate.formatted(date: .omitted, time: .shortened))")
-            content.sound = .default
-            content.categoryIdentifier = Self.extendedCategoryID
-            // A fresh identifier per extend (not e.g. `updated.id` alone) so a second
-            // extend before the first notification is seen adds rather than replaces —
-            // each one is real, distinct news.
-            let request = UNNotificationRequest(
-                identifier: "\(updated.id)-extended-\(Int(updated.endDate.timeIntervalSince1970))",
-                content: content,
-                trigger: nil
-            )
-            UNUserNotificationCenter.current().add(request)
+        let attribution = await Self.attribution(for: updated, timeout: max(0, deadline.timeIntervalSinceNow))
+        // A pause then resume before this push lands also moves endDate forward with
+        // nothing else changed; the record's last action tells them apart. Without it
+        // (timeout, older record) fall back to the shape check above.
+        if let attribution, attribution.action != "extended" { return }
+        let who = attribution?.name ?? String(localized: "Someone")
+        let content = UNMutableNotificationContent()
+        content.title = updated.label
+        content.body = String(localized: "\(who) added \(Self.deltaText(delta)) — now ends at \(updated.endDate.formatted(date: .omitted, time: .shortened))")
+        content.sound = .default
+        content.categoryIdentifier = Self.extendedCategoryID
+        // A fresh identifier per extend (not e.g. `updated.id` alone) so a second
+        // extend before the first notification is seen adds rather than replaces —
+        // each one is real, distinct news.
+        let request = UNNotificationRequest(
+            identifier: "\(updated.id)-extended-\(Int(updated.endDate.timeIntervalSince1970))",
+            content: content,
+            trigger: nil
+        )
+        try? await UNUserNotificationCenter.current().add(request)
+    }
+
+    /// `fetchAttribution` is a CloudKit fetch with no timeout of its own; a background
+    /// push gets ~30s in total, so fall back to "Someone" rather than miss the banner.
+    private static func attribution(for payload: TimerPayload, timeout: TimeInterval) async -> (name: String, action: String)? {
+        await withCheckedContinuation { continuation in
+            let once = OnceFlag()
+            CloudSyncController.fetchAttribution(for: payload) { attribution in
+                if once.claim() { continuation.resume(returning: attribution) }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
+                if once.claim() { continuation.resume(returning: nil) }
+            }
+        }
+    }
+
+    /// First caller wins — guards a continuation against the fetch and the timeout both
+    /// resuming it.
+    private final class OnceFlag: @unchecked Sendable {
+        private let lock = NSLock()
+        private var claimed = false
+        func claim() -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            guard !claimed else { return false }
+            claimed = true
+            return true
         }
     }
 
@@ -139,8 +184,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     /// handles the alarm-on case). Neither action takes `.foreground` — both process
     /// silently without opening the app, which is the point.
     private func registerNotificationCategories() {
-        let repeatAction = UNNotificationAction(identifier: "REPEAT_ACTION", title: "Repeat", options: [])
-        let stopAction = UNNotificationAction(identifier: "STOP_ACTION", title: "Stop", options: [])
+        let repeatAction = UNNotificationAction(identifier: "REPEAT_ACTION", title: String(localized: "Repeat"), options: [])
+        let stopAction = UNNotificationAction(identifier: "STOP_ACTION", title: String(localized: "Stop"), options: [])
         let vibrationFinishCategory = UNNotificationCategory(
             identifier: NotificationScheduler.vibrationFinishCategoryID,
             actions: [stopAction, repeatAction],
@@ -180,10 +225,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        defer { completionHandler() }
         let id = (response.notification.request.content.userInfo["timerID"] as? String) ?? response.notification.request.identifier
         guard response.notification.request.content.categoryIdentifier == NotificationScheduler.vibrationFinishCategoryID,
-              let payload = TimerStore.loadAll().first(where: { $0.id == id }) else { return }
+              let payload = TimerStore.loadAll().first(where: { $0.id == id }) else { return completionHandler() }
 
         switch response.actionIdentifier {
         case "STOP_ACTION":
@@ -191,18 +235,24 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             // foreground-only, same as AlarmPlayer. "Stop" means "don't auto-buzz the
             // next time the app is opened/foregrounded for this finish."
             TimerStore.acknowledgeFinish(id: id)
+            completionHandler()
         case "REPEAT_ACTION":
             // Same mutation sequence as ContentView.repeatTimer()/armAlerts: repeat,
             // save, then TimerArming (AlarmKit if it's authorized by now, else the
-            // notification fallback this category came from).
+            // notification fallback this category came from). Awaited before
+            // `completionHandler`, which lets iOS suspend the app — same rule as the
+            // push handler above.
             let updated = payload.repeated()
             TimerStore.save(updated)
-            TimerArming.arm(updated)
-            CloudSyncController.pushUp(updated, action: "repeated")
-            WatchSyncController.pushCurrentState()
-            NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
+            Task { @MainActor in
+                await TimerArming.armAwaiting(updated)
+                WatchSyncController.pushCurrentState()
+                NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
+                await CloudSyncController.pushUpAwaiting(updated, action: "repeated")
+                completionHandler()
+            }
         default:
-            break
+            completionHandler()
         }
     }
 }

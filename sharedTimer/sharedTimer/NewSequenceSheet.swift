@@ -107,11 +107,16 @@ struct NewSequenceSheet: View {
         self._loopCount = State(initialValue: first.defaultLoopCount)
     }
 
-    /// A sequence needs at least one phase (`composeSequence` preconditions on it) and
-    /// a name — an editable list lets the user delete down to empty, so Start (and
-    /// Save) must be gateable rather than crash.
-    private var canCreate: Bool {
-        !draftPhases.isEmpty && !sequenceName.trimmingCharacters(in: .whitespaces).isEmpty
+    /// A sequence needs at least one phase (`composeSequence` preconditions on it) — an
+    /// editable list lets the user delete down to empty, so Start must be gateable
+    /// rather than crash. The name only labels a saved template (a running sequence
+    /// shows its phase names), so only Save requires one.
+    private var canStart: Bool {
+        !draftPhases.isEmpty
+    }
+
+    private var canSave: Bool {
+        canStart && !sequenceName.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     private func seed(for source: SequenceSource) -> SequenceSeed? {
@@ -149,8 +154,8 @@ struct NewSequenceSheet: View {
     private func normalizedPhases() -> [SequencePhase] {
         draftPhases.enumerated().map { index, draft in
             var phase = draft.phase
-            if phase.label.trimmingCharacters(in: .whitespaces).isEmpty {
-                phase.label = "Phase \(index + 1)"
+            if phase.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                phase.label = String(localized: "Phase \(index + 1)")
             }
             return phase
         }
@@ -280,6 +285,9 @@ struct NewSequenceSheet: View {
                     } label: {
                         Label("Add Phase", systemImage: "plus.circle")
                     }
+                    // Links and CloudKit carry at most this many; a bigger sequence was
+                    // shared as a single-phase timer.
+                    .disabled(draftPhases.count >= TimerSequenceWire.maximumPhases)
                 }
 
                 Section {
@@ -320,7 +328,7 @@ struct NewSequenceSheet: View {
                             Label("Save as New Sequence", systemImage: "square.and.arrow.down")
                         }
                     }
-                    .disabled(!canCreate)
+                    .disabled(!canSave)
                 } footer: {
                     Text("Save this sequence to select and start it again later without rebuilding it.")
                 }
@@ -339,7 +347,6 @@ struct NewSequenceSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Start") {
                         onCreate(TimerPayload.composeSequence(
-                            label: sequenceName.trimmingCharacters(in: .whitespaces),
                             phases: normalizedPhases(),
                             loopCount: loopCount,
                             startDate: startLater ? scheduledStart : nil
@@ -347,7 +354,7 @@ struct NewSequenceSheet: View {
                         dismiss()
                     }
                     .fontWeight(.semibold)
-                    .disabled(!canCreate)
+                    .disabled(!canStart)
                 }
             }
         }
@@ -409,6 +416,12 @@ private struct PhaseEditView: View {
         Form {
             Section {
                 TextField("Label", text: $phase.label)
+                    // Same 512-byte limit the share link enforces per label.
+                    .onChange(of: phase.label) { _, label in
+                        var trimmed = label
+                        while trimmed.utf8.count > 512 { trimmed.removeLast() }
+                        if trimmed != label { phase.label = trimmed }
+                    }
 
                 Picker("Look", selection: $phase.kind) {
                     Text("Timer").tag(TimerKind.timer)
@@ -432,7 +445,7 @@ private struct PhaseEditView: View {
                 Text("When this phase ends")
             } footer: {
                 Text(phase.alarmEnabled || phase.vibrationEnabled
-                     ? "Rings or buzzes full-screen with Stop and Repeat, even when the app is closed or the phone is on silent."
+                     ? "Rings or buzzes full-screen with Stop and Next, even when the app is closed or the phone is on silent."
                      : "A quiet notification instead — no ringing.")
             }
         }
