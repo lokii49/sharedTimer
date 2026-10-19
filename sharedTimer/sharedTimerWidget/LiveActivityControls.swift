@@ -30,6 +30,15 @@ struct LiveActivityControls: View {
     var size: CGFloat = 44
 
     var body: some View {
+        // A view-only share can't be changed from here (the intents refuse it too).
+        if TimerStore.isReadOnly(id: timerID) {
+            EmptyView()
+        } else {
+            buttons
+        }
+    }
+
+    private var buttons: some View {
         HStack(spacing: 10) {
             PauseToggle(timerID: timerID, isPaused: isPaused, size: size)
 
@@ -65,7 +74,7 @@ struct WidgetTimerControls: View {
     var size: CGFloat = 36
 
     var body: some View {
-        if payload.isPending() {
+        if payload.isPending() || TimerStore.isReadOnly(id: payload.id) {
             EmptyView()
         } else if payload.isFinished {
             Button(intent: RepeatTimerIntent(timerID: payload.id)) {

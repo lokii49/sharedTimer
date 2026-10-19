@@ -70,6 +70,7 @@ enum CloudLinkStore {
         links.removeValue(forKey: timerID)
         persist(links)
         setShareURL(nil, timerID: timerID)
+        TimerStore.setReadOnly(id: timerID, false)
     }
 
     // MARK: - Share URL cache

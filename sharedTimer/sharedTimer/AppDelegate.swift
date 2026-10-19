@@ -236,6 +236,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             // next time the app is opened/foregrounded for this finish."
             TimerStore.acknowledgeFinish(id: id)
             completionHandler()
+        case "REPEAT_ACTION" where TimerStore.isReadOnly(id: id):
+            // View-only share: Repeat would change it for everyone; just dismiss.
+            completionHandler()
         case "REPEAT_ACTION":
             // Same mutation sequence as ContentView.repeatTimer()/armAlerts: repeat,
             // save, then TimerArming (AlarmKit if it's authorized by now, else the

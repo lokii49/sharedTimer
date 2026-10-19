@@ -137,6 +137,8 @@ enum WatchSyncController {
                 // Same rejection as Siri's `.timerFinished`: pausing a finished timer
                 // froze it at 0s, and a paused sequence never advances again.
                 guard !existing.isFinished else { reject(); return }
+                // Shared with this phone as view only: the owner alone can change it.
+                guard !TimerStore.isReadOnly(id: id) else { reject(); return }
                 let action: String
                 let updated: TimerPayload
                 switch op {

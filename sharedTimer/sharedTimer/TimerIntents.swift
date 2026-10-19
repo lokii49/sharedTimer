@@ -96,6 +96,7 @@ enum TimerIntentError: LocalizedError, Equatable {
     case timerNotFound
     case timerScheduled
     case timerFinished
+    case timerReadOnly
 
     var errorDescription: String? {
         switch self {
@@ -104,6 +105,7 @@ enum TimerIntentError: LocalizedError, Equatable {
         case .timerNotFound: return String(localized: "That timer is no longer available. Choose another timer.")
         case .timerScheduled: return String(localized: "That sequence has not started yet. You can change it after it starts.")
         case .timerFinished: return String(localized: "That timer has finished. Repeat it in the app to start it again.")
+        case .timerReadOnly: return String(localized: "That timer was shared with you as view only. Only its owner can change it.")
         }
     }
 }

@@ -21,6 +21,11 @@ struct TimerDetailView: View {
     @State private var attribution: (name: String, action: String)?
     @State private var hasBuzzedFinish = false
     @State private var showingEdit = false
+    @State private var confirmingDeleteForEveryone = false
+    /// Shared with this phone as view only — see TimerStore.isReadOnly.
+    @State private var readOnly = false
+    /// Shared with this phone by someone else (shows the permission badge).
+    @State private var isParticipant = false
     @State private var showingSaveTemplate = false
     @State private var templateName = ""
     /// Flipped on save so the bookmark redraws as filled.
@@ -58,6 +63,11 @@ struct TimerDetailView: View {
                 .saturation(pending ? 0.35 : 1)
                 .brightness(pending ? -0.1 : 0)
 
+                // Scrolls only when it must (largest text sizes, small phones), so the
+                // remove button at the bottom is never cut off; otherwise the spacers
+                // centre everything as before.
+                GeometryReader { geometry in
+                ScrollView {
                 VStack {
                     Spacer()
 
@@ -100,6 +110,16 @@ struct TimerDetailView: View {
 
                     Spacer()
 
+                    if isParticipant {
+                        // Someone shared this with you: say what you may do with it.
+                        // Updates live when the owner changes it in Manage Sharing.
+                        SharePermissionBadge(readOnly: readOnly)
+                            .padding(.bottom, 14)
+                    }
+
+                    // View-only share: the change controls stay in place but disabled
+                    // (owner's choice — visible, so it's clear why nothing happens);
+                    // Stop, which only silences this phone, and remove stay enabled.
                     if pending {
                         // Pause/Extend don't mean anything before the scheduled start
                         // actually begins; Delete (below, unconditional) is Cancel.
@@ -107,16 +127,19 @@ struct TimerDetailView: View {
                             startEarly()
                         }
                         .buttonStyle(.glassPill)
+                        .disabled(readOnly)
+                        .opacity(readOnly ? 0.45 : 1)
                     } else if !done {
                         HStack(spacing: 12) {
                             ExtendTimeMenu { extend(by: $0) }
-                                .buttonStyle(.glassPill)
 
                             Button(payload.isPaused ? "Resume" : "Pause") {
                                 togglePause()
                             }
                             .buttonStyle(.glassPill)
                         }
+                        .disabled(readOnly)
+                        .opacity(readOnly ? 0.45 : 1)
                     } else {
                         HStack(spacing: 12) {
                             if alarm.isPlaying || vibration.isVibrating {
@@ -133,6 +156,8 @@ struct TimerDetailView: View {
                                 repeatTimer()
                             }
                             .buttonStyle(.glassPill)
+                            .disabled(readOnly)
+                            .opacity(readOnly ? 0.45 : 1)
                         }
                     }
 
@@ -142,18 +167,38 @@ struct TimerDetailView: View {
                         }
                         .buttonStyle(.glassPill)
                         .padding(.top, 12)
+                        .disabled(readOnly)
+                        .opacity(readOnly ? 0.45 : 1)
                     }
 
-                    Button {
-                        onDelete(payload)
-                        dismiss()
+                    Button(role: .destructive) {
+                        if removal == .deleteForEveryone {
+                            confirmingDeleteForEveryone = true
+                        } else {
+                            onDelete(payload)
+                            dismiss()
+                        }
                     } label: {
-                        Text("Delete")
-                            .font(.footnote.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.55))
+                        Text(removal.title)
+                    }
+                    .buttonStyle(.glassPill)
+                    .accessibilityIdentifier("Delete")
+                    .confirmationDialog(String(localized: "Delete for everyone?"), isPresented: $confirmingDeleteForEveryone, titleVisibility: .visible) {
+                        Button(String(localized: "Delete for Everyone"), role: .destructive) {
+                            onDelete(payload)
+                            dismiss()
+                        }
+                    } message: {
+                        Text("It stops for everyone you shared it with.")
                     }
                     .padding(.top, 18)
                     .padding(.bottom, 28)
+                }
+                // Full width too: inside a ScrollView the stack shrinks to its content
+                // and everything slid to the leading edge.
+                .frame(maxWidth: .infinity, minHeight: geometry.size.height)
+                }
+                .scrollBounceBehavior(.basedOnSize)
                 }
             }
             // TimelineView localizes invalidation to this closure — a modifier attached
@@ -199,7 +244,7 @@ struct TimerDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
-            if payload.sequence == nil {
+            if payload.sequence == nil && !readOnly {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingEdit = true } label: {
                         Image(systemName: "pencil")
@@ -247,8 +292,28 @@ struct TimerDetailView: View {
         }
         .onAppear {
             hasBuzzedFinish = payload.isExpired
+            readOnly = TimerStore.isReadOnly(id: payload.id)
+            isParticipant = CloudLinkStore.get(timerID: payload.id)?.isOwner == false
+            CloudSyncController.refreshPermissions(for: [payload.id]) {
+                readOnly = TimerStore.isReadOnly(id: payload.id)
+            }
             CloudSyncController.fetchParticipantCount(for: payload) { participantCount = $0 }
             CloudSyncController.fetchAttribution(for: payload) { attribution = $0 }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.permissionsChanged)) { _ in
+            readOnly = TimerStore.isReadOnly(id: payload.id)
+        }
+        // Fallback for a delayed silent push: while someone it was shared with is
+        // looking at it, re-check the permission every 30s.
+        .task(id: isParticipant) {
+            guard isParticipant else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                guard !Task.isCancelled else { return }
+                CloudSyncController.refreshPermissions(for: [payload.id]) {
+                    readOnly = TimerStore.isReadOnly(id: payload.id)
+                }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .externalTimerStoreChange)) { _ in
             // This view holds its own @State copy of payload (seeded once when pushed),
@@ -256,9 +321,29 @@ struct TimerDetailView: View {
             // open would otherwise sit invisible until the user backs out and re-enters —
             // ContentView's own reload (TimerStore.loadAll() into its `timers` array)
             // doesn't touch this already-pushed view's local copy at all.
+            readOnly = TimerStore.isReadOnly(id: payload.id)
             guard let fresh = TimerStore.loadAll().first(where: { $0.id == payload.id }) else { return }
             payload = fresh
         }
+    }
+
+    /// What the remove button does, which depends on who's looking: the owner of a
+    /// shared timer deletes it for everyone (CloudSyncController.pushDelete), someone
+    /// it was shared with only removes their own copy, a local timer is just deleted.
+    private enum Removal {
+        case delete, removeMine, deleteForEveryone
+        var title: String {
+            switch self {
+            case .delete: return String(localized: "Delete")
+            case .removeMine: return String(localized: "Remove from My Timers")
+            case .deleteForEveryone: return String(localized: "Delete for Everyone")
+            }
+        }
+    }
+
+    private var removal: Removal {
+        guard let link = CloudLinkStore.get(timerID: payload.id) else { return .delete }
+        return link.isOwner ? .deleteForEveryone : .removeMine
     }
 
     private func subtitle(done: Bool, pending: Bool = false) -> String {

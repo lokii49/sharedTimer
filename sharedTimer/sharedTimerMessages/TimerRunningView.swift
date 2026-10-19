@@ -3,6 +3,7 @@
 //  sharedTimerMessages
 //
 
+import Combine
 import SwiftUI
 import UIKit
 
@@ -26,6 +27,11 @@ struct TimerRunningView: View {
         self.onUpdate = onUpdate
         self.onDelete = onDelete
     }
+
+    /// Shared with this phone as view only, and whether it was shared by someone else
+    /// at all — both re-read when CloudKit reports a permission change.
+    @State private var readOnly = false
+    @State private var isParticipant = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -79,6 +85,12 @@ struct TimerRunningView: View {
                         .buttonStyle(.glassPill)
                     }
 
+                    if isParticipant {
+                        // Shared with you: what you may do with it (live — see below).
+                        SharePermissionBadge(readOnly: readOnly)
+                            .padding(.bottom, 10)
+                    }
+
                     if !done && !pending {
                         HStack(spacing: 10) {
                             Button(payload.isPaused ? "Resume" : "Pause") {
@@ -87,8 +99,10 @@ struct TimerRunningView: View {
                             .buttonStyle(.glassPill)
 
                             ExtendTimeMenu { extend(by: $0) }
-                                .buttonStyle(.glassPill)
                         }
+                        // View only: shown but disabled, so it's clear why they don't work.
+                        .disabled(readOnly)
+                        .opacity(readOnly ? 0.45 : 1)
                     }
 
                     HStack(spacing: 22) {
@@ -131,7 +145,22 @@ struct TimerRunningView: View {
                 }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: Self.storeChange)) { _ in
+        .onAppear { refreshPermissionState() }
+        .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.permissionsChanged)) { _ in
+            refreshPermissionState()
+        }
+        // The owner can change it while this is open; a delayed silent push is covered
+        // by re-checking every 30s.
+        .task(id: isParticipant) {
+            guard isParticipant else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                guard !Task.isCancelled else { return }
+                CloudSyncController.refreshPermissions(for: [payload.id]) { refreshPermissionState() }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Self.storeChange).merge(with: NotificationCenter.default.publisher(for: CloudSyncController.revertedToServer))) { _ in
+            refreshPermissionState()
             if let stored = TimerStore.loadAll().first(where: { $0.id == payload.id }) {
                 payload = stored.advancedSequence()
                 hasBuzzedFinish = payload.isExpired
@@ -164,6 +193,11 @@ struct TimerRunningView: View {
             return TimeFormat.targetDate(payload.endDate)
         }
         return String(localized: "ends at \(payload.endDate.formatted(date: .omitted, time: .shortened))")
+    }
+
+    private func refreshPermissionState() {
+        readOnly = TimerStore.isReadOnly(id: payload.id)
+        isParticipant = CloudLinkStore.get(timerID: payload.id)?.isOwner == false
     }
 
     private func togglePause() {

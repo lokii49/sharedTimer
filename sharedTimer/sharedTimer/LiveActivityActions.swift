@@ -168,7 +168,10 @@ enum LiveActivityActions {
     /// stored occurrence the tapped alert belongs to.
     private static func stored(_ timerID: String, project: Bool = true) -> TimerPayload? {
         TimerStore.setWidgetFocus(id: timerID)
-        guard let payload = TimerStore.loadAll().first(where: { $0.id == timerID }) else { return nil }
+        // Every action here changes the timer, which a view-only share can't — treat it
+        // as absent (the buttons are hidden for it anyway; a stale card could still tap).
+        guard !TimerStore.isReadOnly(id: timerID),
+              let payload = TimerStore.loadAll().first(where: { $0.id == timerID }) else { return nil }
         return project ? payload.advancedSequence() : payload
     }
 

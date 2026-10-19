@@ -275,16 +275,20 @@ enum CloudSyncController {
                 zoneName: zoneID.zoneName,
                 zoneOwnerName: zoneID.ownerName,
                 isOwner: metadata.participantRole == .owner,
-                shareRecordName: nil
+                // Participants keep it too: a permission change arrives as this CKShare
+                // record in zone changes, and this is how it maps back to the timer.
+                shareRecordName: metadata.share.recordID.recordName
             )
 
             // The sharer re-opening their own link — already owns it, nothing to accept.
             guard metadata.participantRole != .owner else {
                 CloudLinkStore.clearLeft(timerID: payload.id)
                 CloudLinkStore.set(link)
+                TimerStore.setReadOnly(id: payload.id, false)
                 completion(payload)
                 return
             }
+            let readOnly = metadata.participantPermission == .readOnly
 
             let acceptOp = CKAcceptSharesOperation(shareMetadatas: [metadata])
             acceptOp.acceptSharesResultBlock = { result in
@@ -293,6 +297,7 @@ enum CloudSyncController {
                     // Opening the link again is an explicit re-join.
                     CloudLinkStore.clearLeft(timerID: payload.id)
                     CloudLinkStore.set(link)
+                    TimerStore.setReadOnly(id: payload.id, readOnly)
                     completion(payload)
                 case .failure(let error):
                     log("acceptShare(\(payload.id)) CKAcceptSharesOperation failed: \(error)")
@@ -355,6 +360,13 @@ enum CloudSyncController {
         operation.savePolicy = .ifServerRecordUnchanged
         operation.modifyRecordsResultBlock = { result in
             guard case .failure(let error) = result else { return completion() }
+            if isPermissionFailure(error, for: record.recordID) {
+                // The owner made this share view-only since we last checked: CloudKit
+                // refused the write. Stop offering changes here and put the server's
+                // state back over the local edit.
+                revertToServer(record.recordID, in: database)
+                return completion()
+            }
             guard retryOnConflict,
                   let conflict = serverRecordChangedError(from: error, for: record.recordID),
                   let serverRecord = conflict.serverRecord else {
@@ -383,6 +395,77 @@ enum CloudSyncController {
             server[key] = client[key]
         }
         return server
+    }
+
+    private static func isPermissionFailure(_ error: Error, for recordID: CKRecord.ID) -> Bool {
+        guard let ckError = error as? CKError else { return false }
+        if ckError.code == .permissionFailure { return true }
+        return ckError.code == .partialFailure
+            && (ckError.partialErrorsByItemID?[recordID] as? CKError)?.code == .permissionFailure
+    }
+
+    /// Posted on main with the server's copy (`object`) after a refused write was undone
+    /// locally; the visible list/detail reload and re-arm from it.
+    static let revertedToServer = Notification.Name("SharedTimerRevertedToServer")
+
+    private static func revertToServer(_ recordID: CKRecord.ID, in database: CKDatabase) {
+        guard let link = CloudLinkStore.all().values.first(where: { $0.recordName == recordID.recordName }) else { return }
+        TimerStore.setReadOnly(id: link.timerID, true)
+        DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: nil) }
+        database.fetch(withRecordID: recordID) { record, _ in
+            guard let record, let payload = makePayload(from: record) else { return }
+            DispatchQueue.main.async {
+                TimerStore.save(payload)
+                NotificationCenter.default.post(name: revertedToServer, object: payload)
+            }
+        }
+    }
+
+    /// Posted on main after any participant permission changed (zone changes, the
+    /// explicit refresh, a refused write) — screens re-read `TimerStore.isReadOnly`.
+    static let permissionsChanged = Notification.Name("SharedTimerPermissionsChanged")
+
+    private static func applyPermission(_ permission: CKShare.ParticipantPermission, shareRecordName: String) {
+        let readOnly = permission == .readOnly
+        let links = CloudLinkStore.all().values.filter { !$0.isOwner && $0.shareRecordName == shareRecordName }
+        var changed = false
+        for link in links where TimerStore.isReadOnly(id: link.timerID) != readOnly {
+            TimerStore.setReadOnly(id: link.timerID, readOnly)
+            changed = true
+        }
+        if changed {
+            DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: nil) }
+        }
+    }
+
+    /// Re-reads whether this device may change each timer shared with it — the owner can
+    /// switch a share between "view only" and "can make changes" at any time in Manage
+    /// Sharing. Participant links only; the owner can always write. Calls back on main.
+    static func refreshPermissions(for timerIDs: [String]? = nil, completion: @escaping () -> Void = {}) {
+        let links = CloudLinkStore.all().values.filter { !$0.isOwner && (timerIDs?.contains($0.timerID) ?? true) }
+        guard !links.isEmpty else { return DispatchQueue.main.async(execute: completion) }
+        let group = DispatchGroup()
+        for link in links {
+            group.enter()
+            let zoneID = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
+            let database = SyncScope.participant.database
+            database.fetch(withRecordID: CKRecord.ID(recordName: link.recordName, zoneID: zoneID)) { record, _ in
+                guard let shareID = record?.share?.recordID else { return group.leave() }
+                // Links from before participants stored this get it now, so later
+                // permission changes in zone changes can find their timer.
+                if link.shareRecordName == nil {
+                    CloudLinkStore.set(CloudLink(timerID: link.timerID, recordName: link.recordName, zoneName: link.zoneName,
+                                                 zoneOwnerName: link.zoneOwnerName, isOwner: false, shareRecordName: shareID.recordName))
+                }
+                database.fetch(withRecordID: shareID) { share, _ in
+                    if let permission = (share as? CKShare)?.currentUserParticipant?.permission {
+                        applyPermission(permission, shareRecordName: shareID.recordName)
+                    }
+                    group.leave()
+                }
+            }
+        }
+        group.notify(queue: .main, execute: completion)
     }
 
     private static func serverRecordChangedError(from error: Error, for recordID: CKRecord.ID) -> CKError? {
@@ -539,7 +622,13 @@ enum CloudSyncController {
         operation.recordWasChangedBlock = { recordID, result in
             switch result {
             case .success(let record):
-                if let payload = makePayload(from: record) {
+                if let share = record as? CKShare {
+                    // The owner switched "view only" / "can make changes" in Manage
+                    // Sharing — apply it so open screens update without a restart.
+                    if let permission = share.currentUserParticipant?.permission {
+                        applyPermission(permission, shareRecordName: share.recordID.recordName)
+                    }
+                } else if let payload = makePayload(from: record) {
                     updated.append(payload)
                 } else {
                     log("fetchZoneChanges: record \(recordID.recordName) fetched but unparseable")

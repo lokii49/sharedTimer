@@ -65,6 +65,7 @@ enum TimerIntentActions {
     static func perform(timerID: String, mutation: Mutation) async throws -> TimerPayload {
         // Use the ID only: a saved Shortcut's entity name/state can be days old.
         let stored = TimerStore.loadAll().first { $0.id == timerID }
+        guard !TimerStore.isReadOnly(id: timerID) else { throw TimerIntentError.timerReadOnly }
         let updated = try updated(stored, mutation: mutation)
         if case .pause = mutation, stored?.isPaused == true { return updated }
         if case .resume = mutation, stored?.isPaused == false { return updated }

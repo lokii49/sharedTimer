@@ -18,6 +18,7 @@ enum TimerStore {
     private static let key = "sharedTimers"
     private static let acknowledgedFinishKey = "sharedTimerAcknowledgedFinishIDs"
     private static let alarmKitArmedKey = "sharedTimerAlarmKitArmedIDs"
+    private static let readOnlyKey = "sharedTimerReadOnlyIDs"
     private static let widgetFocusKey = "sharedTimerWidgetFocusID"
 
     private static var defaults: UserDefaults? {
@@ -56,6 +57,7 @@ enum TimerStore {
             persist(all)
             clearAcknowledgedFinish(id: id)
             updateIDSet(alarmKitArmedKey, id: id, member: false)
+            updateIDSet(readOnlyKey, id: id, member: false)
         }
     }
 
@@ -114,6 +116,19 @@ enum TimerStore {
 
     static func isAlarmKitArmed(id: String) -> Bool {
         (defaults?.stringArray(forKey: alarmKitArmedKey) ?? []).contains(id)
+    }
+
+    /// Shared with this device as "view only" (the owner's choice in Manage Sharing,
+    /// enforced by CloudKit's server). Every mutation entry point — app, Messages, Siri,
+    /// Live Activity/widget buttons, Watch relay, notification actions — checks this and
+    /// offers only silence/remove. In TimerStore, not CloudLink, so the widget (which
+    /// can't see CloudLink) can hide its buttons too. Written by CloudSyncController.
+    static func setReadOnly(id: String, _ readOnly: Bool) {
+        withWriteLock { updateIDSet(readOnlyKey, id: id, member: readOnly) }
+    }
+
+    static func isReadOnly(id: String) -> Bool {
+        (defaults?.stringArray(forKey: readOnlyKey) ?? []).contains(id)
     }
 
     /// "Stop" tapped on the vibration-only finish notification (see AppDelegate's

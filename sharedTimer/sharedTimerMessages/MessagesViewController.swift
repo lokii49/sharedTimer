@@ -160,6 +160,8 @@ class MessagesViewController: MSMessagesAppViewController {
     }
 
     private func persist(_ payload: TimerPayload, action: String) {
+        // View-only share: only the clock-driven phase advance may be stored.
+        guard action == "sequenceAdvanced" || !TimerStore.isReadOnly(id: payload.id) else { return }
         TimerStore.save(payload)
         if action != "sequenceAdvanced" || !TimerStore.isAlarmKitArmed(id: payload.id) {
             NotificationScheduler.cancel(id: payload.id)
