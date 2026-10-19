@@ -1,11 +1,9 @@
-• Novedad: Timer ya habla diez idiomas: inglés, chino, hindi, español, árabe, francés, bengalí, portugués, ruso e indonesio.
-• Novedad: Vistas previas de enlaces que dicen lo que son. Mensajes muestra el nombre y la duración del temporizador antes de que alguien lo toque.
-• Novedad: La pantalla de compartir te indica si un enlace es En directo (se mantiene sincronizado para todos) o una Instantánea, y está lista al instante.
-• Novedad: Comparte con todos los presentes con un código QR. Quien lo escanee podrá ver la cuenta regresiva, pero no cambiarla.
-• Novedad: Gestionar compartición. Consulta quién tiene un temporizador compartido, quita a alguien o deja de compartir.
-• Novedad: Guarda como plantilla propia una secuencia que te hayan enviado.
-• Novedad: Ajustes. Elige el nombre que ven los demás cuando compartes, escoge entre cuatro tonos de alarma y vuelve a ver las Novedades.
-• Mejores descripciones de VoiceOver y compatibilidad con texto más grande.
-• Las secuencias y las cuentas regresivas anuales ahora reponen sus próximas alarmas en segundo plano.
-• Corregido: Compartir vuelve a funcionar desde la pantalla de cada temporizador.
-• Los enlaces compartidos ahora se abren desde mirrornotes.org. Los enlaces que ya enviaste siguen funcionando.
+• Novedad: Comparte solo para ver. En «Gestionar compartición», elige si los demás pueden hacer cambios o solo ver: sabrán cuál es, y se actualiza al instante.
+• Novedad: Entérate de lo que cambia. Cuando alguien pausa, extiende o detiene un temporizador compartido, recibes «Sam lo pausó: Pasta», aunque Timer esté cerrada.
+• Novedad: Agrega más de un minuto. Toca +1:00 como siempre, o usa la flecha de al lado para +5, +10, +15, +30 o una cantidad personalizada.
+• Novedad: «Gestionar compartición» aparece junto a «Compartir» en cuanto un temporizador está compartido.
+• Quitar es más claro: «Quitar de mis temporizadores» para los que te compartieron y «Eliminar para todos» (con confirmación) para los que compartiste tú.
+• El anillo sigue avanzando sin saltos después de agregar tiempo.
+• La app del Apple Watch ahora se llama Timer y habla tu idioma, y tiempos como «3 d 4 h» se muestran en tu idioma en todas partes.
+• Los temporizadores compartidos se actualizan de forma más confiable en el iPhone de todos después de pausar o extender.
+• Muchas correcciones menores en alarmas, secuencias, widgets y Actividades en Vivo.

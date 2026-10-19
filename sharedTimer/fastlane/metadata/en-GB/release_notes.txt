@@ -1,11 +1,9 @@
-• New: Timer now speaks ten languages — English, Chinese, Hindi, Spanish, Arabic, French, Bengali, Portuguese, Russian and Indonesian.
-• New: Link previews that say what they are. Messages shows the timer's name and length before anyone taps.
-• New: The share screen tells you whether a link is Live (stays in sync for everyone) or a Snapshot, and it's ready instantly.
-• New: Share across the room with a QR code. People who scan it can watch the countdown but can't change it.
-• New: Manage Sharing. See who has a shared timer, remove someone, or stop sharing.
-• New: Save a sequence someone sent you as your own template.
-• New: Settings. Set the name people see when you share, choose from four alarm tones, and replay What's New.
-• Better VoiceOver descriptions and support for larger text.
-• Sequences and yearly countdowns now top up their upcoming alarms in the background.
-• Fixed: Share works again from a timer's own screen.
-• Shared links now open from mirrornotes.org. Links you've already sent keep working.
+• New: Share as view only. In Manage Sharing, choose whether people can make changes or just watch — they'll see which, and it updates live.
+• New: Know what changed. When someone pauses, extends or stops a shared timer, you get "Sam paused Pasta", even with Timer closed.
+• New: Add more than a minute. Tap +1:00 as before, or use the arrow next to it for +5, +10, +15, +30 or a custom amount.
+• New: Manage Sharing sits right beside Share once a timer is shared.
+• Clearer removing: "Remove from My Timers" for timers shared with you, and "Delete for Everyone" (with a confirmation) for ones you shared.
+• The ring keeps counting down smoothly after you add time.
+• The Apple Watch app is now called Timer and speaks your language, and times like "3d 4h" are shown in your language everywhere.
+• Shared timers now update more reliably on everyone's iPhone after a pause or extend.
+• Many smaller fixes for alarms, sequences, widgets and Live Activities.

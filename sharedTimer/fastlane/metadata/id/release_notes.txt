@@ -1,11 +1,9 @@
-• Baru: Timer kini tersedia dalam sepuluh bahasa — Inggris, Mandarin, Hindi, Spanyol, Arab, Prancis, Bengali, Portugis, Rusia, dan Indonesia.
-• Baru: Pratinjau tautan yang langsung menjelaskan isinya. Pesan menampilkan nama dan durasi timer sebelum ada yang mengetuk.
-• Baru: Layar berbagi memberi tahu apakah tautan bersifat Langsung (tetap sinkron untuk semua) atau Cuplikan, dan langsung siap dipakai.
-• Baru: Bagikan ke semua orang di ruangan dengan kode QR. Orang yang memindainya bisa melihat hitung mundur, tetapi tidak bisa mengubahnya.
-• Baru: Kelola Berbagi. Lihat siapa saja yang memiliki timer bersama, keluarkan seseorang, atau berhenti berbagi.
-• Baru: Simpan urutan yang dikirim seseorang sebagai templat milikmu sendiri.
-• Baru: Pengaturan. Atur nama yang dilihat orang saat kamu berbagi, pilih dari empat nada alarm, dan buka lagi Yang Baru.
-• Deskripsi VoiceOver yang lebih baik dan dukungan untuk teks yang lebih besar.
-• Urutan dan hitung mundur tahunan kini mengisi ulang alarm berikutnya di latar belakang.
-• Diperbaiki: Berbagi kembali berfungsi dari layar timer itu sendiri.
-• Tautan bersama kini dibuka dari mirrornotes.org. Tautan yang sudah kamu kirim tetap berfungsi.
+• Baru: Bagikan hanya untuk dilihat. Di "Kelola Berbagi", pilih apakah orang lain bisa mengubah atau hanya melihat — mereka akan tahu yang mana, dan langsung diperbarui.
+• Baru: Tahu apa yang berubah. Saat seseorang menjeda, memperpanjang, atau menghentikan timer bersama, Anda menerima "Sam menjeda Pasta", meski Timer sedang tertutup.
+• Baru: Tambah lebih dari satu menit. Ketuk +1:00 seperti biasa, atau gunakan panah di sebelahnya untuk +5, +10, +15, +30, atau waktu kustom.
+• Baru: "Kelola Berbagi" ada tepat di sebelah "Bagikan" setelah timer dibagikan.
+• Menghapus lebih jelas: "Hapus dari Timer Saya" untuk timer yang dibagikan kepada Anda, dan "Hapus untuk Semua" (dengan konfirmasi) untuk timer yang Anda bagikan.
+• Cincin tetap menghitung mundur dengan mulus setelah Anda menambah waktu.
+• App Apple Watch kini bernama Timer dan memakai bahasa Anda, dan waktu seperti "3 h 4 j" tampil dalam bahasa Anda di mana-mana.
+• Timer bersama kini diperbarui lebih andal di iPhone semua orang setelah dijeda atau diperpanjang.
+• Banyak perbaikan kecil untuk alarm, urutan, widget, dan Live Activity.
