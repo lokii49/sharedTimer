@@ -40,6 +40,9 @@ jobs:
       - name: Web fallback timing tests
         run: node --test ../docs/tests/timer.test.cjs
 
+      - name: Link preview Worker and status data tests
+        run: node --test ../link-preview/test.mjs ../status/test.mjs
+
       - name: Pick an iPhone simulator
         run: |
           UDID=$(xcrun simctl list devices available -j \

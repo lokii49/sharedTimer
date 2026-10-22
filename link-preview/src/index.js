@@ -1,20 +1,27 @@
-// Per-link previews for shared Timer links.
+// Per-link previews for shared Timer links, plus the counts behind /timer/status.
 //
 // Messages (and other apps) build a link preview from the page's <title> and og: tags.
 // docs/t.html is static, so every link previewed as plain "Timer". This Worker serves
 // the same page from GitHub Pages and only rewrites those tags from the link's own
-// query string ("Pasta" / "8 min timer"). Nothing is stored or logged, and the app
-// never calls it — it runs only when someone opens or previews a link.
+// query string ("Pasta" / "8 min timer"). The app never calls it — it runs only when
+// someone opens or previews a link.
+//
+// For the status page it records one data point per link request: whether it was a
+// link preview or an open in a browser. Nothing else — not the link, its label, the
+// IP address or the user agent. Request logs stay off. /timer/status.json is the
+// summary status/build.mjs writes to KV; the page itself is a static file on Pages.
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/timer/status.json") return serveStatus(env);
     const response = await fetch(request);
     if (!(url.pathname === "/timer" || url.pathname === "/timer.html") || !response.ok) {
       return response;
     }
     const preview = describe(url.searchParams, Date.now() / 1000);
     if (!preview) return response;
+    if (request.method === "GET") count(env, request.headers.get("user-agent"));
     return new HTMLRewriter()
       .on("title", { element: (e) => e.setInnerContent(`${preview.title} · Timer`) })
       .on('meta[property="og:title"]', { element: (e) => e.setAttribute("content", preview.title) })
@@ -22,6 +29,36 @@ export default {
       .transform(response);
   },
 };
+
+// Messages builds its preview on the sender's phone with a user agent carrying the
+// facebookexternalhit/Facebot/Twitterbot tokens; other apps' fetchers say "bot" too.
+// Anything else is a person opening the link in a browser (no app, or not claimed).
+const PREVIEW_AGENT = /facebookexternalhit|facebot|twitterbot|slackbot|discordbot|whatsapp|telegrambot|linkedinbot|skypeuripreview|embedly|bot\b|crawler|spider|preview/i;
+
+export function classify(userAgent) {
+  return PREVIEW_AGENT.test(userAgent || "") ? "preview" : "open";
+}
+
+function count(env, userAgent) {
+  try {
+    env.LINK_OPENS?.writeDataPoint({ blobs: [classify(userAgent)], indexes: ["link"] });
+  } catch {
+    // Counting must never break a link.
+  }
+}
+
+export async function serveStatus(env) {
+  const body = await env.STATUS?.get("status.json");
+  if (!body) {
+    return new Response(JSON.stringify({ error: "not yet published" }), {
+      status: 503,
+      headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+    });
+  }
+  return new Response(body, {
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=300" },
+  });
+}
 
 // Mirrors TimerPayload.shareSummary in TimerModel.swift, but avoids calendar dates:
 // the server doesn't know the viewer's time zone, so countdowns say how far away.

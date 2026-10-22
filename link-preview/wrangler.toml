@@ -13,3 +13,15 @@ routes = [
 # No request logs: link query strings carry timer labels.
 [observability]
 enabled = false
+
+# One data point per shared-link request: blob1 = "preview" | "open". Nothing else.
+# The dataset is created on first write. status/build.mjs reads it via the SQL API.
+[[analytics_engine_datasets]]
+binding = "LINK_OPENS"
+dataset = "timer_link_opens"
+
+# /timer/status.json, written by status/build.mjs (.github/workflows/status.yml).
+# Created 2026-10-22 with: npx wrangler@4 kv namespace create timer-status
+[[kv_namespaces]]
+binding = "STATUS"
+id = "c7068730217b4bf9ba2bc293cd007c64"
