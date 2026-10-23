@@ -29,13 +29,6 @@ export const reducers = {
   sessions(rows) {
     return sumByDate(rows, (r) => ({ sessions: num(r["sessions"]), devices: num(r["unique devices"]) }));
   },
-  // App Store Installations and Deletions: Event (Install/Delete), Download Type, Counts.
-  // Only first-time downloads count as a new install — not redownloads, updates or restores.
-  installs(rows) {
-    return sumByDate(rows, (r) =>
-      /^install$/i.test(r["event"]) && /^first-time download$/i.test(r["download type"]) ? { installs: num(r["counts"]) } : { installs: 0 }
-    );
-  },
   // App Clip Usage: App Clip Event Type (Views/Installations/Sessions/Crashes), Counts.
   clip(rows) {
     return sumByDate(rows, (r) => (/view/i.test(r["app clip event type"]) ? { clipViews: num(r["counts"]) } : { clipViews: 0 }));
@@ -91,6 +84,27 @@ export function series(merged, days, field) {
   });
 }
 
+// Sales and Trends daily summary rows → one app's first-time downloads that day. Product
+// types starting with 1 are first-time downloads (1, 1F, 1T …); 3* are redownloads, 7*
+// updates, IA* in-app purchases. It's every customer, unlike the analytics reports.
+export function salesInstalls(rows, appId) {
+  return rows
+    .filter((r) => r["apple identifier"] === String(appId) && /^1/.test(r["product type identifier"]))
+    .reduce((n, r) => n + num(r["units"]), 0);
+}
+
+// Per-day results (a number, or null for a 404: no report file) → the sales block.
+// A 404 after the newest day Apple has posted means not posted yet (null); before it,
+// the vendor sold nothing that day (0).
+export function salesBlock(results, days) {
+  const reportedThrough = [...results].filter(([, v]) => v !== null).map(([d]) => d).sort().pop() ?? null;
+  return {
+    available: true,
+    reportedThrough,
+    installs: days.map((d) => (!reportedThrough || d > reportedThrough ? null : results.get(d) ?? 0)),
+  };
+}
+
 // Analytics Engine SQL rows ({ day: epoch seconds, kind, n }) → per-day counts.
 // Days before the first counted day are null (the counter wasn't running yet).
 export function linkSeries(rows, days) {
@@ -106,16 +120,16 @@ export function linkSeries(rows, days) {
   return { since: first ?? null, previews: pick("preview"), opens: pick("open") };
 }
 
-export function buildStatus({ now, app, links }) {
+export function buildStatus({ now, app, sales, links }) {
   const today = now.toISOString().slice(0, 10);
-  return { version: 1, computedAt: now.toISOString(), days: lastDays(today), app, links };
+  return { version: 1, computedAt: now.toISOString(), days: lastDays(today), app, sales, links };
 }
 
 // App block from merged per-report maps. reportedThrough = the last date Apple has
 // processed (the newest instance's processingDate − 1); Apple says data is complete
 // five days after that. reportedFrom (or null) = the first date Apple covers; days
 // before it were never reported, which is not the same as under the five-person floor.
-export function appBlock({ days, sessions, installs, clip, latestProcessingDate, reportedFrom = null }) {
+export function appBlock({ days, sessions, clip, latestProcessingDate, reportedFrom = null }) {
   const reportedThrough = latestProcessingDate ? addDays(latestProcessingDate, -1) : null;
   return {
     available: true,
@@ -124,7 +138,6 @@ export function appBlock({ days, sessions, installs, clip, latestProcessingDate,
     completeThrough: reportedThrough ? addDays(reportedThrough, -5) : null,
     sessions: series(sessions, days, "sessions"),
     devices: series(sessions, days, "devices"),
-    installs: series(installs, days, "installs"),
     clipViews: series(clip, days, "clipViews"),
   };
 }

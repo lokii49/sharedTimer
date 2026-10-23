@@ -17,7 +17,7 @@
 import { createSign, createPrivateKey } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import { readFileSync, writeFileSync } from "node:fs";
-import { DAYS, appBlock, buildStatus, firstReportedDate, lastDays, linkSeries, mergeInstances, parseTsv, reducers, addDays } from "./lib.mjs";
+import { DAYS, appBlock, buildStatus, firstReportedDate, lastDays, linkSeries, mergeInstances, parseTsv, reducers, addDays, salesBlock, salesInstalls } from "./lib.mjs";
 
 const env = process.env;
 const outIndex = process.argv.indexOf("--out");
@@ -44,10 +44,11 @@ function ascToken() {
   return token;
 }
 
-async function request(url, init = {}, tries = 4) {
+// `allow` lists extra statuses to hand back instead of throwing (the sales reports' 404).
+async function request(url, { allow = [], ...init } = {}, tries = 4) {
   for (let i = 0; ; i++) {
     const res = await fetch(url, init);
-    if (res.ok) return res;
+    if (res.ok || allow.includes(res.status)) return res;
     if (i + 1 >= tries || !(res.status === 429 || res.status >= 500)) {
       throw new Error(`${init.method || "GET"} ${url.split("?")[0]} → ${res.status}: ${(await res.text()).slice(0, 300)}`);
     }
@@ -96,7 +97,6 @@ async function ongoingRequestId() {
 // give the page titles ("App Sessions") rather than the exact API names.
 const WANTED = {
   sessions: (n) => /app sessions/i.test(n),
-  installs: (n) => /install/i.test(n) && /delet/i.test(n) && !/platform/i.test(n),
   clip: (n) => /app clip usage/i.test(n),
 };
 
@@ -142,6 +142,35 @@ async function appStats() {
   return appBlock({ days, ...merged, latestProcessingDate, reportedFrom });
 }
 
+// Sales and Trends (what App Store Connect's Units chart shows): one daily summary file
+// per vendor, all apps, every customer. 404 = no file for that day (see salesBlock).
+async function salesStats() {
+  const results = new Map();
+  for (const day of days) {
+    const q = new URLSearchParams({
+      "filter[frequency]": "DAILY",
+      "filter[reportType]": "SALES",
+      "filter[reportSubType]": "SUMMARY",
+      "filter[vendorNumber]": env.ASC_VENDOR_NUMBER,
+      "filter[reportDate]": day,
+      "filter[version]": "1_1",
+    });
+    const res = await request(`${ASC}/v1/salesReports?${q}`, {
+      headers: { authorization: `Bearer ${ascToken()}`, accept: "application/a-gzip" },
+      allow: [404],
+    });
+    if (res.status === 404) {
+      results.set(day, null);
+      continue;
+    }
+    const raw = Buffer.from(await res.arrayBuffer());
+    results.set(day, salesInstalls(parseTsv((raw[0] === 0x1f && raw[1] === 0x8b ? gunzipSync(raw) : raw).toString("utf8")), env.ASC_APP_ID));
+  }
+  const block = salesBlock(results, days);
+  console.log(`Sales reports: through ${block.reportedThrough ?? "(none)"}`);
+  return block;
+}
+
 // ---------- Cloudflare ----------
 
 const CF = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}`;
@@ -180,6 +209,7 @@ async function previous() {
 
 const haveCF = env.CF_ACCOUNT_ID && env.CF_API_TOKEN;
 const haveASC = env.ASC_ISSUER_ID && env.ASC_KEY_ID && env.ASC_PRIVATE_KEY && env.ASC_APP_ID;
+const haveSales = haveASC && env.ASC_VENDOR_NUMBER;
 const last = haveCF && !outFile ? await previous() : null;
 let failed = false;
 
@@ -210,6 +240,7 @@ async function attempt(name, have, run, lastBlock) {
 const status = buildStatus({
   now,
   app: await attempt("App Store Connect", haveASC, appStats, last?.app),
+  sales: await attempt("Sales reports", haveSales, salesStats, last?.sales),
   links: await attempt("Link counts", haveCF, linkStats, last?.links),
 });
 const json = JSON.stringify(status);
