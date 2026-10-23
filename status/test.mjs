@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { appBlock, lastDays, linkSeries, mergeInstances, parseTsv, reducers } from "./lib.mjs";
+import { appBlock, firstReportedDate, lastDays, linkSeries, mergeInstances, parseTsv, reducers } from "./lib.mjs";
 
 const tsv = (head, ...rows) => [head.join("\t"), ...rows.map((r) => r.join("\t"))].join("\n") + "\n";
 
@@ -61,6 +61,18 @@ test("days Apple has no row for stay null, never 0", () => {
   assert.deepEqual(app.sessions, [null, 8, null, null, null]);
   assert.equal(app.reportedThrough, "2026-10-03");
   assert.equal(app.completeThrough, "2026-09-28");
+  assert.equal(app.reportedFrom, null);
+});
+
+test("reporting start: earliest row of the first instance ever, null once it's out of range", () => {
+  const parsed = [
+    { processingDate: "2026-10-23", byDate: new Map([["2026-10-22", {}]]) },
+    { processingDate: "2026-10-22", byDate: new Map([["2026-10-20", {}], ["2026-10-18", {}]]) },
+  ];
+  assert.equal(firstReportedDate(parsed, "2026-10-22"), "2026-10-18");
+  assert.equal(firstReportedDate(parsed, "2026-09-01"), null);
+  assert.equal(firstReportedDate([{ processingDate: "2026-10-22", byDate: new Map() }], "2026-10-22"), null);
+  assert.equal(firstReportedDate([], undefined), null);
 });
 
 test("link counts: zero after the counter started, null before it", () => {

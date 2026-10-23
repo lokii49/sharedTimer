@@ -17,7 +17,7 @@
 import { createSign, createPrivateKey } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import { readFileSync, writeFileSync } from "node:fs";
-import { DAYS, appBlock, buildStatus, lastDays, linkSeries, mergeInstances, parseTsv, reducers, addDays } from "./lib.mjs";
+import { DAYS, appBlock, buildStatus, firstReportedDate, lastDays, linkSeries, mergeInstances, parseTsv, reducers, addDays } from "./lib.mjs";
 
 const env = process.env;
 const outIndex = process.argv.indexOf("--out");
@@ -109,6 +109,7 @@ async function appStats() {
   const since = addDays(days[0], -10); // instances processed before the window can't hold its dates
   const merged = {};
   let latestProcessingDate = null;
+  let reportedFrom = null;
   for (const [key, matches] of Object.entries(WANTED)) {
     const report = reports.find((r) => matches(r.attributes.name) && /standard/i.test(r.attributes.name));
     if (!report) {
@@ -116,9 +117,9 @@ async function appStats() {
       merged[key] = new Map();
       continue;
     }
-    const instances = (await ascAll(`/v1/analyticsReports/${report.id}/instances?filter[granularity]=DAILY&limit=200`)).filter(
-      (i) => i.attributes.processingDate >= since
-    );
+    const all = await ascAll(`/v1/analyticsReports/${report.id}/instances?filter[granularity]=DAILY&limit=200`);
+    const instances = all.filter((i) => i.attributes.processingDate >= since);
+    const firstEver = all.map((i) => i.attributes.processingDate).sort()[0];
     const parsed = [];
     for (const inst of instances) {
       const segments = await ascAll(`/v1/analyticsReportInstances/${inst.id}/segments`);
@@ -133,8 +134,12 @@ async function appStats() {
     }
     console.log(`${report.attributes.name}: ${instances.length} daily instances`);
     merged[key] = mergeInstances(parsed);
+    // Apple doesn't backfill before the request existed. While the first instance ever is
+    // still fetched, its earliest row is the closest thing to "reporting started".
+    const start = firstReportedDate(parsed, firstEver);
+    if (start && (!reportedFrom || start < reportedFrom)) reportedFrom = start;
   }
-  return appBlock({ days, ...merged, latestProcessingDate });
+  return appBlock({ days, ...merged, latestProcessingDate, reportedFrom });
 }
 
 // ---------- Cloudflare ----------

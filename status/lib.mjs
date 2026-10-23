@@ -75,6 +75,13 @@ export function addDays(date, n) {
   return new Date(Date.parse(date + "T00:00:00Z") + n * 86400000).toISOString().slice(0, 10);
 }
 
+// Earliest dated row in the first instance Apple ever made for a report, or null once
+// that instance is older than the ones fetched (reporting began before the window).
+export function firstReportedDate(parsed, firstEverProcessingDate) {
+  const first = parsed.find((p) => p.processingDate === firstEverProcessingDate);
+  return first ? [...first.byDate.keys()].sort()[0] ?? null : null;
+}
+
 // A date Apple has reported but has no row for means "under the five-person floor"
 // (or truly zero — the report can't tell them apart), so it stays null, never 0.
 export function series(merged, days, field) {
@@ -106,11 +113,13 @@ export function buildStatus({ now, app, links }) {
 
 // App block from merged per-report maps. reportedThrough = the last date Apple has
 // processed (the newest instance's processingDate − 1); Apple says data is complete
-// five days after that.
-export function appBlock({ days, sessions, installs, clip, latestProcessingDate }) {
+// five days after that. reportedFrom (or null) = the first date Apple covers; days
+// before it were never reported, which is not the same as under the five-person floor.
+export function appBlock({ days, sessions, installs, clip, latestProcessingDate, reportedFrom = null }) {
   const reportedThrough = latestProcessingDate ? addDays(latestProcessingDate, -1) : null;
   return {
     available: true,
+    reportedFrom,
     reportedThrough,
     completeThrough: reportedThrough ? addDays(reportedThrough, -5) : null,
     sessions: series(sessions, days, "sessions"),
