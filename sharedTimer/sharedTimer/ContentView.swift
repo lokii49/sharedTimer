@@ -114,15 +114,34 @@ struct ContentView: View {
             }
     }
 
-    var body: some View {
-        NavigationStack(path: $navigationPath) {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    private var isRegular: Bool { horizontalSizeClass == .regular }
+
+    /// The detail column on iPad: the selected timer, or a prompt to pick one.
+    @ViewBuilder private var splitDetail: some View {
+        if let timerID = navigationPath.last {
+            detailDestination(timerID)
+                // A fresh detail for each pick — it keeps its own @State copy.
+                .id(timerID)
+        } else {
+            ContentUnavailableView("Choose a timer", systemImage: "timer", description: Text("Pick a timer on the left, or start a new one with +."))
+        }
+    }
+
+    @ViewBuilder private func detailDestination(_ timerID: String) -> some View {
+        if let payload = timers.first(where: { $0.id == timerID }) {
+            TimerDetailView(payload: payload, onUpdate: applyMutation, onSequenceAdvance: { apply($0, action: "sequenceAdvanced", rearm: $1) }, onDelete: delete, onShare: { payload in withDisplayName { sharingPayload = payload } })
+        } else {
+            ContentUnavailableView("Timer unavailable", systemImage: "timer", description: Text("This timer has been deleted or has expired."))
+        }
+    }
+
+    /// The list column with its title, toolbar and everything presented from it —
+    /// the whole screen on iPhone, the sidebar on iPad.
+    private var columnContent: some View {
             timerList
             .navigationDestination(for: String.self) { timerID in
-                if let payload = timers.first(where: { $0.id == timerID }) {
-                    TimerDetailView(payload: payload, onUpdate: applyMutation, onSequenceAdvance: { apply($0, action: "sequenceAdvanced", rearm: $1) }, onDelete: delete, onShare: { payload in withDisplayName { sharingPayload = payload } })
-                } else {
-                    ContentUnavailableView("Timer unavailable", systemImage: "timer", description: Text("This timer has been deleted or has expired."))
-                }
+                detailDestination(timerID)
             }
             .navigationTitle("Timers")
             .toolbar {
@@ -274,6 +293,25 @@ struct ContentView: View {
                     },
                     onDismiss: { incomingPayload = nil }
                 )
+            }
+    }
+
+    var body: some View {
+        Group {
+            if isRegular {
+                // D10 · A (iPad): the list as a sidebar, the selected timer's sky on the
+                // right. Selection is `navigationPath.last`, so every deep link that sets
+                // the path (Spotlight, widget URL, Quick Action, History's Open) selects.
+                NavigationSplitView {
+                    columnContent
+                } detail: {
+                    NavigationStack { splitDetail }
+                }
+                .navigationSplitViewStyle(.balanced)
+            } else {
+                NavigationStack(path: $navigationPath) {
+                    columnContent
+                }
             }
         }
         // Outside the NavigationStack: attached to the list root, this prompt and sheet
@@ -670,10 +708,23 @@ struct ContentView: View {
             .frame(maxWidth: .infinity)
             // Hidden NavigationLink behind the card: a visible one draws the gray
             // disclosure chevron outside the sky, which breaks the full-bleed card.
-            .background(
-                NavigationLink("", value: payload.id)
-                .opacity(0)
-            )
+            .background {
+                if !isRegular {
+                    NavigationLink("", value: payload.id)
+                        .opacity(0)
+                }
+            }
+            // iPad: a tap selects the timer for the detail column, outlined while shown.
+            .contentShape(Rectangle())
+            .onTapGesture { if isRegular { navigationPath = [payload.id] } }
+            .overlay {
+                if isRegular && navigationPath.last == payload.id {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(.white.opacity(0.85), lineWidth: 2)
+                        .frame(maxWidth: 560)
+                        .allowsHitTesting(false)
+                }
+            }
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
@@ -840,6 +891,8 @@ struct ContentView: View {
         LiveActivityController.end(id: payload.id)
         WatchSyncController.pushCurrentState()
         timers.removeAll { $0.id == payload.id }
+        // iPad: don't leave the detail column on a deleted timer.
+        navigationPath.removeAll { $0 == payload.id }
         if link?.isOwner == true {
             // Already confirmed in a dialog, and it reaches everyone — no Undo.
             CloudSyncController.pushDelete(id: payload.id)
