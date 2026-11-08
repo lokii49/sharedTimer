@@ -25,6 +25,7 @@ struct TimerAlarmActivityWidget: Widget {
             // the label only the leftover width after the countdown text, truncating
             // any label longer than a few characters (see the "Alarm only cou…" report).
             // Full width to the label, wrapping up to 2 lines, fixes that.
+            ActivityFamilySwitch {
             VStack(alignment: .leading, spacing: 4) {
                 Label(context.attributes.metadata?.label ?? String(localized: "Timer"), systemImage: kind.symbolName)
                     .font(.headline)
@@ -45,6 +46,12 @@ struct TimerAlarmActivityWidget: Widget {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
+            } small: {
+                SmallActivityTile(label: context.attributes.metadata?.label ?? String(localized: "Timer"),
+                                  symbol: kind.symbolName, sky: alarmSky(context.state)) {
+                    alarmCountdownText(context.state)
+                }
+            }
             .activityBackgroundTint(nil)
         } dynamicIsland: { context in
             let kind = context.attributes.metadata?.kind ?? .timer
@@ -88,6 +95,22 @@ struct TimerAlarmActivityWidget: Widget {
             }
             .keylineTint(kind.accentColor)
         }
+        // Apple Watch Smart Stack and CarPlay (SmallActivityTile).
+        .supplementalActivityFamilies([.small])
+    }
+}
+
+/// The small tile's sky from AlarmKit's own state: draining toward the fire date,
+/// mist while paused, overcast once it's ringing.
+private func alarmSky(_ state: AlarmPresentationState) -> LinearGradient {
+    switch state.mode {
+    case .countdown(let countdown):
+        return Sky.gradient(endDate: countdown.fireDate, pausedRemaining: nil)
+    case .paused(let paused):
+        let remaining = paused.totalCountdownDuration - paused.previouslyElapsedDuration
+        return Sky.gradient(endDate: Date().addingTimeInterval(remaining), pausedRemaining: remaining)
+    default:
+        return Sky.gradient(endDate: .distantPast, pausedRemaining: nil)
     }
 }
 

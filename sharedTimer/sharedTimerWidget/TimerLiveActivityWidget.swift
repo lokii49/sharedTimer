@@ -10,10 +10,17 @@ import SwiftUI
 struct TimerLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TimerActivityAttributes.self) { context in
-            LockScreenTimerView(timerID: context.attributes.timerID, label: liveLabel(context), kind: liveKind(context), state: liveState(context), isFinished: isFinished(context))
-                .padding()
-                .background(Sky.gradient(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining))
-                .activityBackgroundTint(Color.clear)
+            ActivityFamilySwitch {
+                LockScreenTimerView(timerID: context.attributes.timerID, label: liveLabel(context), kind: liveKind(context), state: liveState(context), isFinished: isFinished(context))
+                    .padding()
+                    .background(Sky.gradient(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining))
+            } small: {
+                SmallActivityTile(label: liveLabel(context), symbol: liveKind(context).symbolName,
+                                  sky: Sky.gradient(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining)) {
+                    liveActivityRemainingText(liveState(context))
+                }
+            }
+            .activityBackgroundTint(Color.clear)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -57,6 +64,8 @@ struct TimerLiveActivityWidget: Widget {
                     .foregroundStyle(liveKind(context).accentColor)
             }
         }
+        // Apple Watch Smart Stack and CarPlay (SmallActivityTile).
+        .supplementalActivityFamilies([.small])
     }
 }
 
