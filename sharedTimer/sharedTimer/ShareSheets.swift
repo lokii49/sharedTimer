@@ -23,6 +23,7 @@ struct ShareTimerSheet: View {
     @State private var showingQR = false
     @State private var cloudShare: CloudShareItem?
     @State private var loadingShare = false
+    @ObservedObject private var sharePlay = SharePlayController.shared
 
     var body: some View {
         NavigationStack {
@@ -30,6 +31,19 @@ struct ShareTimerSheet: View {
                 VStack(spacing: 18) {
                     SkyCard(payload: payload, date: Date())
                         .padding(.horizontal, 20)
+
+                    // D11 · B: only during a FaceTime call, never for a view-only share.
+                    if sharePlay.isEligible && !TimerStore.isReadOnly(id: payload.id) {
+                        Button {
+                            Task { await sharePlay.start(payload) }
+                        } label: {
+                            Label(sharePlay.sharedTimerID == payload.id ? "Shared with the Call" : "Start SharePlay", systemImage: "shareplay")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.glassPill)
+                        .disabled(sharePlay.sharedTimerID == payload.id)
+                        .padding(.horizontal, 20)
+                    }
 
                     if let preparedURL {
                         Label(isLive ? "Live link · changes sync for everyone" : "Snapshot · won't update after sending",

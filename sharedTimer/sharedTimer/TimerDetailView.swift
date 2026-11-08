@@ -22,6 +22,7 @@ struct TimerDetailView: View {
     /// This phone's display name, cached for `statusLine` (read every tick).
     @State private var myName = DisplayNameStore.name
     @State private var keepAwake = false
+    @ObservedObject private var sharePlay = SharePlayController.shared
     @State private var participantCount: Int?
     @State private var attribution: (name: String, action: String)?
     @State private var hasBuzzedFinish = false
@@ -122,6 +123,17 @@ struct TimerDetailView: View {
                     .background(SkyCenterScrim().padding(.horizontal, -40).padding(.vertical, -20))
 
                     Spacer()
+
+                    if sharePlay.sharedTimerID == payload.id {
+                        // D11: running together in a FaceTime call.
+                        Label("Shared with the call · People: \(sharePlay.participantCount)", systemImage: "shareplay")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .glassEffect(.regular, in: Capsule())
+                            .padding(.bottom, 10)
+                    }
 
                     if isParticipant {
                         // Someone shared this with you: say what you may do with it.
