@@ -20,6 +20,7 @@ struct TimerDetailView: View {
     @State private var lowPower = SwayingSkyGradient.isLowPower
     /// This phone's display name, cached for `statusLine` (read every tick).
     @State private var myName = DisplayNameStore.name
+    @State private var keepAwake = false
     @State private var participantCount: Int?
     @State private var attribution: (name: String, action: String)?
     @State private var hasBuzzedFinish = false
@@ -89,13 +90,15 @@ struct TimerDetailView: View {
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(0.6))
                         }
-                        Text(pending ? (payload.scheduledStartDate.map { Sky.pendingStartText(for: $0, at: context.date) } ?? "") : TimeFormat.display(remaining))
+                        let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: TimerStore.isFinishAcknowledged(id: payload.id)) : nil
+                        Text(pending ? (payload.scheduledStartDate.map { Sky.pendingStartText(for: $0, at: context.date) } ?? "") : overtime ?? TimeFormat.display(remaining))
                             .skyDigits(72, weight: .thin)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(overtime == nil ? Color.white : Sky.overtimeInk)
                             .lineLimit(1)
                             .minimumScaleFactor(0.4)
                             .padding(.horizontal, 24)
                             .accessibilityLabel(pending ? "Starts \(payload.scheduledStartDate?.formatted(date: .abbreviated, time: .shortened) ?? "")"
+                                                : overtime != nil ? Sky.overtimeAccessibilityText(for: payload, at: context.date)
                                                 : "\(Duration.seconds(max(0, remaining.rounded())).formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))) left")
                             .accessibilityAddTraits(.updatesFrequently)
                         Text(subtitle(done: done, pending: pending))
@@ -247,7 +250,13 @@ struct TimerDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .keepsScreenAwake($keepAwake, finished: payload.isFinished && payload.sequence == nil && payload.recurrence == nil)
         .toolbar {
+            if !payload.isFinished && !payload.isPending() {
+                ToolbarItem(placement: .topBarTrailing) {
+                    KeepAwakeButton(isOn: $keepAwake)
+                }
+            }
             if payload.sequence == nil && !readOnly {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingEdit = true } label: {

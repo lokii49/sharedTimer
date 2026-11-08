@@ -237,6 +237,20 @@ struct TimerPayload: Codable, Identifiable {
         !isPaused && remaining <= 0
     }
 
+    /// How long the overtime count-up runs after a timer finishes (1.0.7, D2).
+    static let overtimeLimit: TimeInterval = 3600
+
+    /// Time since a finished plain timer/countdown ended, for the "+2:13" overtime
+    /// count; nil when it isn't counting — paused, a sequence or yearly countdown (they
+    /// move on to their next phase/year), not finished yet, or more than an hour over.
+    /// Callers also stop showing it once the finish was acknowledged (Stop).
+    func overtime(at date: Date = Date()) -> TimeInterval? {
+        guard sequence == nil, recurrence == nil, pausedRemaining == nil else { return nil }
+        let over = date.timeIntervalSince(endDate)
+        guard over >= 0, over < Self.overtimeLimit else { return nil }
+        return over
+    }
+
     /// True once remaining time has reached zero, whether or not the timer is
     /// currently paused. `isExpired` deliberately stays false while paused — that's
     /// what stops the alarm/notification firing for a timer someone paused on

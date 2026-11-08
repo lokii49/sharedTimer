@@ -70,7 +70,8 @@ test('plain running and paused links retain their display', () => {
   assert.equal(page({ paused: '80' }).elements.clock.textContent, '01:20');
 });
 test('expired links render without starting an interval or throwing', () => {
-  const p = page({ end: String(epoch - 1) });
+  // Over an hour past the end: no overtime count, so nothing left to tick.
+  const p = page({ end: String(epoch - 3601) });
   assert.equal(p.elements.status.textContent, "Time's up");
   assert.equal(p.intervalCount, 0);
   const done = page({ seq: seq(), end: String(epoch - 1000) });
@@ -207,4 +208,19 @@ test('fixed-offset time zones from Calendar remain valid on the web and in expor
   const ics = evaluate(p, 'calendarICS("Birthday", annualDate(rule, 2029), rule)');
   assert(ics.includes('TZID:GMT+0530\r\n'));
   assert(ics.includes('TZOFFSETTO:+0530\r\n'));
+});
+test('a finished plain timer counts up for an hour, then stops', () => {
+  const p = page({});  // ends at epoch + 60
+  p.advance(60 + 133);
+  assert.equal(p.elements.clock.textContent, '+02:13');
+  assert(p.classes.has('done') && p.classes.has('overtime'));
+  p.advance(60 + 3600);
+  assert.equal(p.elements.clock.textContent, '00:00');
+  assert(!p.classes.has('overtime'));
+});
+test('sequences and paused timers never show overtime', () => {
+  const s = page({ seq: seq(), end: String(epoch - 1000) });
+  assert(!s.classes.has('overtime'));
+  const paused = page({ paused: '0', end: String(epoch - 10) });
+  assert(!paused.classes.has('overtime'));
 });

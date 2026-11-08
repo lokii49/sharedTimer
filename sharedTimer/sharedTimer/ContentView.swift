@@ -1114,7 +1114,8 @@ private struct LiveSkyCard: View {
     let payload: TimerPayload
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: payload.isPaused || payload.isFinished ? 60 : 1)) { context in
+        // Overtime (a finished timer's "+2:13") still ticks every second for its hour.
+        TimelineView(.periodic(from: .now, by: payload.isPaused || (payload.isFinished && payload.overtime() == nil) ? 60 : 1)) { context in
             SkyCard(payload: payload, date: context.date)
         }
     }

@@ -182,6 +182,24 @@ struct sharedTimerTests {
         #expect(TimerPayload.clampedLabel("Pasta") == "Pasta")
     }
 
+    @Test func overtimeCountsUpForAnHourOnPlainTimersOnly() {
+        let now = Date()
+        let finished = TimerPayload(id: "o", label: "Pasta", endDate: now.addingTimeInterval(-133), duration: 480, kind: .timer)
+        #expect(finished.overtime(at: now).map { Int($0.rounded()) } == 133)
+        #expect(Sky.overtimeText(for: finished, at: now, acknowledged: false) == "+02:13")
+        #expect(Sky.overtimeText(for: finished, at: now, acknowledged: true) == nil)
+        #expect(finished.overtime(at: now.addingTimeInterval(TimerPayload.overtimeLimit)) == nil)
+
+        let running = TimerPayload(id: "r", label: "Run", endDate: now.addingTimeInterval(60), duration: 60, kind: .timer)
+        #expect(running.overtime(at: now) == nil)
+        let paused = TimerPayload(id: "p", label: "Held", endDate: now.addingTimeInterval(-5), duration: 60, pausedRemaining: 0, kind: .timer)
+        #expect(paused.overtime(at: now) == nil)
+        let phases = [SequencePhase(label: "Work", duration: 60)]
+        let sequence = TimerPayload(id: "s", label: "Work", endDate: now.addingTimeInterval(-5), duration: 60, kind: .timer,
+                                    sequence: SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 1))
+        #expect(sequence.overtime(at: now) == nil)
+    }
+
     @Test func liveActivityIsNotRequestedForAFinishedTimer() {
         let now = Date()
         let finished = TimerPayload(id: "f", label: "Done", endDate: now.addingTimeInterval(-5), duration: 60, kind: .timer)

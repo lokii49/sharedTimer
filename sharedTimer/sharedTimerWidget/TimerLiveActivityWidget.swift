@@ -149,6 +149,14 @@ private func liveActivityRemainingText(_ state: TimerActivityAttributes.ContentS
     let remaining = state.endDate.timeIntervalSinceNow
     if state.pausedRemaining == nil && remaining > 0 && remaining < 7 * 86400 {
         Text(timerInterval: Date.now...state.endDate, countsDown: true)
+    } else if state.pausedRemaining == nil && remaining <= 0 && -remaining < TimerPayload.overtimeLimit {
+        // Overtime (1.0.7, D2): counts up from the end, live, for an hour — the card
+        // re-renders at its stale date (the end), so this starts on its own.
+        HStack(spacing: 0) {
+            Text(verbatim: "+")
+            Text(timerInterval: state.endDate...state.endDate.addingTimeInterval(TimerPayload.overtimeLimit), countsDown: false)
+        }
+        .foregroundStyle(Sky.overtimeInk)
     } else {
         remainingText(endDate: state.endDate, pausedRemaining: state.pausedRemaining)
     }

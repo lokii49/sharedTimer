@@ -276,9 +276,9 @@ struct SkyCard: View {
             Spacer(minLength: 0)
 
             HStack(alignment: .lastTextBaseline) {
-                Text(pendingDigits ?? TimeFormat.display(remaining > 0 ? remaining : payload.duration))
+                Text(pendingDigits ?? overtimeDigits ?? TimeFormat.display(remaining > 0 ? remaining : payload.duration))
                     .skyDigits(34, weight: .regular)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(overtimeDigits == nil ? Color.white : Sky.overtimeInk)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                 Spacer(minLength: 8)
@@ -341,9 +341,31 @@ struct SkyCard: View {
     }
 
     private var endText: String { Sky.endText(for: payload, at: date) }
+
+    /// Only a finished card under an hour reads the acknowledgement registry.
+    private var overtimeDigits: String? {
+        guard payload.overtime(at: date) != nil else { return nil }
+        return Sky.overtimeText(for: payload, at: date, acknowledged: TimerStore.isFinishAcknowledged(id: payload.id))
+    }
 }
 
 extension Sky {
+    /// The overtime count's color: the ember sky's hot-orange horizon, on the overcast
+    /// sky a finished timer already shows (1.0.7 mockup D2 · A).
+    static let overtimeInk = Color(red: 1.0, green: 0.6, blue: 0.32)
+
+    /// "+2:13" while a finished timer counts up (see `TimerPayload.overtime`), else nil.
+    static func overtimeText(for payload: TimerPayload, at date: Date, acknowledged: Bool) -> String? {
+        guard !acknowledged, let over = payload.overtime(at: date) else { return nil }
+        return "+" + TimeFormat.display(over)
+    }
+
+    /// Spoken form of the overtime count: "2 minutes, 13 seconds over".
+    static func overtimeAccessibilityText(for payload: TimerPayload, at date: Date) -> String {
+        let over = Duration.seconds((payload.overtime(at: date) ?? 0).rounded())
+        return String(localized: "\(over.formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))) over")
+    }
+
     /// The small line under the digits — "held", "finished 3:05 PM", "ends 3:05 PM", a
     /// countdown's target date, or a scheduled sequence's first phase. Shared by SkyCard
     /// and the home-screen widgets so every surface says (and translates) the same thing.

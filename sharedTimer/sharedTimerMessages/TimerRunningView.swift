@@ -58,13 +58,15 @@ struct TimerRunningView: View {
                             Text(pending ? Sky.pendingSequenceCaption(payload.sequence!) : caption)
                                 .font(.caption).foregroundStyle(.white.opacity(0.6))
                         }
-                        Text(pending ? Sky.pendingStartText(for: payload.scheduledStartDate!, at: context.date) : TimeFormat.display(remaining))
+                        let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: false) : nil
+                        Text(pending ? Sky.pendingStartText(for: payload.scheduledStartDate!, at: context.date) : overtime ?? TimeFormat.display(remaining))
                             .skyDigits(52, weight: .thin)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(overtime == nil ? Color.white : Sky.overtimeInk)
                             .lineLimit(1)
                             .minimumScaleFactor(0.4)
                             .padding(.horizontal, 20)
                             .accessibilityLabel(pending ? "Starts \(payload.scheduledStartDate?.formatted(date: .abbreviated, time: .shortened) ?? "")"
+                                                : overtime != nil ? Sky.overtimeAccessibilityText(for: payload, at: context.date)
                                                 : "\(Duration.seconds(max(0, remaining.rounded())).formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))) left")
                             .accessibilityAddTraits(.updatesFrequently)
                         Text(subtitle(done: done))
