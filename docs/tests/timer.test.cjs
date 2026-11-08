@@ -9,18 +9,19 @@ const phases = [
   { label: 'Work & focus 💫', kind: 'timer', duration: 60, alarmEnabled: true, vibrationEnabled: false },
   { label: 'Rest / tea', kind: 'timer', duration: 30, alarmEnabled: false, vibrationEnabled: true }
 ];
-function page(extra = {}) {
+function page(extra = {}, env = {}) {
   let now = epoch;
   let callback;
   let intervalCount = 0;
-  const elements = Object.fromEntries(['label', 'clock', 'status', 'phase', 'calendar'].map(id => [id, { textContent: '', hidden: true }]));
+  const elements = Object.fromEntries(['label', 'clock', 'status', 'phase', 'calendar', 'open'].map(id => [id, { textContent: '', hidden: true }]));
   const classes = new Set();
   const document = { title: '', getElementById: id => elements[id], body: { dataset: {}, style: {}, classList: {
     toggle(name, value) { value ? classes.add(name) : classes.delete(name); }
   } } };
   const params = new URLSearchParams({ label: 'Sequence', end: String(epoch + 60), dur: '60', kind: 'timer', ...extra });
   class TestDate extends Date { static now() { return now * 1000; } }
-  const context = vm.createContext({ document, window: { location: { search: '?' + params } }, Date: TestDate,
+  const context = vm.createContext({ document, window: { location: { search: '?' + params, host: env.host || 'mirrornotes.org' } }, Date: TestDate,
+    ...(env.navigator ? { navigator: env.navigator } : {}),
     URLSearchParams, TextEncoder, Blob, URL: { createObjectURL() { return 'blob:calendar'; }, revokeObjectURL() {} }, setInterval(fn) { intervalCount++; callback = fn; return 1; }, clearInterval() { callback = null; } });
   vm.runInContext(script, context);
   return { context, elements, document, classes, intervalCount, advance(seconds) { now = epoch + seconds; if (callback) callback(); } };
@@ -223,4 +224,18 @@ test('sequences and paused timers never show overtime', () => {
   assert(!s.classes.has('overtime'));
   const paused = page({ paused: '0', end: String(epoch - 10) });
   assert(!paused.classes.has('overtime'));
+});
+test('Open in Timer goes through the old host on iPhone and to the App Store elsewhere', () => {
+  const iphone = { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_1 like Mac OS X)', platform: 'iPhone', maxTouchPoints: 5 };
+  const onPhone = page({}, { navigator: iphone });
+  assert.equal(onPhone.elements.open.hidden, false);
+  assert(onPhone.elements.open.href.startsWith('https://lokii49.github.io/sharedTimer/t.html?'));
+  assert(onPhone.elements.open.href.includes('end=' + (epoch + 60)));
+  const oldHost = page({}, { navigator: iphone, host: 'lokii49.github.io' });
+  assert.equal(oldHost.elements.open.href, 'https://apps.apple.com/app/id6804558361');
+  const android = page({}, { navigator: { userAgent: 'Mozilla/5.0 (Linux; Android 15)', platform: 'Linux', maxTouchPoints: 5 } });
+  assert.equal(android.elements.open.href, 'https://apps.apple.com/app/id6804558361');
+  assert.equal(android.elements.open.textContent, 'Get Timer for iPhone');
+  const invalid = page({ seq: 'bad' }, { navigator: iphone });
+  assert.equal(invalid.elements.open.hidden, true);
 });
