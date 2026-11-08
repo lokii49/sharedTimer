@@ -429,11 +429,9 @@ struct SwayingSkyGradient: UIViewRepresentable {
 
     func updateUIView(_ view: GradientView, context: Context) {
         let layer = view.gradient
-        CATransaction.begin()
-        CATransaction.setAnimationDuration(1)
-        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .linear))
+        // Steps once a second (a view's backing layer has no implicit animations); the
+        // per-second drain change is too small to see.
         layer.colors = colors.map { UIColor($0).cgColor }
-        CATransaction.commit()
 
         let isSwaying = layer.animation(forKey: "sway") != nil
         guard swaying != isSwaying else { return }
