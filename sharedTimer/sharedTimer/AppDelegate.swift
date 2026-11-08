@@ -24,6 +24,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         CloudSyncController.registerSubscriptionsIfNeeded()
         WatchSyncController.activate()
         TimerSpotlightIndex.shared.start()
+        // After Spotlight: chains onto the same TimerStore.didPersist hook.
+        TimerHistory.start()
         // Existing timers need AlarmKit right away; a fresh install is asked in context
         // instead, when its first ringing timer is scheduled (`ensureAuthorized`), rather
         // than by a cold prompt before it has made anything.

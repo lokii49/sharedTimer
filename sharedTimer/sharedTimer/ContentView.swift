@@ -408,6 +408,8 @@ struct ContentView: View {
             // An open TimerDetailView holds its own copy; without this it kept showing
             // (and on Pause/+1:00, saving and pushing) the pre-background state.
             NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
+            // Runs that ended while the app was away (TimerHistory.swift).
+            TimerHistory.scan()
             pullCloudChanges()
             // The owner can switch a share to view only at any time; re-read so the
             // controls match before anyone taps one.
