@@ -290,29 +290,21 @@
 		};
 		30FE4D8FCBF959B1792F8F04 /* WatchShared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = WatchShared;
 			sourceTree = "<group>";
 		};
 		470A4FD430288982006EB758 /* sharedTimer */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = sharedTimer;
 			sourceTree = "<group>";
 		};
 		470A4FE430288983006EB758 /* sharedTimerTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = sharedTimerTests;
 			sourceTree = "<group>";
 		};
 		470A4FEE30288983006EB758 /* sharedTimerUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = sharedTimerUITests;
 			sourceTree = "<group>";
 		};
@@ -334,15 +326,11 @@
 		};
 		470A5036302896F1006EB758 /* sharedTimerClipTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = sharedTimerClipTests;
 			sourceTree = "<group>";
 		};
 		470A5040302896F1006EB758 /* sharedTimerClipUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = sharedTimerClipUITests;
 			sourceTree = "<group>";
 		};
@@ -356,15 +344,11 @@
 		};
 		471015FE30387B490049528C /* sharedTimerWatch Watch AppTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = "sharedTimerWatch Watch AppTests";
 			sourceTree = "<group>";
 		};
 		4710160830387B490049528C /* sharedTimerWatch Watch AppUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = "sharedTimerWatch Watch AppUITests";
 			sourceTree = "<group>";
 		};
@@ -800,8 +784,8 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				93C1CA89D36FFEB35C15E691 /* sharedTimerNotificationService */,
 				5A0000010000000000000000 /* Shared */,
+				93C1CA89D36FFEB35C15E691 /* sharedTimerNotificationService */,
 			);
 			name = sharedTimerNotificationService;
 			productName = sharedTimerNotificationService;
@@ -1324,7 +1308,7 @@
 				CODE_SIGN_ENTITLEMENTS = sharedTimer/sharedTimer.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1365,7 +1349,7 @@
 				CODE_SIGN_ENTITLEMENTS = sharedTimer/sharedTimer.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1403,7 +1387,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
@@ -1425,7 +1409,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
@@ -1446,7 +1430,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
@@ -1467,7 +1451,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
@@ -1491,7 +1475,7 @@
 				CODE_SIGN_ENTITLEMENTS = sharedTimerMessages/sharedTimerMessages.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerMessages/Info.plist;
@@ -1525,7 +1509,7 @@
 				CODE_SIGN_ENTITLEMENTS = sharedTimerMessages/sharedTimerMessages.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerMessages/Info.plist;
@@ -1559,7 +1543,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = sharedTimerClip/sharedTimerClip.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1596,7 +1580,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = sharedTimerClip/sharedTimerClip.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1631,7 +1615,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
@@ -1653,7 +1637,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
@@ -1674,7 +1658,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
@@ -1695,7 +1679,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
@@ -1719,7 +1703,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "sharedTimerWatch Watch App/sharedTimerWatch Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1754,7 +1738,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "sharedTimerWatch Watch App/sharedTimerWatch Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1787,7 +1771,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0.7;
@@ -1810,7 +1794,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0.7;
@@ -1832,7 +1816,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0.7;
@@ -1854,7 +1838,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0.7;
@@ -1877,7 +1861,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = sharedTimerNotificationService/sharedTimerNotificationService.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerNotificationService/Info.plist;
@@ -1909,7 +1893,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = sharedTimerWatchWidget/sharedTimerWatchWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerWatchWidget/Info.plist;
@@ -1939,7 +1923,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = sharedTimerWatchWidget/sharedTimerWatchWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerWatchWidget/Info.plist;
@@ -1967,7 +1951,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = sharedTimerWidget/sharedTimerWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerWidget/Info.plist;
@@ -1998,7 +1982,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = sharedTimerWidget/sharedTimerWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerWidget/Info.plist;
@@ -2029,7 +2013,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = sharedTimerNotificationService/sharedTimerNotificationService.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 7NP4QNTWNQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = sharedTimerNotificationService/Info.plist;

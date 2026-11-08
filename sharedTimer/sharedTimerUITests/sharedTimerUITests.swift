@@ -332,14 +332,14 @@ final class sharedTimerUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-ShowWhatsNew"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["Links that say what they are"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Made for iPad"].waitForExistence(timeout: 10))
         let firstPage = XCTAttachment(screenshot: app.screenshot())
         firstPage.name = "What's New page 1"
         firstPage.lifetime = .keepAlways
         add(firstPage)
         let continueButton = app.buttons["Continue"]
-        for title in ["Live or snapshot, at a glance", "Share across the room", "You decide who has it",
-                      "Keep a sequence you were sent", "Make it yours", "Timer speaks your language"] {
+        for title in ["Countdowns that come back", "Everything you've timed", "Know before it ends",
+                      "On every screen you use", "Just ask", "Easier on the eyes"] {
             continueButton.tap()
             XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 5), title)
         }
@@ -349,7 +349,7 @@ final class sharedTimerUITests: XCTestCase {
         add(lastPage)
         app.buttons["Start"].tap()
         XCTAssertTrue(app.navigationBars["Timers"].waitForExistence(timeout: 5) || app.buttons["New"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["Timer speaks your language"].exists)
+        XCTAssertFalse(app.staticTexts["Easier on the eyes"].exists)
     }
 
     @MainActor

@@ -17,6 +17,7 @@
   .s2 { background: linear-gradient(165deg, #341140 0%, #9c2f5e 55%, #e8863f 100%); }
   .s3 { background: linear-gradient(165deg, #0d1230 0%, #1c2a5e 55%, #3a5bb8 100%); }
   .s4 { background: linear-gradient(165deg, #1a1030 0%, #4a2a7a 55%, #d97a3a 130%); }
+  .s6 { background: linear-gradient(165deg, #071022 0%, #0d2a4a 55%, #0b84ff 130%); }
   .s5 { background: linear-gradient(165deg, #071022 0%, #14245a 55%, #5a6aa8 120%); }
   .blob { position: absolute; border-radius: 50%; filter: blur(220px); opacity: 0.40; }
   .s1 .a { width: 1100px; height: 1100px; background: #3a3a6e; top: -280px; right: -260px; }
@@ -27,6 +28,8 @@
   .s3 .b { width: 900px; height: 900px; background: #1c2a5e; bottom: 120px; right: -200px; }
   .s4 .a { width: 1100px; height: 1100px; background: #6c3fc9; top: -280px; left: -240px; }
   .s4 .b { width: 900px; height: 900px; background: #d97a3a; bottom: 120px; right: -220px; }
+  .s6 .a { width: 1100px; height: 1100px; background: #0b84ff; top: -280px; right: -180px; }
+  .s6 .b { width: 900px; height: 900px; background: #0d2a4a; bottom: 120px; left: -240px; }
   .s5 .a { width: 1100px; height: 1100px; background: #2a3a8e; top: -280px; right: -220px; }
   .s5 .b { width: 900px; height: 900px; background: #6a5aa8; bottom: 120px; left: -220px; }
   .content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; width: 100%; }
@@ -61,6 +64,10 @@
   <div class="logo"><img src="icon.png" alt=""><span>Timer</span></div>
   <h1>Count down<br>to any date.</h1><p>Trips, launches, birthdays.</p>
   <div class="ipad"><img src="ipad-5_countdown.png" alt=""></div></div></div>
+<div class="slide s6"><div class="blob a"></div><div class="blob b"></div><div class="content">
+  <div class="logo"><img src="icon.png" alt=""><span>Timer</span></div>
+  <h1>Share it,<br>right in the chat.</h1><p>A live countdown your friends can watch tick down too.</p>
+  <div class="ipad"><img src="ipad-6_imessage.png" alt=""></div></div></div>
 <script>
   const n = Number(new URLSearchParams(location.search).get('slide') || 1);
   document.querySelectorAll('.slide')[n - 1].classList.add('on');

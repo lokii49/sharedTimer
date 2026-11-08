@@ -161,7 +161,8 @@ struct SettingsView: View {
             Toggle(isOn: $syncOwnTimers) {
                 Text("Sync with iCloud").font(.subheadline.weight(.semibold))
             }
-            .tint(.white.opacity(0.5))
+            // System green when on, like Settings: a white tint vanished against the sky.
+            .tint(.green)
             Text("Your timers follow you to your iPad and other iPhones signed in to the same iCloud account. Each device rings.")
                 .font(.footnote)
                 .opacity(0.8)
