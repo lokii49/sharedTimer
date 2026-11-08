@@ -239,3 +239,22 @@ test('Open in Timer goes through the old host on iPhone and to the App Store els
   const invalid = page({ seq: 'bad' }, { navigator: iphone });
   assert.equal(invalid.elements.open.hidden, true);
 });
+test('weekly and monthly repeats follow their rule and export a matching RRULE', () => {
+  const weekly = annualRule({ frequency: 'weekly', weekday: 3, month: 1, day: 5, hour: 9, minute: 0 });  // Tuesdays 09:00
+  const p = page({ kind: 'countdown', repeat: weekly, end: String(Date.parse('2027-01-05T09:00:00Z') / 1000) });
+  assert.equal(p.elements.phase.textContent, 'Repeats weekly · GMT');
+  assert.equal(evaluate(p, 'nextAnnual(recurrence, Date.parse("2027-03-10T10:00:00Z") / 1000)'), Date.parse('2027-03-16T09:00:00Z') / 1000);
+  const ics = evaluate(p, 'calendarICS("Standup", Date.parse("2027-03-16T09:00:00Z") / 1000, recurrence, "x")');
+  assert(ics.includes('RRULE:FREQ=WEEKLY;BYDAY=TU'));
+
+  const monthly = annualRule({ frequency: 'monthly', month: 1, day: 31, hour: 9, minute: 0 });
+  const m = page({ kind: 'countdown', repeat: monthly, end: String(Date.parse('2027-01-31T09:00:00Z') / 1000) });
+  assert.equal(evaluate(m, 'nextAnnual(recurrence, Date.parse("2027-02-01T00:00:00Z") / 1000)'), Date.parse('2027-02-28T09:00:00Z') / 1000);
+  assert(evaluate(m, 'calendarICS("Rent", Date.parse("2027-02-28T09:00:00Z") / 1000, recurrence, "x")').includes('BYMONTHDAY=28,29,30,31;BYSETPOS=-1'));
+});
+test('a link carrying both annual and repeat, or repeat on a timer, is invalid', () => {
+  const weekly = annualRule({ frequency: 'weekly', weekday: 3 });
+  assert.equal(page({ kind: 'countdown', annual: annualRule(), repeat: weekly }).elements.clock.textContent, '--:--');
+  assert.equal(page({ kind: 'timer', repeat: weekly }).elements.clock.textContent, '--:--');
+  assert.equal(page({ kind: 'countdown', repeat: annualRule({ frequency: 'yearly' }) }).elements.clock.textContent, '--:--');
+});
