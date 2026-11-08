@@ -612,6 +612,9 @@ struct ContentView: View {
     private func row(for payload: TimerPayload) -> some View {
         LiveSkyCard(payload: payload)
             .accessibilityAddTraits(.isButton)
+            // C9 · A: landscape (and iPad) cards stop at 560 pt, centered.
+            .frame(maxWidth: 560)
+            .frame(maxWidth: .infinity)
             // Hidden NavigationLink behind the card: a visible one draws the gray
             // disclosure chevron outside the sky, which breaks the full-bleed card.
             .background(

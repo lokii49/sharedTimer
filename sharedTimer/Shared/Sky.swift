@@ -231,15 +231,24 @@ extension ButtonStyle where Self == GlassPillButtonStyle {
 struct SkyCard: View {
     let payload: TimerPayload
     let date: Date
+    @Environment(\.dynamicTypeSize) private var typeSize
+    /// Digits grow with Dynamic Type on the large layout (C9 · A), capped so a long
+    /// countdown still fits one line.
+    @ScaledMetric(relativeTo: .largeTitle) private var largeDigits: CGFloat = 34
+
+    /// C9 · A: at accessibility sizes the card grows — label wraps to two lines,
+    /// digits get their own row, the end time goes under them — instead of squeezing
+    /// everything into a fixed 104 pt.
+    private var large: Bool { typeSize.isAccessibilitySize }
 
     var body: some View {
         let remaining = payload.remaining
         let pending = payload.isPending(at: date)
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
+            HStack(alignment: .top) {
                 Text(payload.label)
                     .skyLabel(12)
-                    .lineLimit(1)
+                    .lineLimit(large ? 2 : 1)
                 Spacer()
                 if pending {
                     Text("Scheduled").skyLabel(12)
@@ -273,27 +282,26 @@ struct SkyCard: View {
                     .minimumScaleFactor(0.7)
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: large ? 8 : 0)
 
-            HStack(alignment: .lastTextBaseline) {
-                Text(pendingDigits ?? overtimeDigits ?? TimeFormat.display(remaining > 0 ? remaining : payload.duration))
-                    .skyDigits(34, weight: .regular)
-                    .foregroundStyle(overtimeDigits == nil ? Color.white : Sky.overtimeInk)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                Spacer(minLength: 8)
-                // Same small-caps voice as the label — every word on a sky speaks it.
-                // Full white over the corner scrim (C6).
-                Text(endText)
-                    .skyLabel(12)
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.35), radius: 3)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
+            if large {
+                digitsText(size: min(largeDigits, 64))
+                endTextView.lineLimit(2)
+            } else {
+                HStack(alignment: .lastTextBaseline) {
+                    digitsText(size: 34)
+                    Spacer(minLength: 8)
+                    // Wins the space over the digits (they shrink first); a scheduled
+                    // sequence's phase name can be long, so it truncates rather than
+                    // pushing out of the card.
+                    endTextView
+                        .lineLimit(1)
+                        .layoutPriority(1)
+                }
             }
         }
         .padding(14)
-        .frame(height: 104)
+        .frame(minHeight: 104, maxHeight: large ? nil : 104)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(Sky.gradient(for: payload, at: date))
@@ -344,6 +352,23 @@ struct SkyCard: View {
     }
 
     private var endText: String { Sky.endText(for: payload, at: date) }
+
+    private func digitsText(size: CGFloat) -> some View {
+        Text(pendingDigits ?? overtimeDigits ?? TimeFormat.display(payload.remaining > 0 ? payload.remaining : payload.duration))
+            .skyDigits(size, weight: .regular)
+            .foregroundStyle(overtimeDigits == nil ? Color.white : Sky.overtimeInk)
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+    }
+
+    /// Same small-caps voice as the label — every word on a sky speaks it. Full white
+    /// over the corner scrim (C6).
+    private var endTextView: some View {
+        Text(endText)
+            .skyLabel(12)
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.35), radius: 3)
+    }
 
     /// Only a finished card under an hour reads the acknowledgement registry.
     private var overtimeDigits: String? {
