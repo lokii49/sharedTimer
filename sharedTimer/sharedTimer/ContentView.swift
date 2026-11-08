@@ -383,6 +383,7 @@ struct ContentView: View {
                 armAlerts(for: payload)
             }
             LiveActivityController.endFinished(timers.filter { !AlarmController.ownsAlert(for: $0) })
+            SharePlayController.shared.onReceive = { receiveFromSharePlay($0) }
             RecentTimersStore.seedIfNeeded(from: timers)
             RecentTimersSync.refresh()
             pullCloudChanges()
@@ -1027,6 +1028,8 @@ struct ContentView: View {
         // View-only share: the controls are hidden, and CloudKit would refuse the write.
         guard !TimerStore.isReadOnly(id: updated.id) else { return }
         apply(updated, action: action)
+        // Shared with a FaceTime call (SharePlayController): tell the others.
+        SharePlayController.shared.send(updated)
         if CloudLinkStore.get(timerID: updated.id)?.isShared == true {
             promptForNameIfNeeded()
         }
@@ -1093,6 +1096,13 @@ struct ContentView: View {
         case "newCountdown": pendingNewTimerKind = .countdown
         default: return
         }
+    }
+
+    /// A timer from a SharePlay session: added if new, adopted only when its `upd`
+    /// stamp is newer than ours (same rule as a re-opened link).
+    private func receiveFromSharePlay(_ parsed: TimerPayload) {
+        if let stored = timers.first(where: { $0.id == parsed.id }), !stored.shouldAdopt(parsed) { return }
+        apply(parsed.advancedSequence(), action: "updatedFromLink")
     }
 
     /// Runs when the add-confirmation sheet closes (Add, Not Now or a swipe). A timer
