@@ -65,3 +65,19 @@ struct TimerHistoryTests {
         #expect(entries.first?.kind == .timer && entries.first?.sequence == nil)
     }
 }
+
+struct SequenceDescriberTests {
+    @Test func draftsAreClampedToWhatASequenceMayHold() {
+        let draft = SequenceDraft(phases: [
+            PhaseDraft(label: "  Focus ", minutes: 25),
+            PhaseDraft(label: "   ", minutes: 5),               // empty label: dropped
+            PhaseDraft(label: "Break", minutes: 0),             // under 1 s: clamped up
+            PhaseDraft(label: "Fast", minutes: 600_000)          // over a year: clamped down
+        ], loopCount: 500)
+        let result = SequenceDescriber.phases(from: draft)
+        #expect(result.phases.map(\.label) == ["Focus", "Break", "Fast"])
+        #expect(result.phases.map(\.duration) == [1500, 1, 365 * 86_400])
+        #expect(result.loopCount == 99)
+        #expect(SequenceDescriber.phases(from: SequenceDraft(phases: [], loopCount: 0)).loopCount == 1)
+    }
+}
