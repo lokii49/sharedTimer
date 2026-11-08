@@ -1,9 +1,11 @@
-• Nouveau : Partagez en lecture seule. Dans « Gérer le partage », choisissez si les autres peuvent modifier ou seulement regarder — ils le voient, et c'est mis à jour en direct.
-• Nouveau : Sachez ce qui a changé. Quand quelqu'un met en pause, prolonge ou arrête un minuteur partagé, vous recevez « Sam l'a mis en pause : Pasta », même Timer fermée.
-• Nouveau : Ajoutez plus d'une minute. Touchez +1:00 comme avant, ou la flèche à côté pour +5, +10, +15, +30 ou une durée personnalisée.
-• Nouveau : « Gérer le partage » se trouve juste à côté de « Partager » dès qu'un minuteur est partagé.
-• Retrait plus clair : « Retirer de mes minuteurs » pour ceux partagés avec vous, et « Supprimer pour tous » (avec confirmation) pour ceux que vous avez partagés.
-• L'anneau continue de défiler en douceur après un ajout de temps.
-• L'app Apple Watch s'appelle désormais Timer et parle votre langue, et les durées comme « 3 j 4 h » s'affichent partout dans votre langue.
-• Les minuteurs partagés se mettent à jour plus fiablement sur l'iPhone de chacun après une pause ou une prolongation.
-• Nombreuses petites corrections pour les alarmes, séquences, widgets et Activités en direct.
+• Nouveau : iPad. Vos minuteurs à gauche, le ciel en direct à droite.
+• Nouveau : les comptes à rebours peuvent se répéter chaque jour, semaine ou mois, pas seulement chaque année.
+• Nouveau : Historique. Chaque minuteur terminé pendant 90 jours, avec « Relancer ».
+• Nouveau : rappels à mi-parcours, 5 ou 1 minute avant la fin (1 jour ou 1 heure avant un compte à rebours).
+• Nouveau : dépassement. Un minuteur terminé continue de compter « +2:13 » pour savoir depuis combien de temps.
+• Nouveau : garder l’écran allumé, SharePlay dans les appels FaceTime et synchronisation iCloud pour retrouver vos minuteurs sur tous vos appareils.
+• Nouveau : demandez à Siri le temps restant, puis mettez en pause ou ajoutez une minute depuis la réponse.
+• Nouveau : décrivez une séquence avec vos mots (« 25 travail, 5 pause, 4 fois ») sur les iPhone avec Apple Intelligence.
+• Plus lisible et plus simple : texte plus clair sur chaque ciel, boutons Liquid Glass, cartes plus grandes en grande taille de texte et Annuler après une suppression.
+• Réglages indique désormais si les alarmes et les notifications sont autorisées.
+• Activités en direct dans la pile intelligente de l’Apple Watch et dans CarPlay. Téléchargement plus léger, listes plus rapides et de nombreuses corrections.

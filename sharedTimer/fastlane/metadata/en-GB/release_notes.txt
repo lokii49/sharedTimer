@@ -1,9 +1,11 @@
-• New: Share as view only. In Manage Sharing, choose whether people can make changes or just watch — they'll see which, and it updates live.
-• New: Know what changed. When someone pauses, extends or stops a shared timer, you get "Sam paused Pasta", even with Timer closed.
-• New: Add more than a minute. Tap +1:00 as before, or use the arrow next to it for +5, +10, +15, +30 or a custom amount.
-• New: Manage Sharing sits right beside Share once a timer is shared.
-• Clearer removing: "Remove from My Timers" for timers shared with you, and "Delete for Everyone" (with a confirmation) for ones you shared.
-• The ring keeps counting down smoothly after you add time.
-• The Apple Watch app is now called Timer and speaks your language, and times like "3d 4h" are shown in your language everywhere.
-• Shared timers now update more reliably on everyone's iPhone after a pause or extend.
-• Many smaller fixes for alarms, sequences, widgets and Live Activities.
+• New: iPad. Your timers on the left, the live sky on the right.
+• New: Countdowns can repeat every day, week or month — not just every year.
+• New: History. Every finished timer for 90 days, with Run again.
+• New: Heads-up reminders halfway, 5 or 1 minute before the end (1 day or 1 hour before a countdown).
+• New: Overtime. A finished timer keeps counting "+2:13", so you know how long it's been.
+• New: Keep Screen On, SharePlay in FaceTime calls, and Sync with iCloud to have your own timers on all your devices.
+• New: Ask Siri how long is left, then pause or add a minute right from the answer.
+• New: Describe a sequence in your own words ("25 on, 5 off, 4 times") on iPhones with Apple Intelligence.
+• Easier to read and use: clearer text on every sky, Liquid Glass buttons, bigger cards at large text sizes, and Undo after removing a timer.
+• Settings now shows whether alarms and notifications are allowed.
+• Live Activities on the Apple Watch Smart Stack and CarPlay. A smaller download, faster lists and many fixes.

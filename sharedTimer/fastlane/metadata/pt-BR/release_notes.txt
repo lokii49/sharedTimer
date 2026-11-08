@@ -1,9 +1,11 @@
-• Novo: Compartilhe somente para visualização. Em "Gerenciar Compartilhamento", escolha se as pessoas podem fazer alterações ou só acompanhar — elas veem qual é, e isso atualiza na hora.
-• Novo: Saiba o que mudou. Quando alguém pausa, estende ou para um timer compartilhado, você recebe "Sam pausou Pasta", mesmo com o Timer fechado.
-• Novo: Adicione mais de um minuto. Toque em +1:00 como antes, ou use a seta ao lado para +5, +10, +15, +30 ou um tempo personalizado.
-• Novo: "Gerenciar Compartilhamento" fica ao lado de "Compartilhar" assim que um timer é compartilhado.
-• Remoção mais clara: "Remover dos meus timers" para timers compartilhados com você, e "Apagar para todos" (com confirmação) para os que você compartilhou.
-• O anel continua a contagem suavemente depois que você adiciona tempo.
-• O app do Apple Watch agora se chama Timer e fala o seu idioma, e tempos como "3 d 4 h" aparecem no seu idioma em todo lugar.
-• Timers compartilhados agora atualizam com mais confiabilidade no iPhone de todos após uma pausa ou extensão.
-• Muitas pequenas correções em alarmes, sequências, widgets e Atividades ao Vivo.
+• Novo: iPad. Seus timers à esquerda, o céu ao vivo à direita.
+• Novo: contagens regressivas podem se repetir todo dia, semana ou mês — não só todo ano.
+• Novo: Histórico. Cada timer terminado por 90 dias, com “Rodar de novo”.
+• Novo: avisos na metade, 5 ou 1 minuto antes do fim (1 dia ou 1 hora antes numa contagem regressiva).
+• Novo: tempo extra. Um timer terminado continua contando “+2:13” para você saber quanto tempo passou.
+• Novo: manter a tela ligada, SharePlay em chamadas FaceTime e sincronização com o iCloud para ter seus timers em todos os seus aparelhos.
+• Novo: pergunte à Siri quanto falta e pause ou adicione um minuto direto na resposta.
+• Novo: descreva uma sequência com suas palavras (“25 trabalho, 5 pausa, 4 vezes”) em iPhones com Apple Intelligence.
+• Mais fácil de ler e usar: texto mais claro em cada céu, botões Liquid Glass, cartões maiores com texto grande e Desfazer ao remover um timer.
+• Ajustes agora mostra se alarmes e notificações estão permitidos.
+• Atividades ao Vivo na Pilha Inteligente do Apple Watch e no CarPlay. Download menor, listas mais rápidas e muitas correções.
