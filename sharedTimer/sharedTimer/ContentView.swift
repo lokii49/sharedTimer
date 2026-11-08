@@ -115,7 +115,9 @@ struct ContentView: View {
     }
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    private var isRegular: Bool { horizontalSizeClass == .regular }
+    /// iPad in a regular-width window. Not size class alone: a Pro Max iPhone in
+    /// landscape is regular width too, and keeps the iPhone layout.
+    private var isRegular: Bool { UIDevice.current.userInterfaceIdiom == .pad && horizontalSizeClass == .regular }
 
     /// The detail column on iPad: the selected timer, or a prompt to pick one.
     @ViewBuilder private var splitDetail: some View {

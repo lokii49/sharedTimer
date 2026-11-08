@@ -490,7 +490,9 @@ final class sharedTimerUITests: XCTestCase {
         XCTAssertTrue(importButton.waitForExistence(timeout: 10))
         importButton.tap()
         let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let allow = system.buttons["Allow Full Access"]
+        // firstMatch: the permission alert sometimes exposes the button twice
+        // ("Multiple matching elements"), which failed this test intermittently.
+        let allow = system.buttons["Allow Full Access"].firstMatch
         if allow.waitForExistence(timeout: 5) { allow.tap() }
         XCTAssertTrue(app.navigationBars["Import from Calendar"].waitForExistence(timeout: 10))
         let loading = app.staticTexts["Loading events…"]
