@@ -17,6 +17,7 @@ struct NewTimerSheet: View {
     @State private var showingCalendarImport = false
     @State private var alarmEnabled = true
     @State private var vibrationEnabled = true
+    @State private var reminders: Set<TimerReminder> = []
     @FocusState private var labelFocused: Bool
     @State private var recents: [RecentTimer] = RecentTimersStore.all()
 
@@ -130,7 +131,8 @@ struct NewTimerSheet: View {
                     vibrationEnabled: $vibrationEnabled,
                     labelFocused: $labelFocused,
                     kindLocked: true, yearlyCountdown: repeatsYearly && kind == .countdown,
-                    fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied
+                    fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied,
+                    whenItEndsExtra: AnyView(ReminderChips(kind: kind, span: kind == .timer ? minutes * 60 : max(0, targetDate.timeIntervalSinceNow), selection: $reminders))
                 )
                 .environment(\.timeZone, countdownTimeZone)
             }
@@ -156,7 +158,10 @@ struct NewTimerSheet: View {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Button("Start") {
                             guard canStart(at: Date()) else { return }
-                            onCreate(composedPayload)
+                            let payload = composedPayload
+                            // Set before onCreate: its arm plans the reminders.
+                            TimerReminders.set(reminders.filter { $0.fits(span: payload.span) && TimerReminder.choices(for: payload.kind).contains($0) }, for: payload.id)
+                            onCreate(payload)
                             dismiss()
                         }
                         .fontWeight(.semibold)
@@ -169,7 +174,7 @@ struct NewTimerSheet: View {
 }
 
 /// Left-aligned wrapping row of chips — fills a line, then wraps to the next.
-private struct ChipFlowLayout: Layout {
+struct ChipFlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

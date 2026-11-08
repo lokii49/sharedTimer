@@ -33,6 +33,9 @@ struct TimerFieldsView: View {
     /// timer will only notify, with a way to Settings, instead of promising a full-screen
     /// alarm.
     var fullScreenAlarmsOff: Bool = false
+    /// Extra rows under the Alarm/Vibrate toggles — the main app's reminder chips
+    /// (TimerReminders.swift is main-app only, so it comes in as a view).
+    var whenItEndsExtra: AnyView? = nil
 
     private let presets: [Double] = [1, 3, 5, 10, 15, 30, 60]
     private let datePresets: [(String, TimeInterval)] = [
@@ -64,6 +67,7 @@ struct TimerFieldsView: View {
             // the alarm off (a silent buzz instead of a ring) or off with the alarm on.
             Toggle("Vibrate", isOn: $vibrationEnabled)
                 .tint(kind.accentColor)
+            if let whenItEndsExtra { whenItEndsExtra }
         } header: {
             Text("When it ends")
         } footer: {

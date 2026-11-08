@@ -182,6 +182,28 @@ struct sharedTimerTests {
         #expect(TimerPayload.clampedLabel("Pasta") == "Pasta")
     }
 
+    @Test func reminderFireDatesFitTheRun() {
+        let now = Date()
+        let timer = TimerPayload(id: "t", label: "Pasta", endDate: now.addingTimeInterval(600), duration: 600, kind: .timer)
+        #expect(TimerReminder.halfway.fireDate(for: timer, at: now) == now.addingTimeInterval(300))
+        #expect(TimerReminder.fiveMinutes.fireDate(for: timer, at: now) == now.addingTimeInterval(300))
+        #expect(TimerReminder.oneMinute.fireDate(for: timer, at: now) == now.addingTimeInterval(540))
+        #expect(TimerReminder.oneDay.fireDate(for: timer, at: now) == nil)  // countdown-only
+
+        let short = TimerPayload(id: "s", label: "Tea", endDate: now.addingTimeInterval(180), duration: 180, kind: .timer)
+        #expect(!TimerReminder.fiveMinutes.fits(span: short.span))
+        #expect(TimerReminder.fiveMinutes.fireDate(for: short, at: now) == nil)
+
+        let paused = timer.paused(at: now)
+        #expect(TimerReminder.oneMinute.fireDate(for: paused, at: now) == nil)
+        // Already past: nothing to schedule.
+        #expect(TimerReminder.halfway.fireDate(for: timer, at: now.addingTimeInterval(400)) == nil)
+
+        let countdown = TimerPayload(id: "c", label: "Trip", endDate: now.addingTimeInterval(3 * 86_400), duration: 4 * 86_400, kind: .countdown)
+        #expect(TimerReminder.oneDay.fireDate(for: countdown, at: now) == now.addingTimeInterval(2 * 86_400))
+        #expect(TimerReminder.halfway.fireDate(for: countdown, at: now) == nil)
+    }
+
     @Test func sequenceRecentRoundTripsAndStartsASequence() throws {
         let phases = [SequencePhase(label: "Focus", duration: 1500), SequencePhase(label: "Break", duration: 300)]
         let running = SequenceInfo(phases: phases, loopCount: 4, phaseIndex: 1, loopIndex: 2)

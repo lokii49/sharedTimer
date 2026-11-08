@@ -777,6 +777,7 @@ struct ContentView: View {
         let link = CloudLinkStore.get(timerID: payload.id)
         stopInAppAlertIfRinging(for: payload.id)
         TimerStore.delete(id: payload.id)
+        TimerReminders.cancel(id: payload.id)
         AlarmController.clear(payload)
         LiveActivityController.end(id: payload.id)
         WatchSyncController.pushCurrentState()
@@ -1090,6 +1091,7 @@ struct ContentView: View {
                 for id in deletedIDs {
                     stopInAppAlertIfRinging(for: id)
                     TimerStore.delete(id: id)
+                    TimerReminders.cancel(id: id)
                     AlarmController.clear(id: id)
                     LiveActivityController.end(id: id)
                     timers.removeAll { $0.id == id }

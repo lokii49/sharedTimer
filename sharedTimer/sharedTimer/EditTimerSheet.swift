@@ -20,6 +20,8 @@ struct EditTimerSheet: View {
     @State private var targetDate: Date
     @State private var alarmEnabled: Bool
     @State private var vibrationEnabled: Bool
+    @State private var reminders: Set<TimerReminder> = []
+    @State private var originalReminders: Set<TimerReminder> = []
     @FocusState private var labelFocused: Bool
 
     init(payload: TimerPayload, onSave: @escaping (TimerPayload) -> Void) {
@@ -31,6 +33,9 @@ struct EditTimerSheet: View {
         _targetDate = State(initialValue: payload.endDate)
         _alarmEnabled = State(initialValue: payload.alarmEnabled)
         _vibrationEnabled = State(initialValue: payload.vibrationEnabled)
+        let reminders = TimerReminders.get(payload.id)
+        _reminders = State(initialValue: reminders)
+        _originalReminders = State(initialValue: reminders)
     }
 
     private var edited: TimerPayload {
@@ -61,6 +66,10 @@ struct EditTimerSheet: View {
 
     /// `edited` always restamps `updatedAt`, so compare the fields an edit can change.
     private var hasChanges: Bool {
+        timerFieldsChanged || reminders != originalReminders
+    }
+
+    private var timerFieldsChanged: Bool {
         let next = edited
         return next.label != original.label
             || next.alarmEnabled != original.alarmEnabled
@@ -93,7 +102,10 @@ struct EditTimerSheet: View {
                     yearlyCountdown: original.recurrence != nil,
                     showsTimerLength: false,
                     targetDateDisabled: original.isPaused,
-                    fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied
+                    fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied,
+                    whenItEndsExtra: original.sequence == nil
+                        ? AnyView(ReminderChips(kind: kind, span: kind == .timer ? original.span : max(0, targetDate.timeIntervalSince(original.endDate.addingTimeInterval(-original.duration))), selection: $reminders))
+                        : nil
                 )
                 .environment(\.timeZone, timeZone)
             }
@@ -109,7 +121,14 @@ struct EditTimerSheet: View {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Button("Save") {
                             guard targetStillValid(at: Date()) else { return }
-                            onSave(editedLatest())
+                            TimerReminders.set(reminders, for: original.id)
+                            if timerFieldsChanged {
+                                onSave(editedLatest())
+                            } else if let latest = TimerStore.loadAll().first(where: { $0.id == original.id }) {
+                                // Only the reminders (a setting on this iPhone): re-plan them,
+                                // without an "edited" change that would sync to everyone.
+                                TimerReminders.sync(latest)
+                            }
                             dismiss()
                         }
                         .fontWeight(.semibold)
