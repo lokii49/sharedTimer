@@ -320,7 +320,7 @@ struct TimerPayload: Codable, Identifiable {
             let start = min(endDate.addingTimeInterval(-span), date)
             var end = max(targetDate, date)
             if let recurrence {
-                let anchor = AnnualRecurrence(date: targetDate, timeZone: TimeZone(identifier: recurrence.timeZoneID) ?? .current)
+                let anchor = recurrence.with(frequency: recurrence.frequency, anchoredOn: targetDate)
                 copy.recurrence = anchor
                 end = targetDate > date ? targetDate : (anchor.nextDate(after: date) ?? end)
             }
@@ -572,6 +572,9 @@ struct TimerPayload: Codable, Identifiable {
         if let recurrence, let data = AnnualRecurrence.encode(recurrence), let json = String(data: data, encoding: .utf8) {
             items.append(URLQueryItem(name: "annual", value: json))
         }
+        if let recurrence, let data = AnnualRecurrence.encodeRepeat(recurrence), let json = String(data: data, encoding: .utf8) {
+            items.append(URLQueryItem(name: "repeat", value: json))
+        }
         components.queryItems = items
         // URLComponents leaves "+" literal in query values, and the web page's
         // URLSearchParams reads a literal "+" as a space ("C++" showed as "C  ").
@@ -654,6 +657,11 @@ struct TimerPayload: Codable, Identifiable {
         if let item = items.first(where: { $0.name == "annual" }) {
             guard kind == .countdown, sequence == nil, let json = item.value,
                   let value = AnnualRecurrence.decode(Data(json.utf8)) else { return nil }
+            recurrence = value
+        }
+        if let item = items.first(where: { $0.name == "repeat" }) {
+            guard kind == .countdown, sequence == nil, recurrence == nil, let json = item.value,
+                  let value = AnnualRecurrence.decodeRepeat(Data(json.utf8)) else { return nil }
             recurrence = value
         }
         var start: Date?

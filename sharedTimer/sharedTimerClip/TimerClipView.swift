@@ -41,7 +41,7 @@ struct TimerClipView: View {
                         Text(payload.label)
                             .skyLabel(13)
                             .foregroundStyle(.white.opacity(0.85))
-                        if payload.recurrence != nil { Text("Repeats yearly").font(.caption).foregroundStyle(.white.opacity(0.6)) }
+                        if let recurrence = payload.recurrence { Text(recurrence.frequency.repeatsCaption).font(.caption).foregroundStyle(.white.opacity(0.6)) }
                         if let caption = payload.sequenceCaption {
                             Text(pending ? Sky.pendingSequenceCaption(payload.sequence!) : caption)
                                 .font(.caption).foregroundStyle(.white.opacity(0.6))

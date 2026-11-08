@@ -619,9 +619,9 @@ enum AlarmController {
             alert = AlarmPresentation.Alert(title: LocalizedStringResource("\(payload.label)"),
                 secondaryButton: AlarmButton(text: "Open", textColor: .white, systemImageName: "arrow.up.forward.app"),
                 secondaryButtonBehavior: .custom)
-        } else if payload.recurrence != nil {
+        } else if let recurrence = payload.recurrence {
             alert = AlarmPresentation.Alert(title: LocalizedStringResource("\(payload.label)"),
-                secondaryButton: AlarmButton(text: "Next Year", textColor: .white, systemImageName: "calendar.badge.clock"),
+                secondaryButton: AlarmButton(text: recurrence.frequency.nextTitle, textColor: .white, systemImageName: "calendar.badge.clock"),
                 secondaryButtonBehavior: .custom)
         } else if payload.sequence != nil {
             let button = isFinalSequencePhase

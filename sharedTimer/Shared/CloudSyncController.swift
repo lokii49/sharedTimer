@@ -775,6 +775,9 @@ enum CloudSyncController {
         record["alarmEnabled"] = payload.alarmEnabled as CKRecordValue
         record["vibrationEnabled"] = payload.vibrationEnabled as CKRecordValue
         record["recurrenceData"] = payload.recurrence.flatMap(AnnualRecurrence.encode) as CKRecordValue?
+        // Daily/weekly/monthly (1.0.7). A new field: must be deployed to the
+        // production schema before release. Older apps ignore it.
+        record["repeatRuleData"] = payload.recurrence.flatMap(AnnualRecurrence.encodeRepeat) as CKRecordValue?
         record["sequenceData"] = payload.sequence.flatMap(TimerSequenceWire.encode) as CKRecordValue?
         record["scheduledStartDate"] = payload.scheduledStartDate as CKRecordValue?
         record["updatedAt"] = payload.updatedAt as CKRecordValue?
@@ -794,6 +797,11 @@ enum CloudSyncController {
         if let value = record["recurrenceData"] {
             guard kindRaw == "countdown", sequence == nil, let data = value as? Data,
                   let decoded = AnnualRecurrence.decode(data) else { return nil }
+            recurrence = decoded
+        }
+        if let value = record["repeatRuleData"] {
+            guard kindRaw == "countdown", sequence == nil, recurrence == nil, let data = value as? Data,
+                  let decoded = AnnualRecurrence.decodeRepeat(data) else { return nil }
             recurrence = decoded
         }
         guard duration.isFinite, duration > 0, duration <= 1_000_000_000_000,

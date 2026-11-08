@@ -108,7 +108,7 @@ struct TimerDetailView: View {
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(Sky.captionOpacity(contrast)))
                         if let recurrence = payload.recurrence {
-                            Text("Repeats yearly · \(recurrence.timeZoneID)")
+                            Text("\(String(localized: recurrence.frequency.repeatsCaption)) · \(recurrence.timeZoneID)")
                                 .font(.caption).foregroundStyle(.white.opacity(Sky.captionOpacity(contrast)))
                         }
                         if let statusLine {
@@ -177,8 +177,8 @@ struct TimerDetailView: View {
                         }
                     }
 
-                    if payload.recurrence != nil {
-                        Button("Next Year") {
+                    if let recurrence = payload.recurrence {
+                        Button(String(localized: recurrence.frequency.nextTitle)) {
                             Task { await LiveActivityActions.advanceAnnual(timerID: payload.id, occurrenceEnd: payload.endDate.timeIntervalSince1970) }
                         }
                         .buttonStyle(.glassPill)
