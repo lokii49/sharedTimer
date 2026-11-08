@@ -33,9 +33,14 @@
     font-size: clamp(56px, 17vw, 96px); font-weight: 100; letter-spacing: 0.01em; margin: 0;
   }
   body.done .clock { opacity: 0.55; }
+  /* Overtime (1.0.7): a finished plain timer counts up in the ember sky's orange. */
+  body.done.overtime .clock { opacity: 1; color: rgb(255, 153, 82); }
   .sub { font-size: 14px; opacity: 0.75; margin: 0; }
   .calendar { color: #fff; font-size: 14px; padding: 12px 18px; border: 1px solid #ffffff40; border-radius: 24px; text-decoration: none; margin-top: 18px; }
   .hint { position: fixed; bottom: 22px; font-size: 11px; opacity: 0.45; }
+  /* "Open in Timer" (1.0.7, D6 · B): frosted like the app's glass pills. */
+  .open { color: #fff; font-size: 15px; font-weight: 600; padding: 11px 22px; border-radius: 24px; text-decoration: none;
+          background: #ffffff2b; border: 1px solid #ffffff38; margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -44,6 +49,7 @@
   <p class="sub" id="status">loading&hellip;</p>
   <p class="sub" id="phase" hidden></p>
   <a class="calendar" id="calendar" hidden download="countdown.ics">Add to Calendar</a>
+  <a class="open" id="open" hidden>Open in Timer</a>
   <p class="hint">Shared with Timer for iMessage</p>
 
 <script>
@@ -155,11 +161,22 @@
     zonedParts(Date.now(), r.timeZoneID); // Intl also rejects unknown zones.
     return r;
   }
-  function annualDate(r, year) {
-    const key = JSON.stringify(r) + year;
+  // Daily / weekly / monthly (1.0.7, AnnualRecurrence.Frequency) travel in `repeat`;
+  // yearly stays in `annual`, which older pages and apps already read.
+  function decodeRepeat(json) {
+    if (json === null) return null;
+    const r = decodeAnnual(json);
+    if (!['daily', 'weekly', 'monthly'].includes(r.frequency) ||
+        (r.frequency === 'weekly' && !(Number.isInteger(r.weekday) && r.weekday >= 1 && r.weekday <= 7))) throw new Error('Invalid repeat');
+    return r;
+  }
+  function daysIn(year, month) { return new Date(Date.UTC(year, month, 0)).getUTCDate(); }
+  function annualDate(r, year) { return wallDate(r, year, r.month, Math.min(r.day, daysIn(year, r.month))); }
+  // The rule's wall-clock time on a civil date in its zone.
+  function wallDate(r, year, month, day) {
+    const key = JSON.stringify(r) + [year, month, day].join('-');
     if (annualCache.has(key)) return annualCache.get(key);
-    const day = Math.min(r.day, new Date(Date.UTC(year, r.month, 0)).getUTCDate());
-    const target = Date.UTC(year, r.month - 1, day, r.hour, r.minute, r.second);
+    const target = Date.UTC(year, month - 1, day, r.hour, r.minute, r.second);
     const offsets = [...new Set([-36,-12,0,12,36].map(h => zoneOffset(target + h * 3600000, r.timeZoneID)))];
     // Earliest repeated autumn time; a missing spring time moves to the first
     // valid wall-clock minute, matching Calendar.nextDate(.nextTime, .first).
@@ -171,8 +188,22 @@
     throw new Error('Invalid anniversary time');
   }
   function nextAnnual(r, after) {
-    const year = zonedParts(after * 1000, r.timeZoneID).year;
-    for (let y = year; y <= year + 2; y++) { const date = annualDate(r, y); if (date > after) return date; }
+    const p = zonedParts(after * 1000, r.timeZoneID);
+    const civil = offset => { const d = new Date(Date.UTC(p.year, p.month - 1, p.day + offset)); return [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), d.getUTCDay() + 1]; };
+    if (r.frequency === 'daily' || r.frequency === 'weekly') {
+      for (let i = 0; i <= 8; i++) {
+        const [y, m, d, weekday] = civil(i);
+        if (r.frequency === 'weekly' && weekday !== r.weekday) continue;
+        const date = wallDate(r, y, m, d); if (date > after) return date;
+      }
+    } else if (r.frequency === 'monthly') {
+      for (let i = 0; i <= 3; i++) {
+        const y = p.year + Math.floor((p.month - 1 + i) / 12), m = (p.month - 1 + i) % 12 + 1;
+        const date = wallDate(r, y, m, Math.min(r.day, daysIn(y, m))); if (date > after) return date;
+      }
+    } else {
+      for (let y = p.year; y <= p.year + 2; y++) { const date = annualDate(r, y); if (date > after) return date; }
+    }
     throw new Error('Invalid anniversary date');
   }
   function icsDate(ms, zone) {
@@ -218,7 +249,15 @@
     const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Shared Timer//Countdown//EN', 'CALSCALE:GREGORIAN'];
     if (recurrence) lines.push(...icsTimeZone(recurrence.timeZoneID, zonedParts(end * 1000, recurrence.timeZoneID).year));
     lines.push('BEGIN:VEVENT', `UID:${icsEscape(id || String(end))}@sharedtimer`, `DTSTAMP:${icsDate(Date.now())}`, `SUMMARY:${icsEscape(title)}`);
-    if (recurrence) {
+    if (recurrence && recurrence.frequency && recurrence.frequency !== 'yearly') {
+      // Daily / weekly / monthly from this occurrence on. A monthly day 29-31 picks the
+      // month's last day when it's shorter, like the app (BYSETPOS over 28...day).
+      lines.push(`DTSTART;TZID=${recurrence.timeZoneID}:${icsDate(end * 1000, recurrence.timeZoneID)}`);
+      if (recurrence.frequency === 'daily') lines.push('RRULE:FREQ=DAILY');
+      else if (recurrence.frequency === 'weekly') lines.push(`RRULE:FREQ=WEEKLY;BYDAY=${['SU','MO','TU','WE','TH','FR','SA'][recurrence.weekday - 1]}`);
+      else if (recurrence.day <= 28) lines.push(`RRULE:FREQ=MONTHLY;BYMONTHDAY=${recurrence.day}`);
+      else lines.push(`RRULE:FREQ=MONTHLY;BYMONTHDAY=${Array.from({ length: recurrence.day - 27 }, (_, i) => 28 + i).join(',')};BYSETPOS=-1`);
+    } else if (recurrence) {
       const year = zonedParts(end * 1000, recurrence.timeZoneID).year;
       const original = annualDate(recurrence, year);
       const exactTime = ms => { const p = zonedParts(ms * 1000, recurrence.timeZoneID);
@@ -300,6 +339,9 @@
   let sequence = null;
   let invalidSequence = false;
   try { sequence = decodeSequence(qs("seq")); recurrence = decodeAnnual(qs("annual"));
+    if (recurrence) recurrence.frequency = 'yearly';
+    const repeating = decodeRepeat(qs("repeat"));
+    if (repeating) { if (recurrence) throw new Error("Invalid anniversary"); recurrence = repeating; }
     if (recurrence && (sequence || kind !== "countdown")) throw new Error("Invalid anniversary");
   } catch (_) { invalidSequence = true; }
   // TimerPayload.from(url:) rejects a negative pause and a non-positive length.
@@ -312,6 +354,21 @@
   }
   let timer = null;
   const calendarEl = document.getElementById("calendar");
+  // "Open in Timer" for people Safari's App Clip banner doesn't reach (Android,
+  // desktop, in-app browsers). Safari never opens an app for a link to the page's own
+  // domain, so on iPhone it goes through the old host, which the app still claims;
+  // if that page loads instead (no app), its pill points at the App Store.
+  const openEl = document.getElementById("open");
+  if (openEl && !invalidSequence) {
+    const agent = typeof navigator === "undefined" ? "" : navigator.userAgent || "";
+    const touchMac = typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+    const ios = /iPhone|iPad|iPod/.test(agent) || touchMac;
+    const store = "https://apps.apple.com/app/id6804558361";
+    const host = (window.location && window.location.host) || "";
+    openEl.href = ios && host !== "lokii49.github.io" ? "https://lokii49.github.io/sharedTimer/t.html" + window.location.search : store;
+    openEl.textContent = ios ? "Open in Timer" : "Get Timer for iPhone";
+    openEl.hidden = false;
+  }
   let exportEnd = null, exportURL = null;
   function tick() {
     const now = Date.now() / 1000;
@@ -332,7 +389,7 @@
         : `Phase ${projected.index % sequence.phases.length + 1} of ${sequence.phases.length} · Loop ${Math.floor(projected.index / sequence.phases.length) + 1} of ${sequence.loopCount}`;
       labelEl.textContent = projected.phase.label;
     }
-    if (recurrence) { phaseEl.hidden = false; phaseEl.textContent = `Repeats yearly · ${recurrence.timeZoneID}`; }
+    if (recurrence) { phaseEl.hidden = false; phaseEl.textContent = `Repeats ${recurrence.frequency || 'yearly'} · ${recurrence.timeZoneID}`; }
     if (kind === "countdown" && !sequence && !Number.isFinite(pausedSeconds)) {
       calendarEl.hidden = false;
       if (exportEnd !== annualEnd) {
@@ -342,7 +399,12 @@
       }
     }
     document.body.classList.toggle("done", done);
-    clockEl.textContent = formatRemaining(remaining);
+    // Overtime, like the app (TimerPayload.overtime): a finished plain timer or
+    // countdown counts up for an hour. Not sequences or yearly countdowns, never paused.
+    const over = done && !sequence && !recurrence && !Number.isFinite(pausedSeconds) ? now - endSeconds : -1;
+    const overtime = over >= 0 && over < 3600;
+    document.body.classList.toggle("overtime", overtime);
+    clockEl.textContent = overtime ? "+" + formatRemaining(over) : formatRemaining(remaining);
     statusEl.textContent = done ? "Time's up" : pending
       ? `Starts ${new Date(startSeconds * 1000).toLocaleString()}`
       : Number.isFinite(pausedSeconds) ? "Paused" : sequence ? "counting down"
@@ -354,7 +416,7 @@
     // projected to a later phase has started a fresh run.
     const span = currentDuration + (!projected && Number.isFinite(extraSeconds) && extraSeconds > 0 ? extraSeconds : 0);
     paintSky(family, done || pending || Number.isFinite(pausedSeconds) ? 0 : Math.min(1, Math.max(0, 1 - remaining / Math.max(1, span))));
-    return !done && !Number.isFinite(pausedSeconds);
+    return (!done && !Number.isFinite(pausedSeconds)) || overtime;
   }
   if (tick()) {
     timer = setInterval(() => { if (!tick()) { clearInterval(timer); timer = null; } }, 1000);

@@ -8,8 +8,10 @@
 //  Main app only.
 //
 
+import AlarmKit
 import AVFoundation
 import SwiftUI
+import UserNotifications
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -19,6 +21,10 @@ struct SettingsView: View {
     @State private var tone = AlarmTone.selected
     @State private var showingWhatsNew = false
     @State private var preview: AVAudioPlayer?
+    @State private var alarmsAllowed = AlarmManager.shared.authorizationState != .denied
+    @State private var notificationsAllowed = true
+    @State private var syncOwnTimers = CloudSyncController.syncOwnTimers
+    @Environment(\.scenePhase) private var scenePhase
 
     private static let privacyURL = URL(string: "https://mirrornotes.org/timer/privacy")!
     private static let supportURL = URL(string: "mailto:hello@mirrornotes.org?subject=Timer%20support")!
@@ -28,6 +34,8 @@ struct SettingsView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     nameCard
+                    alertsCard
+                    iCloudCard
                     toneCard
                     whatsNewCard
                     aboutCard
@@ -78,8 +86,13 @@ struct SettingsView: View {
             // Armed AlarmKit alarms and notifications carry the old tone; re-arm them —
             // at their current phase, and never one that's ringing right now (re-arming
             // cancels its alert first).
-            for payload in TimerStore.loadAll().map({ $0.advancedSequence() }) where !payload.isExpired {
-                TimerArming.arm(payload)
+            // Only timers that can ring with a tone (alarm on now, or on a later
+            // sequence phase), and only the alarm/notification — not TimerArming's
+            // Live Activity step, which re-requested quiet cards the person had
+            // swiped away although the tone never applies to them.
+            for payload in TimerStore.loadAll().map({ $0.advancedSequence() })
+            where !payload.isExpired && (payload.alarmEnabled || payload.sequence?.phases.contains(where: \.alarmEnabled) == true) {
+                AlarmController.reschedule(for: payload)
             }
         }
         .onDisappear { stopPreview() }
@@ -110,6 +123,61 @@ struct SettingsView: View {
                 .background(.white.opacity(0.16), in: UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 4, bottomTrailingRadius: 16, topTrailingRadius: 16))
                 .accessibilityLabel("Preview: \(name ?? String(localized: "Someone")) paused Pasta")
         }
+    }
+
+    /// Whether alerts can actually reach the person. Without it, a denied permission
+    /// only showed up as a timer that finished quietly.
+    private var alertsCard: some View {
+        SettingsCard(colors: Sky.night.stops(drain: 0)) {
+            Text("Alerts").skyLabel(11).opacity(0.8)
+            VStack(spacing: 0) {
+                aboutRow { Text("Full-screen alarms") } trailing: { Text(alarmsAllowed ? "On" : "Off") }
+                Divider().overlay(.white.opacity(0.15))
+                aboutRow { Text("Notifications") } trailing: { Text(notificationsAllowed ? "On" : "Off") }
+            }
+            if !alarmsAllowed || !notificationsAllowed {
+                Text(alarmsAllowed
+                     ? "Quiet timers and timers shared with you can't alert you while notifications are off."
+                     : "Timers can't ring through silent mode or Focus while full-screen alarms are off.")
+                    .font(.footnote)
+                    .opacity(0.8)
+                if let settings = URL(string: UIApplication.openSettingsURLString) {
+                    Link(destination: settings) {
+                        Text("Open Settings")
+                    }
+                    .buttonStyle(.glassPill)
+                }
+            }
+        }
+        .task(id: scenePhase) { await refreshAlertStatus() }
+    }
+
+    /// D12 · A: "Sync with iCloud" — every timer, not only shared ones, follows the
+    /// person to their other devices on the same iCloud account. Off by default:
+    /// each device arms its own alarm, so each one rings.
+    private var iCloudCard: some View {
+        SettingsCard(colors: Sky.dusk.stops(drain: 0.3)) {
+            Text("iCloud").skyLabel(11).opacity(0.8)
+            Toggle(isOn: $syncOwnTimers) {
+                Text("Sync with iCloud").font(.subheadline.weight(.semibold))
+            }
+            // System green when on, like Settings: a white tint vanished against the sky.
+            .tint(.green)
+            Text("Your timers follow you to your iPad and other iPhones signed in to the same iCloud account. Each device rings.")
+                .font(.footnote)
+                .opacity(0.8)
+        }
+        .onChange(of: syncOwnTimers) { _, on in
+            CloudSyncController.syncOwnTimers = on
+            // Off only stops syncing new timers (see CloudSyncController).
+            if on { CloudSyncController.adoptAllOwnTimers() }
+        }
+    }
+
+    private func refreshAlertStatus() async {
+        alarmsAllowed = AlarmManager.shared.authorizationState != .denied
+        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        notificationsAllowed = status != .denied
     }
 
     private var toneCard: some View {

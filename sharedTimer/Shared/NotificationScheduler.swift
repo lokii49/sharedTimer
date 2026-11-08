@@ -99,13 +99,16 @@ enum NotificationScheduler {
             guard remaining > 0 else { return nil }
             let content = UNMutableNotificationContent()
             content.title = phase.label
-            content.body = current.recurrence != nil ? String(localized: "Anniversary reached!") : index == nil ? (phase.kind == .countdown ? String(localized: "Countdown complete!") : String(localized: "Timer finished!")) : String(localized: "Sequence phase finished!")
+            content.body = current.recurrence?.frequency == .yearly ? String(localized: "Anniversary reached!") : current.recurrence != nil ? String(localized: "Countdown complete!") : index == nil ? (phase.kind == .countdown ? String(localized: "Countdown complete!") : String(localized: "Timer finished!")) : String(localized: "Sequence phase finished!")
             content.userInfo["timerID"] = current.id
             if let index { content.userInfo[current.recurrence != nil ? "annualYear" : "sequenceGlobalIndex"] = index }
             if phase.alarmEnabled {
                 content.sound = UNNotificationSound(named: UNNotificationSoundName(AlarmTone.selected.fileName))
             } else if phase.vibrationEnabled {
-                content.sound = nil
+                // iOS only plays a notification's haptic alongside a sound — `nil` gave a
+                // silent, buzz-less banner. A digitally silent tone (bundled in every
+                // target that schedules these) keeps the buzz without an audible tone.
+                content.sound = UNNotificationSound(named: UNNotificationSoundName("vibration_silent.caf"))
                 content.categoryIdentifier = vibrationFinishCategoryID
             } else {
                 content.sound = .default

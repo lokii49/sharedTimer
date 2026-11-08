@@ -23,7 +23,18 @@ enum LiveActivityController {
             Task { await existing.update(content(for: payload)) }
             return
         }
+        guard shouldRequest(payload) else { return }
         request(payload)
+    }
+
+    /// Never *request* a new card for a timer that's already over: a pulled or echoed
+    /// Stop/Cancel (both toggles off) reaches `TimerArming.arm`, which would otherwise
+    /// pop up a fresh "Finished" card for a timer the person just stopped. Projected
+    /// through `advancedSequence` first, because an un-advanced mid-sequence payload
+    /// also reads `isFinished` (`remaining <= 0`) while the sequence is still running.
+    /// An existing active card is still updated (above), so it can show Finished.
+    static func shouldRequest(_ payload: TimerPayload, at date: Date = Date()) -> Bool {
+        !payload.advancedSequence(at: date).isFinished
     }
 
     /// `start`, awaited — for an intent's `perform()`, which the system may tear down
@@ -34,6 +45,7 @@ enum LiveActivityController {
             await existing.update(content(for: payload))
             return
         }
+        guard shouldRequest(payload) else { return }
         request(payload)
     }
 

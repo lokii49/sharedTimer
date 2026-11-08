@@ -12,11 +12,13 @@ struct NewTimerSheet: View {
     @State private var kind: TimerKind
     @State private var minutes: Double = 5
     @State private var targetDate: Date = Date().addingTimeInterval(86400)
-    @State private var repeatsYearly = false
+    /// D8 · A: Never (nil) / Daily / Weekly / Monthly / Yearly.
+    @State private var repeatFrequency: AnnualRecurrence.Frequency?
     @State private var countdownTimeZone = TimeZone.current
     @State private var showingCalendarImport = false
     @State private var alarmEnabled = true
     @State private var vibrationEnabled = true
+    @State private var reminders: Set<TimerReminder> = []
     @FocusState private var labelFocused: Bool
     @State private var recents: [RecentTimer] = RecentTimersStore.all()
 
@@ -38,17 +40,39 @@ struct NewTimerSheet: View {
     private func canStart(at date: Date) -> Bool {
         switch kind {
         case .timer: return minutes * 60 >= 1
-        case .countdown: return repeatsYearly || targetDate > date
+        case .countdown: return repeatFrequency != nil || targetDate > date
         }
     }
 
     private var composedPayload: TimerPayload {
-        if kind == .countdown && repeatsYearly {
-            return TimerPayload.composeAnnual(label: label, targetDate: targetDate, timeZone: countdownTimeZone,
+        if kind == .countdown, let repeatFrequency {
+            return TimerPayload.composeAnnual(label: label, targetDate: targetDate, timeZone: countdownTimeZone, frequency: repeatFrequency,
                                               alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
         }
         return TimerPayload.compose(label: label.isEmpty ? (kind == .timer ? String(localized: "Timer") : String(localized: "Countdown")) : label,
                              kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
+    }
+
+    /// "Every Tuesday at 9:00 AM in Europe/Lisbon." — what the rule will do.
+    private func repeatFooter(_ frequency: AnnualRecurrence.Frequency) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = countdownTimeZone
+        let time = targetDate.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: countdownTimeZone))
+        let zone = countdownTimeZone.identifier
+        switch frequency {
+        case .daily:
+            return String(localized: "Every day at \(time) in \(zone).")
+        case .weekly:
+            let weekday = targetDate.formatted(Date.FormatStyle(timeZone: countdownTimeZone).weekday(.wide))
+            return String(localized: "Every \(weekday) at \(time) in \(zone).")
+        case .monthly:
+            let day = calendar.component(.day, from: targetDate)
+            return day > 28
+                ? String(localized: "Every month on day \(day) at \(time) in \(zone). Shorter months use their last day.")
+                : String(localized: "Every month on day \(day) at \(time) in \(zone).")
+        case .yearly:
+            return String(localized: "Repeats at this date and time in \(zone). February 29 uses February 28 in non-leap years. Open Timer each year to keep future reminders scheduled.")
+        }
     }
 
     var body: some View {
@@ -62,9 +86,16 @@ struct NewTimerSheet: View {
                             ForEach(recents) { recent in
                                 Button {
                                     onCreate(recent.payload())
+                                    RecentTimersStore.record(recent)
                                     dismiss()
                                 } label: {
-                                    Text(recent.title)
+                                    // A sequence chip carries the loop glyph (D5 · A).
+                                    Label {
+                                        Text(recent.title)
+                                    } icon: {
+                                        if recent.isSequence { Image(systemName: recent.symbolName) }
+                                    }
+                                    .labelStyle(RecentChipLabelStyle())
                                         .font(.subheadline.weight(.medium))
                                         .lineLimit(1)
                                         .padding(.horizontal, 12)
@@ -73,6 +104,11 @@ struct NewTimerSheet: View {
                                         .foregroundStyle(.white)
                                 }
                                 .buttonStyle(.plain)
+                                // "Pasta 8m" read as "Pasta 8 meters".
+                                .accessibilityLabel(recent.isSequence
+                                    ? "\(recent.label), sequence, \(Duration.seconds(recent.duration).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide)))"
+                                    : "\(recent.label), \(Duration.seconds(recent.duration).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide)))")
+                                .accessibilityHint("Starts right away")
                                 .contextMenu {
                                     Button(role: .destructive) {
                                         RecentTimersStore.remove(id: recent.id)
@@ -101,11 +137,16 @@ struct NewTimerSheet: View {
                         Button { showingCalendarImport = true } label: {
                             Label("Import from Calendar", systemImage: "calendar")
                         }
-                        Toggle("Repeat yearly", isOn: $repeatsYearly).tint(kind.accentColor)
-                    } footer: {
-                        if repeatsYearly {
-                            Text("Repeats at this date and time in \(countdownTimeZone.identifier). February 29 uses February 28 in non-leap years. Open Timer each year to keep future reminders scheduled.")
+                        Picker("Repeat", selection: $repeatFrequency) {
+                            Text("Never").tag(AnnualRecurrence.Frequency?.none)
+                            ForEach(AnnualRecurrence.Frequency.allCases) { frequency in
+                                Text(frequency.pickerTitle).tag(Optional(frequency))
+                            }
                         }
+                        .pickerStyle(.menu)
+                        .tint(kind.accentColor)
+                    } footer: {
+                        if let repeatFrequency { Text(repeatFooter(repeatFrequency)) }
                     }
                 }
 
@@ -117,7 +158,10 @@ struct NewTimerSheet: View {
                     alarmEnabled: $alarmEnabled,
                     vibrationEnabled: $vibrationEnabled,
                     labelFocused: $labelFocused,
-                    kindLocked: true, yearlyCountdown: repeatsYearly && kind == .countdown
+                    kindLocked: true, yearlyCountdown: repeatFrequency != nil && kind == .countdown,
+                    repeatFrequency: kind == .countdown ? repeatFrequency : nil,
+                    fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied,
+                    whenItEndsExtra: AnyView(ReminderChips(kind: kind, span: kind == .timer ? minutes * 60 : max(0, targetDate.timeIntervalSinceNow), selection: $reminders))
                 )
                 .environment(\.timeZone, countdownTimeZone)
             }
@@ -126,7 +170,7 @@ struct NewTimerSheet: View {
                     label = choice.title
                     targetDate = choice.date
                     countdownTimeZone = choice.timeZone
-                    repeatsYearly = choice.repeatsYearly
+                    repeatFrequency = choice.repeatsYearly ? .yearly : nil
                 }
             }
             .scrollContentBackground(.hidden)
@@ -143,7 +187,10 @@ struct NewTimerSheet: View {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Button("Start") {
                             guard canStart(at: Date()) else { return }
-                            onCreate(composedPayload)
+                            let payload = composedPayload
+                            // Set before onCreate: its arm plans the reminders.
+                            TimerReminders.set(reminders.filter { $0.fits(span: payload.span) && TimerReminder.choices(for: payload.kind).contains($0) }, for: payload.id)
+                            onCreate(payload)
                             dismiss()
                         }
                         .fontWeight(.semibold)
@@ -156,7 +203,7 @@ struct NewTimerSheet: View {
 }
 
 /// Left-aligned wrapping row of chips — fills a line, then wraps to the next.
-private struct ChipFlowLayout: Layout {
+struct ChipFlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
@@ -188,6 +235,16 @@ private struct ChipFlowLayout: Layout {
             subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
+        }
+    }
+}
+
+/// Icon (when there is one) tight against the title, for the Recent chips.
+private struct RecentChipLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 5) {
+            configuration.icon.imageScale(.small)
+            configuration.title
         }
     }
 }

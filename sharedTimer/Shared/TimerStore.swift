@@ -21,9 +21,10 @@ enum TimerStore {
     private static let readOnlyKey = "sharedTimerReadOnlyIDs"
     private static let widgetFocusKey = "sharedTimerWidgetFocusID"
 
-    private static var defaults: UserDefaults? {
-        UserDefaults(suiteName: appGroupID)
-    }
+    /// One instance per process: the list used to build several of these per row per
+    /// second. UserDefaults is thread-safe, and the suite still sees other processes'
+    /// writes (the widget, Messages and the notification service write the same group).
+    private static let defaults = UserDefaults(suiteName: appGroupID)
 
     /// True once any timer was ever saved on this install (the key stays, as `[]`, after
     /// every timer is deleted) — tells an update from a fresh install for What's New.
@@ -32,29 +33,39 @@ enum TimerStore {
     }
 
     static func save(_ payload: TimerPayload) {
+        save(contentsOf: [payload])
+    }
+
+    /// Several payloads in one locked read-modify-write, one encode and one widget
+    /// reload — a CloudKit pull used to save each changed timer separately (a lock
+    /// cycle, two decodes and a widget reload apiece).
+    static func save(contentsOf payloads: [TimerPayload]) {
+        guard !payloads.isEmpty else { return }
         withWriteLock {
-            var all = loadAll()
-            let prior = all.first { $0.id == payload.id }
-            all.removeAll { $0.id == payload.id }
-            all.append(Self.keepingExtraTime(of: prior, in: payload))
-            persist(all)
-            // Any prior "Stop" on this id was about the finish event it stopped — a
-            // mutation that moves that finish (repeat, extend past finish, resume) means
-            // a future finish should be free to alert again. A save that leaves the
-            // finish where it was (a CloudKit echo of this device's own Stop, a rename)
-            // must keep the Stop, or the app re-alerts on next open. 1s absorbs the
-            // CloudKit Date round-trip.
-            if finishMoved(from: prior, to: payload) {
-                clearAcknowledgedFinish(id: payload.id)
+            var (all, complete) = loadAllReportingCompleteness()
+            for payload in payloads {
+                let prior = all.first { $0.id == payload.id }
+                all.removeAll { $0.id == payload.id }
+                all.append(Self.keepingExtraTime(of: prior, in: payload))
+                // Any prior "Stop" on this id was about the finish event it stopped — a
+                // mutation that moves that finish (repeat, extend past finish, resume)
+                // means a future finish should be free to alert again. A save that
+                // leaves the finish where it was (a CloudKit echo of this device's own
+                // Stop, a rename) must keep the Stop, or the app re-alerts on next open.
+                // 1s absorbs the CloudKit Date round-trip.
+                if finishMoved(from: prior, to: payload) {
+                    clearAcknowledgedFinish(id: payload.id)
+                }
             }
+            persist(all, storeWasComplete: complete)
         }
     }
 
     static func delete(id: String) {
         withWriteLock {
-            var all = loadAll()
+            var (all, complete) = loadAllReportingCompleteness()
             all.removeAll { $0.id == id }
-            persist(all)
+            persist(all, storeWasComplete: complete)
             clearAcknowledgedFinish(id: id)
             updateIDSet(alarmKitArmedKey, id: id, member: false)
             updateIDSet(readOnlyKey, id: id, member: false)
@@ -174,26 +185,34 @@ enum TimerStore {
     }
 
     static func loadAll() -> [TimerPayload] {
-        guard let data = defaults?.data(forKey: key) else { return [] }
+        loadAllReportingCompleteness().payloads
+    }
+
+    /// `complete` is false when some stored entry couldn't be decoded (written by a
+    /// newer version, say) — only then does `persist` need its second pass to carry
+    /// those entries over.
+    private static func loadAllReportingCompleteness() -> (payloads: [TimerPayload], complete: Bool) {
+        guard let data = defaults?.data(forKey: key) else { return ([], true) }
         // Whole-array decode first: cheap, and covers every payload written by this
         // build. Falls back to decoding entry-by-entry only if that fails, so one
         // payload a future schema change can't parse drops just itself instead of
         // wiping every timer in the store.
         if let decoded = try? JSONDecoder().decode([TimerPayload].self, from: data) {
-            return decoded
+            return (decoded, true)
         }
         // Cast to [Any] first, not [[String: Any]] directly — a wrong-typed element
         // (not even an object) would fail that cast for the whole array and fall
         // straight back to the wipe this function exists to avoid.
         guard let rawArray = try? JSONSerialization.jsonObject(with: data) as? [Any] else {
-            return []
+            return ([], false)
         }
         let decoder = JSONDecoder()
-        return rawArray.compactMap { entry -> TimerPayload? in
+        let payloads = rawArray.compactMap { entry -> TimerPayload? in
             guard let dict = entry as? [String: Any],
                   let entryData = try? JSONSerialization.data(withJSONObject: dict) else { return nil }
             return try? decoder.decode(TimerPayload.self, from: entryData)
         }
+        return (payloads, false)
     }
 
     private static func undecodableEntries(excluding ids: Set<String>) -> [Any] {
@@ -209,7 +228,7 @@ enum TimerStore {
         }
     }
 
-    private static func persist(_ payloads: [TimerPayload]) {
+    private static func persist(_ payloads: [TimerPayload], storeWasComplete: Bool) {
         let cutoff = Date().addingTimeInterval(-86400)
         // A sequence-owning payload's raw `endDate` is only the CURRENT phase's — a
         // multi-day sequence not foregrounded in 24h+ would otherwise look
@@ -224,7 +243,7 @@ enum TimerStore {
         // Entries this build can't decode (written by a newer version, say) were left out
         // of `payloads` by loadAll; writing without them deleted those timers for good.
         // Carry them over untouched, unless a decodable payload now has the same id.
-        let undecodable = undecodableEntries(excluding: Set(trimmed.map(\.id)))
+        let undecodable = storeWasComplete ? [] : undecodableEntries(excluding: Set(trimmed.map(\.id)))
         if !undecodable.isEmpty,
            let encoded = try? JSONSerialization.jsonObject(with: data) as? [Any],
            let merged = try? JSONSerialization.data(withJSONObject: encoded + undecodable) {

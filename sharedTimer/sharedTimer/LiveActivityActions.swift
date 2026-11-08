@@ -20,6 +20,7 @@
 //    looked like "the button did nothing").
 //
 
+import AppIntents
 import Foundation
 import UserNotifications
 
@@ -134,7 +135,7 @@ enum LiveActivityActions {
         TimerStore.setWidgetFocus(id: payload.id)
         TimerStore.save(payload)
         await TimerArming.armAwaiting(payload)
-        RecentTimersStore.record(payload)
+        if let recent { RecentTimersStore.record(recent) } else { RecentTimersStore.record(payload) }
         await RecentTimersSync.refresh()
         WatchSyncController.pushCurrentState()
         announceStarted(payload)
@@ -184,6 +185,8 @@ enum LiveActivityActions {
     }
 
     private static func refreshUI() async {
+        // An open Siri/Spotlight timer card (TimerSnippet.swift) shows the new state.
+        TimerStatusSnippetIntent.reload()
         await TimerSpotlightIndex.shared.refreshAwaiting()
         await MainActor.run {
             NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)

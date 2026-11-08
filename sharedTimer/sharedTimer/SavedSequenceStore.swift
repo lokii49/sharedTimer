@@ -75,6 +75,9 @@ enum SavedSequenceStore {
         let saved = SavedSequence(name: trimmed.isEmpty ? suggestedName(for: sequence) : trimmed,
                                   phases: sequence.phases, loopCount: sequence.loopCount)
         saveAll(loadAll() + [saved])
+        // A just-saved template is one tap away in Recent (D5 · A).
+        RecentTimersStore.record(sequence: sequence, name: saved.name)
+        RecentTimersSync.refresh()
     }
 
     static func contains(_ sequence: SequenceInfo) -> Bool {

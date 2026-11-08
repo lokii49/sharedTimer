@@ -152,6 +152,7 @@ struct BigCountdownWidgetView: View {
             if needsStandBySkyLayer {
                 if let payload {
                     Sky.gradient(for: payload)
+                    SkyCornerScrim()
                 } else {
                     Sky.room
                 }
@@ -169,7 +170,11 @@ struct BigCountdownWidgetView: View {
             // text on it is white, so nothing here needs to adapt to Light/Dark Mode. This
             // is ignored in StandBy — see needsStandBySkyLayer above.
             if let payload {
-                Sky.gradient(for: payload)
+                // C6: scrim under the footer text on the sky's bright corner.
+                ZStack {
+                    Sky.gradient(for: payload)
+                    SkyCornerScrim()
+                }
             } else {
                 Sky.room
             }

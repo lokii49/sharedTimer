@@ -9,18 +9,19 @@ const phases = [
   { label: 'Work & focus 💫', kind: 'timer', duration: 60, alarmEnabled: true, vibrationEnabled: false },
   { label: 'Rest / tea', kind: 'timer', duration: 30, alarmEnabled: false, vibrationEnabled: true }
 ];
-function page(extra = {}) {
+function page(extra = {}, env = {}) {
   let now = epoch;
   let callback;
   let intervalCount = 0;
-  const elements = Object.fromEntries(['label', 'clock', 'status', 'phase', 'calendar'].map(id => [id, { textContent: '', hidden: true }]));
+  const elements = Object.fromEntries(['label', 'clock', 'status', 'phase', 'calendar', 'open'].map(id => [id, { textContent: '', hidden: true }]));
   const classes = new Set();
   const document = { title: '', getElementById: id => elements[id], body: { dataset: {}, style: {}, classList: {
     toggle(name, value) { value ? classes.add(name) : classes.delete(name); }
   } } };
   const params = new URLSearchParams({ label: 'Sequence', end: String(epoch + 60), dur: '60', kind: 'timer', ...extra });
   class TestDate extends Date { static now() { return now * 1000; } }
-  const context = vm.createContext({ document, window: { location: { search: '?' + params } }, Date: TestDate,
+  const context = vm.createContext({ document, window: { location: { search: '?' + params, host: env.host || 'mirrornotes.org' } }, Date: TestDate,
+    ...(env.navigator ? { navigator: env.navigator } : {}),
     URLSearchParams, TextEncoder, Blob, URL: { createObjectURL() { return 'blob:calendar'; }, revokeObjectURL() {} }, setInterval(fn) { intervalCount++; callback = fn; return 1; }, clearInterval() { callback = null; } });
   vm.runInContext(script, context);
   return { context, elements, document, classes, intervalCount, advance(seconds) { now = epoch + seconds; if (callback) callback(); } };
@@ -70,7 +71,8 @@ test('plain running and paused links retain their display', () => {
   assert.equal(page({ paused: '80' }).elements.clock.textContent, '01:20');
 });
 test('expired links render without starting an interval or throwing', () => {
-  const p = page({ end: String(epoch - 1) });
+  // Over an hour past the end: no overtime count, so nothing left to tick.
+  const p = page({ end: String(epoch - 3601) });
   assert.equal(p.elements.status.textContent, "Time's up");
   assert.equal(p.intervalCount, 0);
   const done = page({ seq: seq(), end: String(epoch - 1000) });
@@ -207,4 +209,52 @@ test('fixed-offset time zones from Calendar remain valid on the web and in expor
   const ics = evaluate(p, 'calendarICS("Birthday", annualDate(rule, 2029), rule)');
   assert(ics.includes('TZID:GMT+0530\r\n'));
   assert(ics.includes('TZOFFSETTO:+0530\r\n'));
+});
+test('a finished plain timer counts up for an hour, then stops', () => {
+  const p = page({});  // ends at epoch + 60
+  p.advance(60 + 133);
+  assert.equal(p.elements.clock.textContent, '+02:13');
+  assert(p.classes.has('done') && p.classes.has('overtime'));
+  p.advance(60 + 3600);
+  assert.equal(p.elements.clock.textContent, '00:00');
+  assert(!p.classes.has('overtime'));
+});
+test('sequences and paused timers never show overtime', () => {
+  const s = page({ seq: seq(), end: String(epoch - 1000) });
+  assert(!s.classes.has('overtime'));
+  const paused = page({ paused: '0', end: String(epoch - 10) });
+  assert(!paused.classes.has('overtime'));
+});
+test('Open in Timer goes through the old host on iPhone and to the App Store elsewhere', () => {
+  const iphone = { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_1 like Mac OS X)', platform: 'iPhone', maxTouchPoints: 5 };
+  const onPhone = page({}, { navigator: iphone });
+  assert.equal(onPhone.elements.open.hidden, false);
+  assert(onPhone.elements.open.href.startsWith('https://lokii49.github.io/sharedTimer/t.html?'));
+  assert(onPhone.elements.open.href.includes('end=' + (epoch + 60)));
+  const oldHost = page({}, { navigator: iphone, host: 'lokii49.github.io' });
+  assert.equal(oldHost.elements.open.href, 'https://apps.apple.com/app/id6804558361');
+  const android = page({}, { navigator: { userAgent: 'Mozilla/5.0 (Linux; Android 15)', platform: 'Linux', maxTouchPoints: 5 } });
+  assert.equal(android.elements.open.href, 'https://apps.apple.com/app/id6804558361');
+  assert.equal(android.elements.open.textContent, 'Get Timer for iPhone');
+  const invalid = page({ seq: 'bad' }, { navigator: iphone });
+  assert.equal(invalid.elements.open.hidden, true);
+});
+test('weekly and monthly repeats follow their rule and export a matching RRULE', () => {
+  const weekly = annualRule({ frequency: 'weekly', weekday: 3, month: 1, day: 5, hour: 9, minute: 0 });  // Tuesdays 09:00
+  const p = page({ kind: 'countdown', repeat: weekly, end: String(Date.parse('2027-01-05T09:00:00Z') / 1000) });
+  assert.equal(p.elements.phase.textContent, 'Repeats weekly · GMT');
+  assert.equal(evaluate(p, 'nextAnnual(recurrence, Date.parse("2027-03-10T10:00:00Z") / 1000)'), Date.parse('2027-03-16T09:00:00Z') / 1000);
+  const ics = evaluate(p, 'calendarICS("Standup", Date.parse("2027-03-16T09:00:00Z") / 1000, recurrence, "x")');
+  assert(ics.includes('RRULE:FREQ=WEEKLY;BYDAY=TU'));
+
+  const monthly = annualRule({ frequency: 'monthly', month: 1, day: 31, hour: 9, minute: 0 });
+  const m = page({ kind: 'countdown', repeat: monthly, end: String(Date.parse('2027-01-31T09:00:00Z') / 1000) });
+  assert.equal(evaluate(m, 'nextAnnual(recurrence, Date.parse("2027-02-01T00:00:00Z") / 1000)'), Date.parse('2027-02-28T09:00:00Z') / 1000);
+  assert(evaluate(m, 'calendarICS("Rent", Date.parse("2027-02-28T09:00:00Z") / 1000, recurrence, "x")').includes('BYMONTHDAY=28,29,30,31;BYSETPOS=-1'));
+});
+test('a link carrying both annual and repeat, or repeat on a timer, is invalid', () => {
+  const weekly = annualRule({ frequency: 'weekly', weekday: 3 });
+  assert.equal(page({ kind: 'countdown', annual: annualRule(), repeat: weekly }).elements.clock.textContent, '--:--');
+  assert.equal(page({ kind: 'timer', repeat: weekly }).elements.clock.textContent, '--:--');
+  assert.equal(page({ kind: 'countdown', repeat: annualRule({ frequency: 'yearly' }) }).elements.clock.textContent, '--:--');
 });

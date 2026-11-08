@@ -23,6 +23,7 @@ struct ShareTimerSheet: View {
     @State private var showingQR = false
     @State private var cloudShare: CloudShareItem?
     @State private var loadingShare = false
+    @ObservedObject private var sharePlay = SharePlayController.shared
 
     var body: some View {
         NavigationStack {
@@ -30,6 +31,19 @@ struct ShareTimerSheet: View {
                 VStack(spacing: 18) {
                     SkyCard(payload: payload, date: Date())
                         .padding(.horizontal, 20)
+
+                    // D11 · B: only during a FaceTime call, never for a view-only share.
+                    if sharePlay.isEligible && !TimerStore.isReadOnly(id: payload.id) {
+                        Button {
+                            Task { await sharePlay.start(payload) }
+                        } label: {
+                            Label(sharePlay.sharedTimerID == payload.id ? "Shared with the Call" : "Start SharePlay", systemImage: "shareplay")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.glassPill)
+                        .disabled(sharePlay.sharedTimerID == payload.id)
+                        .padding(.horizontal, 20)
+                    }
 
                     if let preparedURL {
                         Label(isLive ? "Live link · changes sync for everyone" : "Snapshot · won't update after sending",
@@ -116,8 +130,12 @@ struct ShareTimerSheet: View {
             .ignoresSafeArea()
         }
         .task {
+            // Start the CloudKit share first: the 3× render below blocks the main actor
+            // for a moment, and used to delay the share request by that much.
+            let preparing = Task { await prepare() }
+            await Task.yield()
             previewImage = renderPreview()
-            await prepare()
+            await preparing.value
         }
     }
 
@@ -161,14 +179,22 @@ enum QRCode {
         url.absoluteString.utf8.count <= maxBytes
     }
 
+    /// One context for the app (they're expensive), and the last image: `image(for:)`
+    /// is called from `body`, which re-evaluates while the sheet is open.
+    private static let context = CIContext()
+    private static var lastImage: (url: URL, image: UIImage)?
+
     static func image(for url: URL) -> UIImage? {
         guard fits(url) else { return nil }
+        if let lastImage, lastImage.url == url { return lastImage.image }
         let filter = CIFilter.qrCodeGenerator()
         filter.message = Data(url.absoluteString.utf8)
         filter.correctionLevel = "M"
         guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)),
-              let cgImage = CIContext().createCGImage(output, from: output.extent) else { return nil }
-        return UIImage(cgImage: cgImage)
+              let cgImage = context.createCGImage(output, from: output.extent) else { return nil }
+        let image = UIImage(cgImage: cgImage)
+        lastImage = (url, image)
+        return image
     }
 }
 
@@ -234,7 +260,7 @@ struct AddSharedTimerSheet: View {
                         .font(.subheadline)
                         .foregroundStyle(Sky.roomInk)
                     if let sequence = payload.sequence {
-                        Text("\(sequence.phases.count) phases · \(sequence.loopCount) loops")
+                        Text("Phases: \(sequence.phases.count) · Loops: \(sequence.loopCount)")
                             .font(.footnote).foregroundStyle(Sky.roomInk)
                     } else if payload.kind == .timer {
                         Text("Ends at \(payload.endDate.formatted(date: .omitted, time: .shortened))")

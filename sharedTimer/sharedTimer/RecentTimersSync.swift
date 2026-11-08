@@ -25,7 +25,7 @@ enum RecentTimersSync {
                 type: quickActionPrefix + recent.id,
                 localizedTitle: recent.label,
                 localizedSubtitle: String(localized: "Start \(RecentTimer.lengthText(recent.duration))"),
-                icon: UIApplicationShortcutIcon(systemImageName: "timer"),
+                icon: UIApplicationShortcutIcon(systemImageName: recent.symbolName),
                 userInfo: nil
             )
         }

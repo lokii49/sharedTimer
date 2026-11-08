@@ -199,16 +199,22 @@ private struct SkyLabelStyle: ViewModifier {
 // MARK: - Glass pill button
 
 /// Frosted capsule for controls that sit on a sky — translucent, never opaque chrome.
+/// Real Liquid Glass since 1.0.7 (C8 · A): picks up the sky's color, matches the
+/// system bars, and the system handles Reduce Transparency / Increase Contrast. Pills
+/// that sit side by side go in a `GlassEffectContainer` so they merge into one shape.
+/// Scales with Dynamic Type (`.subheadline` is the old fixed 15 pt at the default
+/// size), capped where a row of three pills still fits a phone. A destructive role gets
+/// a red tint, so Delete doesn't look like Pause. Labels stay pinned white.
 struct GlassPillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
+        let destructive = configuration.role == .destructive
         configuration.label
-            .font(.system(size: 15, weight: .semibold))
+            .font(.subheadline.weight(.semibold))
+            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
             .foregroundStyle(.white)
             .padding(.horizontal, 22)
             .padding(.vertical, 11)
-            .background(.white.opacity(configuration.isPressed ? 0.28 : 0.17), in: Capsule())
-            .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 1))
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .glassEffect(destructive ? .regular.tint(.red.opacity(0.5)).interactive() : .regular.interactive(), in: Capsule())
     }
 }
 
@@ -224,15 +230,24 @@ extension ButtonStyle where Self == GlassPillButtonStyle {
 struct SkyCard: View {
     let payload: TimerPayload
     let date: Date
+    @Environment(\.dynamicTypeSize) private var typeSize
+    /// Digits grow with Dynamic Type on the large layout (C9 · A), capped so a long
+    /// countdown still fits one line.
+    @ScaledMetric(relativeTo: .largeTitle) private var largeDigits: CGFloat = 34
+
+    /// C9 · A: at accessibility sizes the card grows — label wraps to two lines,
+    /// digits get their own row, the end time goes under them — instead of squeezing
+    /// everything into a fixed 104 pt.
+    private var large: Bool { typeSize.isAccessibilitySize }
 
     var body: some View {
         let remaining = payload.remaining
         let pending = payload.isPending(at: date)
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
+            HStack(alignment: .top) {
                 Text(payload.label)
                     .skyLabel(12)
-                    .lineLimit(1)
+                    .lineLimit(large ? 2 : 1)
                 Spacer()
                 if pending {
                     Text("Scheduled").skyLabel(12)
@@ -266,26 +281,26 @@ struct SkyCard: View {
                     .minimumScaleFactor(0.7)
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: large ? 8 : 0)
 
-            HStack(alignment: .lastTextBaseline) {
-                Text(pendingDigits ?? TimeFormat.display(remaining > 0 ? remaining : payload.duration))
-                    .skyDigits(34, weight: .regular)
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                Spacer(minLength: 8)
-                // Same small-caps voice as the label — every word on a sky speaks it.
-                Text(endText)
-                    .skyLabel(12)
-                    .foregroundStyle(.white.opacity(0.85))
-                    .shadow(color: .black.opacity(0.35), radius: 3)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
+            if large {
+                digitsText(size: min(largeDigits, 64))
+                endTextView.lineLimit(2)
+            } else {
+                HStack(alignment: .lastTextBaseline) {
+                    digitsText(size: 34)
+                    Spacer(minLength: 8)
+                    // Wins the space over the digits (they shrink first); a scheduled
+                    // sequence's phase name can be long, so it truncates rather than
+                    // pushing out of the card.
+                    endTextView
+                        .lineLimit(1)
+                        .layoutPriority(1)
+                }
             }
         }
         .padding(14)
-        .frame(height: 104)
+        .frame(minHeight: 104, maxHeight: large ? nil : 104)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(Sky.gradient(for: payload, at: date))
@@ -293,6 +308,8 @@ struct SkyCard: View {
                 // label -- same sky family, visibly muted.
                 .saturation(pending ? 0.35 : 1)
                 .brightness(pending ? -0.1 : 0)
+                .overlay(SkyCornerScrim())
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         )
         .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         // One VoiceOver element instead of five fragments ("PASTA", "04:12", "ENDS 7:40"),
@@ -334,9 +351,48 @@ struct SkyCard: View {
     }
 
     private var endText: String { Sky.endText(for: payload, at: date) }
+
+    private func digitsText(size: CGFloat) -> some View {
+        Text(pendingDigits ?? overtimeDigits ?? TimeFormat.display(payload.remaining > 0 ? payload.remaining : payload.duration))
+            .skyDigits(size, weight: .regular)
+            .foregroundStyle(overtimeDigits == nil ? Color.white : Sky.overtimeInk)
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+    }
+
+    /// Same small-caps voice as the label — every word on a sky speaks it. Full white
+    /// over the corner scrim (C6).
+    private var endTextView: some View {
+        Text(endText)
+            .skyLabel(12)
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.35), radius: 3)
+    }
+
+    /// Only a finished card under an hour reads the acknowledgement registry.
+    private var overtimeDigits: String? {
+        guard payload.overtime(at: date) != nil else { return nil }
+        return Sky.overtimeText(for: payload, at: date, acknowledged: TimerStore.isFinishAcknowledged(id: payload.id))
+    }
 }
 
 extension Sky {
+    /// The overtime count's color: the ember sky's hot-orange horizon, on the overcast
+    /// sky a finished timer already shows (1.0.7 mockup D2 · A).
+    static let overtimeInk = Color(red: 1.0, green: 0.6, blue: 0.32)
+
+    /// "+2:13" while a finished timer counts up (see `TimerPayload.overtime`), else nil.
+    static func overtimeText(for payload: TimerPayload, at date: Date, acknowledged: Bool) -> String? {
+        guard !acknowledged, let over = payload.overtime(at: date) else { return nil }
+        return "+" + TimeFormat.display(over)
+    }
+
+    /// Spoken form of the overtime count: "2 minutes, 13 seconds over".
+    static func overtimeAccessibilityText(for payload: TimerPayload, at date: Date) -> String {
+        let over = Duration.seconds((payload.overtime(at: date) ?? 0).rounded())
+        return String(localized: "\(over.formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))) over")
+    }
+
     /// The small line under the digits — "held", "finished 3:05 PM", "ends 3:05 PM", a
     /// countdown's target date, or a scheduled sequence's first phase. Shared by SkyCard
     /// and the home-screen widgets so every surface says (and translates) the same thing.
@@ -356,5 +412,136 @@ extension Sky {
             return TimeFormat.targetDate(payload.endDate)
         }
         return String(localized: "ends \(payload.endDate.formatted(date: .omitted, time: .shortened))")
+    }
+}
+
+#if canImport(UIKit)
+import UIKit
+import Combine
+
+/// The full-screen detail sky with its slow sway (the gradient anchors drift on a ~2 min
+/// sine). It used to be a SwiftUI `LinearGradient` whose anchors were re-animated over
+/// 1s on every tick — in practice a never-ending animation the app drew frame by frame,
+/// up to 120 Hz. Here the sway is a single looping Core Animation keyframe animation run
+/// by the render server at ~10 fps (the drift is sub-pixel per frame), so the app does no
+/// per-frame work; only the colors change, once a second, as the timer drains.
+/// Still when `swaying` is false (Reduce Motion, Low Power Mode).
+struct SwayingSkyGradient: UIViewRepresentable {
+    /// Low Power Mode, for callers' `swaying:` — updated by `lowPowerPublisher`.
+    static var isLowPower: Bool { ProcessInfo.processInfo.isLowPowerModeEnabled }
+    static var lowPowerPublisher: some Publisher<Bool, Never> {
+        NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)
+            .map { _ in ProcessInfo.processInfo.isLowPowerModeEnabled }
+            .receive(on: DispatchQueue.main)
+    }
+
+    let colors: [Color]
+    let swaying: Bool
+
+    /// Same curve the SwiftUI version used: x = 0.15 ± 0.1·sin(t / 19).
+    private static let period = 2 * Double.pi * 19
+
+    final class GradientView: UIView {
+        override class var layerClass: AnyClass { CAGradientLayer.self }
+        var gradient: CAGradientLayer { layer as! CAGradientLayer }
+    }
+
+    func makeUIView(context: Context) -> GradientView {
+        let view = GradientView()
+        view.isUserInteractionEnabled = false
+        view.gradient.startPoint = CGPoint(x: 0.15, y: 0)
+        view.gradient.endPoint = CGPoint(x: 0.85, y: 1)
+        return view
+    }
+
+    func updateUIView(_ view: GradientView, context: Context) {
+        let layer = view.gradient
+        // Steps once a second (a view's backing layer has no implicit animations); the
+        // per-second drain change is too small to see.
+        layer.colors = colors.map { UIColor($0).cgColor }
+
+        let isSwaying = layer.animation(forKey: "sway") != nil
+        guard swaying != isSwaying else { return }
+        if swaying {
+            layer.add(Self.sway(base: 0.15, sign: 1, keyPath: "startPoint"), forKey: "sway")
+            layer.add(Self.sway(base: 0.85, sign: -1, keyPath: "endPoint"), forKey: "swayEnd")
+        } else {
+            layer.removeAnimation(forKey: "sway")
+            layer.removeAnimation(forKey: "swayEnd")
+        }
+    }
+
+    private static func sway(base: Double, sign: Double, keyPath: String) -> CAKeyframeAnimation {
+        let steps = 32
+        let y: Double = keyPath == "startPoint" ? 0 : 1
+        let animation = CAKeyframeAnimation(keyPath: keyPath)
+        animation.values = (0...steps).map { step in
+            let angle = Double(step) / Double(steps) * 2 * .pi
+            return NSValue(cgPoint: CGPoint(x: base + sign * 0.1 * sin(angle), y: y))
+        }
+        animation.calculationMode = .cubic
+        animation.duration = period
+        animation.repeatCount = .infinity
+        // Start where the wall-clock curve is now, as the TimelineView version did.
+        animation.timeOffset = Date().timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: period)
+        animation.isRemovedOnCompletion = false
+        animation.preferredFrameRateRange = CAFrameRateRange(minimum: 4, maximum: 15, preferred: 10)
+        return animation
+    }
+}
+#endif
+
+/// C6 · A (1.0.7 mockup, https://claude.ai/artifact/PYNWKUeoSA8sezNDGfossk): a soft
+/// dark ellipse behind the bright end of a sky, where the small text sits. Every sky
+/// brightens toward its bottom-trailing corner, and white 12 pt text there measured
+/// 1.3–2.1:1; with this it's 4.8–7:1 (7.7–10:1 with Increase Contrast). Decorative —
+/// never hit-testable.
+struct SkyCornerScrim: View {
+    /// Semi-axes as a fraction of the view's width/height, and where (0…1) the ellipse
+    /// is centered vertically on the trailing edge.
+    var widthFraction: CGFloat = 0.62
+    var heightFraction: CGFloat = 0.95
+    var anchorY: CGFloat = 1
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        GeometryReader { geo in
+            let high = contrast == .increased
+            EllipticalGradient(
+                stops: high
+                    ? [.init(color: .black.opacity(0.62), location: 0), .init(color: .black.opacity(0.34), location: 0.45), .init(color: .clear, location: 0.80)]
+                    : [.init(color: .black.opacity(0.48), location: 0), .init(color: .black.opacity(0.26), location: 0.45), .init(color: .clear, location: 0.78)],
+                center: .center, startRadiusFraction: 0, endRadiusFraction: 0.5
+            )
+            .frame(width: geo.size.width * (widthFraction + (high ? 0.04 : 0)) * 2,
+                   height: geo.size.height * (heightFraction + (high ? 0.05 : 0)) * 2)
+            .position(x: geo.size.width, y: geo.size.height * anchorY)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The detail screen's softer, centered version behind the digits and captions.
+struct SkyCenterScrim: View {
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        let high = contrast == .increased
+        EllipticalGradient(
+            stops: [.init(color: .black.opacity(high ? 0.45 : 0.35), location: 0),
+                    .init(color: .black.opacity(high ? 0.25 : 0.18), location: 0.6),
+                    .init(color: .clear, location: 1)],
+            center: .center, startRadiusFraction: 0, endRadiusFraction: 0.5
+        )
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+extension Sky {
+    /// Secondary text on a sky: 85%, or full white with Increase Contrast.
+    static func captionOpacity(_ contrast: ColorSchemeContrast) -> Double {
+        contrast == .increased ? 1 : 0.85
     }
 }

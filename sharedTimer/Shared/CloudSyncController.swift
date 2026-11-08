@@ -169,7 +169,12 @@ enum CloudSyncController {
             fetchRecord(for: payload) { record, database in
                 let zone = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
                 let shareID = record?.share?.recordID ?? link.shareRecordName.map { CKRecord.ID(recordName: $0, zoneID: zone) }
-                guard let shareID else { return completeOnce(nil) }
+                guard let shareID else {
+                    // A timer that only syncs between this person's devices (owner
+                    // record, no share yet): attach a share to that record now.
+                    if link.isOwner, let record { return shareExistingRecord(record, payload: payload, completion: completeOnce) }
+                    return completeOnce(nil)
+                }
                 database.fetch(withRecordID: shareID) { share, _ in
                     let url = (share as? CKShare)?.url
                     if let url { CloudLinkStore.setShareURL(url, timerID: payload.id) }
@@ -341,7 +346,10 @@ enum CloudSyncController {
     /// `action` is a short human-readable verb ("paused", "resumed", "extended") written
     /// alongside this device's DisplayNameStore name for the "who did what" surfaces.
     static func pushUp(_ payload: TimerPayload, action: String, completion: @escaping () -> Void = {}) {
-        guard let link = CloudLinkStore.get(timerID: payload.id) else { return completion() }
+        guard let link = CloudLinkStore.get(timerID: payload.id) else {
+            // Not in iCloud yet: with "Sync with iCloud" on, upload it as this person's own.
+            return adoptOwnTimer(payload, completion: completion)
+        }
         let scope: SyncScope = link.isOwner ? .owner : .participant
         let zoneID = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
         let recordID = CKRecord.ID(recordName: link.recordName, zoneID: zoneID)
@@ -363,6 +371,82 @@ enum CloudSyncController {
 
     /// Intents must keep the process alive through the fetch/save (including a conflict
     /// retry). Network failure remains best-effort, like other local timer mutations.
+    // MARK: - Sync your own timers (1.0.7, D12)
+
+    private static let syncOwnTimersKey = "syncOwnTimers"
+
+    /// "Sync with iCloud" in Settings (off by default): every timer, not only shared
+    /// ones, gets a record in this person's private zone, so it follows them to their
+    /// other devices signed in to the same iCloud account. Each device arms its own
+    /// alarm, so each one rings. No share is created; the record lives in the person's
+    /// own private database (privacy label unchanged).
+    static var syncOwnTimers: Bool {
+        get { UserDefaults(suiteName: appGroupID)?.bool(forKey: syncOwnTimersKey) ?? false }
+        set { UserDefaults(suiteName: appGroupID)?.set(newValue, forKey: syncOwnTimersKey) }
+    }
+
+    /// Uploads a timer that has no CloudLink as an owner record without a share.
+    static func adoptOwnTimer(_ payload: TimerPayload, completion: @escaping () -> Void = {}) {
+        guard syncOwnTimers, CloudLinkStore.get(timerID: payload.id) == nil,
+              !CloudLinkStore.hasLeft(timerID: payload.id) else { return completion() }
+        ensureZoneExists { ok in
+            guard ok else { return completion() }
+            let zoneID = CKRecordZone.ID(zoneName: zoneName, ownerName: CKCurrentUserDefaultName)
+            let record = CKRecord(recordType: recordType, recordID: CKRecord.ID(recordName: payload.id, zoneID: zoneID))
+            applyFields(from: payload, to: record)
+            let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
+            operation.savePolicy = .ifServerRecordUnchanged
+            operation.perRecordSaveBlock = { _, result in
+                switch result {
+                case .success:
+                    CloudLinkStore.set(CloudLink(timerID: payload.id, recordName: payload.id, zoneName: zoneName,
+                                                 zoneOwnerName: CKCurrentUserDefaultName, isOwner: true, shareRecordName: nil))
+                case .failure(let error):
+                    log("adoptOwnTimer(\(payload.id)) failed: \(error)")
+                }
+            }
+            operation.modifyRecordsResultBlock = { _ in completion() }
+            container.privateCloudDatabase.add(operation)
+        }
+    }
+
+    /// Turning sync on uploads every timer that isn't in iCloud yet.
+    static func adoptAllOwnTimers() {
+        for payload in TimerStore.loadAll() where CloudLinkStore.get(timerID: payload.id) == nil {
+            adoptOwnTimer(payload)
+        }
+    }
+
+    // Turning sync off only stops adopting new timers: ones already synced keep their
+    // links. Dropping them left records in iCloud that a later local delete never
+    // removed, so the other devices kept showing timers deleted here.
+
+    /// Adds a CKShare to an owner record that has none yet (a synced timer being shared).
+    private static func shareExistingRecord(_ record: CKRecord, payload: TimerPayload, completion: @escaping (URL?) -> Void) {
+        let share = CKShare(rootRecord: record)
+        share.publicPermission = .readWrite
+        share[CKShare.SystemFieldKey.title] = payload.label as CKRecordValue
+        let operation = CKModifyRecordsOperation(recordsToSave: [record, share], recordIDsToDelete: nil)
+        operation.savePolicy = .changedKeys
+        var url: URL?
+        operation.perRecordSaveBlock = { _, result in
+            // Read the URL from the saved instance (see createShare).
+            if case .success(let saved) = result, let saved = saved as? CKShare {
+                url = saved.url
+                CloudLinkStore.update(timerID: payload.id) { link in
+                    CloudLink(timerID: link.timerID, recordName: link.recordName, zoneName: link.zoneName,
+                              zoneOwnerName: link.zoneOwnerName, isOwner: true, shareRecordName: saved.recordID.recordName)
+                }
+                if let url { CloudLinkStore.setShareURL(url, timerID: payload.id) }
+            }
+        }
+        operation.modifyRecordsResultBlock = { _ in
+            completion(url)
+            if url != nil { DispatchQueue.main.async { NotificationCenter.default.post(name: sharingChanged, object: payload.id) } }
+        }
+        container.privateCloudDatabase.add(operation)
+    }
+
     static func pushUpAwaiting(_ payload: TimerPayload, action: String) async {
         await withCheckedContinuation { continuation in
             pushUp(payload, action: action) { continuation.resume() }
@@ -528,15 +612,45 @@ enum CloudSyncController {
             return
         }
 
+        CloudLinkStore.addPendingDelete(link)
+        deleteOwnedRecord(link)
+    }
+
+    /// Re-sends owner deletes that haven't reached the server yet (see
+    /// `CloudLinkStore.pendingDeletes`). Main app, on launch/foreground.
+    static func retryPendingDeletes() {
+        CloudLinkStore.pendingDeletes().forEach(deleteOwnedRecord)
+    }
+
+    private static func deleteOwnedRecord(_ link: CloudLink) {
         let zoneID = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
         let recordID = CKRecord.ID(recordName: link.recordName, zoneID: zoneID)
         let operation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: [recordID])
         operation.modifyRecordsResultBlock = { result in
-            if case .failure(let error) = result {
-                log("pushDelete(\(id)) failed: \(error)")
+            switch result {
+            case .success:
+                CloudLinkStore.removePendingDelete(timerID: link.timerID)
+            case .failure(let error):
+                // Already gone (deleted elsewhere, zone removed) counts as done; anything
+                // else stays queued for the next foreground.
+                if isAlreadyGone(error) {
+                    CloudLinkStore.removePendingDelete(timerID: link.timerID)
+                } else {
+                    log("pushDelete(\(link.timerID)) failed, will retry: \(error)")
+                }
             }
         }
         container.privateCloudDatabase.add(operation)
+    }
+
+    static func isAlreadyGone(_ error: Error) -> Bool {
+        guard let ckError = error as? CKError else { return false }
+        let gone: Set<CKError.Code> = [.unknownItem, .zoneNotFound, .userDeletedZone]
+        if gone.contains(ckError.code) { return true }
+        if ckError.code == .partialFailure, let partial = ckError.partialErrorsByItemID, !partial.isEmpty {
+            return partial.values.allSatisfy { isAlreadyGone($0) }
+        }
+        return false
     }
 
     // MARK: - Pull remote changes down
@@ -671,6 +785,19 @@ enum CloudSyncController {
                         applyPermission(permission, shareRecordName: share.recordID.recordName)
                     }
                 } else if let payload = makePayload(from: record) {
+                    // Another of this person's devices synced a timer (D12): link it so
+                    // changes made here go back up.
+                    if database === container.privateCloudDatabase, CloudLinkStore.get(timerID: payload.id) == nil {
+                        // Own records with no share are another of this person's devices
+                        // syncing (D12): only taken in while "Sync with iCloud" is on here,
+                        // or a device with it off would still receive every timer.
+                        guard syncOwnTimers || record.share != nil else { return }
+                        if !peek {
+                            CloudLinkStore.set(CloudLink(timerID: payload.id, recordName: recordID.recordName, zoneName: recordID.zoneID.zoneName,
+                                                         zoneOwnerName: recordID.zoneID.ownerName, isOwner: true,
+                                                         shareRecordName: record.share?.recordID.recordName))
+                        }
+                    }
                     updated.append(payload)
                 } else {
                     log("fetchZoneChanges: record \(recordID.recordName) fetched but unparseable")
@@ -682,6 +809,10 @@ enum CloudSyncController {
             }
         }
         operation.recordWithIDWasDeletedBlock = { recordID, _ in
+            // A deletion in this person's private zone only applies to timers linked
+            // here: with "Sync with iCloud" off, another device deleting its own copy
+            // must not delete this device's timer of the same id.
+            if database === container.privateCloudDatabase, CloudLinkStore.get(timerID: recordID.recordName) == nil { return }
             deletedIDs.append(recordID.recordName)
         }
         operation.recordZoneChangeTokensUpdatedBlock = { zoneID, token, _ in
@@ -745,6 +876,9 @@ enum CloudSyncController {
         record["alarmEnabled"] = payload.alarmEnabled as CKRecordValue
         record["vibrationEnabled"] = payload.vibrationEnabled as CKRecordValue
         record["recurrenceData"] = payload.recurrence.flatMap(AnnualRecurrence.encode) as CKRecordValue?
+        // Daily/weekly/monthly (1.0.7). A new field: must be deployed to the
+        // production schema before release. Older apps ignore it.
+        record["repeatRuleData"] = payload.recurrence.flatMap(AnnualRecurrence.encodeRepeat) as CKRecordValue?
         record["sequenceData"] = payload.sequence.flatMap(TimerSequenceWire.encode) as CKRecordValue?
         record["scheduledStartDate"] = payload.scheduledStartDate as CKRecordValue?
         record["updatedAt"] = payload.updatedAt as CKRecordValue?
@@ -764,6 +898,11 @@ enum CloudSyncController {
         if let value = record["recurrenceData"] {
             guard kindRaw == "countdown", sequence == nil, let data = value as? Data,
                   let decoded = AnnualRecurrence.decode(data) else { return nil }
+            recurrence = decoded
+        }
+        if let value = record["repeatRuleData"] {
+            guard kindRaw == "countdown", sequence == nil, recurrence == nil, let data = value as? Data,
+                  let decoded = AnnualRecurrence.decodeRepeat(data) else { return nil }
             recurrence = decoded
         }
         guard duration.isFinite, duration > 0, duration <= 1_000_000_000_000,

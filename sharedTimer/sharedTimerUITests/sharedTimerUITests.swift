@@ -128,6 +128,63 @@ final class sharedTimerUITests: XCTestCase {
         add(shot)
     }
 
+    /// Tapping a list card opens its detail on iPhone (the iPad split view's tap
+    /// selection must not take the tap from the row's NavigationLink).
+    @MainActor
+    func testTappingACardOpensItsDetail() throws {
+        let app = XCUIApplication()
+        let id = UUID().uuidString
+        let label = "Tap UI \(id.prefix(4))"
+        var share = URLComponents(string: "https://lokii49.github.io/sharedTimer/t.html")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id), URLQueryItem(name: "label", value: label),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(3600).timeIntervalSince1970)),
+            URLQueryItem(name: "dur", value: "3600"), URLQueryItem(name: "kind", value: "timer"),
+            URLQueryItem(name: "alarm", value: "0"), URLQueryItem(name: "vib", value: "0")
+        ]
+        widgetTestURL = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        app.open(try XCTUnwrap(share.url))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        card.tap()
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Delete"].exists)
+    }
+
+    @MainActor
+    func testFinishedTimerAppearsInHistoryWithRunAgain() throws {
+        let app = XCUIApplication()
+        let id = UUID().uuidString
+        let label = "History UI \(id.prefix(4))"
+        var share = URLComponents(string: "https://lokii49.github.io/sharedTimer/t.html")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id), URLQueryItem(name: "label", value: label),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(-30).timeIntervalSince1970)),
+            URLQueryItem(name: "dur", value: "120"), URLQueryItem(name: "kind", value: "timer"),
+            URLQueryItem(name: "alarm", value: "0"), URLQueryItem(name: "vib", value: "0")
+        ]
+        widgetTestURL = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        app.open(try XCTUnwrap(share.url))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        let history = app.buttons["historyButton"]
+        XCTAssertTrue(history.waitForExistence(timeout: 10))
+        history.tap()
+        XCTAssertTrue(app.staticTexts[label].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Run again"].firstMatch.exists)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "History"
+        shot.lifetime = .keepAlways
+        add(shot)
+        app.buttons["Done"].tap()
+    }
+
     @MainActor
     func testSettingsPicksAToneAndShowsAbout() throws {
         let app = XCUIApplication()
@@ -275,14 +332,14 @@ final class sharedTimerUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-ShowWhatsNew"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["Links that say what they are"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Made for iPad"].waitForExistence(timeout: 10))
         let firstPage = XCTAttachment(screenshot: app.screenshot())
         firstPage.name = "What's New page 1"
         firstPage.lifetime = .keepAlways
         add(firstPage)
         let continueButton = app.buttons["Continue"]
-        for title in ["Live or snapshot, at a glance", "Share across the room", "You decide who has it",
-                      "Keep a sequence you were sent", "Make it yours", "Timer speaks your language"] {
+        for title in ["Countdowns that come back", "Everything you've timed", "Know before it ends",
+                      "On every screen you use", "Just ask", "Easier on the eyes"] {
             continueButton.tap()
             XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 5), title)
         }
@@ -292,7 +349,7 @@ final class sharedTimerUITests: XCTestCase {
         add(lastPage)
         app.buttons["Start"].tap()
         XCTAssertTrue(app.navigationBars["Timers"].waitForExistence(timeout: 5) || app.buttons["New"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["Timer speaks your language"].exists)
+        XCTAssertFalse(app.staticTexts["Easier on the eyes"].exists)
     }
 
     @MainActor
@@ -425,13 +482,19 @@ final class sharedTimerUITests: XCTestCase {
         app.launch()
         app.buttons["New"].tap()
         app.buttons["New Countdown"].tap()
-        let toggle = app.switches["Repeat yearly"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        // D8 · A: a Repeat menu (Never / Daily / Weekly / Monthly / Yearly).
+        let repeatMenu = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Repeat")).firstMatch
+        XCTAssertTrue(repeatMenu.waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["Import from Calendar"].exists)
-        let control = toggle.switches.firstMatch
-        if control.exists { control.tap() } else { toggle.tap() }
-        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "1"), object: toggle)
-        XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 5), .completed)
+        repeatMenu.tap()
+        let weekly = app.buttons["Weekly"]
+        XCTAssertTrue(weekly.waitForExistence(timeout: 5))
+        weekly.tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Every ")).firstMatch.waitForExistence(timeout: 5))
+        repeatMenu.tap()
+        let yearly = app.buttons["Yearly"]
+        XCTAssertTrue(yearly.waitForExistence(timeout: 5))
+        yearly.tap()
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "February 29 uses February 28")).firstMatch.exists)
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "New countdown yearly and Calendar options"
@@ -460,7 +523,9 @@ final class sharedTimerUITests: XCTestCase {
         XCTAssertTrue(importButton.waitForExistence(timeout: 10))
         importButton.tap()
         let system = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let allow = system.buttons["Allow Full Access"]
+        // firstMatch: the permission alert sometimes exposes the button twice
+        // ("Multiple matching elements"), which failed this test intermittently.
+        let allow = system.buttons["Allow Full Access"].firstMatch
         if allow.waitForExistence(timeout: 5) { allow.tap() }
         XCTAssertTrue(app.navigationBars["Import from Calendar"].waitForExistence(timeout: 10))
         let loading = app.staticTexts["Loading events…"]
@@ -492,7 +557,7 @@ final class sharedTimerUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Calendar events couldn’t be loaded. Try again or enter a date yourself."].exists)
         XCTAssertTrue(app.staticTexts["Choose an event in the next year. Its title and start time become your countdown; Calendar stays unchanged."].exists)
         app.navigationBars["Import from Calendar"].buttons["Cancel"].tap()
-        XCTAssertTrue(app.switches["Repeat yearly"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Repeat")).firstMatch.waitForExistence(timeout: 5))
         app.buttons["Cancel"].tap()
     }
 

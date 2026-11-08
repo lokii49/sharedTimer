@@ -151,13 +151,16 @@ platform :ios do
     app = Spaceship::ConnectAPI::App.find(APP_BUNDLE_ID)
     version = app.get_edit_app_store_version(platform: platform)
     next unless version # submit_editable_version reports the missing version
-    if version.build
+    states = Spaceship::ConnectAPI::Build::ProcessingState
+    build_number = get_build_number(xcodeproj: "sharedTimer.xcodeproj")
+    # Skip only when it's this build: re-selecting the attached build throws, but an
+    # older build left attached (a rebuild after it was uploaded) must be replaced —
+    # 1.0.7 was once submitted with build 10 while build 11 was still processing.
+    if version.build && version.build.version == build_number.to_s
       UI.message("Build #{version.build.version} already attached to #{version.version_string}.")
       next
     end
-
-    states = Spaceship::ConnectAPI::Build::ProcessingState
-    build_number = get_build_number(xcodeproj: "sharedTimer.xcodeproj")
+    UI.message("Replacing build #{version.build.version} with #{build_number}.") if version.build
     build = nil
     120.times do # 30s apart: up to an hour
       build = Spaceship::ConnectAPI::Build.all(

@@ -11,6 +11,8 @@ struct TimerClipView: View {
     let payload: TimerPayload
     @State private var current: TimerPayload?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var lowPower = SwayingSkyGradient.isLowPower
+    @State private var keepAwake = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var hasAlarmed = false
     @ObservedObject private var alarm = AlarmPlayer.shared
@@ -22,16 +24,10 @@ struct TimerClipView: View {
             let remaining = payload.remaining
             let done = payload.isExpired
             let pending = payload.isPending(at: context.date)
-            let phase = reduceMotion ? 0 : sin(context.date.timeIntervalSinceReferenceDate / 19)
 
             ZStack {
-                LinearGradient(
-                    colors: Sky.colors(for: payload, at: context.date),
-                    startPoint: UnitPoint(x: 0.15 + 0.1 * phase, y: 0),
-                    endPoint: UnitPoint(x: 0.85 - 0.1 * phase, y: 1)
-                )
+                SwayingSkyGradient(colors: Sky.colors(for: payload, at: context.date), swaying: !reduceMotion && !lowPower)
                 .ignoresSafeArea()
-                .animation(.linear(duration: 1), value: phase)
 
                 VStack {
                     Text(payload.kind == .countdown ? "Shared Countdown" : "Shared Timer")
@@ -45,17 +41,24 @@ struct TimerClipView: View {
                         Text(payload.label)
                             .skyLabel(13)
                             .foregroundStyle(.white.opacity(0.85))
-                        if payload.recurrence != nil { Text("Repeats yearly").font(.caption).foregroundStyle(.white.opacity(0.6)) }
+                        if let recurrence = payload.recurrence { Text(recurrence.frequency.repeatsCaption).font(.caption).foregroundStyle(.white.opacity(0.6)) }
                         if let caption = payload.sequenceCaption {
                             Text(pending ? Sky.pendingSequenceCaption(payload.sequence!) : caption)
                                 .font(.caption).foregroundStyle(.white.opacity(0.6))
                         }
-                        Text(pending ? Sky.pendingStartText(for: payload.scheduledStartDate!, at: context.date) : TimeFormat.display(remaining))
+                        let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: false) : nil
+                        Text(pending ? Sky.pendingStartText(for: payload.scheduledStartDate!, at: context.date) : overtime ?? TimeFormat.display(remaining))
                             .skyDigits(64, weight: .thin)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(overtime == nil ? Color.white : Sky.overtimeInk)
                             .lineLimit(1)
                             .minimumScaleFactor(0.4)
                             .padding(.horizontal, 24)
+                            // Text, not String: a String branch here made the whole label
+                            // a String, and "Starts %@" / "%@ left" stopped being translated.
+                            .accessibilityLabel(pending ? Text("Starts \(payload.scheduledStartDate?.formatted(date: .abbreviated, time: .shortened) ?? "")")
+                                                : overtime != nil ? Text(verbatim: Sky.overtimeAccessibilityText(for: payload, at: context.date))
+                                                : Text("\(Duration.seconds(max(0, remaining.rounded())).formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))) left"))
+                            .accessibilityAddTraits(.updatesFrequently)
                         Text(subtitle(payload: payload, done: done))
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.75))
@@ -69,6 +72,13 @@ struct TimerClipView: View {
                     )
                     .font(.footnote)
                     .foregroundStyle(.white.opacity(0.6))
+
+                    if !done && !pending {
+                        KeepAwakeButton(isOn: $keepAwake)
+                            .font(.title3)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .padding(.top, 6)
+                    }
 
                     if alarm.isPlaying || vibration.isVibrating {
                         Button("Stop") {
@@ -115,6 +125,8 @@ struct TimerClipView: View {
                 }
             }
         }
+        .onReceive(SwayingSkyGradient.lowPowerPublisher) { lowPower = $0 }
+        .keepsScreenAwake($keepAwake, finished: (current ?? payload).advancedSequence().isFinished)
         .onAppear {
             current = payload.advancedSequence()
             hasAlarmed = current!.isExpired

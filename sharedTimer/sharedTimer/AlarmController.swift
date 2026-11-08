@@ -42,8 +42,15 @@ enum AlarmController {
 
     // MARK: - Authorization
 
-    /// Fire-and-forget: ask once at launch so the permission prompt isn't racing the
-    /// first schedule call. Safe to call repeatedly.
+    /// Denied in Settings: alarms fall back to a notification. The compose sheets and
+    /// Settings say so — otherwise the "rings full-screen" footnote promised an alarm
+    /// that never came.
+    static var fullScreenAlarmsDenied: Bool {
+        AlarmManager.shared.authorizationState == .denied
+    }
+
+    /// Fire-and-forget: ask up front so the permission prompt isn't racing a schedule
+    /// call. Safe to call repeatedly.
     static func requestAuthorizationIfNeeded() {
         Task { _ = await ensureAuthorized() }
     }
@@ -162,6 +169,14 @@ enum AlarmController {
             return
         }
         if payload.isPaused, payload.remaining > 0, ownsAlert(for: payload), await armPaused(payload, id: alarmID(for: payload.id)) {
+            TimerStore.setAlarmKitArmed(id: payload.id, true)
+            return
+        }
+        // Already counting down to this exact end with the same title/tone: keep it.
+        // Launch (`onAppear`) and every CloudKit pull re-arm each running timer, and
+        // cancel + re-create made AlarmKit's card flicker and churned the registries
+        // for nothing — the sequence path has kept matching alarms since 1.0.4.
+        if !payload.isPaused, payload.remaining > 0, ownsAlert(for: payload), keepsRunningAlarm(for: payload) {
             TimerStore.setAlarmKitArmed(id: payload.id, true)
             return
         }
@@ -432,13 +447,19 @@ enum AlarmController {
         return map?[id.uuidString] == signature(of: payload)
     }
 
-    /// Prunes entries for alarms AlarmKit no longer holds, like `recordPausedRemaining`.
-    private static func recordSignature(of payload: TimerPayload, for id: UUID) {
+    /// Records a just-scheduled alarm's presentation signature and intended fire date,
+    /// pruning entries for alarms AlarmKit no longer holds (like `recordPausedRemaining`)
+    /// — one `AlarmManager.alarms` read for both maps, instead of one per map per
+    /// scheduled alarm (an 8-phase sequence window schedules up to 9).
+    private static func recordScheduled(signature: String, end: Date, for id: UUID) {
         guard let defaults = UserDefaults(suiteName: "group.com.lokesh.sharedTimer") else { return }
         let live = Set(((try? AlarmManager.shared.alarms) ?? []).map(\.id.uuidString))
-        var map = (defaults.dictionary(forKey: signatureKey) as? [String: String] ?? [:]).filter { live.contains($0.key) }
-        map[id.uuidString] = signature(of: payload)
-        defaults.set(map, forKey: signatureKey)
+        var signatures = (defaults.dictionary(forKey: signatureKey) as? [String: String] ?? [:]).filter { live.contains($0.key) }
+        signatures[id.uuidString] = signature
+        defaults.set(signatures, forKey: signatureKey)
+        var ends = (defaults.dictionary(forKey: intendedEndKey) as? [String: Double] ?? [:]).filter { live.contains($0.key) }
+        ends[id.uuidString] = end.timeIntervalSince1970
+        defaults.set(ends, forKey: intendedEndKey)
     }
 
     private static let intendedEndKey = "alarmIntendedEnd"
@@ -452,13 +473,13 @@ enum AlarmController {
             .map(Date.init(timeIntervalSince1970:))
     }
 
-    /// Prunes entries for alarms AlarmKit no longer holds, like `recordPausedRemaining`.
-    private static func recordIntendedEnd(_ end: Date, for id: UUID) {
-        guard let defaults = UserDefaults(suiteName: "group.com.lokesh.sharedTimer") else { return }
-        let live = Set(((try? AlarmManager.shared.alarms) ?? []).map(\.id.uuidString))
-        var map = (defaults.dictionary(forKey: intendedEndKey) as? [String: Double] ?? [:]).filter { live.contains($0.key) }
-        map[id.uuidString] = end.timeIntervalSince1970
-        defaults.set(map, forKey: intendedEndKey)
+
+    /// A plain timer's alarm that is still counting down to `payload.endDate` (within
+    /// 1s, via the recorded intended end) with a matching presentation signature.
+    private static func keepsRunningAlarm(for payload: TimerPayload) -> Bool {
+        let id = alarmID(for: payload.id)
+        guard let alarm = ((try? AlarmManager.shared.alarms) ?? []).first(where: { $0.id == id }) else { return false }
+        return signatureMatches(payload, for: id) && matchesRunning(alarm, id: id, endDate: payload.endDate)
     }
 
     /// True when `alarm` is the current phase's plain countdown and still fires at
@@ -598,9 +619,9 @@ enum AlarmController {
             alert = AlarmPresentation.Alert(title: LocalizedStringResource("\(payload.label)"),
                 secondaryButton: AlarmButton(text: "Open", textColor: .white, systemImageName: "arrow.up.forward.app"),
                 secondaryButtonBehavior: .custom)
-        } else if payload.recurrence != nil {
+        } else if let recurrence = payload.recurrence {
             alert = AlarmPresentation.Alert(title: LocalizedStringResource("\(payload.label)"),
-                secondaryButton: AlarmButton(text: "Next Year", textColor: .white, systemImageName: "calendar.badge.clock"),
+                secondaryButton: AlarmButton(text: recurrence.frequency.nextTitle, textColor: .white, systemImageName: "calendar.badge.clock"),
                 secondaryButtonBehavior: .custom)
         } else if payload.sequence != nil {
             let button = isFinalSequencePhase
@@ -714,8 +735,10 @@ enum AlarmController {
 
         do {
             _ = try await AlarmManager.shared.schedule(id: id, configuration: config)
-            recordSignature(of: payload, for: id)
-            recordIntendedEnd(fixedAt ?? payload.endDate, for: id)
+            recordScheduled(signature: signature(of: payload), end: fixedAt ?? payload.endDate, for: id)
+            #if DEBUG
+            scheduledAlarmCount += 1
+            #endif
             return .scheduled
         } catch AlarmManager.AlarmError.maximumLimitReached {
             print("AlarmController: AlarmKit alarm limit reached for \(payload.id)")
@@ -725,6 +748,12 @@ enum AlarmController {
             return .failed
         }
     }
+
+    #if DEBUG
+    /// Device tests only: how many alarms were actually (re-)created — the alarm id is
+    /// deterministic, so a kept alarm and a re-created one look identical otherwise.
+    nonisolated(unsafe) static var scheduledAlarmCount = 0
+    #endif
 
     private static func cancelAlarm(id: String) async {
         do { try AlarmManager.shared.cancel(id: alarmID(for: id)) }

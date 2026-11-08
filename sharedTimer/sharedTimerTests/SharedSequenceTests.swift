@@ -118,7 +118,9 @@ struct SharedSequenceTests {
             #expect(abs(trigger.timeInterval - phase.endDate.timeIntervalSince(now)) < 0.001)
         }
         #expect(requests[0].content.sound != nil)
-        #expect(requests[1].content.sound == nil)
+        // Vibrate-only: a digitally silent named tone, since iOS only buzzes alongside a sound.
+        // (UNNotificationSound exposes no name, so only presence and "not the default" are checkable.)
+        #expect(requests[1].content.sound != nil && requests[1].content.sound != .default)
         #expect(requests[1].content.categoryIdentifier == NotificationScheduler.vibrationFinishCategoryID)
         #expect(Set(requests.map(\.identifier)).isSubset(of: Set(NotificationScheduler.requestIDs(id: source.id))))
     }

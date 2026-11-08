@@ -42,6 +42,12 @@ struct CloudLink: Codable {
     /// `share.url` later (e.g. to reshare) without a network round trip. Participants
     /// don't need this, since they only ever look up the Timer record itself.
     let shareRecordName: String?
+
+    /// Shared with other people: a participant always, an owner once a CKShare exists.
+    /// Since 1.0.7 an owner link can exist without a share — a timer synced between
+    /// this person's own devices (CloudSyncController.syncOwnTimers) — and that isn't
+    /// "shared": plain Delete, no Manage Sharing, no permission badge.
+    var isShared: Bool { !isOwner || shareRecordName != nil }
 }
 
 /// Local-only store for every timer's `CloudLink`, keyed by `timerID`. Same App Group
@@ -51,9 +57,10 @@ enum CloudLinkStore {
     private static let appGroupID = "group.com.lokesh.sharedTimer"
     private static let key = "cloudLinks"
 
-    private static var defaults: UserDefaults? {
-        UserDefaults(suiteName: appGroupID)
-    }
+    /// One instance per process: the list used to build several of these per row per
+    /// second. UserDefaults is thread-safe, and the suite still sees other processes'
+    /// writes (the widget, Messages and the notification service write the same group).
+    private static let defaults = UserDefaults(suiteName: appGroupID)
 
     static func get(timerID: String) -> CloudLink? {
         all()[timerID]
@@ -108,6 +115,35 @@ enum CloudLinkStore {
         guard urls[timerID] != url?.absoluteString else { return }
         urls[timerID] = url?.absoluteString
         defaults?.set(urls, forKey: shareURLKey)
+    }
+
+    // MARK: - Pending owner deletes
+
+    private static let pendingDeleteKey = "cloudPendingDeletes"
+
+    /// Owner "Delete for Everyone" requests whose CloudKit delete hasn't succeeded yet
+    /// (offline, no account, server error). The CloudLink itself is dropped immediately,
+    /// so without this an offline delete never reached the other participants and could
+    /// not be retried. `CloudSyncController.retryPendingDeletes` drains it.
+    static func pendingDeletes() -> [CloudLink] {
+        guard let data = defaults?.data(forKey: pendingDeleteKey) else { return [] }
+        return (try? JSONDecoder().decode([CloudLink].self, from: data)) ?? []
+    }
+
+    static func addPendingDelete(_ link: CloudLink) {
+        lock.withLock {
+            var links = pendingDeletes().filter { $0.timerID != link.timerID }
+            links.append(link)
+            defaults?.set(try? JSONEncoder().encode(links), forKey: pendingDeleteKey)
+        }
+    }
+
+    static func removePendingDelete(timerID: String) {
+        lock.withLock {
+            let links = pendingDeletes()
+            guard links.contains(where: { $0.timerID == timerID }) else { return }
+            defaults?.set(try? JSONEncoder().encode(links.filter { $0.timerID != timerID }), forKey: pendingDeleteKey)
+        }
     }
 
     // MARK: - Left shares (participant-side tombstones)

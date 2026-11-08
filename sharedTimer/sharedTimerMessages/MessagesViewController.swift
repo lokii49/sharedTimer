@@ -209,11 +209,14 @@ class MessagesViewController: MSMessagesAppViewController {
     private func stageAttributionText(for payload: TimerPayload, action: String) {
         guard !hasStagedAttribution,
               let conversation = activeConversation,
-              CloudLinkStore.get(timerID: payload.id) != nil else { return }
+              CloudLinkStore.get(timerID: payload.id)?.isShared == true else { return }
         hasStagedAttribution = true
-        let name = DisplayNameStore.name ?? "Someone"
+        let name = DisplayNameStore.name ?? String(localized: "Someone")
+        // The wire verb is English ("paused"); translate the whole phrase per verb, as
+        // the detail screen does — never interpolate the verb itself.
+        let phrase = CloudSyncController.attributionPhrase(name: name, action: action)
         let remaining = TimeFormat.display(payload.remaining)
-        conversation.insertText("\(name) \(action) \(payload.label) — \(remaining) left") { error in
+        conversation.insertText(String(localized: "\(phrase) \(payload.label) — \(remaining) left")) { error in
             if let error {
                 print("SharedTimer insertText (attribution) error: \(error)")
             }

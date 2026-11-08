@@ -13,7 +13,7 @@ import SwiftUI
 enum WhatsNew {
     /// The version whose features the pages below describe. Bump it (and the pages)
     /// when a later release gets its own tour; a release without one shows nothing.
-    static let contentVersion = "1.0.5"
+    static let contentVersion = "1.0.7"
     static let seenVersionKey = "whatsNewSeenVersion"
     /// UI tests and screenshots: present regardless of the stored version.
     static let forceShowArgument = "-ShowWhatsNew"
@@ -59,20 +59,20 @@ enum WhatsNew {
     }
 
     static let features: [Feature] = [
-        Feature(id: 0, title: String(localized: "Links that say what they are"),
-                body: String(localized: "Shared links now open from mirrornotes.org, and Messages shows the timer's name before anyone taps.")),
-        Feature(id: 1, title: String(localized: "Live or snapshot, at a glance"),
-                body: String(localized: "The share screen shows the timer and tells you whether the link stays in sync.")),
-        Feature(id: 2, title: String(localized: "Share across the room"),
-                body: String(localized: "Show a QR code. Anyone who scans it can watch the countdown but can't change it.")),
-        Feature(id: 3, title: String(localized: "You decide who has it"),
-                body: String(localized: "See who has a shared timer, remove someone, or stop sharing.")),
-        Feature(id: 4, title: String(localized: "Keep a sequence you were sent"),
-                body: String(localized: "Save a friend's Pomodoro or fasting plan as your own template.")),
-        Feature(id: 5, title: String(localized: "Make it yours"),
-                body: String(localized: "Set the name people see, pick one of four alarm tones, and replay this tour, all in Settings.")),
-        Feature(id: 6, title: String(localized: "Timer speaks your language"),
-                body: String(localized: "Ten languages, clearer VoiceOver and larger text. Share works again from a timer's own screen, too."))
+        Feature(id: 0, title: String(localized: "Made for iPad"),
+                body: String(localized: "Your timers in a sidebar, the live sky right beside them.")),
+        Feature(id: 1, title: String(localized: "Countdowns that come back"),
+                body: String(localized: "Repeat a countdown every day, week or month. Next Week skips ahead when you need it.")),
+        Feature(id: 2, title: String(localized: "Everything you've timed"),
+                body: String(localized: "Finished timers stay in History for 90 days. Run one again in a tap.")),
+        Feature(id: 3, title: String(localized: "Know before it ends"),
+                body: String(localized: "Get a heads-up halfway or a few minutes before the end, and see “+2:13” once it's over.")),
+        Feature(id: 4, title: String(localized: "On every screen you use"),
+                body: String(localized: "Sync your own timers with iCloud, and run one together in a FaceTime call with SharePlay.")),
+        Feature(id: 5, title: String(localized: "Just ask"),
+                body: String(localized: "Ask Siri how long is left, then pause or add a minute from the answer. Describe a sequence in your own words with Apple Intelligence.")),
+        Feature(id: 6, title: String(localized: "Easier on the eyes"),
+                body: String(localized: "Clearer text on every sky, Liquid Glass buttons, bigger cards with large text, and a sun to keep the screen on."))
     ]
 }
 
@@ -195,8 +195,8 @@ private struct WhatsNewIllustration: View {
     let isActive: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var period: Double { [5, 4, 3.2, 6, 5, 6, 10][index] }
-    private var restingT: Double { [0.6, 0.5, 0.5, 0.3, 0.6, 0.6, 0.45][index] }
+    private var period: Double { [5, 6, 5, 6, 5, 5, 5][index] }
+    private var restingT: Double { [0.5, 0.45, 0.6, 0.75, 0.5, 0.6, 0.5][index] }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !isActive)) { context in
@@ -204,13 +204,13 @@ private struct WhatsNewIllustration: View {
             let t = reduceMotion ? restingT : (seconds.truncatingRemainder(dividingBy: period)) / period
             Group {
                 switch index {
-                case 0: LinkPreviewScene(t: t)
-                case 1: LiveSnapshotScene(t: t)
-                case 2: QRScene(t: t)
-                case 3: ManageSharingScene(t: t)
-                case 4: TemplateScene(t: t)
-                case 5: SettingsScene()
-                default: LanguagesScene(t: t)
+                case 0: IPadScene(t: t)
+                case 1: RepeatScene(t: t)
+                case 2: HistoryScene(t: t)
+                case 3: OvertimeScene(t: t)
+                case 4: DevicesScene(t: t)
+                case 5: SiriScene(t: t)
+                default: ReadableScene(t: t)
                 }
             }
             .frame(width: 260, height: 210)
@@ -247,200 +247,206 @@ private func pulse(_ t: Double, _ inStart: Double, _ inEnd: Double, _ outStart: 
 
 private let emberCard = LinearGradient(colors: Sky.ember.stops(drain: 0), startPoint: .topLeading, endPoint: .bottomTrailing)
 
-/// A Messages link bubble sliding in, carrying the timer's name and what it is.
-private struct LinkPreviewScene: View {
+private let duskCard = LinearGradient(colors: Sky.dusk.stops(drain: 0.2), startPoint: .topLeading, endPoint: .bottomTrailing)
+private let nightCard = LinearGradient(colors: Sky.night.stops(drain: 0.2), startPoint: .topLeading, endPoint: .bottomTrailing)
+
+/// An iPad in miniature: a sidebar of small skies, the selected one filling the right.
+private struct IPadScene: View {
     let t: Double
 
     var body: some View {
-        let shown = pulse(t, 0.05, 0.3, 0.88, 1.0)
-        VStack(alignment: .leading, spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: "Pasta").font(.subheadline.weight(.semibold))
-                Text("8 min timer").font(.caption).opacity(0.85)
-            }
-            .padding(12)
-            .frame(width: 176, alignment: .leading)
-            .background(emberCard, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            Text(verbatim: "mirrornotes.org").font(.caption.weight(.semibold))
-        }
-        .padding(12)
-        .background(.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(.white.opacity(0.3)))
-        .opacity(shown)
-        .offset(x: -30 * (1 - ramp(t, 0.05, 0.3)))
-    }
-}
-
-/// The timer card with the two link kinds; "Live" breathes.
-private struct LiveSnapshotScene: View {
-    let t: Double
-
-    var body: some View {
-        let breathe = 0.35 + 0.65 * (0.5 + 0.5 * cos(t * 2 * .pi))
-        VStack(spacing: 18) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(verbatim: "Pasta").skyLabel(11).opacity(0.85)
-                Text(verbatim: "07:42").skyDigits(34, weight: .thin)
-            }
-            .padding(14)
-            .frame(width: 200, alignment: .leading)
-            .background(emberCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            HStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Circle().fill(Color(red: 0.24, green: 0.71, blue: 0.47)).frame(width: 9, height: 9).opacity(breathe)
-                    Text("Live")
+        let selected = Int(t * 3) % 3
+        let skies = [emberCard, duskCard, nightCard]
+        HStack(spacing: 6) {
+            VStack(spacing: 6) {
+                ForEach(0..<3, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(skies[i])
+                        .frame(width: 64, height: 34)
+                        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(.white.opacity(i == selected ? 0.9 : 0), lineWidth: 1.5))
                 }
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color(red: 0.23, green: 0.08, blue: 0.19))
-                .frame(width: 96, height: 34)
-                .background(.white.opacity(0.92), in: Capsule())
-                Text("Snapshot")
-                    .font(.footnote.weight(.semibold))
-                    .frame(width: 96, height: 34)
-                    .background(.white.opacity(0.14), in: Capsule())
-                    .overlay(Capsule().strokeBorder(.white.opacity(0.3)))
-            }
-        }
-    }
-}
-
-/// A real QR code (the same generator as the share sheet) with a scan line, view-only.
-private struct QRScene: View {
-    let t: Double
-    private static let code = QRCode.image(for: URL(string: "https://mirrornotes.org/timer?label=Pasta")!)
-
-    var body: some View {
-        let scan = 0.5 - 0.5 * cos(t * 2 * .pi)
-        VStack(spacing: 14) {
-            ZStack(alignment: .top) {
-                if let code = Self.code {
-                    Image(uiImage: code).interpolation(.none).resizable().frame(width: 128, height: 128)
-                }
-                Capsule().fill(Color(red: 1, green: 0.6, blue: 0.32)).frame(width: 140, height: 3)
-                    .offset(y: 128 * scan)
+                Spacer(minLength: 0)
             }
             .padding(8)
-            .background(.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            Label("View only", systemImage: "eye")
-                .font(.footnote.weight(.semibold))
+            .frame(width: 80, height: 168)
+            .background(.black.opacity(0.35))
+            ZStack {
+                skies[selected]
+                Text(verbatim: ["07:42", "3:12:05", "12d"][selected]).skyDigits(30, weight: .thin)
+            }
+            .frame(width: 150, height: 168)
+            .animation(.easeInOut(duration: 0.35), value: selected)
         }
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.white.opacity(0.35), lineWidth: 2))
     }
 }
 
-/// The shared timer at the centre of the people who have it; one is removed mid-loop.
-private struct ManageSharingScene: View {
+/// The Repeat choices, the highlight moving Daily → Weekly → Monthly.
+private struct RepeatScene: View {
     let t: Double
 
     var body: some View {
-        // "M" fades out (removed) mid-loop and returns just before the loop restarts.
-        let removed = ramp(t, 0.45, 0.6) - ramp(t, 0.92, 1.0)
-        let people: [(String, CGFloat, CGFloat)] = [("S", 0, -70), ("A", 80, 0), ("M", 0, 70), ("R", -80, 0)]
-        ZStack {
-            ForEach(people.indices, id: \.self) { i in
-                let p = people[i]
-                let fade = p.0 == "M" ? 1 - removed : 1
-                Path { path in
-                    path.move(to: CGPoint(x: 130, y: 105))
-                    path.addLine(to: CGPoint(x: 130 + p.1, y: 105 + p.2))
-                }
-                .stroke(.white.opacity(0.35), lineWidth: 1.5)
-                .opacity(fade)
-                Text(verbatim: p.0)
-                    .font(.subheadline.weight(.semibold))
-                    .frame(width: 36, height: 36)
-                    .background(.white.opacity(0.2), in: Circle())
-                    .overlay(Circle().strokeBorder(.white.opacity(0.5)))
-                    .position(x: 130 + p.1, y: 105 + p.2)
-                    .opacity(fade)
-            }
-            Text(verbatim: "Pasta")
-                .font(.footnote.weight(.semibold))
-                .frame(width: 62, height: 62)
-                .background(emberCard, in: Circle())
-                .position(x: 130, y: 105)
-        }
-    }
-}
-
-/// A received Work/Rest sequence drops into a bookmark.
-private struct TemplateScene: View {
-    let t: Double
-
-    var body: some View {
-        let drop = pulse(t, 0.05, 0.35, 0.88, 1.0)
-        VStack(spacing: 16) {
-            HStack(spacing: 6) {
-                Text("Work").skyLabel(10)
-                    .frame(width: 110, height: 34)
-                    .background(emberCard, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                Text("Rest").skyLabel(10)
-                    .frame(width: 62, height: 34)
-                    .background(.white.opacity(0.3), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-            .opacity(drop)
-            .offset(y: -36 * (1 - ramp(t, 0.05, 0.35)))
-            Image(systemName: ramp(t, 0.35, 0.4) > 0 && t < 0.9 ? "bookmark.fill" : "bookmark")
-                .font(.system(size: 64, weight: .light))
-        }
-    }
-}
-
-/// Settings in miniature: the name card's preview sentence and the tone chips.
-private struct SettingsScene: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Your name").skyLabel(9).opacity(0.8)
-                Text(verbatim: "Sam").font(.system(size: 28, weight: .thin))
+        let chosen = Int(t * 3) % 3
+        VStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: "Standup").skyLabel(10).opacity(0.85)
+                Text(["Every day", "Every Monday", "Every month on the 1st"][chosen]).font(.footnote)
             }
             .padding(12)
-            .frame(width: 236, alignment: .leading)
-            .background(LinearGradient(colors: Sky.dusk.stops(drain: 0), startPoint: .topLeading, endPoint: .bottomTrailing),
-                        in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            Text("\("Sam") paused Pasta · 4:12 left")
-                .font(.caption)
-                .padding(.horizontal, 12).padding(.vertical, 7)
-                .background(.white.opacity(0.18), in: Capsule())
-            HStack(spacing: 5) {
-                ForEach(AlarmTone.allCases) { tone in
-                    Text(tone.title)
-                        .font(.caption2.weight(.semibold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(width: 55, height: 28)
-                        .foregroundStyle(tone == .ember ? Color(red: 0.23, green: 0.08, blue: 0.19) : .white)
-                        .background(.white.opacity(tone == .ember ? 0.92 : 0.14), in: Capsule())
+            .frame(width: 220, alignment: .leading)
+            .background(nightCard, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            HStack(spacing: 6) {
+                ForEach(0..<3, id: \.self) { i in
+                    Text(["Daily", "Weekly", "Monthly"][i])
+                        .font(.caption.weight(.semibold))
+                        .frame(width: 70, height: 30)
+                        .foregroundStyle(i == chosen ? Color(red: 0.05, green: 0.12, blue: 0.31) : .white)
+                        .background(.white.opacity(i == chosen ? 0.92 : 0.14), in: Capsule())
                 }
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: chosen)
+    }
+}
+
+/// Two finished runs settle into History; Run again glows.
+private struct HistoryScene: View {
+    let t: Double
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ForEach(0..<2, id: \.self) { i in
+                let shown = pulse(t, 0.0 + Double(i) * 0.08, 0.15 + Double(i) * 0.08, 0.96, 1.0)
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: ["Pasta", "Bread proof"][i]).font(.footnote.weight(.semibold))
+                        Text(verbatim: ["8m", "45m"][i]).font(.caption2).opacity(0.85)
+                    }
+                    Spacer()
+                    Text("Run again")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(.white.opacity(i == 0 ? 0.2 + 0.25 * ramp(t, 0.5, 0.65) : 0.2), in: Capsule())
+                }
+                .padding(10)
+                .frame(width: 230)
+                .background {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(LinearGradient(colors: Sky.ember.stops(drain: 1), startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .saturation(0.55).brightness(-0.12)
+                }
+                .opacity(shown)
+                .offset(y: 16 * (1 - ramp(t, 0.0 + Double(i) * 0.08, 0.15 + Double(i) * 0.08)))
             }
         }
     }
 }
 
-/// Ten scripts take turns in the middle of a ring of ten points.
-private struct LanguagesScene: View {
+/// A heads-up chip, the timer running out, then the overtime count in ember orange.
+private struct OvertimeScene: View {
     let t: Double
-    private static let names = ["Timer", "计时器", "टाइमर", "Temporizador", "مؤقت", "Minuteur", "টাইমার", "Timer", "Таймер", "Pengatur waktu"]
 
     var body: some View {
-        let slot = t * Double(Self.names.count)
-        let index = min(Self.names.count - 1, Int(slot))
-        let local = slot - Double(index)
+        let left = max(0, 6 - t * 10)                // 6 s left → 0 at t = 0.6
+        let over = max(0, (t - 0.6) * 10)
         VStack(spacing: 12) {
-            ZStack {
-                Circle().strokeBorder(.white.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [3, 6]))
-                    .frame(width: 140, height: 140)
-                ForEach(0..<Self.names.count, id: \.self) { i in
-                    let angle = Double(i) / Double(Self.names.count) * 2 * .pi - .pi / 2
-                    Circle().fill(.white.opacity(i == index ? 1 : 0.55))
-                        .frame(width: i == index ? 10 : 7, height: i == index ? 10 : 7)
-                        .offset(x: cos(angle) * 70, y: sin(angle) * 70)
-                }
-                Text(verbatim: Self.names[index])
-                    .font(.system(size: 22, weight: .light))
-                    .opacity(min(ramp(local, 0, 0.15), 1 - ramp(local, 0.85, 1)))
+            Label("5 min left", systemImage: "bell")
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .background(.white.opacity(0.18), in: Capsule())
+                .opacity(pulse(t, 0.0, 0.1, 0.45, 0.55))
+            Text(verbatim: over > 0 ? "+" + TimeFormat.display(over) : TimeFormat.display(left))
+                .skyDigits(40, weight: .thin)
+                .foregroundStyle(over > 0 ? Sky.overtimeInk : .white)
+                .frame(width: 200, height: 80)
+                .background(over > 0 ? LinearGradient(colors: Sky.overcast, startPoint: .topLeading, endPoint: .bottomTrailing) : emberCard,
+                            in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+    }
+}
+
+/// A phone and an iPad on the same timer, joined by iCloud and SharePlay.
+private struct DevicesScene: View {
+    let t: Double
+
+    var body: some View {
+        let dash = t * 18
+        HStack(spacing: 14) {
+            RoundedRectangle(cornerRadius: 10, style: .continuous).fill(emberCard)
+                .frame(width: 54, height: 100)
+                .overlay(Text(verbatim: "07:42").font(.caption2.monospacedDigit()))
+            VStack(spacing: 6) {
+                Image(systemName: "icloud")
+                Path { p in p.move(to: CGPoint(x: 0, y: 0)); p.addLine(to: CGPoint(x: 56, y: 0)) }
+                    .stroke(.white.opacity(0.6), style: StrokeStyle(lineWidth: 2, dash: [5, 4], dashPhase: -dash))
+                    .frame(width: 56, height: 2)
+                Image(systemName: "shareplay")
             }
-            .frame(height: 150)
-            Text("VoiceOver · larger text").skyLabel(9).opacity(0.75)
+            .font(.system(size: 20))
+            RoundedRectangle(cornerRadius: 12, style: .continuous).fill(emberCard)
+                .frame(width: 104, height: 136)
+                .overlay(Text(verbatim: "07:42").skyDigits(22, weight: .thin))
+        }
+    }
+}
+
+/// Siri's answer card, with Pause and +1:00 to tap.
+private struct SiriScene: View {
+    let t: Double
+
+    var body: some View {
+        let shown = pulse(t, 0.05, 0.25, 0.9, 1.0)
+        VStack(spacing: 10) {
+            Text("“How long is left on Pasta?”").font(.caption).italic().opacity(0.85)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(verbatim: "Pasta").skyLabel(10).opacity(0.85)
+                Text(verbatim: "4:12").skyDigits(30, weight: .thin)
+                HStack(spacing: 6) {
+                    Text(verbatim: "+1:00").font(.caption.weight(.semibold))
+                        .padding(.horizontal, 12).padding(.vertical, 6).background(.white.opacity(0.2), in: Capsule())
+                    Text("Pause").font(.caption.weight(.semibold))
+                        .padding(.horizontal, 12).padding(.vertical, 6).background(.white.opacity(0.2), in: Capsule())
+                }
+            }
+            .padding(12)
+            .frame(width: 210, alignment: .leading)
+            .background(emberCard, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .opacity(shown)
+            .scaleEffect(0.94 + 0.06 * ramp(t, 0.05, 0.25))
+        }
+    }
+}
+
+/// A sky card with its corner scrim, glass pills and the Keep Screen On sun.
+private struct ReadableScene: View {
+    let t: Double
+
+    var body: some View {
+        let glow = 0.5 + 0.5 * sin(t * 2 * .pi)
+        VStack(spacing: 14) {
+            HStack(alignment: .lastTextBaseline) {
+                Text(verbatim: "07:42").skyDigits(30, weight: .thin)
+                Spacer()
+                Text(verbatim: "ENDS 7:48 PM").skyLabel(9)
+            }
+            .padding(12)
+            .frame(width: 220)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(LinearGradient(colors: Sky.ember.stops(drain: 0.8), startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .overlay(SkyCornerScrim())
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            HStack(spacing: 10) {
+                Image(systemName: "sun.max.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(Color(red: 1, green: 0.82, blue: 0.4))
+                    .opacity(0.6 + 0.4 * glow)
+                Text("Pause").font(.caption.weight(.semibold))
+                    .padding(.horizontal, 16).padding(.vertical, 8)
+                    .glassEffect(.regular, in: Capsule())
+            }
         }
     }
 }

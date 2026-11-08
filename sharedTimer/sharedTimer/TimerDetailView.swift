@@ -17,6 +17,12 @@ struct TimerDetailView: View {
     let onShare: (TimerPayload) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var contrast
+    @State private var lowPower = SwayingSkyGradient.isLowPower
+    /// This phone's display name, cached for `statusLine` (read every tick).
+    @State private var myName = DisplayNameStore.name
+    @State private var keepAwake = false
+    @ObservedObject private var sharePlay = SharePlayController.shared
     @State private var participantCount: Int?
     @State private var attribution: (name: String, action: String)?
     @State private var hasBuzzedFinish = false
@@ -40,6 +46,10 @@ struct TimerDetailView: View {
 
     init(payload: TimerPayload, onUpdate: @escaping (TimerPayload, String) -> Void, onSequenceAdvance: @escaping (TimerPayload, Bool) -> Void, onDelete: @escaping (TimerPayload) -> Void, onShare: @escaping (TimerPayload) -> Void) {
         self._payload = State(initialValue: payload)
+        // Seeded here so the first frame already shows the right Delete/Remove wording.
+        let link = CloudLinkStore.get(timerID: payload.id)
+        self._isShared = State(initialValue: link?.isShared == true)
+        self._isParticipant = State(initialValue: link?.isOwner == false)
         self.onUpdate = onUpdate
         self.onSequenceAdvance = onSequenceAdvance
         self.onDelete = onDelete
@@ -51,19 +61,11 @@ struct TimerDetailView: View {
             let remaining = payload.remaining
             let done = payload.isExpired
             let pending = payload.isPending(at: context.date)
-            // The sway: gradient anchors drift on a slow sine, one step per second,
-            // smoothed by the animation below — the sky never sits perfectly still.
-            let phase = reduceMotion ? 0 : sin(context.date.timeIntervalSinceReferenceDate / 19)
             let colors = Sky.colors(for: payload, at: context.date)
 
             ZStack {
-                LinearGradient(
-                    colors: colors,
-                    startPoint: UnitPoint(x: 0.15 + 0.1 * phase, y: 0),
-                    endPoint: UnitPoint(x: 0.85 - 0.1 * phase, y: 1)
-                )
+                SwayingSkyGradient(colors: colors, swaying: !reduceMotion && !lowPower)
                 .ignoresSafeArea()
-                .animation(.linear(duration: 1), value: phase)
                 // Same "not live yet" muting as SkyCard's row treatment.
                 .saturation(pending ? 0.35 : 1)
                 .brightness(pending ? -0.1 : 0)
@@ -84,36 +86,54 @@ struct TimerDetailView: View {
                         if pending, let sequence = payload.sequence {
                             Text(Sky.pendingSequenceCaption(sequence))
                                 .font(.caption)
-                                .foregroundStyle(.white.opacity(0.6))
+                                .foregroundStyle(.white.opacity(Sky.captionOpacity(contrast)))
                         } else if let caption = payload.sequenceCaption {
                             Text(caption)
                                 .font(.caption)
-                                .foregroundStyle(.white.opacity(0.6))
+                                .foregroundStyle(.white.opacity(Sky.captionOpacity(contrast)))
                         }
-                        Text(pending ? (payload.scheduledStartDate.map { Sky.pendingStartText(for: $0, at: context.date) } ?? "") : TimeFormat.display(remaining))
+                        let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: TimerStore.isFinishAcknowledged(id: payload.id)) : nil
+                        Text(pending ? (payload.scheduledStartDate.map { Sky.pendingStartText(for: $0, at: context.date) } ?? "") : overtime ?? TimeFormat.display(remaining))
                             .skyDigits(72, weight: .thin)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(overtime == nil ? Color.white : Sky.overtimeInk)
                             .lineLimit(1)
                             .minimumScaleFactor(0.4)
                             .padding(.horizontal, 24)
-                            .accessibilityLabel(pending ? "Starts \(payload.scheduledStartDate?.formatted(date: .abbreviated, time: .shortened) ?? "")"
-                                                : "\(Duration.seconds(max(0, remaining.rounded())).formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))) left")
+                            // Text, not String: a String branch here made the whole label
+                            // a String, and "Starts %@" / "%@ left" stopped being translated.
+                            .accessibilityLabel(pending ? Text("Starts \(payload.scheduledStartDate?.formatted(date: .abbreviated, time: .shortened) ?? "")")
+                                                : overtime != nil ? Text(verbatim: Sky.overtimeAccessibilityText(for: payload, at: context.date))
+                                                : Text("\(Duration.seconds(max(0, remaining.rounded())).formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))) left"))
                             .accessibilityAddTraits(.updatesFrequently)
                         Text(subtitle(done: done, pending: pending))
                             .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.75))
+                            .foregroundStyle(.white.opacity(Sky.captionOpacity(contrast)))
                         if let recurrence = payload.recurrence {
-                            Text("Repeats yearly · \(recurrence.timeZoneID)")
-                                .font(.caption).foregroundStyle(.white.opacity(0.75))
+                            Text("\(String(localized: recurrence.frequency.repeatsCaption)) · \(recurrence.timeZoneID)")
+                                .font(.caption).foregroundStyle(.white.opacity(Sky.captionOpacity(contrast)))
                         }
                         if let statusLine {
                             Text(statusLine)
                                 .font(.caption)
-                                .foregroundStyle(.white.opacity(0.55))
+                                .foregroundStyle(.white.opacity(Sky.captionOpacity(contrast)))
                         }
                     }
+                    // C6 · A: captions at 85% (white with Increase Contrast) over a
+                    // soft centered scrim, instead of 55–75% straight on the sky.
+                    .background(SkyCenterScrim().padding(.horizontal, -40).padding(.vertical, -20))
 
                     Spacer()
+
+                    if sharePlay.sharedTimerID == payload.id {
+                        // D11: running together in a FaceTime call.
+                        Label("Shared with the call · People: \(sharePlay.participantCount)", systemImage: "shareplay")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .glassEffect(.regular, in: Capsule())
+                            .padding(.bottom, 10)
+                    }
 
                     if isParticipant {
                         // Someone shared this with you: say what you may do with it.
@@ -135,13 +155,16 @@ struct TimerDetailView: View {
                         .disabled(readOnly)
                         .opacity(readOnly ? 0.45 : 1)
                     } else if !done {
-                        HStack(spacing: 12) {
-                            ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
+                        // One merged glass shape for the pair (C8 · A).
+                        GlassEffectContainer(spacing: 16) {
+                            HStack(spacing: 12) {
+                                ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
 
-                            Button(payload.isPaused ? "Resume" : "Pause") {
-                                togglePause()
+                                Button(payload.isPaused ? "Resume" : "Pause") {
+                                    togglePause()
+                                }
+                                .buttonStyle(.glassPill)
                             }
-                            .buttonStyle(.glassPill)
                         }
                         .disabled(readOnly)
                         .opacity(readOnly ? 0.45 : 1)
@@ -166,8 +189,8 @@ struct TimerDetailView: View {
                         }
                     }
 
-                    if payload.recurrence != nil {
-                        Button("Next Year") {
+                    if let recurrence = payload.recurrence {
+                        Button(String(localized: recurrence.frequency.nextTitle)) {
                             Task { await LiveActivityActions.advanceAnnual(timerID: payload.id, occurrenceEnd: payload.endDate.timeIntervalSince1970) }
                         }
                         .buttonStyle(.glassPill)
@@ -248,7 +271,13 @@ struct TimerDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .keepsScreenAwake($keepAwake, finished: payload.isFinished && payload.sequence == nil && payload.recurrence == nil)
         .toolbar {
+            if !payload.isFinished && !payload.isPending() {
+                ToolbarItem(placement: .topBarTrailing) {
+                    KeepAwakeButton(isOn: $keepAwake)
+                }
+            }
             if payload.sequence == nil && !readOnly {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingEdit = true } label: {
@@ -316,6 +345,10 @@ struct TimerDetailView: View {
                 applyEdit(edited)
             }
         }
+        .onReceive(SwayingSkyGradient.lowPowerPublisher) { lowPower = $0 }
+        // Feedback for the taps that change the timer (pause/resume, extend, repeat).
+        .sensoryFeedback(.selection, trigger: payload.isPaused)
+        .sensoryFeedback(.increase, trigger: payload.extraTime)
         .onAppear {
             hasBuzzedFinish = payload.isExpired
             readOnly = TimerStore.isReadOnly(id: payload.id)
@@ -377,9 +410,11 @@ struct TimerDetailView: View {
         }
     }
 
+    /// From the sharing state `refreshSharingState` keeps — this is read on every 1s
+    /// tick, and `CloudLinkStore.get` decodes the whole links table each time.
     private var removal: Removal {
-        guard let link = CloudLinkStore.get(timerID: payload.id) else { return .delete }
-        return link.isOwner ? .deleteForEveryone : .removeMine
+        guard isShared else { return .delete }
+        return isParticipant ? .removeMine : .deleteForEveryone
     }
 
     /// Re-checks the stored permission at the moment of a change: the on-screen
@@ -395,9 +430,11 @@ struct TimerDetailView: View {
 
     private func refreshSharingState() {
         let link = CloudLinkStore.get(timerID: payload.id)
-        isShared = link != nil
+        // Shared with people — not merely synced between this person's devices.
+        isShared = link?.isShared == true
         isParticipant = link?.isOwner == false
         readOnly = TimerStore.isReadOnly(id: payload.id)
+        myName = DisplayNameStore.name
     }
 
     private func manageSharing() {
@@ -480,7 +517,7 @@ struct TimerDetailView: View {
         if let participantCount, participantCount > 1 {
             parts.append(String(localized: "\(participantCount) watching"))
         }
-        if let attribution, attribution.name != DisplayNameStore.name {
+        if let attribution, attribution.name != myName {
             parts.append(CloudSyncController.attributionPhrase(name: attribution.name, action: attribution.action))
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")

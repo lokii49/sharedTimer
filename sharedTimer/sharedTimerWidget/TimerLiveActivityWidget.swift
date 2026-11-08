@@ -10,10 +10,24 @@ import SwiftUI
 struct TimerLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TimerActivityAttributes.self) { context in
-            LockScreenTimerView(timerID: context.attributes.timerID, label: liveLabel(context), kind: liveKind(context), state: liveState(context), isFinished: isFinished(context))
-                .padding()
-                .background(Sky.gradient(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining))
-                .activityBackgroundTint(Color.clear)
+            ActivityFamilySwitch {
+                LockScreenTimerView(timerID: context.attributes.timerID, label: liveLabel(context), kind: liveKind(context), state: liveState(context), isFinished: isFinished(context))
+                    .padding()
+                    // C6: a scrim under the trailing digits/caption, which sit on the
+                    // bright end of the sky.
+                    .background {
+                        ZStack {
+                            Sky.gradient(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining)
+                            SkyCornerScrim(widthFraction: 0.6, heightFraction: 1.2, anchorY: 0.7)
+                        }
+                    }
+            } small: {
+                SmallActivityTile(label: liveLabel(context), symbol: liveKind(context).symbolName,
+                                  sky: Sky.gradient(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining)) {
+                    liveActivityRemainingText(liveState(context))
+                }
+            }
+            .activityBackgroundTint(Color.clear)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -57,6 +71,8 @@ struct TimerLiveActivityWidget: Widget {
                     .foregroundStyle(liveKind(context).accentColor)
             }
         }
+        // Apple Watch Smart Stack and CarPlay (SmallActivityTile).
+        .supplementalActivityFamilies([.small])
     }
 }
 
@@ -149,6 +165,14 @@ private func liveActivityRemainingText(_ state: TimerActivityAttributes.ContentS
     let remaining = state.endDate.timeIntervalSinceNow
     if state.pausedRemaining == nil && remaining > 0 && remaining < 7 * 86400 {
         Text(timerInterval: Date.now...state.endDate, countsDown: true)
+    } else if state.pausedRemaining == nil && remaining <= 0 && -remaining < TimerPayload.overtimeLimit {
+        // Overtime (1.0.7, D2): counts up from the end, live, for an hour — the card
+        // re-renders at its stale date (the end), so this starts on its own.
+        HStack(spacing: 0) {
+            Text(verbatim: "+")
+            Text(timerInterval: state.endDate...state.endDate.addingTimeInterval(TimerPayload.overtimeLimit), countsDown: false)
+        }
+        .foregroundStyle(Sky.overtimeInk)
     } else {
         remainingText(endDate: state.endDate, pausedRemaining: state.pausedRemaining)
     }

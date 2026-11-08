@@ -53,17 +53,24 @@ struct TimerRunningView: View {
                         Text(payload.label)
                             .skyLabel(12)
                             .foregroundStyle(.white.opacity(0.85))
-                        if payload.recurrence != nil { Text("Repeats yearly").font(.caption).foregroundStyle(.white.opacity(0.6)) }
+                        if let recurrence = payload.recurrence { Text(recurrence.frequency.repeatsCaption).font(.caption).foregroundStyle(.white.opacity(0.6)) }
                         if let caption = payload.sequenceCaption {
                             Text(pending ? Sky.pendingSequenceCaption(payload.sequence!) : caption)
                                 .font(.caption).foregroundStyle(.white.opacity(0.6))
                         }
-                        Text(pending ? Sky.pendingStartText(for: payload.scheduledStartDate!, at: context.date) : TimeFormat.display(remaining))
+                        let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: false) : nil
+                        Text(pending ? Sky.pendingStartText(for: payload.scheduledStartDate!, at: context.date) : overtime ?? TimeFormat.display(remaining))
                             .skyDigits(52, weight: .thin)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(overtime == nil ? Color.white : Sky.overtimeInk)
                             .lineLimit(1)
                             .minimumScaleFactor(0.4)
                             .padding(.horizontal, 20)
+                            // Text, not String: a String branch here made the whole label
+                            // a String, and "Starts %@" / "%@ left" stopped being translated.
+                            .accessibilityLabel(pending ? Text("Starts \(payload.scheduledStartDate?.formatted(date: .abbreviated, time: .shortened) ?? "")")
+                                                : overtime != nil ? Text(verbatim: Sky.overtimeAccessibilityText(for: payload, at: context.date))
+                                                : Text("\(Duration.seconds(max(0, remaining.rounded())).formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))) left"))
+                            .accessibilityAddTraits(.updatesFrequently)
                         Text(subtitle(done: done))
                             .font(.footnote)
                             .foregroundStyle(.white.opacity(0.75))
@@ -94,19 +101,30 @@ struct TimerRunningView: View {
                             .padding(.bottom, 10)
                     }
 
-                    if !done && !pending {
-                        HStack(spacing: 10) {
-                            Button(payload.isPaused ? "Resume" : "Pause") {
-                                togglePause()
-                            }
-                            .buttonStyle(.glassPill)
+                    // Same controls, in the same order, as the app's detail screen.
+                    Group {
+                        if pending {
+                            Button("Start Now") { startEarly() }
+                                .buttonStyle(.glassPill)
+                        } else if !done {
+                            GlassEffectContainer(spacing: 16) {
+                                HStack(spacing: 12) {
+                                    ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
 
-                            ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
+                                    Button(payload.isPaused ? "Resume" : "Pause") {
+                                        togglePause()
+                                    }
+                                    .buttonStyle(.glassPill)
+                                }
+                            }
+                        } else {
+                            Button("Repeat") { repeatTimer() }
+                                .buttonStyle(.glassPill)
                         }
-                        // View only: shown but disabled, so it's clear why they don't work.
-                        .disabled(readOnly)
-                        .opacity(readOnly ? 0.45 : 1)
                     }
+                    // View only: shown but disabled, so it's clear why they don't work.
+                    .disabled(readOnly)
+                    .opacity(readOnly ? 0.45 : 1)
 
                     HStack(spacing: 22) {
                         Button {
@@ -230,7 +248,7 @@ struct TimerRunningView: View {
     private func refreshPermissionState() {
         readOnly = TimerStore.isReadOnly(id: payload.id)
         let link = CloudLinkStore.get(timerID: payload.id)
-        isShared = link != nil
+        isShared = link?.isShared == true
         isParticipant = link?.isOwner == false
     }
 
@@ -242,5 +260,18 @@ struct TimerRunningView: View {
     private func extend(by interval: TimeInterval) {
         payload = payload.extended(by: interval)
         onUpdate(payload, "extended")
+    }
+
+    private func startEarly() {
+        payload = payload.repeated()
+        onUpdate(payload, "startedEarly")
+    }
+
+    private func repeatTimer() {
+        alarm.stop()
+        vibration.stop()
+        hasBuzzedFinish = false
+        payload = payload.repeated()
+        onUpdate(payload, "repeated")
     }
 }

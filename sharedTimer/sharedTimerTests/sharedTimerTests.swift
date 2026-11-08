@@ -164,6 +164,92 @@ struct sharedTimerTests {
         #expect(decoded.vibrationEnabled == false)
     }
 
+    @Test func plusInLabelSurvivesTheLinkAndTheWebPage() throws {
+        // URLSearchParams (docs/t.html) reads a literal "+" as a space; it must go out as %2B.
+        let payload = TimerPayload(label: "C++ 1+1", duration: 60, kind: .timer)
+        let url = payload.url()
+        #expect(!(url.query ?? "").contains("+"))
+        #expect(url.absoluteString.contains("C%2B%2B"))
+        #expect(try #require(TimerPayload.from(url: url)).label == "C++ 1+1")
+    }
+
+    @Test func oversizedLinkLabelIsClampedOnACharacterBoundary() throws {
+        let long = String(repeating: "é", count: 400) // 800 UTF-8 bytes
+        let payload = TimerPayload(label: long, duration: 60, kind: .timer)
+        let decoded = try #require(TimerPayload.from(url: payload.url()))
+        #expect(decoded.label.utf8.count <= 512)
+        #expect(decoded.label == String(repeating: "é", count: 256))
+        #expect(TimerPayload.clampedLabel("Pasta") == "Pasta")
+    }
+
+    @Test func reminderFireDatesFitTheRun() {
+        let now = Date()
+        let timer = TimerPayload(id: "t", label: "Pasta", endDate: now.addingTimeInterval(600), duration: 600, kind: .timer)
+        #expect(TimerReminder.halfway.fireDate(for: timer, at: now) == now.addingTimeInterval(300))
+        #expect(TimerReminder.fiveMinutes.fireDate(for: timer, at: now) == now.addingTimeInterval(300))
+        #expect(TimerReminder.oneMinute.fireDate(for: timer, at: now) == now.addingTimeInterval(540))
+        #expect(TimerReminder.oneDay.fireDate(for: timer, at: now) == nil)  // countdown-only
+
+        let short = TimerPayload(id: "s", label: "Tea", endDate: now.addingTimeInterval(180), duration: 180, kind: .timer)
+        #expect(!TimerReminder.fiveMinutes.fits(span: short.span))
+        #expect(TimerReminder.fiveMinutes.fireDate(for: short, at: now) == nil)
+
+        let paused = timer.paused(at: now)
+        #expect(TimerReminder.oneMinute.fireDate(for: paused, at: now) == nil)
+        // Already past: nothing to schedule.
+        #expect(TimerReminder.halfway.fireDate(for: timer, at: now.addingTimeInterval(400)) == nil)
+
+        let countdown = TimerPayload(id: "c", label: "Trip", endDate: now.addingTimeInterval(3 * 86_400), duration: 4 * 86_400, kind: .countdown)
+        #expect(TimerReminder.oneDay.fireDate(for: countdown, at: now) == now.addingTimeInterval(2 * 86_400))
+        #expect(TimerReminder.halfway.fireDate(for: countdown, at: now) == nil)
+    }
+
+    @Test func sequenceRecentRoundTripsAndStartsASequence() throws {
+        let phases = [SequencePhase(label: "Focus", duration: 1500), SequencePhase(label: "Break", duration: 300)]
+        let running = SequenceInfo(phases: phases, loopCount: 4, phaseIndex: 1, loopIndex: 2)
+        let recent = RecentTimer(sequence: running, name: "  Pomodoro ")
+        #expect(recent.label == "Pomodoro")
+        #expect(recent.duration == 1800 * 4)
+        #expect(recent.sequence?.phaseIndex == 0 && recent.sequence?.loopIndex == 0)
+        #expect(recent.id != RecentTimer(label: "Pomodoro", duration: 7200, alarmEnabled: true, vibrationEnabled: false).id)
+
+        let decoded = try JSONDecoder().decode([RecentTimer].self, from: JSONEncoder().encode([recent]))
+        #expect(decoded.first?.sequence == recent.sequence)
+        let payload = try #require(decoded.first).payload()
+        #expect(payload.sequence?.phases == phases)
+        #expect(payload.label == "Focus")
+
+        // A recents list written before 1.0.7 (no sequence key) still decodes.
+        let old = Data(#"[{"label":"Pasta","duration":480,"alarmEnabled":true,"vibrationEnabled":false}]"#.utf8)
+        #expect(try JSONDecoder().decode([RecentTimer].self, from: old).first?.sequence == nil)
+    }
+
+    @Test func overtimeCountsUpForAnHourOnPlainTimersOnly() {
+        let now = Date()
+        let finished = TimerPayload(id: "o", label: "Pasta", endDate: now.addingTimeInterval(-133), duration: 480, kind: .timer)
+        #expect(finished.overtime(at: now).map { Int($0.rounded()) } == 133)
+        #expect(Sky.overtimeText(for: finished, at: now, acknowledged: false) == "+02:13")
+        #expect(Sky.overtimeText(for: finished, at: now, acknowledged: true) == nil)
+        #expect(finished.overtime(at: now.addingTimeInterval(TimerPayload.overtimeLimit)) == nil)
+
+        let running = TimerPayload(id: "r", label: "Run", endDate: now.addingTimeInterval(60), duration: 60, kind: .timer)
+        #expect(running.overtime(at: now) == nil)
+        let paused = TimerPayload(id: "p", label: "Held", endDate: now.addingTimeInterval(-5), duration: 60, pausedRemaining: 0, kind: .timer)
+        #expect(paused.overtime(at: now) == nil)
+        let phases = [SequencePhase(label: "Work", duration: 60)]
+        let sequence = TimerPayload(id: "s", label: "Work", endDate: now.addingTimeInterval(-5), duration: 60, kind: .timer,
+                                    sequence: SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 1))
+        #expect(sequence.overtime(at: now) == nil)
+    }
+
+    @Test func liveActivityIsNotRequestedForAFinishedTimer() {
+        let now = Date()
+        let finished = TimerPayload(id: "f", label: "Done", endDate: now.addingTimeInterval(-5), duration: 60, kind: .timer)
+        let running = TimerPayload(id: "r", label: "Run", endDate: now.addingTimeInterval(60), duration: 60, kind: .timer)
+        #expect(!LiveActivityController.shouldRequest(finished, at: now))
+        #expect(LiveActivityController.shouldRequest(running, at: now))
+    }
+
     @Test func urlDecodeIgnoresHostAndPath() throws {
         // Links moved from lokii49.github.io/sharedTimer/t.html to mirrornotes.org/timer in
         // 1.0.5; links already sent on the old host must keep decoding identically.

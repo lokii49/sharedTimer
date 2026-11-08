@@ -237,6 +237,20 @@ struct TimerPayload: Codable, Identifiable {
         !isPaused && remaining <= 0
     }
 
+    /// How long the overtime count-up runs after a timer finishes (1.0.7, D2).
+    static let overtimeLimit: TimeInterval = 3600
+
+    /// Time since a finished plain timer/countdown ended, for the "+2:13" overtime
+    /// count; nil when it isn't counting — paused, a sequence or yearly countdown (they
+    /// move on to their next phase/year), not finished yet, or more than an hour over.
+    /// Callers also stop showing it once the finish was acknowledged (Stop).
+    func overtime(at date: Date = Date()) -> TimeInterval? {
+        guard sequence == nil, recurrence == nil, pausedRemaining == nil else { return nil }
+        let over = date.timeIntervalSince(endDate)
+        guard over >= 0, over < Self.overtimeLimit else { return nil }
+        return over
+    }
+
     /// True once remaining time has reached zero, whether or not the timer is
     /// currently paused. `isExpired` deliberately stays false while paused — that's
     /// what stops the alarm/notification firing for a timer someone paused on
@@ -306,7 +320,7 @@ struct TimerPayload: Codable, Identifiable {
             let start = min(endDate.addingTimeInterval(-span), date)
             var end = max(targetDate, date)
             if let recurrence {
-                let anchor = AnnualRecurrence(date: targetDate, timeZone: TimeZone(identifier: recurrence.timeZoneID) ?? .current)
+                let anchor = recurrence.with(frequency: recurrence.frequency, anchoredOn: targetDate)
                 copy.recurrence = anchor
                 end = targetDate > date ? targetDate : (anchor.nextDate(after: date) ?? end)
             }
@@ -558,8 +572,31 @@ struct TimerPayload: Codable, Identifiable {
         if let recurrence, let data = AnnualRecurrence.encode(recurrence), let json = String(data: data, encoding: .utf8) {
             items.append(URLQueryItem(name: "annual", value: json))
         }
+        if let recurrence, let data = AnnualRecurrence.encodeRepeat(recurrence), let json = String(data: data, encoding: .utf8) {
+            items.append(URLQueryItem(name: "repeat", value: json))
+        }
         components.queryItems = items
+        // URLComponents leaves "+" literal in query values, and the web page's
+        // URLSearchParams reads a literal "+" as a space ("C++" showed as "C  ").
+        // "%2B" decodes back to "+" in both URLComponents and URLSearchParams.
+        components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         return components.url!
+    }
+
+    /// Caps text from a link at `maxBytes` UTF-8 bytes without splitting a character —
+    /// same limit the sequence wire format applies to phase labels, so a hand-built link
+    /// can't push a huge label into AlarmKit, ActivityKit (4 KB) or CloudKit.
+    static func clampedLabel(_ label: String, maxBytes: Int = 512) -> String {
+        guard label.utf8.count > maxBytes else { return label }
+        var result = ""
+        var used = 0
+        for character in label {
+            let size = String(character).utf8.count
+            guard used + size <= maxBytes else { break }
+            result.append(character)
+            used += size
+        }
+        return result
     }
 
     /// A sequence's top-level label/duration/kind/toggles are the current phase's
@@ -591,11 +628,12 @@ struct TimerPayload: Codable, Identifiable {
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let items = components.queryItems,
               let id = items.first(where: { $0.name == "id" })?.value, !id.isEmpty, id.utf8.count <= 512,
-              let label = items.first(where: { $0.name == "label" })?.value,
+              let rawLabel = items.first(where: { $0.name == "label" })?.value,
               let endString = items.first(where: { $0.name == "end" })?.value,
               let endInterval = Double(endString), endInterval.isFinite, abs(endInterval) <= 253_402_300_799 else {
             return nil
         }
+        let label = clampedLabel(rawLabel)
         let endDate = Date(timeIntervalSince1970: endInterval)
         let durString = items.first(where: { $0.name == "dur" })?.value
         let duration = durString.flatMap(Double.init) ?? max(endDate.timeIntervalSinceNow, 1)
@@ -619,6 +657,11 @@ struct TimerPayload: Codable, Identifiable {
         if let item = items.first(where: { $0.name == "annual" }) {
             guard kind == .countdown, sequence == nil, let json = item.value,
                   let value = AnnualRecurrence.decode(Data(json.utf8)) else { return nil }
+            recurrence = value
+        }
+        if let item = items.first(where: { $0.name == "repeat" }) {
+            guard kind == .countdown, sequence == nil, recurrence == nil, let json = item.value,
+                  let value = AnnualRecurrence.decodeRepeat(Data(json.utf8)) else { return nil }
             recurrence = value
         }
         var start: Date?

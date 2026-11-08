@@ -1,9 +1,11 @@
-• Novedad: Comparte solo para ver. En «Gestionar compartición», elige si los demás pueden hacer cambios o solo ver: sabrán cuál es, y se actualiza al instante.
-• Novedad: Entérate de lo que cambia. Cuando alguien pausa, extiende o detiene un temporizador compartido, recibes «Sam lo pausó: Pasta», aunque Timer esté cerrada.
-• Novedad: Agrega más de un minuto. Toca +1:00 como siempre, o usa la flecha de al lado para +5, +10, +15, +30 o una cantidad personalizada.
-• Novedad: «Gestionar compartición» aparece junto a «Compartir» en cuanto un temporizador está compartido.
-• Quitar es más claro: «Quitar de mis temporizadores» para los que te compartieron y «Eliminar para todos» (con confirmación) para los que compartiste tú.
-• El anillo sigue avanzando sin saltos después de agregar tiempo.
-• La app del Apple Watch ahora se llama Timer y habla tu idioma, y tiempos como «3 d 4 h» se muestran en tu idioma en todas partes.
-• Los temporizadores compartidos se actualizan de forma más confiable en el iPhone de todos después de pausar o extender.
-• Muchas correcciones menores en alarmas, secuencias, widgets y Actividades en Vivo.
+• Nuevo: iPad. Tus temporizadores a la izquierda y el cielo en vivo a la derecha.
+• Nuevo: las cuentas regresivas pueden repetirse cada día, semana o mes, no solo cada año.
+• Nuevo: Historial. Cada temporizador terminado durante 90 días, con «Repetir».
+• Nuevo: avisos a la mitad, 5 o 1 minuto antes del final (1 día o 1 hora antes en una cuenta regresiva).
+• Nuevo: tiempo extra. Un temporizador terminado sigue contando «+2:13» para que sepas cuánto ha pasado.
+• Nuevo: mantener la pantalla encendida, SharePlay en llamadas FaceTime y sincronización con iCloud para tener tus temporizadores en todos tus dispositivos.
+• Nuevo: pregúntale a Siri cuánto falta y pausa o agrega un minuto desde la respuesta.
+• Nuevo: describe una secuencia con tus palabras («25 trabajo, 5 descanso, 4 veces») en iPhone con Apple Intelligence.
+• Más fácil de leer y usar: texto más claro en cada cielo, botones Liquid Glass, tarjetas más grandes con texto grande y Deshacer al eliminar un temporizador.
+• Configuración ahora muestra si las alarmas y las notificaciones están permitidas.
+• Actividades en vivo en la pila inteligente del Apple Watch y en CarPlay. Descarga más pequeña, listas más rápidas y muchas correcciones.

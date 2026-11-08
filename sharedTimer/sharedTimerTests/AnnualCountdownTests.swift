@@ -201,3 +201,47 @@ struct AnnualCountdownTests {
         #expect(snapshot.payload?.endDate == date("2027-02-28T09:30:00Z"))
     }
 }
+
+/// Daily / weekly / monthly repeating countdowns (1.0.7, D8).
+struct RepeatingCountdownTests {
+    private func date(_ iso: String) -> Date { ISO8601DateFormatter().date(from: iso)! }
+
+    @Test func nextDatesFollowEachFrequency() throws {
+        let anchor = date("2027-01-05T09:00:00Z")  // a Tuesday
+        let daily = AnnualRecurrence(date: anchor, timeZone: .gmt, frequency: .daily)
+        #expect(daily.nextDate(after: date("2027-03-10T10:00:00Z")) == date("2027-03-11T09:00:00Z"))
+        let weekly = AnnualRecurrence(date: anchor, timeZone: .gmt, frequency: .weekly)
+        #expect(weekly.weekday == 3)
+        #expect(weekly.nextDate(after: date("2027-03-10T10:00:00Z")) == date("2027-03-16T09:00:00Z"))
+        let monthly = AnnualRecurrence(date: date("2027-01-31T09:00:00Z"), timeZone: .gmt, frequency: .monthly)
+        // February has no 31st: its last day instead, then back to the 31st.
+        #expect(monthly.nextDate(after: date("2027-02-01T00:00:00Z")) == date("2027-02-28T09:00:00Z"))
+        #expect(monthly.nextDate(after: date("2027-02-28T09:00:00Z")) == date("2027-03-31T09:00:00Z"))
+        let yearly = AnnualRecurrence(date: anchor, timeZone: .gmt)
+        #expect(yearly.nextDate(after: date("2027-03-10T10:00:00Z")) == date("2028-01-05T09:00:00Z"))
+    }
+
+    @Test func yearlyKeepsTheOldWireAndOtherRepeatsUseTheNewOne() throws {
+        let target = Date().addingTimeInterval(3 * 86_400)
+        let weekly = TimerPayload.composeAnnual(label: "Standup", targetDate: target, timeZone: .gmt, frequency: .weekly)
+        let url = weekly.url().absoluteString
+        #expect(url.contains("repeat=") && !url.contains("annual="))
+        let decoded = try #require(TimerPayload.from(url: weekly.url()))
+        #expect(decoded.recurrence?.frequency == .weekly && decoded.recurrence == weekly.recurrence)
+
+        let yearly = TimerPayload.composeAnnual(label: "Birthday", targetDate: target, timeZone: .gmt)
+        #expect(yearly.url().absoluteString.contains("annual=") && !yearly.url().absoluteString.contains("repeat="))
+        #expect(AnnualRecurrence.encodeRepeat(yearly.recurrence!) == nil)
+        #expect(AnnualRecurrence.encode(weekly.recurrence!) == nil)
+        // A hand-made `annual` envelope claiming weekly is still read as yearly.
+        var forged = weekly.recurrence!
+        forged.frequency = .yearly; forged.weekday = nil
+        #expect(AnnualRecurrence.decode(AnnualRecurrence.encode(forged)!)?.frequency == .yearly)
+    }
+
+    @Test func olderRecurrenceJSONStillDecodesAsYearly() throws {
+        let json = Data(#"{"month":2,"day":29,"hour":9,"minute":0,"second":0,"timeZoneID":"GMT"}"#.utf8)
+        let decoded = try JSONDecoder().decode(AnnualRecurrence.self, from: json)
+        #expect(decoded.frequency == .yearly && decoded.weekday == nil)
+    }
+}

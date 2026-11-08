@@ -95,6 +95,7 @@ struct NewSequenceSheet: View {
     @State private var draftPhases: [DraftPhase]
     @State private var loopCount: Int
     @State private var startLater = false
+    @State private var showingDescribe = false
     @State private var scheduledStart: Date = Date().addingTimeInterval(3600)
 
     let onCreate: (TimerPayload) -> Void
@@ -240,6 +241,16 @@ struct NewSequenceSheet: View {
                         }
                         .onDelete(perform: deleteSaved)
                     }
+                    // D13 · B: only where Apple Intelligence is available.
+                    if SequenceDescriber.isAvailable {
+                        startFromRow(
+                            name: String(localized: "Describe…"),
+                            subtitle: String(localized: "Say it in your own words, like “25 on, 5 off, 4 times”."),
+                            isSelected: false
+                        ) {
+                            showingDescribe = true
+                        }
+                    }
                 } header: {
                     Text("Start from")
                 } footer: {
@@ -337,6 +348,12 @@ struct NewSequenceSheet: View {
             .background(Sky.room)
             .navigationTitle("New Sequence")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showingDescribe) {
+                DescribeSequenceSheet { phases, loops in
+                    draftPhases = phases.map(DraftPhase.init)
+                    loopCount = loops
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -346,11 +363,17 @@ struct NewSequenceSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Start") {
-                        onCreate(TimerPayload.composeSequence(
+                        let payload = TimerPayload.composeSequence(
                             phases: normalizedPhases(),
                             loopCount: loopCount,
                             startDate: startLater ? scheduledStart : nil
-                        ))
+                        )
+                        onCreate(payload)
+                        // One recency list for chips, Quick Actions and the Control.
+                        if let sequence = payload.sequence {
+                            RecentTimersStore.record(sequence: sequence, name: sequenceName)
+                            RecentTimersSync.refresh()
+                        }
                         dismiss()
                     }
                     .fontWeight(.semibold)
@@ -395,12 +418,16 @@ private struct PhaseDurationPicker: View {
             }
             .pickerStyle(.wheel)
             .frame(maxWidth: .infinity)
+            // Side-by-side wheels steal each other's drags without clipping (see
+            // TimerFieldsView's wheelColumn).
+            .clipped()
 
             Picker("Minutes", selection: minutesBinding) {
                 ForEach(0..<60) { m in Text("\(m) min").tag(m) }
             }
             .pickerStyle(.wheel)
             .frame(maxWidth: .infinity)
+            .clipped()
         }
         .frame(height: 120)
     }

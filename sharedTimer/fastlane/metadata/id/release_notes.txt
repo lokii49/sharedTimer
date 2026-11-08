@@ -1,9 +1,11 @@
-• Baru: Bagikan hanya untuk dilihat. Di "Kelola Berbagi", pilih apakah orang lain bisa mengubah atau hanya melihat — mereka akan tahu yang mana, dan langsung diperbarui.
-• Baru: Tahu apa yang berubah. Saat seseorang menjeda, memperpanjang, atau menghentikan timer bersama, Anda menerima "Sam menjeda Pasta", meski Timer sedang tertutup.
-• Baru: Tambah lebih dari satu menit. Ketuk +1:00 seperti biasa, atau gunakan panah di sebelahnya untuk +5, +10, +15, +30, atau waktu kustom.
-• Baru: "Kelola Berbagi" ada tepat di sebelah "Bagikan" setelah timer dibagikan.
-• Menghapus lebih jelas: "Hapus dari Timer Saya" untuk timer yang dibagikan kepada Anda, dan "Hapus untuk Semua" (dengan konfirmasi) untuk timer yang Anda bagikan.
-• Cincin tetap menghitung mundur dengan mulus setelah Anda menambah waktu.
-• App Apple Watch kini bernama Timer dan memakai bahasa Anda, dan waktu seperti "3 h 4 j" tampil dalam bahasa Anda di mana-mana.
-• Timer bersama kini diperbarui lebih andal di iPhone semua orang setelah dijeda atau diperpanjang.
-• Banyak perbaikan kecil untuk alarm, urutan, widget, dan Live Activity.
+• Baru: iPad. Timer Anda di kiri, langit langsung di kanan.
+• Baru: hitung mundur bisa berulang setiap hari, minggu, atau bulan — tidak hanya setiap tahun.
+• Baru: Riwayat. Setiap timer yang selesai selama 90 hari, dengan “Jalankan lagi”.
+• Baru: pengingat di separuh waktu, 5 atau 1 menit sebelum selesai (1 hari atau 1 jam sebelum hitung mundur).
+• Baru: waktu lebih. Timer yang selesai terus menghitung “+2:13” agar Anda tahu sudah berapa lama.
+• Baru: Biarkan Layar Menyala, SharePlay di panggilan FaceTime, dan sinkronisasi iCloud agar timer Anda ada di semua perangkat Anda.
+• Baru: tanya Siri berapa lama lagi, lalu jeda atau tambah satu menit langsung dari jawabannya.
+• Baru: jelaskan urutan dengan kata-kata Anda (“25 kerja, 5 istirahat, 4 kali”) di iPhone dengan Apple Intelligence.
+• Lebih mudah dibaca dan dipakai: teks lebih jelas di setiap langit, tombol Liquid Glass, kartu lebih besar saat teks besar, dan Urungkan setelah menghapus timer.
+• Pengaturan kini menampilkan apakah alarm dan notifikasi diizinkan.
+• Live Activity di Smart Stack Apple Watch dan CarPlay. Unduhan lebih kecil, daftar lebih cepat, dan banyak perbaikan.

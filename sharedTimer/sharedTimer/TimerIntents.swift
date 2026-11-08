@@ -160,19 +160,21 @@ struct GetTimerRemainingIntent: AppIntent {
     static var parameterSummary: some ParameterSummary { Summary("Get time remaining on \(\.$timer)") }
 
     @MainActor
-    func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<Double> {
+    func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<Double> & ShowsSnippetIntent {
         let current = try TimerIntentActions.read(timerID: timer.id)
         let time = TimerIntentActions.spokenTime(current.seconds)
+        // The interactive card (TimerSnippet.swift): sky, live countdown, Pause/+1:00.
+        let card = TimerStatusSnippetIntent(timer: timer)
         switch current.status {
         case .scheduled:
             let start = current.payload.scheduledStartDate!.formatted(date: .abbreviated, time: .shortened)
-            return .result(value: current.seconds, dialog: "\(current.payload.label) is scheduled to start \(start).")
+            return .result(value: current.seconds, dialog: "\(current.payload.label) is scheduled to start \(start).", snippetIntent: card)
         case .finished:
-            return .result(value: 0, dialog: "\(current.payload.label) has finished.")
+            return .result(value: 0, dialog: "\(current.payload.label) has finished.", snippetIntent: card)
         case .paused:
-            return .result(value: current.seconds, dialog: "\(current.payload.label) is paused with \(time) left.")
+            return .result(value: current.seconds, dialog: "\(current.payload.label) is paused with \(time) left.", snippetIntent: card)
         case .running:
-            return .result(value: current.seconds, dialog: "\(current.payload.label) has \(time) left.")
+            return .result(value: current.seconds, dialog: "\(current.payload.label) has \(time) left.", snippetIntent: card)
         }
     }
 }

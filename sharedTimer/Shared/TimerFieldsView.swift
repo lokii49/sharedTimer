@@ -23,12 +23,22 @@ struct TimerFieldsView: View {
     /// for the Messages compose sheet, which never pre-picks a kind.
     var kindLocked: Bool = false
     var yearlyCountdown: Bool = false
+    /// A repeating countdown's frequency (1.0.7, D8): the footnote names its skip
+    /// button. Yearly keeps the original "Next Year" sentences.
+    var repeatFrequency: AnnualRecurrence.Frequency? = nil
     /// False in the main app's Edit sheet: a running timer's time changes through
     /// +1:00/Extend, so the length wheel and presets are hidden there.
     var showsTimerLength: Bool = true
     /// True when editing a paused countdown — moving the target of a paused countdown
     /// has no meaning until it resumes (resume re-derives the end from the time left).
     var targetDateDisabled: Bool = false
+    /// AlarmKit denied (main app only — extensions never pass it): the footnote says the
+    /// timer will only notify, with a way to Settings, instead of promising a full-screen
+    /// alarm.
+    var fullScreenAlarmsOff: Bool = false
+    /// Extra rows under the Alarm/Vibrate toggles — the main app's reminder chips
+    /// (TimerReminders.swift is main-app only, so it comes in as a view).
+    var whenItEndsExtra: AnyView? = nil
 
     private let presets: [Double] = [1, 3, 5, 10, 15, 30, 60]
     private let datePresets: [(String, TimeInterval)] = [
@@ -60,10 +70,21 @@ struct TimerFieldsView: View {
             // the alarm off (a silent buzz instead of a ring) or off with the alarm on.
             Toggle("Vibrate", isOn: $vibrationEnabled)
                 .tint(kind.accentColor)
+            if let whenItEndsExtra { whenItEndsExtra }
         } header: {
             Text("When it ends")
         } footer: {
-            Text(alarmFootnote)
+            if fullScreenAlarmsOff && (alarmEnabled || vibrationEnabled) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Full-screen alarms are off for Timer, so this will only send a notification, which follows the silent switch.", systemImage: "exclamationmark.triangle.fill")
+                    if let settings = URL(string: UIApplication.openSettingsURLString) {
+                        Link("Turn on in Settings", destination: settings)
+                            .fontWeight(.semibold)
+                    }
+                }
+            } else {
+                Text(alarmFootnote)
+            }
         }
 
         if kind == .timer {
@@ -101,6 +122,16 @@ struct TimerFieldsView: View {
         }
     }
 
+    @ViewBuilder private var datePresetButtons: some View {
+        ForEach(datePresets, id: \.0) { title, offset in
+            Button(title) {
+                targetDate = Date().addingTimeInterval(offset)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+    }
+
     private var countdownDateSection: some View {
         Section {
             DatePicker(
@@ -110,14 +141,10 @@ struct TimerFieldsView: View {
                 displayedComponents: [.date, .hourAndMinute]
             )
 
-            HStack(spacing: 8) {
-                ForEach(datePresets, id: \.0) { title, offset in
-                    Button(title) {
-                        targetDate = Date().addingTimeInterval(offset)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
+            // Stacks at large text sizes instead of squeezing three buttons into a row.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { datePresetButtons }
+                VStack(alignment: .leading, spacing: 8) { datePresetButtons }
             }
         } footer: {
             Text(targetDateDisabled ? "Resume to change the date." : "Counting down to \(TimeFormat.targetDate(targetDate))")
@@ -132,6 +159,11 @@ struct TimerFieldsView: View {
     /// Whole sentences per case (not the button name interpolated), so translations
     /// can name the buttons the way the system alert does.
     private var alarmFootnote: String {
+        if let repeatFrequency, repeatFrequency != .yearly, alarmEnabled || vibrationEnabled {
+            return alarmEnabled
+                ? String(localized: "Rings full-screen with Stop and a button to skip to the next one, even when the app is closed or the phone is on silent.")
+                : String(localized: "Buzzes full-screen with Stop and a button to skip to the next one, no sound, even when the app is closed or the phone is on silent.")
+        }
         switch (alarmEnabled, vibrationEnabled, yearlyCountdown) {
         case (true, _, false):
             return String(localized: "Rings full-screen with Stop and Repeat, even when the app is closed or the phone is on silent.")
@@ -179,7 +211,8 @@ struct TimerFieldsView: View {
 
     private func wheelColumn(_ value: Binding<Int>, range: ClosedRange<Int>, unit: String) -> some View {
         HStack(spacing: 4) {
-            Picker("", selection: value) {
+            // Labelled with its unit (hidden visually): VoiceOver read a bare "5, adjustable".
+            Picker(unit, selection: value) {
                 ForEach(range, id: \.self) { v in
                     Text("\(v)").tag(v)
                 }
@@ -187,6 +220,7 @@ struct TimerFieldsView: View {
             .pickerStyle(.wheel)
             .labelsHidden()
             .clipped()
+            .accessibilityLabel(unit)
 
             Text(unit)
                 .font(.callout)
@@ -233,9 +267,8 @@ struct ExtendTimeMenu: View {
             .buttonStyle(SplitPillSegmentStyle(leading: 12, trailing: 16))
             .accessibilityLabel(String(localized: "More time options"))
         }
-        .background(.white.opacity(0.17), in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 1))
-        .clipShape(Capsule())
+        // One glass capsule around both halves (C8 · A).
+        .glassEffect(.regular.interactive(), in: Capsule())
     }
 }
 
@@ -247,7 +280,8 @@ private struct SplitPillSegmentStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 15, weight: .semibold))
+            .font(.subheadline.weight(.semibold))
+            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
             .foregroundStyle(.white)
             .padding(.leading, leading)
             .padding(.trailing, trailing)

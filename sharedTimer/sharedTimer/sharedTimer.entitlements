@@ -9,6 +9,8 @@
 		<string>applinks:lokii49.github.io</string>
 		<string>applinks:mirrornotes.org</string>
 	</array>
+	<key>com.apple.developer.group-session</key>
+	<true/>
 	<key>com.apple.developer.icloud-container-identifiers</key>
 	<array>
 		<string>iCloud.com.lokesh.sharedTimer</string>
