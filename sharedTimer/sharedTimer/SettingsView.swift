@@ -168,11 +168,8 @@ struct SettingsView: View {
         }
         .onChange(of: syncOwnTimers) { _, on in
             CloudSyncController.syncOwnTimers = on
-            if on {
-                CloudSyncController.adoptAllOwnTimers()
-            } else {
-                CloudSyncController.releaseOwnTimers()
-            }
+            // Off only stops syncing new timers (see CloudSyncController).
+            if on { CloudSyncController.adoptAllOwnTimers() }
         }
     }
 

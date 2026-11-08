@@ -128,6 +128,33 @@ final class sharedTimerUITests: XCTestCase {
         add(shot)
     }
 
+    /// Tapping a list card opens its detail on iPhone (the iPad split view's tap
+    /// selection must not take the tap from the row's NavigationLink).
+    @MainActor
+    func testTappingACardOpensItsDetail() throws {
+        let app = XCUIApplication()
+        let id = UUID().uuidString
+        let label = "Tap UI \(id.prefix(4))"
+        var share = URLComponents(string: "https://lokii49.github.io/sharedTimer/t.html")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id), URLQueryItem(name: "label", value: label),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(3600).timeIntervalSince1970)),
+            URLQueryItem(name: "dur", value: "3600"), URLQueryItem(name: "kind", value: "timer"),
+            URLQueryItem(name: "alarm", value: "0"), URLQueryItem(name: "vib", value: "0")
+        ]
+        widgetTestURL = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        app.open(try XCTUnwrap(share.url))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        card.tap()
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Delete"].exists)
+    }
+
     @MainActor
     func testFinishedTimerAppearsInHistoryWithRunAgain() throws {
         let app = XCUIApplication()

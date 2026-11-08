@@ -703,31 +703,36 @@ struct ContentView: View {
         }
     }
 
-    private func row(for payload: TimerPayload) -> some View {
-        LiveSkyCard(payload: payload)
+    /// The card plus how it opens: on iPhone a hidden NavigationLink behind it (a
+    /// visible one draws the gray chevron outside the sky); on iPad a tap that selects
+    /// it for the detail column, outlined while shown. Separate branches on purpose —
+    /// a tap gesture installed on iPhone rows too (even with a gated body) can take the
+    /// tap away from the NavigationLink.
+    @ViewBuilder private func selectableCard(_ payload: TimerPayload) -> some View {
+        let card = LiveSkyCard(payload: payload)
             .accessibilityAddTraits(.isButton)
             // C9 · A: landscape (and iPad) cards stop at 560 pt, centered.
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
-            // Hidden NavigationLink behind the card: a visible one draws the gray
-            // disclosure chevron outside the sky, which breaks the full-bleed card.
-            .background {
-                if !isRegular {
-                    NavigationLink("", value: payload.id)
-                        .opacity(0)
+        if isRegular {
+            card
+                .contentShape(Rectangle())
+                .onTapGesture { navigationPath = [payload.id] }
+                .overlay {
+                    if navigationPath.last == payload.id {
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .strokeBorder(.white.opacity(0.85), lineWidth: 2)
+                            .frame(maxWidth: 560)
+                            .allowsHitTesting(false)
+                    }
                 }
-            }
-            // iPad: a tap selects the timer for the detail column, outlined while shown.
-            .contentShape(Rectangle())
-            .onTapGesture { if isRegular { navigationPath = [payload.id] } }
-            .overlay {
-                if isRegular && navigationPath.last == payload.id {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(.white.opacity(0.85), lineWidth: 2)
-                        .frame(maxWidth: 560)
-                        .allowsHitTesting(false)
-                }
-            }
+        } else {
+            card.background(NavigationLink("", value: payload.id).opacity(0))
+        }
+    }
+
+    private func row(for payload: TimerPayload) -> some View {
+        selectableCard(payload)
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))

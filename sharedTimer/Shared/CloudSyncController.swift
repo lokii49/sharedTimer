@@ -417,13 +417,9 @@ enum CloudSyncController {
         }
     }
 
-    /// Turning sync off stops syncing timers that were only synced, not shared: their
-    /// links go (the records stay in iCloud for the other devices).
-    static func releaseOwnTimers() {
-        for (timerID, link) in CloudLinkStore.all() where link.isOwner && !link.isShared {
-            CloudLinkStore.remove(timerID: timerID)
-        }
-    }
+    // Turning sync off only stops adopting new timers: ones already synced keep their
+    // links. Dropping them left records in iCloud that a later local delete never
+    // removed, so the other devices kept showing timers deleted here.
 
     /// Adds a CKShare to an owner record that has none yet (a synced timer being shared).
     private static func shareExistingRecord(_ record: CKRecord, payload: TimerPayload, completion: @escaping (URL?) -> Void) {
@@ -791,10 +787,16 @@ enum CloudSyncController {
                 } else if let payload = makePayload(from: record) {
                     // Another of this person's devices synced a timer (D12): link it so
                     // changes made here go back up.
-                    if !peek, database === container.privateCloudDatabase, syncOwnTimers, CloudLinkStore.get(timerID: payload.id) == nil {
-                        CloudLinkStore.set(CloudLink(timerID: payload.id, recordName: recordID.recordName, zoneName: recordID.zoneID.zoneName,
-                                                     zoneOwnerName: recordID.zoneID.ownerName, isOwner: true,
-                                                     shareRecordName: record.share?.recordID.recordName))
+                    if database === container.privateCloudDatabase, CloudLinkStore.get(timerID: payload.id) == nil {
+                        // Own records with no share are another of this person's devices
+                        // syncing (D12): only taken in while "Sync with iCloud" is on here,
+                        // or a device with it off would still receive every timer.
+                        guard syncOwnTimers || record.share != nil else { return }
+                        if !peek {
+                            CloudLinkStore.set(CloudLink(timerID: payload.id, recordName: recordID.recordName, zoneName: recordID.zoneID.zoneName,
+                                                         zoneOwnerName: recordID.zoneID.ownerName, isOwner: true,
+                                                         shareRecordName: record.share?.recordID.recordName))
+                        }
                     }
                     updated.append(payload)
                 } else {
@@ -807,6 +809,10 @@ enum CloudSyncController {
             }
         }
         operation.recordWithIDWasDeletedBlock = { recordID, _ in
+            // A deletion in this person's private zone only applies to timers linked
+            // here: with "Sync with iCloud" off, another device deleting its own copy
+            // must not delete this device's timer of the same id.
+            if database === container.privateCloudDatabase, CloudLinkStore.get(timerID: recordID.recordName) == nil { return }
             deletedIDs.append(recordID.recordName)
         }
         operation.recordZoneChangeTokensUpdatedBlock = { zoneID, token, _ in

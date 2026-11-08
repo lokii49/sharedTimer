@@ -137,8 +137,10 @@ enum TimerHistory {
         }
         // Against `now`, not `isFinished` (which reads the wall clock).
         if let paused = current.pausedRemaining {
+            // Paused exactly at zero: keyed on the stored end, which doesn't move —
+            // `now` made a new entry on every scan.
             guard paused <= 0 else { return nil }
-            return TimerHistoryEntry(current, endedAt: now)
+            return TimerHistoryEntry(current, endedAt: current.endDate)
         }
         guard current.endDate <= now else { return nil }
         return TimerHistoryEntry(current, endedAt: current.endDate)
