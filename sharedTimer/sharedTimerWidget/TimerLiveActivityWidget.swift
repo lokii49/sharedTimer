@@ -13,7 +13,14 @@ struct TimerLiveActivityWidget: Widget {
             ActivityFamilySwitch {
                 LockScreenTimerView(timerID: context.attributes.timerID, label: liveLabel(context), kind: liveKind(context), state: liveState(context), isFinished: isFinished(context))
                     .padding()
-                    .background(Sky.gradient(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining))
+                    // C6: a scrim under the trailing digits/caption, which sit on the
+                    // bright end of the sky.
+                    .background {
+                        ZStack {
+                            Sky.gradient(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining)
+                            SkyCornerScrim(widthFraction: 0.6, heightFraction: 1.2, anchorY: 0.7)
+                        }
+                    }
             } small: {
                 SmallActivityTile(label: liveLabel(context), symbol: liveKind(context).symbolName,
                                   sky: Sky.gradient(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining)) {

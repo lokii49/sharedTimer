@@ -17,6 +17,7 @@ struct TimerDetailView: View {
     let onShare: (TimerPayload) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var contrast
     @State private var lowPower = SwayingSkyGradient.isLowPower
     /// This phone's display name, cached for `statusLine` (read every tick).
     @State private var myName = DisplayNameStore.name
@@ -84,11 +85,11 @@ struct TimerDetailView: View {
                         if pending, let sequence = payload.sequence {
                             Text(Sky.pendingSequenceCaption(sequence))
                                 .font(.caption)
-                                .foregroundStyle(.white.opacity(0.6))
+                                .foregroundStyle(.white.opacity(Sky.captionOpacity(contrast)))
                         } else if let caption = payload.sequenceCaption {
                             Text(caption)
                                 .font(.caption)
-                                .foregroundStyle(.white.opacity(0.6))
+                                .foregroundStyle(.white.opacity(Sky.captionOpacity(contrast)))
                         }
                         let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: TimerStore.isFinishAcknowledged(id: payload.id)) : nil
                         Text(pending ? (payload.scheduledStartDate.map { Sky.pendingStartText(for: $0, at: context.date) } ?? "") : overtime ?? TimeFormat.display(remaining))
@@ -105,17 +106,20 @@ struct TimerDetailView: View {
                             .accessibilityAddTraits(.updatesFrequently)
                         Text(subtitle(done: done, pending: pending))
                             .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.75))
+                            .foregroundStyle(.white.opacity(Sky.captionOpacity(contrast)))
                         if let recurrence = payload.recurrence {
                             Text("Repeats yearly · \(recurrence.timeZoneID)")
-                                .font(.caption).foregroundStyle(.white.opacity(0.75))
+                                .font(.caption).foregroundStyle(.white.opacity(Sky.captionOpacity(contrast)))
                         }
                         if let statusLine {
                             Text(statusLine)
                                 .font(.caption)
-                                .foregroundStyle(.white.opacity(0.55))
+                                .foregroundStyle(.white.opacity(Sky.captionOpacity(contrast)))
                         }
                     }
+                    // C6 · A: captions at 85% (white with Increase Contrast) over a
+                    // soft centered scrim, instead of 55–75% straight on the sky.
+                    .background(SkyCenterScrim().padding(.horizontal, -40).padding(.vertical, -20))
 
                     Spacer()
 

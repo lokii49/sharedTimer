@@ -283,9 +283,10 @@ struct SkyCard: View {
                     .minimumScaleFactor(0.5)
                 Spacer(minLength: 8)
                 // Same small-caps voice as the label — every word on a sky speaks it.
+                // Full white over the corner scrim (C6).
                 Text(endText)
                     .skyLabel(12)
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.35), radius: 3)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
@@ -300,6 +301,8 @@ struct SkyCard: View {
                 // label -- same sky family, visibly muted.
                 .saturation(pending ? 0.35 : 1)
                 .brightness(pending ? -0.1 : 0)
+                .overlay(SkyCornerScrim())
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         )
         .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         // One VoiceOver element instead of five fragments ("PASTA", "04:12", "ENDS 7:40"),
@@ -463,3 +466,58 @@ struct SwayingSkyGradient: UIViewRepresentable {
     }
 }
 #endif
+
+/// C6 · A (1.0.7 mockup, https://claude.ai/artifact/PYNWKUeoSA8sezNDGfossk): a soft
+/// dark ellipse behind the bright end of a sky, where the small text sits. Every sky
+/// brightens toward its bottom-trailing corner, and white 12 pt text there measured
+/// 1.3–2.1:1; with this it's 4.8–7:1 (7.7–10:1 with Increase Contrast). Decorative —
+/// never hit-testable.
+struct SkyCornerScrim: View {
+    /// Semi-axes as a fraction of the view's width/height, and where (0…1) the ellipse
+    /// is centered vertically on the trailing edge.
+    var widthFraction: CGFloat = 0.62
+    var heightFraction: CGFloat = 0.95
+    var anchorY: CGFloat = 1
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        GeometryReader { geo in
+            let high = contrast == .increased
+            EllipticalGradient(
+                stops: high
+                    ? [.init(color: .black.opacity(0.62), location: 0), .init(color: .black.opacity(0.34), location: 0.45), .init(color: .clear, location: 0.80)]
+                    : [.init(color: .black.opacity(0.48), location: 0), .init(color: .black.opacity(0.26), location: 0.45), .init(color: .clear, location: 0.78)],
+                center: .center, startRadiusFraction: 0, endRadiusFraction: 0.5
+            )
+            .frame(width: geo.size.width * (widthFraction + (high ? 0.04 : 0)) * 2,
+                   height: geo.size.height * (heightFraction + (high ? 0.05 : 0)) * 2)
+            .position(x: geo.size.width, y: geo.size.height * anchorY)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The detail screen's softer, centered version behind the digits and captions.
+struct SkyCenterScrim: View {
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        let high = contrast == .increased
+        EllipticalGradient(
+            stops: [.init(color: .black.opacity(high ? 0.45 : 0.35), location: 0),
+                    .init(color: .black.opacity(high ? 0.25 : 0.18), location: 0.6),
+                    .init(color: .clear, location: 1)],
+            center: .center, startRadiusFraction: 0, endRadiusFraction: 0.5
+        )
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+extension Sky {
+    /// Secondary text on a sky: 85%, or full white with Increase Contrast.
+    static func captionOpacity(_ contrast: ColorSchemeContrast) -> Double {
+        contrast == .increased ? 1 : 0.85
+    }
+}
