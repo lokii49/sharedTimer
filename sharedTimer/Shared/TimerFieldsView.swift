@@ -259,9 +259,8 @@ struct ExtendTimeMenu: View {
             .buttonStyle(SplitPillSegmentStyle(leading: 12, trailing: 16))
             .accessibilityLabel(String(localized: "More time options"))
         }
-        .background(.white.opacity(0.17), in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 1))
-        .clipShape(Capsule())
+        // One glass capsule around both halves (C8 · A).
+        .glassEffect(.regular.interactive(), in: Capsule())
     }
 }
 

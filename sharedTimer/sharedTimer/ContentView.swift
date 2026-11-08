@@ -572,7 +572,7 @@ struct ContentView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial, in: Capsule())
+        .glassEffect(.regular, in: Capsule())
         .padding(.horizontal, 20)
         .padding(.bottom, 12)
     }
@@ -883,7 +883,7 @@ struct ContentView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial, in: Capsule())
+        .glassEffect(.regular, in: Capsule())
         .padding(.horizontal, 20)
         .padding(.bottom, 12)
         .accessibilityElement(children: .contain)

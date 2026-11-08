@@ -143,13 +143,16 @@ struct TimerDetailView: View {
                         .disabled(readOnly)
                         .opacity(readOnly ? 0.45 : 1)
                     } else if !done {
-                        HStack(spacing: 12) {
-                            ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
+                        // One merged glass shape for the pair (C8 · A).
+                        GlassEffectContainer(spacing: 16) {
+                            HStack(spacing: 12) {
+                                ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
 
-                            Button(payload.isPaused ? "Resume" : "Pause") {
-                                togglePause()
+                                Button(payload.isPaused ? "Resume" : "Pause") {
+                                    togglePause()
+                                }
+                                .buttonStyle(.glassPill)
                             }
-                            .buttonStyle(.glassPill)
                         }
                         .disabled(readOnly)
                         .opacity(readOnly ? 0.45 : 1)

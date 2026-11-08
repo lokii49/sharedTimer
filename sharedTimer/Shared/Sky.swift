@@ -199,9 +199,12 @@ private struct SkyLabelStyle: ViewModifier {
 // MARK: - Glass pill button
 
 /// Frosted capsule for controls that sit on a sky — translucent, never opaque chrome.
+/// Real Liquid Glass since 1.0.7 (C8 · A): picks up the sky's color, matches the
+/// system bars, and the system handles Reduce Transparency / Increase Contrast. Pills
+/// that sit side by side go in a `GlassEffectContainer` so they merge into one shape.
 /// Scales with Dynamic Type (`.subheadline` is the old fixed 15 pt at the default
 /// size), capped where a row of three pills still fits a phone. A destructive role gets
-/// a red wash, so Delete no longer looks exactly like Pause.
+/// a red tint, so Delete doesn't look like Pause. Labels stay pinned white.
 struct GlassPillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let destructive = configuration.role == .destructive
@@ -211,11 +214,7 @@ struct GlassPillButtonStyle: ButtonStyle {
             .foregroundStyle(.white)
             .padding(.horizontal, 22)
             .padding(.vertical, 11)
-            .background(destructive
-                        ? Color.red.opacity(configuration.isPressed ? 0.55 : 0.4)
-                        : Color.white.opacity(configuration.isPressed ? 0.28 : 0.17), in: Capsule())
-            .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 1))
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .glassEffect(destructive ? .regular.tint(.red.opacity(0.5)).interactive() : .regular.interactive(), in: Capsule())
     }
 }
 

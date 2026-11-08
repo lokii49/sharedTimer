@@ -107,13 +107,15 @@ struct TimerRunningView: View {
                             Button("Start Now") { startEarly() }
                                 .buttonStyle(.glassPill)
                         } else if !done {
-                            HStack(spacing: 12) {
-                                ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
+                            GlassEffectContainer(spacing: 16) {
+                                HStack(spacing: 12) {
+                                    ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
 
-                                Button(payload.isPaused ? "Resume" : "Pause") {
-                                    togglePause()
+                                    Button(payload.isPaused ? "Resume" : "Pause") {
+                                        togglePause()
+                                    }
+                                    .buttonStyle(.glassPill)
                                 }
-                                .buttonStyle(.glassPill)
                             }
                         } else {
                             Button("Repeat") { repeatTimer() }
