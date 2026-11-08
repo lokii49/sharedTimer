@@ -182,6 +182,26 @@ struct sharedTimerTests {
         #expect(TimerPayload.clampedLabel("Pasta") == "Pasta")
     }
 
+    @Test func sequenceRecentRoundTripsAndStartsASequence() throws {
+        let phases = [SequencePhase(label: "Focus", duration: 1500), SequencePhase(label: "Break", duration: 300)]
+        let running = SequenceInfo(phases: phases, loopCount: 4, phaseIndex: 1, loopIndex: 2)
+        let recent = RecentTimer(sequence: running, name: "  Pomodoro ")
+        #expect(recent.label == "Pomodoro")
+        #expect(recent.duration == 1800 * 4)
+        #expect(recent.sequence?.phaseIndex == 0 && recent.sequence?.loopIndex == 0)
+        #expect(recent.id != RecentTimer(label: "Pomodoro", duration: 7200, alarmEnabled: true, vibrationEnabled: false).id)
+
+        let decoded = try JSONDecoder().decode([RecentTimer].self, from: JSONEncoder().encode([recent]))
+        #expect(decoded.first?.sequence == recent.sequence)
+        let payload = try #require(decoded.first).payload()
+        #expect(payload.sequence?.phases == phases)
+        #expect(payload.label == "Focus")
+
+        // A recents list written before 1.0.7 (no sequence key) still decodes.
+        let old = Data(#"[{"label":"Pasta","duration":480,"alarmEnabled":true,"vibrationEnabled":false}]"#.utf8)
+        #expect(try JSONDecoder().decode([RecentTimer].self, from: old).first?.sequence == nil)
+    }
+
     @Test func overtimeCountsUpForAnHourOnPlainTimersOnly() {
         let now = Date()
         let finished = TimerPayload(id: "o", label: "Pasta", endDate: now.addingTimeInterval(-133), duration: 480, kind: .timer)

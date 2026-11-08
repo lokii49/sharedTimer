@@ -134,7 +134,7 @@ enum LiveActivityActions {
         TimerStore.setWidgetFocus(id: payload.id)
         TimerStore.save(payload)
         await TimerArming.armAwaiting(payload)
-        RecentTimersStore.record(payload)
+        if let recent { RecentTimersStore.record(recent) } else { RecentTimersStore.record(payload) }
         await RecentTimersSync.refresh()
         WatchSyncController.pushCurrentState()
         announceStarted(payload)

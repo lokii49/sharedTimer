@@ -346,11 +346,17 @@ struct NewSequenceSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Start") {
-                        onCreate(TimerPayload.composeSequence(
+                        let payload = TimerPayload.composeSequence(
                             phases: normalizedPhases(),
                             loopCount: loopCount,
                             startDate: startLater ? scheduledStart : nil
-                        ))
+                        )
+                        onCreate(payload)
+                        // One recency list for chips, Quick Actions and the Control.
+                        if let sequence = payload.sequence {
+                            RecentTimersStore.record(sequence: sequence, name: sequenceName)
+                            RecentTimersSync.refresh()
+                        }
                         dismiss()
                     }
                     .fontWeight(.semibold)

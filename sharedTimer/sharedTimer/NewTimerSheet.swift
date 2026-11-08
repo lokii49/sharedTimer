@@ -62,9 +62,16 @@ struct NewTimerSheet: View {
                             ForEach(recents) { recent in
                                 Button {
                                     onCreate(recent.payload())
+                                    RecentTimersStore.record(recent)
                                     dismiss()
                                 } label: {
-                                    Text(recent.title)
+                                    // A sequence chip carries the loop glyph (D5 · A).
+                                    Label {
+                                        Text(recent.title)
+                                    } icon: {
+                                        if recent.isSequence { Image(systemName: recent.symbolName) }
+                                    }
+                                    .labelStyle(RecentChipLabelStyle())
                                         .font(.subheadline.weight(.medium))
                                         .lineLimit(1)
                                         .padding(.horizontal, 12)
@@ -74,7 +81,9 @@ struct NewTimerSheet: View {
                                 }
                                 .buttonStyle(.plain)
                                 // "Pasta 8m" read as "Pasta 8 meters".
-                                .accessibilityLabel("\(recent.label), \(Duration.seconds(recent.duration).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide)))")
+                                .accessibilityLabel(recent.isSequence
+                                    ? "\(recent.label), sequence, \(Duration.seconds(recent.duration).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide)))"
+                                    : "\(recent.label), \(Duration.seconds(recent.duration).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide)))")
                                 .accessibilityHint("Starts right away")
                                 .contextMenu {
                                     Button(role: .destructive) {
@@ -192,6 +201,16 @@ private struct ChipFlowLayout: Layout {
             subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
+        }
+    }
+}
+
+/// Icon (when there is one) tight against the title, for the Recent chips.
+private struct RecentChipLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 5) {
+            configuration.icon.imageScale(.small)
+            configuration.title
         }
     }
 }

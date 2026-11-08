@@ -969,6 +969,8 @@ struct ContentView: View {
             let id = String(type.dropFirst(RecentTimersSync.quickActionPrefix.count))
             if let recent = RecentTimersStore.all().first(where: { $0.id == id }) {
                 startNew(recent.payload())
+                RecentTimersStore.record(recent)
+                RecentTimersSync.refresh()
             }
             return
         }

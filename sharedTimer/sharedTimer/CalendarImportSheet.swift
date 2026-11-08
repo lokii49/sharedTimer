@@ -34,7 +34,7 @@ struct CalendarCountdownChoice: Identifiable {
 protocol CalendarCountdownSource {
     var authorizationStatus: EKAuthorizationStatus { get }
     func requestAccess() async throws -> Bool
-    func events(from start: Date, to end: Date) async throws -> [EKEvent]
+    func events(from start: Date, to end: Date) throws -> [EKEvent]
 }
 
 @MainActor
@@ -42,13 +42,8 @@ final class EventKitCountdownSource: CalendarCountdownSource {
     private let store = EKEventStore()
     var authorizationStatus: EKAuthorizationStatus { EKEventStore.authorizationStatus(for: .event) }
     func requestAccess() async throws -> Bool { try await store.requestFullAccessToEvents() }
-    /// A year of every calendar, recurring events expanded, can take a noticeable
-    /// moment — off the main actor so the sheet's spinner keeps moving.
-    func events(from start: Date, to end: Date) async throws -> [EKEvent] {
-        let store = self.store
-        return await Task.detached(priority: .userInitiated) {
-            store.events(matching: store.predicateForEvents(withStart: start, end: end, calendars: nil))
-        }.value
+    func events(from start: Date, to end: Date) throws -> [EKEvent] {
+        store.events(matching: store.predicateForEvents(withStart: start, end: end, calendars: nil))
     }
 }
 
@@ -84,7 +79,7 @@ final class CalendarCountdownImporter {
             }
             let now = Date()
             let end = Calendar.current.date(byAdding: .year, value: 1, to: now)!
-            choices = try await source.events(from: now, to: end)
+            choices = try source.events(from: now, to: end)
                 .filter { $0.startDate > now }.sorted { $0.startDate < $1.startDate }
                 .map(CalendarCountdownChoice.init)
             message = choices.isEmpty ? String(localized: "No upcoming events in the next year. You can enter a date yourself.") : nil
