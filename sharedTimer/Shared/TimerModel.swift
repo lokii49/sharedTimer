@@ -559,7 +559,27 @@ struct TimerPayload: Codable, Identifiable {
             items.append(URLQueryItem(name: "annual", value: json))
         }
         components.queryItems = items
+        // URLComponents leaves "+" literal in query values, and the web page's
+        // URLSearchParams reads a literal "+" as a space ("C++" showed as "C  ").
+        // "%2B" decodes back to "+" in both URLComponents and URLSearchParams.
+        components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         return components.url!
+    }
+
+    /// Caps text from a link at `maxBytes` UTF-8 bytes without splitting a character —
+    /// same limit the sequence wire format applies to phase labels, so a hand-built link
+    /// can't push a huge label into AlarmKit, ActivityKit (4 KB) or CloudKit.
+    static func clampedLabel(_ label: String, maxBytes: Int = 512) -> String {
+        guard label.utf8.count > maxBytes else { return label }
+        var result = ""
+        var used = 0
+        for character in label {
+            let size = String(character).utf8.count
+            guard used + size <= maxBytes else { break }
+            result.append(character)
+            used += size
+        }
+        return result
     }
 
     /// A sequence's top-level label/duration/kind/toggles are the current phase's
@@ -591,11 +611,12 @@ struct TimerPayload: Codable, Identifiable {
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let items = components.queryItems,
               let id = items.first(where: { $0.name == "id" })?.value, !id.isEmpty, id.utf8.count <= 512,
-              let label = items.first(where: { $0.name == "label" })?.value,
+              let rawLabel = items.first(where: { $0.name == "label" })?.value,
               let endString = items.first(where: { $0.name == "end" })?.value,
               let endInterval = Double(endString), endInterval.isFinite, abs(endInterval) <= 253_402_300_799 else {
             return nil
         }
+        let label = clampedLabel(rawLabel)
         let endDate = Date(timeIntervalSince1970: endInterval)
         let durString = items.first(where: { $0.name == "dur" })?.value
         let duration = durString.flatMap(Double.init) ?? max(endDate.timeIntervalSinceNow, 1)

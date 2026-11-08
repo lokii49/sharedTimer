@@ -56,8 +56,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             // alarm/notification change is awaited before it — a fire-and-forget
             // reschedule left a locked recipient's alarm at the old time.
             Task { @MainActor in
+                TimerStore.save(contentsOf: updated)
                 for payload in updated {
-                    TimerStore.save(payload)
                     // Same arming sequence as ContentView.armAlerts: AlarmKit alarm when
                     // either toggle is on (either kind), local notification only when both
                     // are off, and the custom Live Activity only for that both-off case
@@ -67,7 +67,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 for id in deletedIDs {
                     TimerStore.delete(id: id)
                     await AlarmController.clearAwaiting(id: id)
-                    LiveActivityController.end(id: id)
+                    await LiveActivityController.endAwaiting(id: id)
                 }
                 if !updated.isEmpty || !deletedIDs.isEmpty {
                     WatchSyncController.pushCurrentState()
@@ -134,6 +134,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             completionHandler()
         case "REPEAT_ACTION" where TimerStore.isReadOnly(id: id):
             // View-only share: Repeat would change it for everyone; just dismiss.
+            completionHandler()
+        case "REPEAT_ACTION" where !payload.advancedSequence().isFinished:
+            // A stale notification for a timer that has since been repeated, extended
+            // or resumed in the app must not restart it (same guard as the widget's
+            // Repeat, `LiveActivityActions.repeatTimer`).
             completionHandler()
         case "REPEAT_ACTION":
             // Same mutation sequence as ContentView.repeatTimer()/armAlerts: repeat,

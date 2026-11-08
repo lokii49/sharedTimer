@@ -27,6 +27,11 @@ struct ContentView: View {
     /// for something specific, so the What's New tour stays out of the way.
     @State private var deepLinkArrived = false
     @State private var incomingPayload: TimerPayload?
+    /// Live shares the person dismissed without adding. `acceptShare` runs before they
+    /// decide (so the sheet shows the authoritative state), which joins the share zone —
+    /// without leaving again, the declined timer appeared on the next pull anyway.
+    @State private var declinedShareIDs: Set<String> = []
+    @State private var lastOfferedShareID: String?
     @State private var showingNamePrompt = false
     @State private var nameInput: String = ""
     @State private var pendingNameCompletion: (() -> Void)?
@@ -46,7 +51,11 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
+            // No list-wide TimelineView: it re-filtered, re-sorted and rebuilt every row
+            // (swipe/context menus included — their closures aren't lazy) every second.
+            // Each card ticks on its own (`LiveSkyCard`); the list re-evaluates only when
+            // `timers`, `armedIDs` or `pendingIDs` change — a finish or a scheduled start.
+            let now = Date()
                 Group {
                     if timers.isEmpty {
                         emptyState
@@ -57,28 +66,28 @@ struct ContentView: View {
                             // rather than sitting in Active forever. Pending gets its own
                             // section (it hasn't started, semantically not "Active" yet)
                             // sorted by start date, soonest first.
-                            let pending = timers.filter { $0.isPending(at: context.date) }
+                            let pending = timers.filter { $0.isPending(at: now) }
                                 .sorted { ($0.scheduledStartDate ?? .distantFuture) < ($1.scheduledStartDate ?? .distantFuture) }
-                            let active = timers.filter { !$0.isFinished && !$0.isPending(at: context.date) }.sorted { $0.endDate < $1.endDate }
+                            let active = timers.filter { !$0.isFinished && !$0.isPending(at: now) }.sorted { $0.endDate < $1.endDate }
                             let expired = timers.filter { $0.isFinished }.sorted { $0.endDate > $1.endDate }
 
                             if !active.isEmpty {
                                 Section {
-                                    ForEach(active) { row(for: $0, at: context.date) }
+                                    ForEach(active) { row(for: $0) }
                                 } header: {
                                     Text("Active").skyLabel().foregroundStyle(Sky.roomInk)
                                 }
                             }
                             if !pending.isEmpty {
                                 Section {
-                                    ForEach(pending) { row(for: $0, at: context.date) }
+                                    ForEach(pending) { row(for: $0) }
                                 } header: {
                                     Text("Scheduled").skyLabel().foregroundStyle(Sky.roomInk)
                                 }
                             }
                             if !expired.isEmpty {
                                 Section {
-                                    ForEach(expired) { row(for: $0, at: context.date) }
+                                    ForEach(expired) { row(for: $0) }
                                 } header: {
                                     Text("Finished").skyLabel().foregroundStyle(Sky.roomInk)
                                 }
@@ -89,13 +98,16 @@ struct ContentView: View {
                         .background(Sky.room)
                     }
                 }
-                // TimelineView localizes invalidation to this closure (see
-                // TimerDetailView's identical comment) — checking for newly-expired
-                // active timers has to live in here to see the zero-crossing tick.
-                .onChange(of: context.date) { _, date in
-                    checkForNewlyExpired(at: date)
+                // The 1s expiry tick, on its own: it must keep running with an empty list
+                // and see every zero-crossing and scheduled start (TimelineView localizes
+                // invalidation to its closure, so only this clear view re-evaluates).
+                .background {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Color.clear.onChange(of: context.date) { _, date in
+                            checkForNewlyExpired(at: date)
+                        }
+                    }
                 }
-            }
             .navigationDestination(for: String.self) { timerID in
                 if let payload = timers.first(where: { $0.id == timerID }) {
                     TimerDetailView(payload: payload, onUpdate: applyMutation, onSequenceAdvance: { apply($0, action: "sequenceAdvanced", rearm: $1) }, onDelete: delete, onShare: { payload in withDisplayName { sharingPayload = payload } })
@@ -195,6 +207,11 @@ struct ContentView: View {
                 for payload in timers where !freshIDs.contains(payload.id) {
                     stopInAppAlertIfRinging(for: payload.id)
                 }
+                // A remote Repeat/Extend/Resume of a timer ringing in-app moved its
+                // finish: the loop and banner are for a finish that no longer exists.
+                for payload in fresh where !payload.isFinished {
+                    stopInAppAlertIfRinging(for: payload.id)
+                }
                 timers = fresh
             }
             .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.permissionsChanged)) { notification in
@@ -227,7 +244,7 @@ struct ContentView: View {
             } message: {
                 Text("Timers won't alert you while the app is in the background until notifications are allowed.")
             }
-            .sheet(item: $incomingPayload) { payload in
+            .sheet(item: $incomingPayload, onDismiss: leaveDeclinedShares) { payload in
                 AddSharedTimerSheet(
                     payload: payload,
                     onAdd: { accepted in
@@ -523,14 +540,17 @@ struct ContentView: View {
         // background/foreground cycle.
         let justStarted = timers.filter { pendingIDs.contains($0.id) && !$0.isPending(at: date) }
         if !justStarted.isEmpty { TimerSpotlightIndex.shared.requestRefresh() }
-        pendingIDs = Set(timers.filter { $0.isPending(at: date) }.map(\.id))
+        // Assigned only on change: these drive the list's re-evaluation now that it has
+        // no TimelineView of its own.
+        let nowPending = Set(timers.filter { $0.isPending(at: date) }.map(\.id))
+        if nowPending != pendingIDs { pendingIDs = nowPending }
         for payload in justStarted where !AlarmController.ownsAlert(for: payload) {
             LiveActivityController.start(for: payload)
         }
 
         let stillRunning = Set(timers.filter { !$0.isExpired }.map(\.id))
         let justFinished = armedIDs.subtracting(stillRunning)
-        armedIDs = stillRunning
+        if stillRunning != armedIDs { armedIDs = stillRunning }
         guard !justFinished.isEmpty else { return }
         // A payload AlarmKit is handling (alarm on + authorized) gets AlarmKit's own
         // full-screen alert, even in the foreground — running the in-app AVAudioPlayer
@@ -572,8 +592,8 @@ struct ContentView: View {
         }
     }
 
-    private func row(for payload: TimerPayload, at date: Date) -> some View {
-        SkyCard(payload: payload, date: date)
+    private func row(for payload: TimerPayload) -> some View {
+        LiveSkyCard(payload: payload)
             // Hidden NavigationLink behind the card: a visible one draws the gray
             // disclosure chevron outside the sky, which breaks the full-bleed card.
             .background(
@@ -882,6 +902,23 @@ struct ContentView: View {
         }
     }
 
+    /// Runs when the add-confirmation sheet closes (Add, Not Now or a swipe). A timer
+    /// still missing from the store was declined: leave its share the same way
+    /// "Remove from My Timers" does (`pushDelete` on a participant link only marks it
+    /// left and drops the CloudLink — it never touches the shared record).
+    private func leaveDeclinedShares() {
+        let stored = Set(TimerStore.loadAll().map(\.id))
+        if let offered = incomingPayload?.id ?? lastOfferedShareID, !stored.contains(offered) {
+            declinedShareIDs.insert(offered)
+        }
+        lastOfferedShareID = nil
+        for id in declinedShareIDs where !stored.contains(id) {
+            if let link = CloudLinkStore.get(timerID: id), !link.isOwner {
+                CloudSyncController.pushDelete(id: id)
+            }
+        }
+    }
+
     /// Universal link / App Clip handoff into the full app. A timer already in the local
     /// store adopts the link's snapshot only when its `upd` stamp is strictly newer and
     /// the timer has no CloudLink (`shouldAdopt`; same in the Messages extension); a
@@ -896,6 +933,8 @@ struct ContentView: View {
     /// failed accept) leaves the plain-link snapshot exactly as it was — no regression.
     private func handleIncoming(url: URL?) {
         guard let parsed = TimerPayload.from(url: url) else { return }
+        // Opening the link again is a fresh offer, even after an earlier Not Now.
+        declinedShareIDs.remove(parsed.id)
         if let stored = timers.first(where: { $0.id == parsed.id }) {
             // A re-shared plain link carrying newer state (the sender extended/paused
             // and sent it again) updates the copy we have. CloudKit-linked timers are
@@ -905,6 +944,7 @@ struct ContentView: View {
             }
         } else {
             incomingPayload = parsed
+            lastOfferedShareID = parsed.id
         }
 
         guard let url,
@@ -915,6 +955,11 @@ struct ContentView: View {
         CloudSyncController.acceptShare(from: shareURL) { authoritative in
             guard let authoritative else { return }
             DispatchQueue.main.async {
+                if declinedShareIDs.contains(authoritative.id) {
+                    // Not Now was tapped while the accept was still in flight.
+                    leaveDeclinedShares()
+                    return
+                }
                 if incomingPayload?.id == authoritative.id {
                     // Still showing the add-confirmation sheet for this timer — upgrade
                     // it to the authoritative cloud state before the user taps Add.
@@ -933,6 +978,9 @@ struct ContentView: View {
                     armAlerts(for: authoritative)
                     if let index = timers.firstIndex(where: { $0.id == authoritative.id }) { timers[index] = authoritative }
                     WatchSyncController.pushCurrentState()
+                    // An open detail screen holds its own copy — tell it (same as the
+                    // foreground reload and pullCloudChanges).
+                    NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
                 }
             }
         }
@@ -946,10 +994,13 @@ struct ContentView: View {
     /// Applies remote changes pulled from CloudKit through the same local mutation
     /// sequence every other surface uses, then folds the results into the visible list.
     private func pullCloudChanges() {
+        CloudSyncController.retryPendingDeletes()
         CloudSyncController.pullChanges { updated, deletedIDs in
             DispatchQueue.main.async {
+                TimerStore.save(contentsOf: updated)
                 for payload in updated {
-                    TimerStore.save(payload)
+                    // Before the reassign below: it reads the old (finished) copy.
+                    if !payload.isFinished { stopInAppAlertIfRinging(for: payload.id) }
                     armAlerts(for: payload)
                     if let index = timers.firstIndex(where: { $0.id == payload.id }) {
                         timers[index] = payload
@@ -974,6 +1025,20 @@ struct ContentView: View {
                 // needs to reach the watch, and that path has no CloudKit delta at all.
                 WatchSyncController.pushCurrentState()
             }
+        }
+    }
+}
+
+/// A list card that ticks by itself, so the list around it (sections, swipe actions,
+/// context menus) isn't rebuilt every second. Paused and finished cards don't change
+/// from second to second; they redraw once a minute (and whenever the list hands them
+/// a new payload).
+private struct LiveSkyCard: View {
+    let payload: TimerPayload
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: payload.isPaused || payload.isFinished ? 60 : 1)) { context in
+            SkyCard(payload: payload, date: context.date)
         }
     }
 }

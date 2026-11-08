@@ -104,7 +104,9 @@ extension TimerPayload {
                               alarmEnabled: Bool = true, vibrationEnabled: Bool = true, at date: Date = Date()) -> TimerPayload {
         let recurrence = AnnualRecurrence(date: targetDate, timeZone: timeZone)
         let end = targetDate > date ? targetDate : (recurrence.nextDate(after: date) ?? targetDate)
-        return TimerPayload(id: UUID().uuidString, label: label.isEmpty ? "Countdown" : label,
+        // Same rules as `compose`: trimmed, and the default in the person's language.
+        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        return TimerPayload(id: UUID().uuidString, label: trimmed.isEmpty ? String(localized: "Countdown") : trimmed,
                             endDate: end, duration: max(1, end.timeIntervalSince(date)), kind: .countdown,
                             alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled,
                             updatedAt: date, recurrence: recurrence)

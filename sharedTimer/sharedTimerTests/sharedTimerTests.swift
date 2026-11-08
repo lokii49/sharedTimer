@@ -164,6 +164,32 @@ struct sharedTimerTests {
         #expect(decoded.vibrationEnabled == false)
     }
 
+    @Test func plusInLabelSurvivesTheLinkAndTheWebPage() throws {
+        // URLSearchParams (docs/t.html) reads a literal "+" as a space; it must go out as %2B.
+        let payload = TimerPayload(label: "C++ 1+1", duration: 60, kind: .timer)
+        let url = payload.url()
+        #expect(!(url.query ?? "").contains("+"))
+        #expect(url.absoluteString.contains("C%2B%2B"))
+        #expect(try #require(TimerPayload.from(url: url)).label == "C++ 1+1")
+    }
+
+    @Test func oversizedLinkLabelIsClampedOnACharacterBoundary() throws {
+        let long = String(repeating: "é", count: 400) // 800 UTF-8 bytes
+        let payload = TimerPayload(label: long, duration: 60, kind: .timer)
+        let decoded = try #require(TimerPayload.from(url: payload.url()))
+        #expect(decoded.label.utf8.count <= 512)
+        #expect(decoded.label == String(repeating: "é", count: 256))
+        #expect(TimerPayload.clampedLabel("Pasta") == "Pasta")
+    }
+
+    @Test func liveActivityIsNotRequestedForAFinishedTimer() {
+        let now = Date()
+        let finished = TimerPayload(id: "f", label: "Done", endDate: now.addingTimeInterval(-5), duration: 60, kind: .timer)
+        let running = TimerPayload(id: "r", label: "Run", endDate: now.addingTimeInterval(60), duration: 60, kind: .timer)
+        #expect(!LiveActivityController.shouldRequest(finished, at: now))
+        #expect(LiveActivityController.shouldRequest(running, at: now))
+    }
+
     @Test func urlDecodeIgnoresHostAndPath() throws {
         // Links moved from lokii49.github.io/sharedTimer/t.html to mirrornotes.org/timer in
         // 1.0.5; links already sent on the old host must keep decoding identically.

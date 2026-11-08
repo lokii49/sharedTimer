@@ -17,6 +17,9 @@ struct TimerDetailView: View {
     let onShare: (TimerPayload) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var lowPower = SwayingSkyGradient.isLowPower
+    /// This phone's display name, cached for `statusLine` (read every tick).
+    @State private var myName = DisplayNameStore.name
     @State private var participantCount: Int?
     @State private var attribution: (name: String, action: String)?
     @State private var hasBuzzedFinish = false
@@ -40,6 +43,10 @@ struct TimerDetailView: View {
 
     init(payload: TimerPayload, onUpdate: @escaping (TimerPayload, String) -> Void, onSequenceAdvance: @escaping (TimerPayload, Bool) -> Void, onDelete: @escaping (TimerPayload) -> Void, onShare: @escaping (TimerPayload) -> Void) {
         self._payload = State(initialValue: payload)
+        // Seeded here so the first frame already shows the right Delete/Remove wording.
+        let link = CloudLinkStore.get(timerID: payload.id)
+        self._isShared = State(initialValue: link != nil)
+        self._isParticipant = State(initialValue: link?.isOwner == false)
         self.onUpdate = onUpdate
         self.onSequenceAdvance = onSequenceAdvance
         self.onDelete = onDelete
@@ -51,19 +58,11 @@ struct TimerDetailView: View {
             let remaining = payload.remaining
             let done = payload.isExpired
             let pending = payload.isPending(at: context.date)
-            // The sway: gradient anchors drift on a slow sine, one step per second,
-            // smoothed by the animation below — the sky never sits perfectly still.
-            let phase = reduceMotion ? 0 : sin(context.date.timeIntervalSinceReferenceDate / 19)
             let colors = Sky.colors(for: payload, at: context.date)
 
             ZStack {
-                LinearGradient(
-                    colors: colors,
-                    startPoint: UnitPoint(x: 0.15 + 0.1 * phase, y: 0),
-                    endPoint: UnitPoint(x: 0.85 - 0.1 * phase, y: 1)
-                )
+                SwayingSkyGradient(colors: colors, swaying: !reduceMotion && !lowPower)
                 .ignoresSafeArea()
-                .animation(.linear(duration: 1), value: phase)
                 // Same "not live yet" muting as SkyCard's row treatment.
                 .saturation(pending ? 0.35 : 1)
                 .brightness(pending ? -0.1 : 0)
@@ -316,6 +315,7 @@ struct TimerDetailView: View {
                 applyEdit(edited)
             }
         }
+        .onReceive(SwayingSkyGradient.lowPowerPublisher) { lowPower = $0 }
         .onAppear {
             hasBuzzedFinish = payload.isExpired
             readOnly = TimerStore.isReadOnly(id: payload.id)
@@ -377,9 +377,11 @@ struct TimerDetailView: View {
         }
     }
 
+    /// From the sharing state `refreshSharingState` keeps — this is read on every 1s
+    /// tick, and `CloudLinkStore.get` decodes the whole links table each time.
     private var removal: Removal {
-        guard let link = CloudLinkStore.get(timerID: payload.id) else { return .delete }
-        return link.isOwner ? .deleteForEveryone : .removeMine
+        guard isShared else { return .delete }
+        return isParticipant ? .removeMine : .deleteForEveryone
     }
 
     /// Re-checks the stored permission at the moment of a change: the on-screen
@@ -398,6 +400,7 @@ struct TimerDetailView: View {
         isShared = link != nil
         isParticipant = link?.isOwner == false
         readOnly = TimerStore.isReadOnly(id: payload.id)
+        myName = DisplayNameStore.name
     }
 
     private func manageSharing() {
@@ -480,7 +483,7 @@ struct TimerDetailView: View {
         if let participantCount, participantCount > 1 {
             parts.append(String(localized: "\(participantCount) watching"))
         }
-        if let attribution, attribution.name != DisplayNameStore.name {
+        if let attribution, attribution.name != myName {
             parts.append(CloudSyncController.attributionPhrase(name: attribution.name, action: attribution.action))
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")

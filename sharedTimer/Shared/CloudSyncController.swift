@@ -528,15 +528,45 @@ enum CloudSyncController {
             return
         }
 
+        CloudLinkStore.addPendingDelete(link)
+        deleteOwnedRecord(link)
+    }
+
+    /// Re-sends owner deletes that haven't reached the server yet (see
+    /// `CloudLinkStore.pendingDeletes`). Main app, on launch/foreground.
+    static func retryPendingDeletes() {
+        CloudLinkStore.pendingDeletes().forEach(deleteOwnedRecord)
+    }
+
+    private static func deleteOwnedRecord(_ link: CloudLink) {
         let zoneID = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
         let recordID = CKRecord.ID(recordName: link.recordName, zoneID: zoneID)
         let operation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: [recordID])
         operation.modifyRecordsResultBlock = { result in
-            if case .failure(let error) = result {
-                log("pushDelete(\(id)) failed: \(error)")
+            switch result {
+            case .success:
+                CloudLinkStore.removePendingDelete(timerID: link.timerID)
+            case .failure(let error):
+                // Already gone (deleted elsewhere, zone removed) counts as done; anything
+                // else stays queued for the next foreground.
+                if isAlreadyGone(error) {
+                    CloudLinkStore.removePendingDelete(timerID: link.timerID)
+                } else {
+                    log("pushDelete(\(link.timerID)) failed, will retry: \(error)")
+                }
             }
         }
         container.privateCloudDatabase.add(operation)
+    }
+
+    static func isAlreadyGone(_ error: Error) -> Bool {
+        guard let ckError = error as? CKError else { return false }
+        let gone: Set<CKError.Code> = [.unknownItem, .zoneNotFound, .userDeletedZone]
+        if gone.contains(ckError.code) { return true }
+        if ckError.code == .partialFailure, let partial = ckError.partialErrorsByItemID, !partial.isEmpty {
+            return partial.values.allSatisfy { isAlreadyGone($0) }
+        }
+        return false
     }
 
     // MARK: - Pull remote changes down

@@ -11,6 +11,7 @@ struct TimerClipView: View {
     let payload: TimerPayload
     @State private var current: TimerPayload?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var lowPower = SwayingSkyGradient.isLowPower
     @Environment(\.scenePhase) private var scenePhase
     @State private var hasAlarmed = false
     @ObservedObject private var alarm = AlarmPlayer.shared
@@ -22,16 +23,10 @@ struct TimerClipView: View {
             let remaining = payload.remaining
             let done = payload.isExpired
             let pending = payload.isPending(at: context.date)
-            let phase = reduceMotion ? 0 : sin(context.date.timeIntervalSinceReferenceDate / 19)
 
             ZStack {
-                LinearGradient(
-                    colors: Sky.colors(for: payload, at: context.date),
-                    startPoint: UnitPoint(x: 0.15 + 0.1 * phase, y: 0),
-                    endPoint: UnitPoint(x: 0.85 - 0.1 * phase, y: 1)
-                )
+                SwayingSkyGradient(colors: Sky.colors(for: payload, at: context.date), swaying: !reduceMotion && !lowPower)
                 .ignoresSafeArea()
-                .animation(.linear(duration: 1), value: phase)
 
                 VStack {
                     Text(payload.kind == .countdown ? "Shared Countdown" : "Shared Timer")
@@ -115,6 +110,7 @@ struct TimerClipView: View {
                 }
             }
         }
+        .onReceive(SwayingSkyGradient.lowPowerPublisher) { lowPower = $0 }
         .onAppear {
             current = payload.advancedSequence()
             hasAlarmed = current!.isExpired

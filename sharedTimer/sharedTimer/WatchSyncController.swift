@@ -160,11 +160,16 @@ enum WatchSyncController {
                 // either toggle is on (either kind), local notification only when both
                 // are off, custom Live Activity only for that both-off case (AlarmKit
                 // runs its own whenever it owns the alert).
-                TimerArming.arm(updated)
-                CloudSyncController.pushUp(updated, action: action)
-                pushCurrentState()
-                NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
-                replyHandler(["ok": true])
+                // Awaited: a watch message can wake a suspended app, and iOS may
+                // suspend it again before a fire-and-forget reschedule reaches
+                // AlarmKit — same rule as the intents and the push handler.
+                Task { @MainActor in
+                    await TimerArming.armAwaiting(updated)
+                    pushCurrentState()
+                    NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
+                    replyHandler(["ok": true])
+                    await CloudSyncController.pushUpAwaiting(updated, action: action)
+                }
             }
         }
     }

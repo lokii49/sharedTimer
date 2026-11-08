@@ -358,3 +358,81 @@ extension Sky {
         return String(localized: "ends \(payload.endDate.formatted(date: .omitted, time: .shortened))")
     }
 }
+
+#if canImport(UIKit)
+import UIKit
+import Combine
+
+/// The full-screen detail sky with its slow sway (the gradient anchors drift on a ~2 min
+/// sine). It used to be a SwiftUI `LinearGradient` whose anchors were re-animated over
+/// 1s on every tick — in practice a never-ending animation the app drew frame by frame,
+/// up to 120 Hz. Here the sway is a single looping Core Animation keyframe animation run
+/// by the render server at ~10 fps (the drift is sub-pixel per frame), so the app does no
+/// per-frame work; only the colors change, once a second, as the timer drains.
+/// Still when `swaying` is false (Reduce Motion, Low Power Mode).
+struct SwayingSkyGradient: UIViewRepresentable {
+    /// Low Power Mode, for callers' `swaying:` — updated by `lowPowerPublisher`.
+    static var isLowPower: Bool { ProcessInfo.processInfo.isLowPowerModeEnabled }
+    static var lowPowerPublisher: some Publisher<Bool, Never> {
+        NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)
+            .map { _ in ProcessInfo.processInfo.isLowPowerModeEnabled }
+            .receive(on: DispatchQueue.main)
+    }
+
+    let colors: [Color]
+    let swaying: Bool
+
+    /// Same curve the SwiftUI version used: x = 0.15 ± 0.1·sin(t / 19).
+    private static let period = 2 * Double.pi * 19
+
+    final class GradientView: UIView {
+        override class var layerClass: AnyClass { CAGradientLayer.self }
+        var gradient: CAGradientLayer { layer as! CAGradientLayer }
+    }
+
+    func makeUIView(context: Context) -> GradientView {
+        let view = GradientView()
+        view.isUserInteractionEnabled = false
+        view.gradient.startPoint = CGPoint(x: 0.15, y: 0)
+        view.gradient.endPoint = CGPoint(x: 0.85, y: 1)
+        return view
+    }
+
+    func updateUIView(_ view: GradientView, context: Context) {
+        let layer = view.gradient
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(1)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .linear))
+        layer.colors = colors.map { UIColor($0).cgColor }
+        CATransaction.commit()
+
+        let isSwaying = layer.animation(forKey: "sway") != nil
+        guard swaying != isSwaying else { return }
+        if swaying {
+            layer.add(Self.sway(base: 0.15, sign: 1, keyPath: "startPoint"), forKey: "sway")
+            layer.add(Self.sway(base: 0.85, sign: -1, keyPath: "endPoint"), forKey: "swayEnd")
+        } else {
+            layer.removeAnimation(forKey: "sway")
+            layer.removeAnimation(forKey: "swayEnd")
+        }
+    }
+
+    private static func sway(base: Double, sign: Double, keyPath: String) -> CAKeyframeAnimation {
+        let steps = 32
+        let y: Double = keyPath == "startPoint" ? 0 : 1
+        let animation = CAKeyframeAnimation(keyPath: keyPath)
+        animation.values = (0...steps).map { step in
+            let angle = Double(step) / Double(steps) * 2 * .pi
+            return NSValue(cgPoint: CGPoint(x: base + sign * 0.1 * sin(angle), y: y))
+        }
+        animation.calculationMode = .cubic
+        animation.duration = period
+        animation.repeatCount = .infinity
+        // Start where the wall-clock curve is now, as the TimelineView version did.
+        animation.timeOffset = Date().timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: period)
+        animation.isRemovedOnCompletion = false
+        animation.preferredFrameRateRange = CAFrameRateRange(minimum: 4, maximum: 15, preferred: 10)
+        return animation
+    }
+}
+#endif

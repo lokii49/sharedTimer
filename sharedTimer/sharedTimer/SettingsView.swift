@@ -78,8 +78,13 @@ struct SettingsView: View {
             // Armed AlarmKit alarms and notifications carry the old tone; re-arm them —
             // at their current phase, and never one that's ringing right now (re-arming
             // cancels its alert first).
-            for payload in TimerStore.loadAll().map({ $0.advancedSequence() }) where !payload.isExpired {
-                TimerArming.arm(payload)
+            // Only timers that can ring with a tone (alarm on now, or on a later
+            // sequence phase), and only the alarm/notification — not TimerArming's
+            // Live Activity step, which re-requested quiet cards the person had
+            // swiped away although the tone never applies to them.
+            for payload in TimerStore.loadAll().map({ $0.advancedSequence() })
+            where !payload.isExpired && (payload.alarmEnabled || payload.sequence?.phases.contains(where: \.alarmEnabled) == true) {
+                AlarmController.reschedule(for: payload)
             }
         }
         .onDisappear { stopPreview() }
