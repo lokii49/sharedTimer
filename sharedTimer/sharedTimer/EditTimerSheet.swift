@@ -100,6 +100,7 @@ struct EditTimerSheet: View {
                     labelFocused: $labelFocused,
                     kindLocked: true,
                     yearlyCountdown: original.recurrence != nil,
+                    repeatFrequency: original.recurrence?.frequency,
                     showsTimerLength: false,
                     targetDateDisabled: original.isPaused,
                     fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied,

@@ -455,13 +455,19 @@ final class sharedTimerUITests: XCTestCase {
         app.launch()
         app.buttons["New"].tap()
         app.buttons["New Countdown"].tap()
-        let toggle = app.switches["Repeat yearly"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        // D8 · A: a Repeat menu (Never / Daily / Weekly / Monthly / Yearly).
+        let repeatMenu = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Repeat")).firstMatch
+        XCTAssertTrue(repeatMenu.waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["Import from Calendar"].exists)
-        let control = toggle.switches.firstMatch
-        if control.exists { control.tap() } else { toggle.tap() }
-        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "1"), object: toggle)
-        XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 5), .completed)
+        repeatMenu.tap()
+        let weekly = app.buttons["Weekly"]
+        XCTAssertTrue(weekly.waitForExistence(timeout: 5))
+        weekly.tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Every ")).firstMatch.waitForExistence(timeout: 5))
+        repeatMenu.tap()
+        let yearly = app.buttons["Yearly"]
+        XCTAssertTrue(yearly.waitForExistence(timeout: 5))
+        yearly.tap()
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "February 29 uses February 28")).firstMatch.exists)
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "New countdown yearly and Calendar options"
@@ -524,7 +530,7 @@ final class sharedTimerUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Calendar events couldn’t be loaded. Try again or enter a date yourself."].exists)
         XCTAssertTrue(app.staticTexts["Choose an event in the next year. Its title and start time become your countdown; Calendar stays unchanged."].exists)
         app.navigationBars["Import from Calendar"].buttons["Cancel"].tap()
-        XCTAssertTrue(app.switches["Repeat yearly"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Repeat")).firstMatch.waitForExistence(timeout: 5))
         app.buttons["Cancel"].tap()
     }
 

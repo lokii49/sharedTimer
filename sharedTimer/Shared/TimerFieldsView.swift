@@ -23,6 +23,9 @@ struct TimerFieldsView: View {
     /// for the Messages compose sheet, which never pre-picks a kind.
     var kindLocked: Bool = false
     var yearlyCountdown: Bool = false
+    /// A repeating countdown's frequency (1.0.7, D8): the footnote names its skip
+    /// button. Yearly keeps the original "Next Year" sentences.
+    var repeatFrequency: AnnualRecurrence.Frequency? = nil
     /// False in the main app's Edit sheet: a running timer's time changes through
     /// +1:00/Extend, so the length wheel and presets are hidden there.
     var showsTimerLength: Bool = true
@@ -156,6 +159,11 @@ struct TimerFieldsView: View {
     /// Whole sentences per case (not the button name interpolated), so translations
     /// can name the buttons the way the system alert does.
     private var alarmFootnote: String {
+        if let repeatFrequency, repeatFrequency != .yearly, alarmEnabled || vibrationEnabled {
+            return alarmEnabled
+                ? String(localized: "Rings full-screen with Stop and a button to skip to the next one, even when the app is closed or the phone is on silent.")
+                : String(localized: "Buzzes full-screen with Stop and a button to skip to the next one, no sound, even when the app is closed or the phone is on silent.")
+        }
         switch (alarmEnabled, vibrationEnabled, yearlyCountdown) {
         case (true, _, false):
             return String(localized: "Rings full-screen with Stop and Repeat, even when the app is closed or the phone is on silent.")
