@@ -395,12 +395,16 @@ private struct PhaseDurationPicker: View {
             }
             .pickerStyle(.wheel)
             .frame(maxWidth: .infinity)
+            // Side-by-side wheels steal each other's drags without clipping (see
+            // TimerFieldsView's wheelColumn).
+            .clipped()
 
             Picker("Minutes", selection: minutesBinding) {
                 ForEach(0..<60) { m in Text("\(m) min").tag(m) }
             }
             .pickerStyle(.wheel)
             .frame(maxWidth: .infinity)
+            .clipped()
         }
         .frame(height: 120)
     }

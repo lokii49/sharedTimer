@@ -51,6 +51,9 @@ struct TimerClipView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.4)
                             .padding(.horizontal, 24)
+                            .accessibilityLabel(pending ? "Starts \(payload.scheduledStartDate?.formatted(date: .abbreviated, time: .shortened) ?? "")"
+                                                : "\(Duration.seconds(max(0, remaining.rounded())).formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))) left")
+                            .accessibilityAddTraits(.updatesFrequently)
                         Text(subtitle(payload: payload, done: done))
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.75))

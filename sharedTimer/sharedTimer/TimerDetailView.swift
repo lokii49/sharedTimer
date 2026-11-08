@@ -316,6 +316,9 @@ struct TimerDetailView: View {
             }
         }
         .onReceive(SwayingSkyGradient.lowPowerPublisher) { lowPower = $0 }
+        // Feedback for the taps that change the timer (pause/resume, extend, repeat).
+        .sensoryFeedback(.selection, trigger: payload.isPaused)
+        .sensoryFeedback(.increase, trigger: payload.extraTime)
         .onAppear {
             hasBuzzedFinish = payload.isExpired
             readOnly = TimerStore.isReadOnly(id: payload.id)

@@ -73,6 +73,9 @@ struct NewTimerSheet: View {
                                         .foregroundStyle(.white)
                                 }
                                 .buttonStyle(.plain)
+                                // "Pasta 8m" read as "Pasta 8 meters".
+                                .accessibilityLabel("\(recent.label), \(Duration.seconds(recent.duration).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide)))")
+                                .accessibilityHint("Starts right away")
                                 .contextMenu {
                                     Button(role: .destructive) {
                                         RecentTimersStore.remove(id: recent.id)
@@ -117,7 +120,8 @@ struct NewTimerSheet: View {
                     alarmEnabled: $alarmEnabled,
                     vibrationEnabled: $vibrationEnabled,
                     labelFocused: $labelFocused,
-                    kindLocked: true, yearlyCountdown: repeatsYearly && kind == .countdown
+                    kindLocked: true, yearlyCountdown: repeatsYearly && kind == .countdown,
+                    fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied
                 )
                 .environment(\.timeZone, countdownTimeZone)
             }

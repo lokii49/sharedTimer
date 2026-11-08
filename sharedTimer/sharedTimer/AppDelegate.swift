@@ -24,9 +24,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         CloudSyncController.registerSubscriptionsIfNeeded()
         WatchSyncController.activate()
         TimerSpotlightIndex.shared.start()
-        // Ask for AlarmKit permission now so the prompt isn't racing the first
-        // .timer's schedule call (see AlarmController).
-        AlarmController.requestAuthorizationIfNeeded()
+        // Existing timers need AlarmKit right away; a fresh install is asked in context
+        // instead, when its first ringing timer is scheduled (`ensureAuthorized`), rather
+        // than by a cold prompt before it has made anything.
+        if !TimerStore.loadAll().isEmpty {
+            AlarmController.requestAuthorizationIfNeeded()
+        }
         registerNotificationCategories()
         UNUserNotificationCenter.current().delegate = self
         BackgroundRefresh.register()

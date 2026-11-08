@@ -64,6 +64,9 @@ struct TimerRunningView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.4)
                             .padding(.horizontal, 20)
+                            .accessibilityLabel(pending ? "Starts \(payload.scheduledStartDate?.formatted(date: .abbreviated, time: .shortened) ?? "")"
+                                                : "\(Duration.seconds(max(0, remaining.rounded())).formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))) left")
+                            .accessibilityAddTraits(.updatesFrequently)
                         Text(subtitle(done: done))
                             .font(.footnote)
                             .foregroundStyle(.white.opacity(0.75))
@@ -94,19 +97,28 @@ struct TimerRunningView: View {
                             .padding(.bottom, 10)
                     }
 
-                    if !done && !pending {
-                        HStack(spacing: 10) {
-                            Button(payload.isPaused ? "Resume" : "Pause") {
-                                togglePause()
-                            }
-                            .buttonStyle(.glassPill)
+                    // Same controls, in the same order, as the app's detail screen.
+                    Group {
+                        if pending {
+                            Button("Start Now") { startEarly() }
+                                .buttonStyle(.glassPill)
+                        } else if !done {
+                            HStack(spacing: 12) {
+                                ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
 
-                            ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
+                                Button(payload.isPaused ? "Resume" : "Pause") {
+                                    togglePause()
+                                }
+                                .buttonStyle(.glassPill)
+                            }
+                        } else {
+                            Button("Repeat") { repeatTimer() }
+                                .buttonStyle(.glassPill)
                         }
-                        // View only: shown but disabled, so it's clear why they don't work.
-                        .disabled(readOnly)
-                        .opacity(readOnly ? 0.45 : 1)
                     }
+                    // View only: shown but disabled, so it's clear why they don't work.
+                    .disabled(readOnly)
+                    .opacity(readOnly ? 0.45 : 1)
 
                     HStack(spacing: 22) {
                         Button {
@@ -242,5 +254,18 @@ struct TimerRunningView: View {
     private func extend(by interval: TimeInterval) {
         payload = payload.extended(by: interval)
         onUpdate(payload, "extended")
+    }
+
+    private func startEarly() {
+        payload = payload.repeated()
+        onUpdate(payload, "startedEarly")
+    }
+
+    private func repeatTimer() {
+        alarm.stop()
+        vibration.stop()
+        hasBuzzedFinish = false
+        payload = payload.repeated()
+        onUpdate(payload, "repeated")
     }
 }

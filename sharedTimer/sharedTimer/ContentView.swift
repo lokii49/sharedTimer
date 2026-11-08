@@ -32,6 +32,10 @@ struct ContentView: View {
     /// without leaving again, the declined timer appeared on the next pull anyway.
     @State private var declinedShareIDs: Set<String> = []
     @State private var lastOfferedShareID: String?
+    /// The last removed timer, for the Undo toast (local timers and ones shared with
+    /// this phone; "Delete for Everyone" has its own confirmation instead).
+    @State private var undoableDeletion: TimerPayload?
+    @State private var undoTask: Task<Void, Never>?
     @State private var showingNamePrompt = false
     @State private var nameInput: String = ""
     @State private var pendingNameCompletion: (() -> Void)?
@@ -49,65 +53,69 @@ struct ContentView: View {
     @ObservedObject private var vibration = VibrationPlayer.shared
     @Environment(\.scenePhase) private var scenePhase
 
+    // No list-wide TimelineView: it re-filtered, re-sorted and rebuilt every row
+    // (swipe/context menus included — their closures aren't lazy) every second.
+    // Each card ticks on its own (`LiveSkyCard`); the list re-evaluates only when
+    // `timers`, `armedIDs` or `pendingIDs` change — a finish or a scheduled start.
+    private var timerList: some View {
+        let now = Date()
+        return Group {
+                if timers.isEmpty {
+                    emptyState
+                } else {
+                    List {
+                        // isFinished, not isExpired: a timer paused exactly at zero is
+                        // still "paused" for alarm purposes, but reads as Finished here
+                        // rather than sitting in Active forever. Pending gets its own
+                        // section (it hasn't started, semantically not "Active" yet)
+                        // sorted by start date, soonest first.
+                        let pending = timers.filter { $0.isPending(at: now) }
+                            .sorted { ($0.scheduledStartDate ?? .distantFuture) < ($1.scheduledStartDate ?? .distantFuture) }
+                        let active = timers.filter { !$0.isFinished && !$0.isPending(at: now) }.sorted { $0.endDate < $1.endDate }
+                        let expired = timers.filter { $0.isFinished }.sorted { $0.endDate > $1.endDate }
+
+                        if !active.isEmpty {
+                            Section {
+                                ForEach(active) { row(for: $0) }
+                            } header: {
+                                Text("Active").skyLabel().foregroundStyle(Sky.roomInk)
+                            }
+                        }
+                        if !pending.isEmpty {
+                            Section {
+                                ForEach(pending) { row(for: $0) }
+                            } header: {
+                                Text("Scheduled").skyLabel().foregroundStyle(Sky.roomInk)
+                            }
+                        }
+                        if !expired.isEmpty {
+                            Section {
+                                ForEach(expired) { row(for: $0) }
+                            } header: {
+                                Text("Finished").skyLabel().foregroundStyle(Sky.roomInk)
+                            }
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .background(Sky.room)
+                }
+            }
+            // The 1s expiry tick, on its own: it must keep running with an empty list
+            // and see every zero-crossing and scheduled start (TimelineView localizes
+            // invalidation to its closure, so only this clear view re-evaluates).
+            .background {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Color.clear.onChange(of: context.date) { _, date in
+                        checkForNewlyExpired(at: date)
+                    }
+                }
+            }
+    }
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            // No list-wide TimelineView: it re-filtered, re-sorted and rebuilt every row
-            // (swipe/context menus included — their closures aren't lazy) every second.
-            // Each card ticks on its own (`LiveSkyCard`); the list re-evaluates only when
-            // `timers`, `armedIDs` or `pendingIDs` change — a finish or a scheduled start.
-            let now = Date()
-                Group {
-                    if timers.isEmpty {
-                        emptyState
-                    } else {
-                        List {
-                            // isFinished, not isExpired: a timer paused exactly at zero is
-                            // still "paused" for alarm purposes, but reads as Finished here
-                            // rather than sitting in Active forever. Pending gets its own
-                            // section (it hasn't started, semantically not "Active" yet)
-                            // sorted by start date, soonest first.
-                            let pending = timers.filter { $0.isPending(at: now) }
-                                .sorted { ($0.scheduledStartDate ?? .distantFuture) < ($1.scheduledStartDate ?? .distantFuture) }
-                            let active = timers.filter { !$0.isFinished && !$0.isPending(at: now) }.sorted { $0.endDate < $1.endDate }
-                            let expired = timers.filter { $0.isFinished }.sorted { $0.endDate > $1.endDate }
-
-                            if !active.isEmpty {
-                                Section {
-                                    ForEach(active) { row(for: $0) }
-                                } header: {
-                                    Text("Active").skyLabel().foregroundStyle(Sky.roomInk)
-                                }
-                            }
-                            if !pending.isEmpty {
-                                Section {
-                                    ForEach(pending) { row(for: $0) }
-                                } header: {
-                                    Text("Scheduled").skyLabel().foregroundStyle(Sky.roomInk)
-                                }
-                            }
-                            if !expired.isEmpty {
-                                Section {
-                                    ForEach(expired) { row(for: $0) }
-                                } header: {
-                                    Text("Finished").skyLabel().foregroundStyle(Sky.roomInk)
-                                }
-                            }
-                        }
-                        .listStyle(.plain)
-                        .scrollContentBackground(.hidden)
-                        .background(Sky.room)
-                    }
-                }
-                // The 1s expiry tick, on its own: it must keep running with an empty list
-                // and see every zero-crossing and scheduled start (TimelineView localizes
-                // invalidation to its closure, so only this clear view re-evaluates).
-                .background {
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
-                        Color.clear.onChange(of: context.date) { _, date in
-                            checkForNewlyExpired(at: date)
-                        }
-                    }
-                }
+            timerList
             .navigationDestination(for: String.self) { timerID in
                 if let payload = timers.first(where: { $0.id == timerID }) {
                     TimerDetailView(payload: payload, onUpdate: applyMutation, onSequenceAdvance: { apply($0, action: "sequenceAdvanced", rearm: $1) }, onDelete: delete, onShare: { payload in withDisplayName { sharingPayload = payload } })
@@ -282,8 +290,13 @@ struct ContentView: View {
         .overlay(alignment: .bottom) {
             if alarm.isPlaying || vibration.isVibrating {
                 alarmBanner
+            } else if let deleted = undoableDeletion {
+                undoToast(for: deleted)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .animation(.easeOut(duration: 0.2), value: undoableDeletion?.id)
+        .sensoryFeedback(.impact(weight: .light), trigger: timers.count)
         .onChange(of: TimerChoiceQuery.choices(from: timers)) { _, _ in
             TimerShortcuts.updateAppShortcutParameters()
             TimerSpotlightIndex.shared.requestRefresh()
@@ -338,6 +351,8 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {
+                // The Undo window ends when the app leaves the screen.
+                finishUndoableDeletion()
                 // No background-audio entitlement — the AVAudioPlayer loop would be cut
                 // off by the OS anyway; stop it explicitly so isPlaying/the banner don't
                 // linger in a stale "still ringing" state. The scheduled notification's
@@ -594,6 +609,7 @@ struct ContentView: View {
 
     private func row(for payload: TimerPayload) -> some View {
         LiveSkyCard(payload: payload)
+            .accessibilityAddTraits(.isButton)
             // Hidden NavigationLink behind the card: a visible one draws the gray
             // disclosure chevron outside the sky, which breaks the full-bleed card.
             .background(
@@ -603,7 +619,8 @@ struct ContentView: View {
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-        .swipeActions(edge: .trailing) {
+        // No full swipe: removing a timer shared with you can't be redone from here.
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive) {
                 requestDelete(payload)
             } label: {
@@ -757,13 +774,73 @@ struct ContentView: View {
     }
 
     private func delete(_ payload: TimerPayload) {
+        let link = CloudLinkStore.get(timerID: payload.id)
         stopInAppAlertIfRinging(for: payload.id)
         TimerStore.delete(id: payload.id)
         AlarmController.clear(payload)
         LiveActivityController.end(id: payload.id)
-        CloudSyncController.pushDelete(id: payload.id)
         WatchSyncController.pushCurrentState()
         timers.removeAll { $0.id == payload.id }
+        if link?.isOwner == true {
+            // Already confirmed in a dialog, and it reaches everyone — no Undo.
+            CloudSyncController.pushDelete(id: payload.id)
+            return
+        }
+        // A share stays joined while Undo is offered, marked left so a pull in the
+        // meantime doesn't bring the timer back; `finishUndoableDeletion` drops it.
+        if link != nil { CloudLinkStore.markLeft(timerID: payload.id) }
+        finishUndoableDeletion()
+        undoableDeletion = payload
+        undoTask = Task {
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            finishUndoableDeletion()
+        }
+    }
+
+    private func finishUndoableDeletion() {
+        undoTask?.cancel()
+        undoTask = nil
+        guard let deleted = undoableDeletion else { return }
+        undoableDeletion = nil
+        // Participant: drops the CloudLink (never the shared record). Local: no-op.
+        CloudSyncController.pushDelete(id: deleted.id)
+    }
+
+    private func undoDeletion() {
+        undoTask?.cancel()
+        undoTask = nil
+        guard let deleted = undoableDeletion else { return }
+        undoableDeletion = nil
+        CloudLinkStore.clearLeft(timerID: deleted.id)
+        let restored = deleted.advancedSequence()
+        TimerStore.save(restored)
+        armAlerts(for: restored)
+        timers.append(restored)
+        if !restored.isExpired { armedIDs.insert(restored.id) }
+        WatchSyncController.pushCurrentState()
+        // `TimerStore.delete` cleared the view-only flag; read it back from CloudKit.
+        if CloudLinkStore.get(timerID: restored.id) != nil {
+            CloudSyncController.refreshPermissions(for: [restored.id]) { timers = TimerStore.loadAll() }
+        }
+    }
+
+    private func undoToast(for payload: TimerPayload) -> some View {
+        HStack {
+            Text("Removed “\(payload.label)”")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+            Spacer()
+            Button("Undo") { undoDeletion() }
+                .buttonStyle(.glassPill)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: Capsule())
+        .padding(.horizontal, 20)
+        .padding(.bottom, 12)
+        .accessibilityElement(children: .contain)
     }
 
     /// Deleting (locally, or remotely via CloudKit) a timer whose in-app alarm /

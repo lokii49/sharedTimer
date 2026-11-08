@@ -199,14 +199,21 @@ private struct SkyLabelStyle: ViewModifier {
 // MARK: - Glass pill button
 
 /// Frosted capsule for controls that sit on a sky — translucent, never opaque chrome.
+/// Scales with Dynamic Type (`.subheadline` is the old fixed 15 pt at the default
+/// size), capped where a row of three pills still fits a phone. A destructive role gets
+/// a red wash, so Delete no longer looks exactly like Pause.
 struct GlassPillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
+        let destructive = configuration.role == .destructive
         configuration.label
-            .font(.system(size: 15, weight: .semibold))
+            .font(.subheadline.weight(.semibold))
+            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
             .foregroundStyle(.white)
             .padding(.horizontal, 22)
             .padding(.vertical, 11)
-            .background(.white.opacity(configuration.isPressed ? 0.28 : 0.17), in: Capsule())
+            .background(destructive
+                        ? Color.red.opacity(configuration.isPressed ? 0.55 : 0.4)
+                        : Color.white.opacity(configuration.isPressed ? 0.28 : 0.17), in: Capsule())
             .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 1))
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }

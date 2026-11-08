@@ -92,7 +92,8 @@ struct EditTimerSheet: View {
                     kindLocked: true,
                     yearlyCountdown: original.recurrence != nil,
                     showsTimerLength: false,
-                    targetDateDisabled: original.isPaused
+                    targetDateDisabled: original.isPaused,
+                    fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied
                 )
                 .environment(\.timeZone, timeZone)
             }

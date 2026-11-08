@@ -29,6 +29,10 @@ struct TimerFieldsView: View {
     /// True when editing a paused countdown — moving the target of a paused countdown
     /// has no meaning until it resumes (resume re-derives the end from the time left).
     var targetDateDisabled: Bool = false
+    /// AlarmKit denied (main app only — extensions never pass it): the footnote says the
+    /// timer will only notify, with a way to Settings, instead of promising a full-screen
+    /// alarm.
+    var fullScreenAlarmsOff: Bool = false
 
     private let presets: [Double] = [1, 3, 5, 10, 15, 30, 60]
     private let datePresets: [(String, TimeInterval)] = [
@@ -63,7 +67,17 @@ struct TimerFieldsView: View {
         } header: {
             Text("When it ends")
         } footer: {
-            Text(alarmFootnote)
+            if fullScreenAlarmsOff && (alarmEnabled || vibrationEnabled) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Full-screen alarms are off for Timer, so this will only send a notification, which follows the silent switch.", systemImage: "exclamationmark.triangle.fill")
+                    if let settings = URL(string: UIApplication.openSettingsURLString) {
+                        Link("Turn on in Settings", destination: settings)
+                            .fontWeight(.semibold)
+                    }
+                }
+            } else {
+                Text(alarmFootnote)
+            }
         }
 
         if kind == .timer {
@@ -101,6 +115,16 @@ struct TimerFieldsView: View {
         }
     }
 
+    @ViewBuilder private var datePresetButtons: some View {
+        ForEach(datePresets, id: \.0) { title, offset in
+            Button(title) {
+                targetDate = Date().addingTimeInterval(offset)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+    }
+
     private var countdownDateSection: some View {
         Section {
             DatePicker(
@@ -110,14 +134,10 @@ struct TimerFieldsView: View {
                 displayedComponents: [.date, .hourAndMinute]
             )
 
-            HStack(spacing: 8) {
-                ForEach(datePresets, id: \.0) { title, offset in
-                    Button(title) {
-                        targetDate = Date().addingTimeInterval(offset)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
+            // Stacks at large text sizes instead of squeezing three buttons into a row.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { datePresetButtons }
+                VStack(alignment: .leading, spacing: 8) { datePresetButtons }
             }
         } footer: {
             Text(targetDateDisabled ? "Resume to change the date." : "Counting down to \(TimeFormat.targetDate(targetDate))")
@@ -179,7 +199,8 @@ struct TimerFieldsView: View {
 
     private func wheelColumn(_ value: Binding<Int>, range: ClosedRange<Int>, unit: String) -> some View {
         HStack(spacing: 4) {
-            Picker("", selection: value) {
+            // Labelled with its unit (hidden visually): VoiceOver read a bare "5, adjustable".
+            Picker(unit, selection: value) {
                 ForEach(range, id: \.self) { v in
                     Text("\(v)").tag(v)
                 }
@@ -187,6 +208,7 @@ struct TimerFieldsView: View {
             .pickerStyle(.wheel)
             .labelsHidden()
             .clipped()
+            .accessibilityLabel(unit)
 
             Text(unit)
                 .font(.callout)
@@ -247,7 +269,8 @@ private struct SplitPillSegmentStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 15, weight: .semibold))
+            .font(.subheadline.weight(.semibold))
+            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
             .foregroundStyle(.white)
             .padding(.leading, leading)
             .padding(.trailing, trailing)

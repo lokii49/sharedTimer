@@ -42,8 +42,15 @@ enum AlarmController {
 
     // MARK: - Authorization
 
-    /// Fire-and-forget: ask once at launch so the permission prompt isn't racing the
-    /// first schedule call. Safe to call repeatedly.
+    /// Denied in Settings: alarms fall back to a notification. The compose sheets and
+    /// Settings say so — otherwise the "rings full-screen" footnote promised an alarm
+    /// that never came.
+    static var fullScreenAlarmsDenied: Bool {
+        AlarmManager.shared.authorizationState == .denied
+    }
+
+    /// Fire-and-forget: ask up front so the permission prompt isn't racing a schedule
+    /// call. Safe to call repeatedly.
     static func requestAuthorizationIfNeeded() {
         Task { _ = await ensureAuthorized() }
     }
