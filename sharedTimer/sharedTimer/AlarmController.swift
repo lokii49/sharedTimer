@@ -729,6 +729,9 @@ enum AlarmController {
         do {
             _ = try await AlarmManager.shared.schedule(id: id, configuration: config)
             recordScheduled(signature: signature(of: payload), end: fixedAt ?? payload.endDate, for: id)
+            #if DEBUG
+            scheduledAlarmCount += 1
+            #endif
             return .scheduled
         } catch AlarmManager.AlarmError.maximumLimitReached {
             print("AlarmController: AlarmKit alarm limit reached for \(payload.id)")
@@ -738,6 +741,12 @@ enum AlarmController {
             return .failed
         }
     }
+
+    #if DEBUG
+    /// Device tests only: how many alarms were actually (re-)created — the alarm id is
+    /// deterministic, so a kept alarm and a re-created one look identical otherwise.
+    nonisolated(unsafe) static var scheduledAlarmCount = 0
+    #endif
 
     private static func cancelAlarm(id: String) async {
         do { try AlarmManager.shared.cancel(id: alarmID(for: id)) }

@@ -98,6 +98,34 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
+    @Test func reschedulingUnchangedPlainTimerKeepsItsAlarm() async {
+        var payload = TimerPayload(label: "Keep me", duration: 300, kind: .timer)
+        created.append(payload)
+
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let id = UUID(uuidString: payload.id)!
+        #expect(alarmsByID()[id]?.state == .countdown)
+        let afterFirst = AlarmController.scheduledAlarmCount
+
+        // Launch / pull re-arm of the same timer: kept, not re-created.
+        await AlarmController.rescheduleAwaiting(for: payload)
+        #expect(AlarmController.scheduledAlarmCount == afterFirst)
+        #expect(alarmsByID()[id]?.state == .countdown)
+        #expect(TimerStore.isAlarmKitArmed(id: payload.id))
+
+        // Extend moves the end: re-created.
+        payload = payload.extended(by: 60)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        #expect(AlarmController.scheduledAlarmCount == afterFirst + 1)
+
+        // Rename changes the presentation signature: re-created.
+        payload.label = "Renamed"
+        await AlarmController.rescheduleAwaiting(for: payload)
+        #expect(AlarmController.scheduledAlarmCount == afterFirst + 2)
+        #expect(alarmsByID()[id]?.state == .countdown)
+        await tearDown()
+    }
+
     @Test func reschedulingUnchangedSequenceKeepsTheSameAlarmSet() async {
         let payload = sequence(loops: 3, end: Date().addingTimeInterval(60))
         created.append(payload)
