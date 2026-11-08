@@ -23,6 +23,7 @@ struct SettingsView: View {
     @State private var preview: AVAudioPlayer?
     @State private var alarmsAllowed = AlarmManager.shared.authorizationState != .denied
     @State private var notificationsAllowed = true
+    @State private var syncOwnTimers = CloudSyncController.syncOwnTimers
     @Environment(\.scenePhase) private var scenePhase
 
     private static let privacyURL = URL(string: "https://mirrornotes.org/timer/privacy")!
@@ -34,6 +35,7 @@ struct SettingsView: View {
                 VStack(spacing: 14) {
                     nameCard
                     alertsCard
+                    iCloudCard
                     toneCard
                     whatsNewCard
                     aboutCard
@@ -148,6 +150,30 @@ struct SettingsView: View {
             }
         }
         .task(id: scenePhase) { await refreshAlertStatus() }
+    }
+
+    /// D12 · A: "Sync with iCloud" — every timer, not only shared ones, follows the
+    /// person to their other devices on the same iCloud account. Off by default:
+    /// each device arms its own alarm, so each one rings.
+    private var iCloudCard: some View {
+        SettingsCard(colors: Sky.dusk.stops(drain: 0.3)) {
+            Text("iCloud").skyLabel(11).opacity(0.8)
+            Toggle(isOn: $syncOwnTimers) {
+                Text("Sync with iCloud").font(.subheadline.weight(.semibold))
+            }
+            .tint(.white.opacity(0.5))
+            Text("Your timers follow you to your iPad and other iPhones signed in to the same iCloud account. Each device rings.")
+                .font(.footnote)
+                .opacity(0.8)
+        }
+        .onChange(of: syncOwnTimers) { _, on in
+            CloudSyncController.syncOwnTimers = on
+            if on {
+                CloudSyncController.adoptAllOwnTimers()
+            } else {
+                CloudSyncController.releaseOwnTimers()
+            }
+        }
     }
 
     private func refreshAlertStatus() async {
