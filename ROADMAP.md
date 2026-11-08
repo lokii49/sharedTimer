@@ -5,6 +5,82 @@ Synced Timer Plus, TimeTo) by closing the live-sync gap and leaning into the one
 them have — a real native iMessage extension — instead of routing sharing through a plain link
 or QR code.
 
+## 1.0.7 plan (audit 2026-11-08, branch `1.0.7`, build 10)
+
+Full audit by four parallel read-only passes (correctness vs. CLAUDE.md invariants, performance, UI/accessibility, competitor research). Nothing below is implemented yet. Bucket A ships regardless; B is evidence-based perf; C needs mockups before code (owner rule); D is the feature menu. **No new CloudKit fields are proposed for 1.0.7** — anything that would need one is flagged.
+
+Invariant checklist result: PASS on TimerStore isolation, `stopIntent` nil, no `CKContainer.default()`, intents use `*Awaiting`, `Shared/` target membership, AlarmPlayer/VibrationPlayer pairing, main-actor posts. iPad: every shipping target is `TARGETED_DEVICE_FAMILY = 1` (only test bundles are `1,2`) — iPad is a feature (D), not a fix.
+
+### A. Bugs (fix in 1.0.7)
+
+| # | Sev | Where | Defect → fix |
+|---|---|---|---|
+| A1 | Med | `Shared/LiveActivityController.swift:9` | `start`/`startAwaiting` guard only pending, not finished. A pulled/echoed Stop or Cancel (both toggles off) re-requests a "Finished" card. → `guard !payload.isFinished`. |
+| A2 | Med | `ContentView.handleIncoming` ~:910, `ShareSheets.swift:265` | `acceptShare` runs before the person picks Add / Not Now, so a declined live share still joins the zone and shows up on the next pull (and in the NSE). → accept only on Add. |
+| A3 | Med | `WatchSyncController.swift:163` | Watch relay uses fire-and-forget `arm`/`pushUp` then replies; app can be re-suspended before AlarmKit moves. → `armAwaiting`/`pushUpAwaiting` before reply (device check). |
+| A4 | Low-Med | `AppDelegate.swift:70` | Remote delete ends the custom Live Activity fire-and-forget before `completionHandler`. → `endAwaiting`. |
+| A5 | Low-Med | `CloudSyncController.pushDelete` :523 | CloudLink dropped before the network delete; offline "Delete for Everyone" is lost forever. → keep a pending-delete list, retry on foreground/pull. |
+| A6 | Low-Med | `NotificationScheduler.swift:107` | Vibrate-only fallback sets `sound = nil`; iOS ties haptics to sound, so Messages/Clip (primary path) and AlarmKit-denied app finish with a silent banner. → silent named sound (`vibration_silent.caf`, add to Messages/Clip/NSE) — verify on device. |
+| A7 | Low | `AppDelegate.swift:138` | Notification "Repeat" has no `isFinished` guard / sequence projection; a stale notification restarts a running timer. → same guard as `LiveActivityActions.repeatTimer`. |
+| A8 | Low | `TimerModel.url()` ~:513 | `+` left unescaped in query; `t.html`'s `URLSearchParams` reads it as a space ("C++" → "C  "). → percent-encode `+`. |
+| A9 | Low | `TimerModel.from(url:)` ~:585 | Plain `label` has no length cap (phase labels do: 512 B). → same cap. |
+| A10 | Low | `ContentView` pull/push paths | Remote Repeat/Extend of a ringing timer leaves the in-app loop + banner running (AlarmKit-denied only). → stop when `TimerStore.finishMoved`. |
+| A11 | Low | `SettingsView.swift:81` | Tone change re-arms every timer → revives swiped-away quiet Live Activities. → re-arm only `ownsAlert` timers. |
+| A12 | Low | `ShareSheets.swift:233`, `TimerModel.composeAnnual` :734, `MessagesViewController.swift:214` | "1 phases · 1 loops"; English "Countdown" default + untrimmed label; staged Messages text interpolates the raw wire verb + "Someone". → catalog plurals / `String(localized:)` / `attributionPhrase`. |
+| A13 | Low | `ContentView.handleIncoming` :932 | Saves the authoritative copy without posting `.externalTimerStoreChange` → open detail screen goes stale. |
+| A14 | Doc | CLAUDE.md | Says `AdvanceSequenceIntent` uses `steppedToNextPhase`; production uses `materializingPhase` (former is test-only). |
+
+### B. Performance (estimates from code reading; confirm with Instruments)
+
+1. **High — cold launch cancels and re-creates every running plain timer's AlarmKit alarm** (`ContentView.swift:299` → `AlarmController.performReschedule` :168, no keep-path). Add the same keep-path sequences have (state `.countdown`, `alarmIntendedEnd` within 1s, signature match) inside `performReschedule`, still cancelling notifications + setting armed. Also removes the AlarmKit card flicker on every launch.
+2. **High (battery) — detail/Clip sky sway animates continuously** (`TimerDetailView.swift:55`, `TimerClipView.swift:25`: a 1s linear animation restarted every tick on a full-screen gradient ≈ constant frames). Move to a render-server animation (`CAGradientLayer` + autoreversing `CABasicAnimation`, low frame-rate range); pause in Low Power Mode. Same look.
+3. **Med-High — whole list rebuilt every second** (`ContentView.swift:49`). Per row per tick: 3 CloudLink JSON decodes (`removalTitle` ×2, `CloudLinkStore.get`), 2 `isReadOnly` reads, ~5 `UserDefaults(suiteName:)` allocations, gradient + 2–3 `formatted()` + shadow — swipe/context-menu closures are non-escaping, so they run every tick. Fix keeping the tick invariant: 1s driver only for `checkForNewlyExpired` (must still see zero-crossings with an empty list); compute registry lookups once per render; `static let` UserDefaults; per-card coarse TimelineView for the drain; frozen cards (paused/finished/pending) not redrawn. Using `Text(timerInterval:)` in rows is a product decision (format differs from `TimeFormat`).
+4. **Med — detail screen decodes CloudLinks every second** (`TimerDetailView.swift:184, 380`, plus `DisplayNameStore.name` in `statusLine`). Move to `@State` refreshed in `refreshSharingState`.
+5. **Med — each save decodes the store 3–4×**; `undecodableEntries` re-decodes the whole array; pulls save per payload in a loop (N lock cycles, N widget reloads). → `loadAll` reports undecodable entries in one pass; `save(contentsOf:)` batch (still per-payload `keepingExtraTime`/`finishMoved`); coalesce widget reloads.
+6. **Low-Med — AlarmController registry churn**: ~17 `AlarmManager.alarms` reads + 16 dictionary writes per 8-phase sequence reschedule. Read `alarms` once per reschedule, one merged registry write.
+7. **Med/Low — main-thread blocking**: Calendar import's one-year EventKit query on main (`CalendarImportSheet.swift:46,82`); QR generated in `body` with a new `CIContext` each evaluation (`ShareSheets.swift:74,170`); 3× `ImageRenderer` before `prepare()` delays the CloudKit share (:118).
+8. **Low-Med — bundle**: 17 × 271 KB PCM `.caf` = 4.6 MB (4 copies of each tone). IMA4 ≈ 4× smaller — **device-test AlarmKit `.named` with IMA4 first.** Dark icon is byte-identical to light (634 KB).
+
+### C. UI / UX / accessibility (mockups before code)
+
+Low-risk, no visual redesign (can go straight in):
+- **C1 Alert health** — AlarmKit permission is requested cold at launch (`AppDelegate.swift:29`) and nothing tells the person when it's denied, while the compose footnote still promises "rings full-screen". Ask at the first loud timer; Settings status row (alarms + notifications, link to Settings); inline compose warning.
+- **C2 Dynamic Type** — `GlassPillButtonStyle` and the split pill use fixed `.system(size: 15)` (`Sky.swift:205`, `TimerFieldsView.swift:250`) → text styles. Preset rows → `ViewThatFits`. Phase wheels missing `.clipped()` (`NewSequenceSheet.swift:393`).
+- **C3 VoiceOver** — unit-less timer wheels (`Picker("")`), recent chips read "8 meters", Messages/Clip digits unlabeled, home widget not grouped, SkyCard lacks `.isButton`.
+- **C4 Safety + feedback** — Undo toast for Delete/Remove, `allowsFullSwipe: false`, detail Delete styled destructive (it looks like Pause today); `.sensoryFeedback` on pause/extend/start/delete.
+- **C5 Messages parity** — same button order as the app; Repeat on finished; Start Now on scheduled.
+
+Needs mockups:
+- **C6 Contrast** — `endText` (85% white, 12pt) sits on the lightest corner of every sky: 1.3–2.1:1. Same on Live Activity digits and detail captions. Scrim or lightness cap; Increase Contrast support; Reduce Transparency for `.ultraThinMaterial`.
+- **C7 Actionable empty state** — Timer / Countdown / Sequence tiles + recent chips instead of "Tap +".
+- **C8 Liquid Glass** — pills/chips/banner are hand-drawn while system bars are real glass; adopt `.glassEffect` in a `GlassEffectContainer`.
+- **C9 SkyCard at accessibility sizes** — fixed 104 pt height cuts labels; landscape rows stretch.
+
+### D. Feature menu (ranked value ÷ effort; privacy-safe unless noted)
+
+| # | Feature | Effort | Notes |
+|---|---|---|---|
+| D1 | **Halfway / "5 min left" reminders** | S–M | Timer+ headline feature. Quiet notifications in `NotificationScheduler` slots; local preference, no wire change. |
+| D2 | **Overtime count-up** ("+2:13 over") after finish | S | Display only: detail, Live Activity (`Text(timerInterval:)` counts up), Messages/Clip, web. |
+| D3 | **Keep screen awake** toggle on detail + Messages | S | `isIdleTimerDisabled`; kitchen/workout expectation. |
+| D4 | **CarPlay + Watch Smart Stack Live Activity** | S–M | `.supplementalActivityFamilies([.small])` on both Live Activity widgets + a small layout. |
+| D5 | **Saved sequences everywhere** — Recent chips, Quick Actions, Control Center | S–M | Templates are 3 taps deep today. |
+| D6 | **`t.html` "Open in Timer" banner** | S | Finishes the last Phase 7 item (meta tag). |
+| D7 | **Interactive Siri/Spotlight snippet** (ring + Pause/+1:00) | M | iOS 26 snippet intents on existing `GetTimerRemainingIntent`. |
+| D8 | **Daily/weekly/monthly repeating countdowns** | M | Generalise `AnnualRecurrence`; `recurrenceData` is Bytes → envelope v2, **no schema deploy**; `t.html` in lockstep. |
+| D9 | **Timer history** (on device) | M | Sibling of `RecentTimersStore`; feeds fasting streaks. |
+| D10 | **iPad** | M | `NavigationSplitView`, max card widths; currently iPhone-only. |
+| D11 | **SharePlay timer** in FaceTime/Messages | M–L | Synchronized timer on Apple infra, no server. |
+| D12 | **Sync your own timers across devices** | M–L | Private zone for unshared timers, reusing CloudSyncController; only matters once iPad/Mac exist. |
+| D13 | **On-device natural-language sequence builder** (Foundation Models) | M | "25 on / 5 off ×4" → draft; Apple Intelligence devices only. |
+
+Rejected for privacy (label stays "Data Not Collected"): group chat / "who has seen it", server-synced rooms.
+
+Marketing levers from competitor reviews: free with no ads/subscription (Timer+ 46% negative recent reviews on paywalls), no server of ours to fail (ShareMyTimer "server error"), "Data Not Collected" vs. competitors collecting email/device ID/contacts.
+
+### Code health (opportunistic)
+`ContentView.swift` (979 lines) — extract the expiry tick and cloud merge first; sequence re-derive loop duplicated (:283, :345); `subtitle()` copied in 3 views; three identical App Group record-and-prune helpers in AlarmController; Messages hand-rolls the arming sequence.
+
 ## Status at a glance (2026-10-18)
 
 **Release:** 1.0.4 is **live on the App Store** (App Store ID 6804558361). 1.0.5 is in progress on branch `1.0.5`.
