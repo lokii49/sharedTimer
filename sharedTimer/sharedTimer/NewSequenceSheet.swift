@@ -95,6 +95,7 @@ struct NewSequenceSheet: View {
     @State private var draftPhases: [DraftPhase]
     @State private var loopCount: Int
     @State private var startLater = false
+    @State private var showingDescribe = false
     @State private var scheduledStart: Date = Date().addingTimeInterval(3600)
 
     let onCreate: (TimerPayload) -> Void
@@ -240,6 +241,16 @@ struct NewSequenceSheet: View {
                         }
                         .onDelete(perform: deleteSaved)
                     }
+                    // D13 · B: only where Apple Intelligence is available.
+                    if SequenceDescriber.isAvailable {
+                        startFromRow(
+                            name: String(localized: "Describe…"),
+                            subtitle: String(localized: "Say it in your own words, like “25 on, 5 off, 4 times”."),
+                            isSelected: false
+                        ) {
+                            showingDescribe = true
+                        }
+                    }
                 } header: {
                     Text("Start from")
                 } footer: {
@@ -337,6 +348,12 @@ struct NewSequenceSheet: View {
             .background(Sky.room)
             .navigationTitle("New Sequence")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showingDescribe) {
+                DescribeSequenceSheet { phases, loops in
+                    draftPhases = phases.map(DraftPhase.init)
+                    loopCount = loops
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

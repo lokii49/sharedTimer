@@ -70,3 +70,97 @@ enum SequenceDescriber {
         return (Array(phases), min(max(draft.loopCount, 1), 99))
     }
 }
+
+import SwiftUI
+
+/// D13 · B: "Describe…" in New Sequence's Start from list opens this sheet. The
+/// generated phases are previewed and only replace the draft on "Use These Phases",
+/// so a misread never overwrites anything.
+struct DescribeSequenceSheet: View {
+    let onUse: (_ phases: [SequencePhase], _ loopCount: Int) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    @State private var result: (phases: [SequencePhase], loopCount: Int)?
+    @State private var working = false
+    @State private var failed = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("25 on, 5 off, 4 times", text: $text, axis: .vertical)
+                        .lineLimit(2...4)
+                        .focused($focused)
+                        .submitLabel(.go)
+                        .onSubmit(create)
+                    Button {
+                        create()
+                    } label: {
+                        HStack {
+                            Label("Create Phases", systemImage: "sparkles")
+                            if working { Spacer(); ProgressView() }
+                        }
+                    }
+                    .disabled(working || text.trimmingCharacters(in: .whitespaces).isEmpty)
+                } footer: {
+                    Text("Apple Intelligence builds the phases on this iPhone. Nothing is sent anywhere.")
+                }
+
+                if failed {
+                    Section {
+                        Text("Couldn’t find phases in that. Try something like “16:8 fast” or “50 work, 10 break, 3 times”.")
+                            .font(.footnote)
+                    }
+                }
+
+                if let result {
+                    Section {
+                        ForEach(Array(result.phases.enumerated()), id: \.offset) { _, phase in
+                            HStack {
+                                Text(phase.label)
+                                Spacer()
+                                Text(RecentTimer.lengthText(phase.duration)).foregroundStyle(.secondary)
+                            }
+                        }
+                        Button("Use These Phases") {
+                            onUse(result.phases, result.loopCount)
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
+                    } header: {
+                        Text("Preview")
+                    } footer: {
+                        Text("Loops: \(result.loopCount)")
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Sky.room)
+            .navigationTitle("Describe a Sequence")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .onAppear { focused = true }
+        }
+    }
+
+    private func create() {
+        let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty, !working else { return }
+        working = true
+        failed = false
+        Task {
+            do {
+                result = try await SequenceDescriber.describe(prompt)
+            } catch {
+                result = nil
+                failed = true
+            }
+            working = false
+        }
+    }
+}
