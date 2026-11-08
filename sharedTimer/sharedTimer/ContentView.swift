@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var navigationPath: [String] = []
     @State private var timers: [TimerPayload] = TimerStore.loadAll()
     @State private var showingNewSequence = false
+    @State private var showingHistory = false
     @State private var pendingNewTimerKind: TimerKind?
     @State private var sharingPayload: TimerPayload?
     @State private var editingPayload: TimerPayload?
@@ -125,6 +126,15 @@ struct ContentView: View {
             }
             .navigationTitle("Timers")
             .toolbar {
+                // D9 · A: History on the leading side, so the trailing side keeps
+                // just Settings and +.
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showingHistory = true } label: {
+                        Image(systemName: "clock.arrow.circlepath")
+                    }
+                    .accessibilityLabel("History")
+                    .accessibilityIdentifier("historyButton")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingSettings = true } label: {
                         Image(systemName: "gearshape")
@@ -251,6 +261,9 @@ struct ContentView: View {
                 Button("Not Now", role: .cancel) {}
             } message: {
                 Text("Timers won't alert you while the app is in the background until notifications are allowed.")
+            }
+            .sheet(isPresented: $showingHistory) {
+                TimerHistoryView(onRunAgain: { startNew($0) }, onOpen: { openTimerDetails($0) })
             }
             .sheet(item: $incomingPayload, onDismiss: leaveDeclinedShares) { payload in
                 AddSharedTimerSheet(

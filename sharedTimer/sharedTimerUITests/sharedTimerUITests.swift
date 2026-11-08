@@ -129,6 +129,36 @@ final class sharedTimerUITests: XCTestCase {
     }
 
     @MainActor
+    func testFinishedTimerAppearsInHistoryWithRunAgain() throws {
+        let app = XCUIApplication()
+        let id = UUID().uuidString
+        let label = "History UI \(id.prefix(4))"
+        var share = URLComponents(string: "https://lokii49.github.io/sharedTimer/t.html")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id), URLQueryItem(name: "label", value: label),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(-30).timeIntervalSince1970)),
+            URLQueryItem(name: "dur", value: "120"), URLQueryItem(name: "kind", value: "timer"),
+            URLQueryItem(name: "alarm", value: "0"), URLQueryItem(name: "vib", value: "0")
+        ]
+        widgetTestURL = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        app.open(try XCTUnwrap(share.url))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        let history = app.buttons["historyButton"]
+        XCTAssertTrue(history.waitForExistence(timeout: 10))
+        history.tap()
+        XCTAssertTrue(app.staticTexts[label].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Run again"].firstMatch.exists)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "History"
+        shot.lifetime = .keepAlways
+        add(shot)
+        app.buttons["Done"].tap()
+    }
+
+    @MainActor
     func testSettingsPicksAToneAndShowsAbout() throws {
         let app = XCUIApplication()
         app.launch()
