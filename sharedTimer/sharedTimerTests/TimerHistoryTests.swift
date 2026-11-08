@@ -81,3 +81,14 @@ struct SequenceDescriberTests {
         #expect(SequenceDescriber.phases(from: SequenceDraft(phases: [], loopCount: 0)).loopCount == 1)
     }
 }
+
+struct OwnTimerSyncTests {
+    @Test func syncedButUnsharedOwnerLinksAreNotShared() {
+        let synced = CloudLink(timerID: "a", recordName: "a", zoneName: "SharedTimers", zoneOwnerName: "__defaultOwner__", isOwner: true, shareRecordName: nil)
+        let owned = CloudLink(timerID: "b", recordName: "b", zoneName: "SharedTimers", zoneOwnerName: "__defaultOwner__", isOwner: true, shareRecordName: "share-b")
+        let joined = CloudLink(timerID: "c", recordName: "c", zoneName: "SharedTimers", zoneOwnerName: "_abc", isOwner: false, shareRecordName: nil)
+        #expect(!synced.isShared)
+        #expect(owned.isShared)
+        #expect(joined.isShared)
+    }
+}

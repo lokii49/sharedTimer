@@ -47,7 +47,7 @@ struct TimerDetailView: View {
         self._payload = State(initialValue: payload)
         // Seeded here so the first frame already shows the right Delete/Remove wording.
         let link = CloudLinkStore.get(timerID: payload.id)
-        self._isShared = State(initialValue: link != nil)
+        self._isShared = State(initialValue: link?.isShared == true)
         self._isParticipant = State(initialValue: link?.isOwner == false)
         self.onUpdate = onUpdate
         self.onSequenceAdvance = onSequenceAdvance
@@ -418,7 +418,8 @@ struct TimerDetailView: View {
 
     private func refreshSharingState() {
         let link = CloudLinkStore.get(timerID: payload.id)
-        isShared = link != nil
+        // Shared with people — not merely synced between this person's devices.
+        isShared = link?.isShared == true
         isParticipant = link?.isOwner == false
         readOnly = TimerStore.isReadOnly(id: payload.id)
         myName = DisplayNameStore.name

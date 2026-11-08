@@ -248,7 +248,7 @@ struct TimerRunningView: View {
     private func refreshPermissionState() {
         readOnly = TimerStore.isReadOnly(id: payload.id)
         let link = CloudLinkStore.get(timerID: payload.id)
-        isShared = link != nil
+        isShared = link?.isShared == true
         isParticipant = link?.isOwner == false
     }
 

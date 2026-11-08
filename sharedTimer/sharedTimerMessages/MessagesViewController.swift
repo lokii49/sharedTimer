@@ -209,7 +209,7 @@ class MessagesViewController: MSMessagesAppViewController {
     private func stageAttributionText(for payload: TimerPayload, action: String) {
         guard !hasStagedAttribution,
               let conversation = activeConversation,
-              CloudLinkStore.get(timerID: payload.id) != nil else { return }
+              CloudLinkStore.get(timerID: payload.id)?.isShared == true else { return }
         hasStagedAttribution = true
         let name = DisplayNameStore.name ?? String(localized: "Someone")
         // The wire verb is English ("paused"); translate the whole phrase per verb, as

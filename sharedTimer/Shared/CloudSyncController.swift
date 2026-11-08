@@ -169,7 +169,12 @@ enum CloudSyncController {
             fetchRecord(for: payload) { record, database in
                 let zone = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
                 let shareID = record?.share?.recordID ?? link.shareRecordName.map { CKRecord.ID(recordName: $0, zoneID: zone) }
-                guard let shareID else { return completeOnce(nil) }
+                guard let shareID else {
+                    // A timer that only syncs between this person's devices (owner
+                    // record, no share yet): attach a share to that record now.
+                    if link.isOwner, let record { return shareExistingRecord(record, payload: payload, completion: completeOnce) }
+                    return completeOnce(nil)
+                }
                 database.fetch(withRecordID: shareID) { share, _ in
                     let url = (share as? CKShare)?.url
                     if let url { CloudLinkStore.setShareURL(url, timerID: payload.id) }
@@ -341,7 +346,10 @@ enum CloudSyncController {
     /// `action` is a short human-readable verb ("paused", "resumed", "extended") written
     /// alongside this device's DisplayNameStore name for the "who did what" surfaces.
     static func pushUp(_ payload: TimerPayload, action: String, completion: @escaping () -> Void = {}) {
-        guard let link = CloudLinkStore.get(timerID: payload.id) else { return completion() }
+        guard let link = CloudLinkStore.get(timerID: payload.id) else {
+            // Not in iCloud yet: with "Sync with iCloud" on, upload it as this person's own.
+            return adoptOwnTimer(payload, completion: completion)
+        }
         let scope: SyncScope = link.isOwner ? .owner : .participant
         let zoneID = CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName)
         let recordID = CKRecord.ID(recordName: link.recordName, zoneID: zoneID)
@@ -363,6 +371,86 @@ enum CloudSyncController {
 
     /// Intents must keep the process alive through the fetch/save (including a conflict
     /// retry). Network failure remains best-effort, like other local timer mutations.
+    // MARK: - Sync your own timers (1.0.7, D12)
+
+    private static let syncOwnTimersKey = "syncOwnTimers"
+
+    /// "Sync with iCloud" in Settings (off by default): every timer, not only shared
+    /// ones, gets a record in this person's private zone, so it follows them to their
+    /// other devices signed in to the same iCloud account. Each device arms its own
+    /// alarm, so each one rings. No share is created; the record lives in the person's
+    /// own private database (privacy label unchanged).
+    static var syncOwnTimers: Bool {
+        get { UserDefaults(suiteName: appGroupID)?.bool(forKey: syncOwnTimersKey) ?? false }
+        set { UserDefaults(suiteName: appGroupID)?.set(newValue, forKey: syncOwnTimersKey) }
+    }
+
+    /// Uploads a timer that has no CloudLink as an owner record without a share.
+    static func adoptOwnTimer(_ payload: TimerPayload, completion: @escaping () -> Void = {}) {
+        guard syncOwnTimers, CloudLinkStore.get(timerID: payload.id) == nil,
+              !CloudLinkStore.hasLeft(timerID: payload.id) else { return completion() }
+        ensureZoneExists { ok in
+            guard ok else { return completion() }
+            let zoneID = CKRecordZone.ID(zoneName: zoneName, ownerName: CKCurrentUserDefaultName)
+            let record = CKRecord(recordType: recordType, recordID: CKRecord.ID(recordName: payload.id, zoneID: zoneID))
+            applyFields(from: payload, to: record)
+            let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
+            operation.savePolicy = .ifServerRecordUnchanged
+            operation.perRecordSaveBlock = { _, result in
+                switch result {
+                case .success:
+                    CloudLinkStore.set(CloudLink(timerID: payload.id, recordName: payload.id, zoneName: zoneName,
+                                                 zoneOwnerName: CKCurrentUserDefaultName, isOwner: true, shareRecordName: nil))
+                case .failure(let error):
+                    log("adoptOwnTimer(\(payload.id)) failed: \(error)")
+                }
+            }
+            operation.modifyRecordsResultBlock = { _ in completion() }
+            container.privateCloudDatabase.add(operation)
+        }
+    }
+
+    /// Turning sync on uploads every timer that isn't in iCloud yet.
+    static func adoptAllOwnTimers() {
+        for payload in TimerStore.loadAll() where CloudLinkStore.get(timerID: payload.id) == nil {
+            adoptOwnTimer(payload)
+        }
+    }
+
+    /// Turning sync off stops syncing timers that were only synced, not shared: their
+    /// links go (the records stay in iCloud for the other devices).
+    static func releaseOwnTimers() {
+        for (timerID, link) in CloudLinkStore.all() where link.isOwner && !link.isShared {
+            CloudLinkStore.remove(timerID: timerID)
+        }
+    }
+
+    /// Adds a CKShare to an owner record that has none yet (a synced timer being shared).
+    private static func shareExistingRecord(_ record: CKRecord, payload: TimerPayload, completion: @escaping (URL?) -> Void) {
+        let share = CKShare(rootRecord: record)
+        share.publicPermission = .readWrite
+        share[CKShare.SystemFieldKey.title] = payload.label as CKRecordValue
+        let operation = CKModifyRecordsOperation(recordsToSave: [record, share], recordIDsToDelete: nil)
+        operation.savePolicy = .changedKeys
+        var url: URL?
+        operation.perRecordSaveBlock = { _, result in
+            // Read the URL from the saved instance (see createShare).
+            if case .success(let saved) = result, let saved = saved as? CKShare {
+                url = saved.url
+                CloudLinkStore.update(timerID: payload.id) { link in
+                    CloudLink(timerID: link.timerID, recordName: link.recordName, zoneName: link.zoneName,
+                              zoneOwnerName: link.zoneOwnerName, isOwner: true, shareRecordName: saved.recordID.recordName)
+                }
+                if let url { CloudLinkStore.setShareURL(url, timerID: payload.id) }
+            }
+        }
+        operation.modifyRecordsResultBlock = { _ in
+            completion(url)
+            if url != nil { DispatchQueue.main.async { NotificationCenter.default.post(name: sharingChanged, object: payload.id) } }
+        }
+        container.privateCloudDatabase.add(operation)
+    }
+
     static func pushUpAwaiting(_ payload: TimerPayload, action: String) async {
         await withCheckedContinuation { continuation in
             pushUp(payload, action: action) { continuation.resume() }
@@ -701,6 +789,13 @@ enum CloudSyncController {
                         applyPermission(permission, shareRecordName: share.recordID.recordName)
                     }
                 } else if let payload = makePayload(from: record) {
+                    // Another of this person's devices synced a timer (D12): link it so
+                    // changes made here go back up.
+                    if !peek, database === container.privateCloudDatabase, syncOwnTimers, CloudLinkStore.get(timerID: payload.id) == nil {
+                        CloudLinkStore.set(CloudLink(timerID: payload.id, recordName: recordID.recordName, zoneName: recordID.zoneID.zoneName,
+                                                     zoneOwnerName: recordID.zoneID.ownerName, isOwner: true,
+                                                     shareRecordName: record.share?.recordID.recordName))
+                    }
                     updated.append(payload)
                 } else {
                     log("fetchZoneChanges: record \(recordID.recordName) fetched but unparseable")

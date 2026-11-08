@@ -787,7 +787,7 @@ struct ContentView: View {
                     Label("Share…", systemImage: "square.and.arrow.up")
                 }
             }
-            if CloudLinkStore.get(timerID: payload.id) != nil {
+            if CloudLinkStore.get(timerID: payload.id)?.isShared == true {
                 Button {
                     manageSharing(payload)
                 } label: {
@@ -856,7 +856,7 @@ struct ContentView: View {
     /// Same wording as the detail screen: the owner of a shared timer deletes it for
     /// everyone (after confirming), someone it was shared with only removes their copy.
     private func removalTitle(for payload: TimerPayload) -> String {
-        guard let link = CloudLinkStore.get(timerID: payload.id) else { return String(localized: "Delete") }
+        guard let link = CloudLinkStore.get(timerID: payload.id), link.isShared else { return String(localized: "Delete") }
         return link.isOwner ? String(localized: "Delete for Everyone") : String(localized: "Remove from My Timers")
     }
 
@@ -877,7 +877,7 @@ struct ContentView: View {
     }
 
     private func requestDelete(_ payload: TimerPayload) {
-        if CloudLinkStore.get(timerID: payload.id)?.isOwner == true {
+        if let link = CloudLinkStore.get(timerID: payload.id), link.isOwner, link.isShared {
             deleteForEveryonePayload = payload
         } else {
             delete(payload)
@@ -895,7 +895,7 @@ struct ContentView: View {
         timers.removeAll { $0.id == payload.id }
         // iPad: don't leave the detail column on a deleted timer.
         navigationPath.removeAll { $0 == payload.id }
-        if link?.isOwner == true {
+        if let link, link.isOwner, link.isShared {
             // Already confirmed in a dialog, and it reaches everyone — no Undo.
             CloudSyncController.pushDelete(id: payload.id)
             return
@@ -1027,7 +1027,7 @@ struct ContentView: View {
         // View-only share: the controls are hidden, and CloudKit would refuse the write.
         guard !TimerStore.isReadOnly(id: updated.id) else { return }
         apply(updated, action: action)
-        if CloudLinkStore.get(timerID: updated.id) != nil {
+        if CloudLinkStore.get(timerID: updated.id)?.isShared == true {
             promptForNameIfNeeded()
         }
     }

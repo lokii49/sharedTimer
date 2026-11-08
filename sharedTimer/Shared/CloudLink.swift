@@ -42,6 +42,12 @@ struct CloudLink: Codable {
     /// `share.url` later (e.g. to reshare) without a network round trip. Participants
     /// don't need this, since they only ever look up the Timer record itself.
     let shareRecordName: String?
+
+    /// Shared with other people: a participant always, an owner once a CKShare exists.
+    /// Since 1.0.7 an owner link can exist without a share — a timer synced between
+    /// this person's own devices (CloudSyncController.syncOwnTimers) — and that isn't
+    /// "shared": plain Delete, no Manage Sharing, no permission badge.
+    var isShared: Bool { !isOwner || shareRecordName != nil }
 }
 
 /// Local-only store for every timer's `CloudLink`, keyed by `timerID`. Same App Group
