@@ -484,31 +484,71 @@ struct ContentView: View {
     }
 
     /// The empty room holds one deep-night sky, waiting.
+    /// C7 · A (1.0.7 mockup): one tile per kind, each opening its existing sheet, plus
+    /// one-tap starts — Recent timers, or a few presets on a fresh install.
     private var emptyState: some View {
-        ZStack {
-            Sky.room.ignoresSafeArea()
-            VStack(spacing: 20) {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(LinearGradient(colors: Sky.night.stops(drain: 0), startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(height: 116)
-                    .overlay(alignment: .bottomLeading) {
-                        Text("--:--")
-                            .skyDigits(30)
-                            .foregroundStyle(.white.opacity(0.55))
-                            .padding(14)
-                    }
-                    .padding(.horizontal, 24)
-
-                Text("No timers yet")
-                    .font(.headline)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Start something")
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(.white)
-                Text("Tap + to start one, or share a timer from iMessage.")
-                    .font(.subheadline)
+                    .padding(.bottom, 4)
+                EmptyStateTile(title: "Timer", detail: "Minutes and seconds. Rings when it ends.", sample: "08:00",
+                               colors: Sky.ember.stops(drain: 0.2)) { pendingNewTimerKind = .timer }
+                EmptyStateTile(title: "Countdown", detail: "To a date. Birthdays, trips, launches.", sample: "12d",
+                               colors: Sky.night.stops(drain: 0.2)) { pendingNewTimerKind = .countdown }
+                EmptyStateTile(title: "Sequence", detail: "Phases on a loop. Pomodoro, fasting.", sample: "25 · 5",
+                               colors: Sky.dusk.stops(drain: 0.2)) { showingNewSequence = true }
+
+                let recents = RecentTimersStore.all()
+                Text(recents.isEmpty ? "Quick start" : "Recent")
+                    .skyLabel(11)
                     .foregroundStyle(Sky.roomInk)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
+                    .padding(.top, 10)
+                ChipFlowLayout(spacing: 8) {
+                    if recents.isEmpty {
+                        ForEach([3.0, 5, 10, 25], id: \.self) { minutes in
+                            emptyStateChip(Text("\(Int(minutes)) min"), symbol: nil) {
+                                startNew(TimerPayload.compose(label: "", kind: .timer, minutes: minutes, targetDate: Date()))
+                            }
+                        }
+                    } else {
+                        ForEach(recents) { recent in
+                            emptyStateChip(Text(recent.title), symbol: recent.isSequence ? recent.symbolName : nil) {
+                                startNew(recent.payload())
+                                RecentTimersStore.record(recent)
+                                RecentTimersSync.refresh()
+                            }
+                        }
+                    }
+                }
+                Text("Timers shared with you in Messages show up here too.")
+                    .font(.footnote)
+                    .foregroundStyle(Sky.roomInk)
+                    .padding(.top, 8)
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .frame(maxWidth: 600)
+            .frame(maxWidth: .infinity)
         }
+        .background(Sky.room.ignoresSafeArea())
+    }
+
+    private func emptyStateChip(_ title: Text, symbol: String?, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                if let symbol { Image(systemName: symbol).imageScale(.small) }
+                title
+            }
+            .font(.subheadline.weight(.medium))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(.white.opacity(0.14), in: Capsule())
+            .foregroundStyle(.white)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Starts right away")
     }
 
     /// Bar shown while the foreground alarm loop (AlarmPlayer) is sounding —
@@ -1127,5 +1167,43 @@ private struct LiveSkyCard: View {
         TimelineView(.periodic(from: .now, by: payload.isPaused || (payload.isFinished && payload.overtime() == nil) ? 60 : 1)) { context in
             SkyCard(payload: payload, date: context.date)
         }
+    }
+}
+
+/// A kind tile on the empty list (C7 · A): the kind's sky, its name, one line about
+/// it and a sample of what its digits look like.
+private struct EmptyStateTile: View {
+    let title: LocalizedStringKey
+    let detail: LocalizedStringKey
+    let sample: String
+    let colors: [Color]
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).skyLabel(12)
+                    Text(detail).font(.footnote).opacity(0.9)
+                }
+                Spacer(minLength: 8)
+                Text(verbatim: sample)
+                    .skyDigits(28, weight: .regular)
+                    .lineLimit(1)
+                    .accessibilityHidden(true)
+            }
+            .foregroundStyle(.white)
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .overlay(SkyCornerScrim())
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
     }
 }
