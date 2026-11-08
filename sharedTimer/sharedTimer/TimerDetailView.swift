@@ -97,9 +97,11 @@ struct TimerDetailView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.4)
                             .padding(.horizontal, 24)
-                            .accessibilityLabel(pending ? "Starts \(payload.scheduledStartDate?.formatted(date: .abbreviated, time: .shortened) ?? "")"
-                                                : overtime != nil ? Sky.overtimeAccessibilityText(for: payload, at: context.date)
-                                                : "\(Duration.seconds(max(0, remaining.rounded())).formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))) left")
+                            // Text, not String: a String branch here made the whole label
+                            // a String, and "Starts %@" / "%@ left" stopped being translated.
+                            .accessibilityLabel(pending ? Text("Starts \(payload.scheduledStartDate?.formatted(date: .abbreviated, time: .shortened) ?? "")")
+                                                : overtime != nil ? Text(verbatim: Sky.overtimeAccessibilityText(for: payload, at: context.date))
+                                                : Text("\(Duration.seconds(max(0, remaining.rounded())).formatted(.units(allowed: [.days, .hours, .minutes, .seconds], width: .wide, maximumUnitCount: 2))) left"))
                             .accessibilityAddTraits(.updatesFrequently)
                         Text(subtitle(done: done, pending: pending))
                             .font(.subheadline)

@@ -135,6 +135,64 @@
         }
       }
     },
+    "%@ over": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "超时 %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ अधिक"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ de más"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تجاوز %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ de dépassement"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ বেশি"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ a mais"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ сверх"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "lewat %@"
+          }
+        }
+      }
+    },
     "%dd %02d:%02d:%02d": {
       "comment": "Days, then hours:minutes:seconds",
       "localizations": {
@@ -1229,16 +1287,16 @@
     },
     "Countdown": {
       "localizations": {
-        "zh-Hans": {
+        "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "倒计时"
+            "value": "عد تنازلي"
           }
         },
-        "hi": {
+        "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "काउंटडाउन"
+            "value": "কাউন্টডাউন"
           }
         },
         "es": {
@@ -1247,22 +1305,22 @@
             "value": "Cuenta atrás"
           }
         },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "عد تنازلي"
-          }
-        },
         "fr": {
           "stringUnit": {
             "state": "translated",
             "value": "Compte à rebours"
           }
         },
-        "bn": {
+        "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "কাউন্টডাউন"
+            "value": "काउंटडाउन"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hitung Mundur"
           }
         },
         "pt-BR": {
@@ -1277,10 +1335,10 @@
             "value": "Отсчет"
           }
         },
-        "id": {
+        "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hitung Mundur"
+            "value": "倒计时"
           }
         }
       }
@@ -3091,6 +3149,64 @@
           "stringUnit": {
             "state": "translated",
             "value": "已排程，%@ 开始"
+          }
+        }
+      }
+    },
+    "Sequence": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "序列"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अनुक्रम"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secuencia"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تسلسل"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Séquence"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "সিকোয়েন্স"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sequência"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Последовательность"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Urutan"
           }
         }
       }
