@@ -13,7 +13,9 @@ Full audit by four parallel read-only passes (correctness vs. CLAUDE.md invarian
 - **Done + verified:** A1–A14; B1 (device test), B3–B7 (B7 minus the calendar query, see below); C1–C5; D1–D3, D5, D6 (all D directions picked from https://claude.ai/artifact/9nyb9PteYPHexn8MC7agEf: A/A/A/A/A/B). 157 unit + 15 UI tests pass on the simulator (the calendar UI test is flaky at its system-alert step, passes on rerun); 121 unit + 33 AlarmKit tests pass on the iPhone 14 Pro. 31 new strings localized.
 - **Done, needs a manual check on device:** A3 (Watch relay awaits), A6 (vibrate-only notification buzzes with no tone), B2 (sky sway look, still in Low Power Mode), C1 (fresh-install AlarmKit prompt on first ringing timer), D1 (a heads-up notification arriving), D2 (overtime on Lock Screen card), D4 (no Watch/CarPlay available).
 - **Known limit:** overtime keeps counting for up to 1 h after the AlarmKit full-screen Stop — that system button has no hook, so only the in-app Stop / banner / ✕ acknowledge the finish.
-- **Not done:** B8 (IMA4 tones — needs an AlarmKit device check), C6–C9 (need mockups), D7–D13.
+- **B8 done:** tones are IMA4 (4.6 MB → 1.3 MB); AlarmKit device test + owner listening check passed.
+- **Owner decisions (2026-11-08):** overtime stays 1 h; build D7, D8, D9, D10 next; C6–C9 mockups in progress.
+- **Not done:** C6–C9, D7–D10 (in progress), D11–D13 (1.0.8+).
 
 Invariant checklist result: PASS on TimerStore isolation, `stopIntent` nil, no `CKContainer.default()`, intents use `*Awaiting`, `Shared/` target membership, AlarmPlayer/VibrationPlayer pairing, main-actor posts. iPad: every shipping target is `TARGETED_DEVICE_FAMILY = 1` (only test bundles are `1,2`) — iPad is a feature (D), not a fix.
 
