@@ -102,6 +102,18 @@ struct TimerWidgetTests {
         #expect(TimerWidgetSnapshot.resolve(from: [payload], selectedID: nil, focusID: nil, at: now) == nil)
     }
 
+    /// A later phase of a day or more shows coarse "2d 0h" text: the refresh must come
+    /// within an hour of that phase starting, not only at the very end.
+    @Test func laterLongSequencePhaseGetsItsOwnCoarseRefresh() {
+        let now = Date()
+        let phases = [SequencePhase(label: "Work", duration: 3600), SequencePhase(label: "Break", duration: 2 * 86400)]
+        let payload = TimerPayload(id: UUID().uuidString, label: "Work", endDate: now.addingTimeInterval(3600), duration: 3600,
+                                   sequence: SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 0))
+        let entries = TimerWidgetSnapshot.timeline(payload: payload, at: now)
+        #expect(entries.map(\.date).contains(now.addingTimeInterval(3600)))
+        #expect(TimerWidgetSnapshot.refreshDate(for: entries) == now.addingTimeInterval(7200))
+    }
+
     @Test func coarseCountdownRefreshesAtDayThresholdAndPausedTimelineStaysFrozen() {
         let now = Date()
         let far = TimerPayload(id: UUID().uuidString, label: "Trip", endDate: now.addingTimeInterval(86410), duration: 100000, kind: .countdown)

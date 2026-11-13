@@ -66,7 +66,11 @@ func nextRefresh(for payload: TimerPayload?) -> Date {
     // A scheduled sequence shows its start time until then; refresh exactly at start,
     // or at midnight first so "Tomorrow 7:00 AM" turns into "Today 7:00 AM".
     if let start = payload.scheduledStartDate, start > Date() {
-        let midnight = Calendar.current.startOfDay(for: Date()).addingTimeInterval(86400)
+        // `date(byAdding: .day)`, not +86400: a 23 h / 25 h DST day put "midnight" an
+        // hour off (in the past on fall-back day → a reload loop).
+        let calendar = Calendar.current
+        let midnight = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date()))
+            ?? Date().addingTimeInterval(86400)
         return min(start, midnight)
     }
     let remaining = payload.remaining
