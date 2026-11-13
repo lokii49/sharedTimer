@@ -103,17 +103,66 @@
     if (json === null) return null;
     if (new TextEncoder().encode(json).length > 65536) throw new Error("Sequence too large");
     const envelope = JSON.parse(json);
-    const s = envelope.sequence;
+    // SequenceInfo/SequencePhase decode with decodeIfPresent + defaults: a missing or
+    // null loopCount/phaseIndex/loopIndex/kind/toggle takes the app's default, but a
+    // present value of the wrong type still fails.
+    const given = (value, fallback) => value === undefined || value === null ? fallback : value;
+    const raw = envelope && envelope.sequence;
+    const s = raw && typeof raw === "object" ? { phases: raw.phases, loopCount: given(raw.loopCount, 1),
+      phaseIndex: given(raw.phaseIndex, 0), loopIndex: given(raw.loopIndex, 0) } : null;
     if (envelope.version !== 1 || !s || !Array.isArray(s.phases) || s.phases.length < 1 || s.phases.length > 64 ||
         !Number.isInteger(s.loopCount) || s.loopCount < 1 || s.loopCount > 99 ||
         !Number.isInteger(s.phaseIndex) || s.phaseIndex < 0 || s.phaseIndex >= s.phases.length ||
-        !Number.isInteger(s.loopIndex) || s.loopIndex < 0 || s.loopIndex > s.loopCount ||
-        s.phases.some(p => typeof p.label !== "string" || !p.label.trim() || new TextEncoder().encode(p.label).length > 512 ||
-          !Number.isFinite(p.duration) || p.duration < 1 || p.duration > 31536000 ||
-          !["timer", "countdown"].includes(p.kind) || typeof p.alarmEnabled !== "boolean" || typeof p.vibrationEnabled !== "boolean")) {
+        !Number.isInteger(s.loopIndex) || s.loopIndex < 0 || s.loopIndex > s.loopCount) {
       throw new Error("Invalid sequence");
     }
+    s.phases = s.phases.map(p => {
+      const phase = p && typeof p === "object" ? { label: p.label, duration: p.duration, kind: given(p.kind, "timer"),
+        alarmEnabled: given(p.alarmEnabled, true), vibrationEnabled: given(p.vibrationEnabled, false) } : null;
+      if (!phase || typeof phase.label !== "string" || blankLabel(phase.label) || new TextEncoder().encode(phase.label).length > 512 ||
+          typeof phase.duration !== "number" || !Number.isFinite(phase.duration) || phase.duration < 1 || phase.duration > 31536000 ||
+          !["timer", "countdown"].includes(phase.kind) || typeof phase.alarmEnabled !== "boolean" || typeof phase.vibrationEnabled !== "boolean") {
+        throw new Error("Invalid sequence");
+      }
+      return phase;
+    });
     return s;
+  }
+  // Foundation's CharacterSet.whitespacesAndNewlines, which TimerSequenceWire trims a
+  // phase label with (probed in Swift): unlike String.trim() it has U+0085 and U+200B
+  // and not U+FEFF.
+  function blankLabel(text) {
+    return /^[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200b\u2028\u2029\u202f\u205f\u3000]*$/.test(text);
+  }
+
+  // A query value the way the app's URLComponents.queryItems reads it: percent-decoded
+  // but `+` kept literal (URLSearchParams turns it into a space), and null when the
+  // item is absent or has no "=" at all.
+  function rawParam(name) {
+    const decode = text => { try { return decodeURIComponent(text); } catch (_) { return null; } };
+    for (const piece of String(window.location.search || "").replace(/^\?/, "").split("&")) {
+      const eq = piece.indexOf("=");
+      if (decode(eq < 0 ? piece : piece.slice(0, eq)) !== name) continue;
+      return eq < 0 ? null : decode(piece.slice(eq + 1));
+    }
+    return null;
+  }
+  // Swift's Double(_:) as TimerPayload.from(url:) uses it: null when it can't parse
+  // (no surrounding whitespace, no "0b"/"0X"), otherwise the value — which may be
+  // Infinity or NaN ("inf", "nan"), and those parse, then fail the range checks.
+  function swiftDouble(text) {
+    if (text === null || text === undefined) return null;
+    if (/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(text)) return Number(text);
+    const hex = /^([+-]?)0x([0-9a-fA-F]*)(?:\.([0-9a-fA-F]*))?(?:[pP]([+-]?\d+))?$/.exec(text);
+    if (hex && (hex[2] || hex[3])) {
+      let value = 0;
+      for (const digit of hex[2] + (hex[3] || "")) value = value * 16 + parseInt(digit, 16);
+      if (value) value *= 2 ** (Number(hex[4] || 0) - 4 * (hex[3] || "").length);
+      return hex[1] === "-" ? -value : value;
+    }
+    if (/^[+-]?inf(?:inity)?$/i.test(text)) return text[0] === "-" ? -Infinity : Infinity;
+    if (/^[+-]?s?nan(?:\((?:0x[0-9a-fA-F]*|\d*)\))?$/i.test(text)) return NaN;
+    return null;
   }
 
   // Project directly from the original shared boundary on every tick. Late opens,
@@ -229,21 +278,66 @@
   // Explicit transition dates make the exported IANA time zone self-contained.
   // Thirty years of current rules cover ordinary Calendar imports; calendar apps
   // may refresh IANA rules if governments change them after export.
-  function icsTimeZone(zone, year) {
+  // Offset changes from the start of year - 1 to the start of year + 30: one daily
+  // probe, then a binary search for the exact second. Shared by the VTIMEZONE and the
+  // repeating-rule DST corrections, and cached so an export scans once.
+  const transitionCache = new Map();
+  function zoneTransitions(zone, year) {
+    const key = zone + '|' + year;
+    if (transitionCache.has(key)) return transitionCache.get(key);
     const start = Date.UTC(year - 1, 0, 1), end = Date.UTC(year + 30, 0, 1);
     let offset = zoneOffset(start, zone);
-    const lines = ['BEGIN:VTIMEZONE', `TZID:${zone}`, `X-LIC-LOCATION:${zone}`, 'BEGIN:STANDARD',
-      `DTSTART:${icsDate(start + offset).replace(/Z$/, '')}`, `TZOFFSETFROM:${icsOffset(offset)}`, `TZOFFSETTO:${icsOffset(offset)}`, 'END:STANDARD'];
+    const result = { start, end, initial: offset, transitions: [] };
     for (let day = start + 86400000; day <= end; day += 86400000) {
       const next = zoneOffset(day, zone);
       if (next === offset) continue;
       let low = day - 86400000, high = day;
       while (high - low > 1000) { const mid = Math.floor((low + high) / 2000) * 1000; if (zoneOffset(mid, zone) === offset) low = mid; else high = mid; }
-      const type = next > offset ? 'DAYLIGHT' : 'STANDARD';
-      lines.push(`BEGIN:${type}`, `DTSTART:${icsDate(high + offset).replace(/Z$/, '')}`, `TZOFFSETFROM:${icsOffset(offset)}`, `TZOFFSETTO:${icsOffset(next)}`, `END:${type}`);
+      result.transitions.push({ at: high, from: offset, to: next });
       offset = next;
     }
+    transitionCache.set(key, result);
+    return result;
+  }
+  function icsTimeZone(zone, year) {
+    const { start, initial, transitions } = zoneTransitions(zone, year);
+    const lines = ['BEGIN:VTIMEZONE', `TZID:${zone}`, `X-LIC-LOCATION:${zone}`, 'BEGIN:STANDARD',
+      `DTSTART:${icsDate(start + initial).replace(/Z$/, '')}`, `TZOFFSETFROM:${icsOffset(initial)}`, `TZOFFSETTO:${icsOffset(initial)}`, 'END:STANDARD'];
+    for (const { at, from, to } of transitions) {
+      const type = to > from ? 'DAYLIGHT' : 'STANDARD';
+      lines.push(`BEGIN:${type}`, `DTSTART:${icsDate(at + from).replace(/Z$/, '')}`, `TZOFFSETFROM:${icsOffset(from)}`, `TZOFFSETTO:${icsOffset(to)}`, `END:${type}`);
+    }
     return [...lines, 'END:VTIMEZONE'];
+  }
+  // RFC 5545 skips a recurrence time that doesn't exist (spring gap) and readers differ
+  // on which copy of a repeated autumn time they pick. For one civil date the rule
+  // occurs on: exclude every reading of the nominal wall time that isn't the app's
+  // instant, and add the app's instant (first valid time / first copy) in UTC.
+  function dstCorrection(r, y, m, d, seriesStart, exclusions, additions) {
+    const actual = wallDate(r, y, m, d);
+    if (actual < seriesStart) return;
+    const p = zonedParts(actual * 1000, r.timeZoneID);
+    const exact = p.hour === r.hour && p.minute === r.minute && p.second === r.second;
+    const nominal = Date.UTC(y, m - 1, d, r.hour, r.minute, r.second);
+    const offsets = [...new Set([-36,-12,0,12,36].map(h => zoneOffset(nominal + h * 3600000, r.timeZoneID)))];
+    const repeated = offsets.filter(offset => wallMilliseconds(zonedParts(nominal - offset, r.timeZoneID)) === nominal).length > 1;
+    if (exact && !repeated) return;
+    // Use UTC for repeated autumn times as well: some Calendar readers choose
+    // the second occurrence despite RFC 5545 specifying the first.
+    for (const offset of offsets) {
+      const candidate = nominal - offset;
+      if (candidate !== actual * 1000) exclusions.add(icsDate(candidate));
+    }
+    additions.add(icsDate(actual * 1000));
+  }
+  // An extended first occurrence is swapped out: its rule instant is an EXDATE even if
+  // a DST correction also listed it as RDATE, and the moved `end` is never excluded
+  // (an extension by exactly the autumn hour lands on the repeated copy).
+  function pushCorrections(lines, exclusions, additions, natural, end) {
+    if (Math.abs(natural - end) >= 1) additions.delete(icsDate(natural * 1000));
+    exclusions.delete(icsDate(end * 1000));
+    for (const date of exclusions) lines.push(`EXDATE:${date}`);
+    for (const date of additions) lines.push(`RDATE:${date}`);
   }
   function calendarICS(title, end, recurrence, id = '') {
     const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Shared Timer//Countdown//EN', 'CALSCALE:GREGORIAN'];
@@ -252,11 +346,54 @@
     if (recurrence && recurrence.frequency && recurrence.frequency !== 'yearly') {
       // Daily / weekly / monthly from this occurrence on. A monthly day 29-31 picks the
       // month's last day when it's shorter, like the app (BYSETPOS over 28...day).
-      lines.push(`DTSTART;TZID=${recurrence.timeZoneID}:${icsDate(end * 1000, recurrence.timeZoneID)}`);
+      // The series starts at the rule's own occurrence, not `end`: Extend moves only
+      // this occurrence, which is swapped out with EXDATE/RDATE (as the yearly branch
+      // does) — starting at `end` shifted every later occurrence by the extension.
+      const periodDays = { daily: 1, weekly: 7, monthly: 31 }[recurrence.frequency];
+      let natural = end;
+      for (let after = end - (periodDays + 1) * 86400, i = 0; i < 40; i++) {
+        const next = nextAnnual(recurrence, after);
+        if (next > end) break;
+        natural = next; after = next;
+      }
+      // A first occurrence moved by a spring gap (02:30 → 03:00) can't be DTSTART — that
+      // would make 03:00 the whole series' time. Start at the first one on the rule's
+      // own wall time and add the moved one as RDATE, as the yearly branch does.
+      const exactTime = ms => { const p = zonedParts(ms * 1000, recurrence.timeZoneID);
+        return p.hour === recurrence.hour && p.minute === recurrence.minute && p.second === recurrence.second; };
+      let seriesStart = natural;
+      for (let i = 0; i < 40 && !exactTime(seriesStart); i++) seriesStart = nextAnnual(recurrence, seriesStart);
+      lines.push(`DTSTART;TZID=${recurrence.timeZoneID}:${icsDate(seriesStart * 1000, recurrence.timeZoneID)}`);
       if (recurrence.frequency === 'daily') lines.push('RRULE:FREQ=DAILY');
       else if (recurrence.frequency === 'weekly') lines.push(`RRULE:FREQ=WEEKLY;BYDAY=${['SU','MO','TU','WE','TH','FR','SA'][recurrence.weekday - 1]}`);
       else if (recurrence.day <= 28) lines.push(`RRULE:FREQ=MONTHLY;BYMONTHDAY=${recurrence.day}`);
       else lines.push(`RRULE:FREQ=MONTHLY;BYMONTHDAY=${Array.from({ length: recurrence.day - 27 }, (_, i) => 28 + i).join(',')};BYSETPOS=-1`);
+      const exclusions = new Set(), additions = new Set();
+      if (Math.abs(natural - end) >= 1) {
+        if (natural >= seriesStart) exclusions.add(icsDate(natural * 1000));
+        additions.add(icsDate(end * 1000));
+      } else if (seriesStart !== natural) additions.add(icsDate(end * 1000));
+      // Later spring gaps / autumn repeats, as the yearly branch does per year. Only
+      // the civil dates around each time-zone transition in the exported span can be
+      // affected (a day either side covers zones that switch at local midnight).
+      const year = zonedParts(end * 1000, recurrence.timeZoneID).year;
+      const visited = new Set();
+      for (const { at, from, to } of zoneTransitions(recurrence.timeZoneID, year).transitions) {
+        for (const wall of [at + from, at + to]) {
+          for (const shift of [-1, 0, 1]) {
+            const date = new Date(wall + shift * 86400000);
+            const y = date.getUTCFullYear(), m = date.getUTCMonth() + 1, d = date.getUTCDate();
+            const key = `${y}-${m}-${d}`;
+            if (visited.has(key)) continue;
+            visited.add(key);
+            const occurs = recurrence.frequency === 'daily' ||
+              (recurrence.frequency === 'weekly' && date.getUTCDay() + 1 === recurrence.weekday) ||
+              (recurrence.frequency === 'monthly' && d === Math.min(recurrence.day, daysIn(y, m)));
+            if (occurs) dstCorrection(recurrence, y, m, d, seriesStart, exclusions, additions);
+          }
+        }
+      }
+      pushCorrections(lines, exclusions, additions, natural, end);
     } else if (recurrence) {
       const year = zonedParts(end * 1000, recurrence.timeZoneID).year;
       const original = annualDate(recurrence, year);
@@ -271,25 +408,11 @@
       // RFC 5545 skips nonexistent recurrence times. Include the native app's
       // first valid time explicitly, instead of losing that year's anniversary.
       for (let y = year; y <= year + 30; y++) {
-        const actual = annualDate(recurrence, y);
-        if (actual < seriesStart) continue;
-        const day = Math.min(recurrence.day, new Date(Date.UTC(y, recurrence.month, 0)).getUTCDate());
-        const nominal = Date.UTC(y, recurrence.month - 1, day, recurrence.hour, recurrence.minute, recurrence.second);
-        const offsets = [...new Set([-36,-12,0,12,36].map(h => zoneOffset(nominal + h * 3600000, recurrence.timeZoneID)))];
-        const repeated = offsets.filter(offset => wallMilliseconds(zonedParts(nominal - offset, recurrence.timeZoneID)) === nominal).length > 1;
-        if (exactTime(actual) && !repeated) continue;
-        // Use UTC for repeated autumn times as well: some Calendar readers choose
-        // the second occurrence despite RFC 5545 specifying the first.
-        for (const offset of offsets) {
-          const candidate = nominal - offset;
-          if (candidate !== actual * 1000) exclusions.add(icsDate(candidate));
-        }
-        additions.add(icsDate(actual * 1000));
+        dstCorrection(recurrence, y, recurrence.month, Math.min(recurrence.day, daysIn(y, recurrence.month)), seriesStart, exclusions, additions);
       }
       const monthDay = recurrence.month === 2 && recurrence.day === 29 ? -1 : recurrence.day;
       lines.push(`RRULE:FREQ=YEARLY;BYMONTH=${recurrence.month};BYMONTHDAY=${monthDay}`);
-      for (const date of exclusions) lines.push(`EXDATE:${date}`);
-      for (const date of additions) lines.push(`RDATE:${date}`);
+      pushCorrections(lines, exclusions, additions, original, end);
     } else lines.push(`DTSTART:${icsDate(end * 1000)}`);
     lines.push('DURATION:PT1M', 'END:VEVENT', 'END:VCALENDAR');
     return lines.map(foldICS).join('\r\n') + '\r\n';
@@ -300,22 +423,27 @@
   const statusEl = document.getElementById("status");
 
   const label = qs("label") || "Timer";
-  const endParam = qs("end");
   const kind = qs("kind") || "timer";
   labelEl.textContent = label;
   document.title = label + " · Timer";
 
-  // Strict parsing like Swift's Double(_:): parseFloat read "123abc" as 123, so a link
-  // the app rejects still rendered here.
-  function strictNumber(value) {
-    return value === null || value.trim() === "" ? NaN : Number(value);
-  }
-  const endSeconds = strictNumber(endParam);
-  const durParam = qs("dur");
-  const duration = strictNumber(durParam);
-  const pausedParam = qs("paused");
-  const pausedSeconds = strictNumber(pausedParam);
-  const extraSeconds = strictNumber(qs("ext"));
+  // Accept exactly what TimerPayload.from(url:) accepts. It needs a nonempty `id` (≤512
+  // UTF-8 bytes), a `label` item with a value (it may be empty) and an `end` that
+  // Double(_:) parses, finite and within year 9999. `dur`/`paused` that don't parse
+  // are ignored (default length, running), but parsed ones must be finite and in range
+  // (dur in (0, 1e12], paused in [0, 1e12]); an `ext` out of range is just dropped.
+  const idParam = rawParam("id");
+  const endValue = swiftDouble(rawParam("end"));
+  const missingData = idParam === null || idParam === "" || rawParam("label") === null || endValue === null;
+  const badNumbers = (idParam !== null && new TextEncoder().encode(idParam).length > 512) ||
+    (endValue !== null && !(Number.isFinite(endValue) && Math.abs(endValue) <= 253402300799));
+  const endSeconds = missingData ? NaN : endValue;
+  const durValue = swiftDouble(rawParam("dur"));
+  const pausedValue = swiftDouble(rawParam("paused"));
+  const extValue = swiftDouble(rawParam("ext"));
+  const duration = durValue === null ? NaN : durValue;
+  const pausedSeconds = pausedValue === null ? NaN : pausedValue;
+  const extraSeconds = extValue !== null && Number.isFinite(extValue) && extValue >= 0 && extValue <= 1e12 ? extValue : 0;
   // "alarm=0" means the sender turned the finish alarm off. This page plays no sound
   // either way, so it's only surfaced as a body data-attribute to keep every wire
   // param accounted for (see TimerModel.swift url()/from(url:)).
@@ -333,8 +461,10 @@
   }
 
   const phaseEl = document.getElementById("phase");
-  const startParam = qs("start");
-  const startSeconds = startParam === null ? NaN : Number(startParam);
+  // Only a sequence reads `start`; one present must parse (unlike dur/paused).
+  const startParam = rawParam("start");
+  const startValue = swiftDouble(startParam);
+  const startSeconds = startValue === null ? NaN : startValue;
   let recurrence = null;
   let sequence = null;
   let invalidSequence = false;
@@ -344,8 +474,8 @@
     if (repeating) { if (recurrence) throw new Error("Invalid anniversary"); recurrence = repeating; }
     if (recurrence && (sequence || kind !== "countdown")) throw new Error("Invalid anniversary");
   } catch (_) { invalidSequence = true; }
-  // TimerPayload.from(url:) rejects a negative pause and a non-positive length.
-  if ((Number.isFinite(pausedSeconds) && pausedSeconds < 0) || (Number.isFinite(duration) && duration <= 0)) {
+  if (badNumbers || (pausedValue !== null && !(Number.isFinite(pausedValue) && pausedValue >= 0 && pausedValue <= 1e12)) ||
+      (durValue !== null && !(Number.isFinite(durValue) && durValue > 0 && durValue <= 1e12))) {
     invalidSequence = true;
   }
   if (sequence && startParam !== null && (!Number.isFinite(startSeconds) || Math.abs(startSeconds) > 253402300799 ||
@@ -359,7 +489,7 @@
   // domain, so on iPhone it goes through the old host, which the app still claims;
   // if that page loads instead (no app), its pill points at the App Store.
   const openEl = document.getElementById("open");
-  if (openEl && !invalidSequence) {
+  if (openEl && !invalidSequence && !missingData) {
     const agent = typeof navigator === "undefined" ? "" : navigator.userAgent || "";
     const touchMac = typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
     const ios = /iPhone|iPad|iPod/.test(agent) || touchMac;

@@ -87,6 +87,17 @@ final class SharePlayController: ObservableObject {
     }
 
     /// Sends a local change of the shared timer to the others in the call.
+    /// Whether a timer arriving from the call is applied here: never for one shared
+    /// through CloudKit (authoritative — adopting re-pushed every field and rolled back
+    /// newer changes from people outside the call) or a view-only one; otherwise only
+    /// when new here or stamped newer (`shouldAdopt`, as for a re-opened link). A timer
+    /// merely synced between this person's own devices isn't "shared" and follows the call.
+    static func accepts(_ incoming: TimerPayload, stored: TimerPayload?, isShared: Bool, isReadOnly: Bool) -> Bool {
+        guard !isShared, !isReadOnly else { return false }
+        guard let stored else { return true }
+        return stored.shouldAdopt(incoming)
+    }
+
     func send(_ payload: TimerPayload) {
         guard payload.id == sharedTimerID, let messenger else { return }
         let message = TimerUpdateMessage(link: payload.url().absoluteString)
@@ -103,7 +114,17 @@ final class SharePlayController: ObservableObject {
         }
         session.$activeParticipants
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] in self?.participantCount = $0.count }
+            .sink { [weak self] participants in
+                guard let self else { return }
+                let joined = participants.count > self.participantCount
+                self.participantCount = participants.count
+                // A late joiner only has the activity's start link; send the current
+                // state (receivers keep the newest by its `upd` stamp).
+                if joined, let id = self.sharedTimerID,
+                   let current = TimerStore.loadAll().first(where: { $0.id == id }) {
+                    self.send(current)
+                }
+            }
             .store(in: &subscriptions)
         session.$state
             .receive(on: DispatchQueue.main)

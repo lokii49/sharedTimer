@@ -69,30 +69,65 @@ struct AnnualRecurrence: Codable, Equatable {
     private func date(year: Int, month: Int) -> Date? {
         guard isValid, (1...9998).contains(year),
               let monthStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
-              let days = calendar.range(of: .day, in: .month, for: monthStart),
-              let dayStart = calendar.date(from: DateComponents(year: year, month: month, day: min(day, days.count))) else { return nil }
-        // nextTime moves a missing spring-forward time to the first valid time;
-        // first selects the first occurrence of a repeated autumn time.
-        return calendar.nextDate(after: dayStart.addingTimeInterval(-1),
-                                 matching: DateComponents(hour: hour, minute: minute, second: second),
-                                 matchingPolicy: .nextTime, repeatedTimePolicy: .first, direction: .forward)
+              let days = calendar.range(of: .day, in: .month, for: monthStart) else { return nil }
+        return wallTime(year: year, month: month, day: min(day, days.count))
     }
+
+    /// The rule's time on one local day: the first copy of a repeated autumn time, or
+    /// the first valid time after a missing spring one — the web page's rule.
+    /// `Calendar.nextDate(.nextTime, .first)` gets whole-hour gaps right but not others:
+    /// Lord Howe's 30-minute gap moved 02:15 to the *next day*, Chatham's 02:45 gap gave
+    /// 04:00 for 02:50 instead of 03:45. A result that isn't the rule's exact wall time
+    /// on that day is redone minute by minute from the rule's time (seconds dropped
+    /// after the first minute), keeping the earliest instant that exists.
+    private func wallTime(year: Int, month: Int, day: Int) -> Date? {
+        guard let dayStart = calendar.date(from: DateComponents(year: year, month: month, day: day)) else { return nil }
+        if let exact = calendar.nextDate(after: dayStart.addingTimeInterval(-1),
+                                         matching: DateComponents(hour: hour, minute: minute, second: second),
+                                         matchingPolicy: .nextTime, repeatedTimePolicy: .first, direction: .forward) {
+            let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: exact)
+            if parts.year == year, parts.month == month, parts.day == day,
+               parts.hour == hour, parts.minute == minute, parts.second == second { return exact }
+        }
+        var wallClock = Calendar(identifier: .gregorian)
+        wallClock.timeZone = .gmt
+        guard let nominal = wallClock.date(from: DateComponents(year: year, month: month, day: day, hour: hour, minute: minute, second: second)) else { return nil }
+        for offset in 0...180 {
+            let wall = nominal.addingTimeInterval(TimeInterval(offset * 60 - (offset == 0 ? 0 : second)))
+            let parts = wallClock.dateComponents([.year, .month, .day, .hour, .minute, .second], from: wall)
+            guard let candidate = calendar.date(from: parts) else { continue }
+            if calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: candidate) == parts { return candidate }
+        }
+        return nil
+    }
+
+    /// Daily/weekly, day by day like the web page. A day's occurrence is its first copy
+    /// only: searching from *inside* an autumn repeated hour used to return that
+    /// night's second copy (a 01:30 daily repeat rang twice), and a non-whole-hour
+    /// spring gap used to skip the day entirely.
+    private func nextDailyOrWeekly(after date: Date) -> Date? {
+        let start = calendar.startOfDay(for: date)
+        for offset in 0...8 {
+            guard let day = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
+            if frequency == .weekly, calendar.component(.weekday, from: day) != weekday { continue }
+            let parts = calendar.dateComponents([.year, .month, .day], from: day)
+            guard let y = parts.year, let m = parts.month, let d = parts.day else { continue }
+            if let time = wallTime(year: y, month: m, day: d), time > date { return time }
+        }
+        return nil
+    }
+
     func nextDate(after date: Date) -> Date? {
         let year = year(of: date)
         guard isValid, (1...9998).contains(year) else { return nil }
-        let time = DateComponents(hour: hour, minute: minute, second: second)
         switch frequency {
         case .yearly:
             for candidateYear in year...min(9998, year + 2) {
                 if let candidate = self.date(in: candidateYear), candidate > date { return candidate }
             }
             return nil
-        case .daily:
-            return calendar.nextDate(after: date, matching: time, matchingPolicy: .nextTime, repeatedTimePolicy: .first, direction: .forward)
-        case .weekly:
-            var components = time
-            components.weekday = weekday
-            return calendar.nextDate(after: date, matching: components, matchingPolicy: .nextTime, repeatedTimePolicy: .first, direction: .forward)
+        case .daily, .weekly:
+            return nextDailyOrWeekly(after: date)
         case .monthly:
             let parts = calendar.dateComponents([.year, .month], from: date)
             guard var y = parts.year, var m = parts.month else { return nil }

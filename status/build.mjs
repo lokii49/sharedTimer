@@ -17,7 +17,7 @@
 import { createSign, createPrivateKey } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import { readFileSync, writeFileSync } from "node:fs";
-import { DAYS, appBlock, buildStatus, firstReportedDate, lastDays, linkSeries, mergeInstances, parseTsv, reducers, addDays, salesBlock, salesInstalls } from "./lib.mjs";
+import { DAYS, LINK_COUNTING_SINCE, appBlock, buildStatus, firstReportedDate, lastDays, linkSeries, mergeInstances, parseTsv, reducers, addDays, salesBlock, salesInstalls } from "./lib.mjs";
 
 const env = process.env;
 const outIndex = process.argv.indexOf("--out");
@@ -183,7 +183,7 @@ WHERE timestamp >= NOW() - INTERVAL '${DAYS + 1}' DAY
 GROUP BY day, kind
 FORMAT JSON`;
   const res = await request(`${CF}/analytics_engine/sql`, { method: "POST", headers: cfAuth(), body: sql });
-  return { available: true, ...linkSeries((await res.json()).data, days) };
+  return { available: true, ...linkSeries((await res.json()).data, days, LINK_COUNTING_SINCE) };
 }
 
 function kvNamespaceId() {

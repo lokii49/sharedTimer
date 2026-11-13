@@ -118,6 +118,24 @@ enum TimerReminders {
         UNUserNotificationCenter.current().removePendingNotificationRequests(
             withIdentifiers: TimerReminder.allCases.map { identifier(id, $0) })
     }
+
+    /// Drops pending reminders whose timer is no longer stored — deleted somewhere that
+    /// never reached this cancel (a remote delete a Messages pull consumed, say). Run by
+    /// the launch/foreground stray sweep (AlarmController.sweepStrayAlarms).
+    /// Pending requests are read before the store (same rule as the alarm sweep):
+    /// every path saves a timer before planning its reminders, so a reminder in this
+    /// snapshot whose timer exists has that timer in the store read after it.
+    static func cancelOrphaned() async {
+        let center = UNUserNotificationCenter.current()
+        let pending = await center.pendingNotificationRequests().map(\.identifier)
+        guard TimerStore.hasStoredData, let stored = TimerStore.loadAllIfComplete() else { return }
+        let storedIDs = Set(stored.map(\.id))
+        let orphaned = pending.filter { identifier in
+            guard let range = identifier.range(of: ".reminder.", options: .backwards) else { return false }
+            return !storedIDs.contains(String(identifier[..<range.lowerBound]))
+        }
+        if !orphaned.isEmpty { center.removePendingNotificationRequests(withIdentifiers: orphaned) }
+    }
 }
 
 /// The "Heads-up" chip row for the compose and edit sheets' "When it ends" section.

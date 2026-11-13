@@ -99,15 +99,18 @@ struct TimerWidgetSnapshot {
     static func refreshDate(for snapshots: [TimerWidgetSnapshot]) -> Date {
         guard let first = snapshots.first else { return Date().addingTimeInterval(900) }
         guard first.status == .running || first.status == .scheduled else { return first.date.addingTimeInterval(900) }
-        let last = snapshots.last!.date.addingTimeInterval(1)
+        var refresh = snapshots.last!.date.addingTimeInterval(1)
         // Long countdown labels are coarse and need periodic updates. Also refresh
         // exactly when they enter the live (<24h) or calendar/day formatting range.
-        if first.remaining > TimeFormat.calendarThreshold {
-            return min(last, first.date.addingTimeInterval(min(first.remaining - TimeFormat.calendarThreshold, 21600)))
+        // Every entry counts, not just the first: a later sequence phase of a day or
+        // more otherwise showed a frozen "2d 0h" from its start until the app saved.
+        for snapshot in snapshots where snapshot.status == .running || snapshot.status == .scheduled {
+            if snapshot.remaining > TimeFormat.calendarThreshold {
+                refresh = min(refresh, snapshot.date.addingTimeInterval(min(snapshot.remaining - TimeFormat.calendarThreshold, 21600)))
+            } else if snapshot.remaining >= 86400 {
+                refresh = min(refresh, snapshot.date.addingTimeInterval(max(1, min(snapshot.remaining - 86400, 3600))))
+            }
         }
-        if first.remaining >= 86400 {
-            return min(last, first.date.addingTimeInterval(max(1, min(first.remaining - 86400, 3600))))
-        }
-        return last
+        return refresh
     }
 }

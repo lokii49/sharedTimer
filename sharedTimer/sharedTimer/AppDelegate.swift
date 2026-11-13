@@ -24,8 +24,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         CloudSyncController.registerSubscriptionsIfNeeded()
         WatchSyncController.activate()
         TimerSpotlightIndex.shared.start()
-        // After Spotlight: chains onto the same TimerStore.didPersist hook.
-        TimerHistory.start()
+        // After Spotlight: chains onto the same TimerStore.didPersist hook. Not in the
+        // unit/device test host: its fixtures (finished timers) landed in the owner's
+        // real History on every device run.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+            TimerHistory.start()
+        }
         // Existing timers need AlarmKit right away; a fresh install is asked in context
         // instead, when its first ringing timer is scheduled (`ensureAuthorized`), rather
         // than by a cold prompt before it has made anything.
@@ -71,6 +75,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 }
                 for id in deletedIDs {
                     TimerStore.delete(id: id)
+                    CloudLinkStore.remove(timerID: id)
                     TimerReminders.cancel(id: id)
                     await AlarmController.clearAwaiting(id: id)
                     await LiveActivityController.endAwaiting(id: id)

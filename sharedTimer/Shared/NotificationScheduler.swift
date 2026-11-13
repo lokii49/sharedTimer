@@ -74,6 +74,20 @@ enum NotificationScheduler {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: requestIDs(id: id))
     }
 
+    /// Drops a timer's heads-up reminders (`<id>.reminder.<kind>`). Only the main app
+    /// plans them (TimerReminders), but Messages and the notification service also
+    /// delete, pause or move timers — before this, those reminders still fired ("5 min
+    /// left" for a deleted timer). Prefix match, so this file needn't know the kinds;
+    /// the main app re-plans on its next foreground.
+    static func cancelReminders(id: String) {
+        let prefix = "\(id).reminder."
+        let center = UNUserNotificationCenter.current()
+        center.getPendingNotificationRequests { requests in
+            let ids = requests.map(\.identifier).filter { $0.hasPrefix(prefix) }
+            if !ids.isEmpty { center.removePendingNotificationRequests(withIdentifiers: ids) }
+        }
+    }
+
     /// Fixed slots keep cancellation bounded even when the current phase changes.
     /// These requests work in Messages/Clip and as the main app's AlarmKit fallback.
     static func requests(for payload: TimerPayload, at date: Date = Date(), excludingSequenceIndices: Set<Int> = [], excludingAnnualDates: Set<Date> = []) -> [UNNotificationRequest] {

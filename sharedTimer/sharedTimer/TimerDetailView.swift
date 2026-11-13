@@ -393,6 +393,9 @@ struct TimerDetailView: View {
             readOnly = TimerStore.isReadOnly(id: payload.id)
             guard let fresh = TimerStore.loadAll().first(where: { $0.id == payload.id }) else { return }
             payload = fresh
+            // Revived elsewhere (a remote Repeat/Extend/Resume): its next finish must
+            // alert, advance and release Keep Screen On like the first one did.
+            if !fresh.isExpired { hasBuzzedFinish = false }
         }
     }
 

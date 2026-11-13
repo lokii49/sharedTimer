@@ -17,6 +17,11 @@ struct TimerActivityAttributes: ActivityAttributes {
         var label: String? = nil
         var kind: TimerKind? = nil
         var upcoming: [Phase]? = nil
+        /// True for sequences and yearly/repeating countdowns, which never count
+        /// overtime (TimerPayload.overtime(at:)); the card would otherwise show "+0:07"
+        /// after a phase or occurrence ended with the app closed. nil (older builds) =
+        /// plain timer behavior.
+        var noOvertime: Bool? = nil
     }
 
     /// A later sequence phase the card can switch to on its own when the current one

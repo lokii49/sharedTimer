@@ -35,6 +35,8 @@ struct PhaseDraft {
 }
 
 enum SequenceDescriber {
+    /// The longest phase New Sequence's hours/minutes wheel can show.
+    static let maximumPhaseSeconds: TimeInterval = 23 * 3600 + 59 * 60
     static var isAvailable: Bool {
         if case .available = SystemLanguageModel.default.availability { return true }
         return false
@@ -64,7 +66,9 @@ enum SequenceDescriber {
         let phases = draft.phases.prefix(64).compactMap { phase -> SequencePhase? in
             let label = TimerPayload.clampedLabel(phase.label.trimmingCharacters(in: .whitespacesAndNewlines))
             guard !label.isEmpty else { return nil }
-            let seconds = min(max(Double(phase.minutes) * 60, 1), 365 * 86_400)
+            // New Sequence's phase wheel stops at 23 h 59 min; a longer phase showed the
+            // wrong wheel value (no matching tag) next to a row reading "1d 12h".
+            let seconds = min(max(Double(phase.minutes) * 60, 1), maximumPhaseSeconds)
             return SequencePhase(label: label, duration: seconds)
         }
         return (Array(phases), min(max(draft.loopCount, 1), 99))

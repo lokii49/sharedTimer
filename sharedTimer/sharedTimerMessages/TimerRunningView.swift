@@ -9,6 +9,9 @@ import UIKit
 
 struct TimerRunningView: View {
     static let storeChange = Notification.Name("SharedTimerMessagesStoreChange")
+    /// Whether this timer was in the store when the view appeared — only then does its
+    /// disappearance mean "deleted" (a bubble can show a timer that was never stored).
+    @State private var wasStored = false
     @State private var payload: TimerPayload
     let onNewTimer: () -> Void
     let onUpdate: (TimerPayload, String) -> Void
@@ -215,9 +218,16 @@ struct TimerRunningView: View {
                 payload = stored.advancedSequence()
                 hasBuzzedFinish = payload.isExpired
                 if payload.isPaused { alarm.stop(); vibration.stop() }
+            } else if wasStored {
+                // Deleted meanwhile (a remote delete this view's pull applied): leave
+                // it, or its Pause/+1:00 saved the deleted timer back into the store.
+                alarm.stop()
+                vibration.stop()
+                onNewTimer()
             }
         }
         .onAppear {
+            wasStored = TimerStore.loadAll().contains { $0.id == payload.id }
             payload = payload.advancedSequence()
             hasBuzzedFinish = payload.isExpired
             CloudSyncController.fetchParticipantCount(for: payload) { participantCount = $0 }

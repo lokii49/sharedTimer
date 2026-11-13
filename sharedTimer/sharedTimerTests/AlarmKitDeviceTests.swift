@@ -342,6 +342,152 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
+    /// A Stop made on another device reaches this phone as a finished stored copy (the
+    /// notification service or Messages saved it; neither can touch AlarmKit) while the
+    /// alarm still counts toward the old end. That is not a panel Repeat: it must not be
+    /// revived (which pushed "repeated" to everyone), and the stale alarm goes.
+    @Test func reconcileRepeatIgnoresAnAlarmThatHasNotFiredYet() async {
+        let payload = TimerPayload(label: "Remote stop", duration: 300)
+        created.append(payload)
+        TimerStore.save(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let id = UUID(uuidString: payload.id)!
+        #expect(alarmsByID()[id]?.state == .countdown)
+
+        var stopped = payload
+        stopped.endDate = Date()
+        stopped.updatedAt = Date()
+        TimerStore.save(stopped)
+        var timers = [stopped]
+        #expect(AlarmController.reconcileRepeat(into: &timers).isEmpty)
+        #expect(timers[0].isFinished)
+        await waitUntil { alarmsByID()[id] == nil }
+        #expect(alarmsByID()[id] == nil)
+        await tearDown()
+    }
+
+    /// The card still shows a running timer, but the store already says paused (a remote
+    /// pause the notification service saved, which can't touch AlarmKit). Pause on the
+    /// card used to be a silent no-op, leaving the alarm to ring at the old time.
+    @Test func livePauseOnAStaleCardRealignsTheAlarm() async {
+        let payload = TimerPayload(label: "Stale card", duration: 300)
+        created.append(payload)
+        TimerStore.save(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let id = UUID(uuidString: payload.id)!
+        #expect(alarmsByID()[id]?.state == .countdown)
+        TimerStore.save(payload.paused())
+        await LiveActivityActions.setPaused(timerID: payload.id, paused: true)
+        #expect(alarmsByID()[id]?.state == .paused)
+        await tearDown()
+    }
+
+    /// ✕ on the Live Activity / widget used to leave the heads-up reminders pending.
+    @Test func liveStopDropsHeadsUpReminders() async {
+        let payload = TimerPayload(label: "Reminder stop", duration: 1800)
+        created.append(payload)
+        TimerStore.save(payload)
+        TimerReminders.set([.halfway, .fiveMinutes], for: payload.id)
+        defer { TimerReminders.set([], for: payload.id) }
+        await TimerArming.armAwaiting(payload)
+        let prefix = "\(payload.id).reminder."
+        func pending() async -> Int {
+            await UNUserNotificationCenter.current().pendingNotificationRequests().filter { $0.identifier.hasPrefix(prefix) }.count
+        }
+        var tries = 0
+        while await pending() == 0, tries < 30 { try? await Task.sleep(for: .milliseconds(100)); tries += 1 }
+        #expect(await pending() == 2)
+        await LiveActivityActions.stop(timerID: payload.id)
+        tries = 0
+        while await pending() > 0, tries < 30 { try? await Task.sleep(for: .milliseconds(100)); tries += 1 }
+        #expect(await pending() == 0)
+        await tearDown()
+    }
+
+    /// ▶ on the card of a timer that's gone (deleted in Messages): the tap clears the
+    /// stray paused alarm instead of doing nothing.
+    @Test func cardButtonOnADeletedTimerClearsItsAlarm() async {
+        let payload = TimerPayload(label: "Gone card", duration: 600).paused()
+        created.append(payload)
+        TimerStore.save(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let id = UUID(uuidString: payload.id)!
+        #expect(alarmsByID()[id]?.state == .paused)
+        TimerStore.delete(id: payload.id)
+        await LiveActivityActions.setPaused(timerID: payload.id, paused: false)
+        #expect(alarmsByID()[id] == nil)
+        await tearDown()
+    }
+
+    /// Messages and the notification service drop heads-up reminders by prefix
+    /// (`NotificationScheduler.cancelReminders`), without knowing the reminder kinds.
+    @Test func extensionReminderCancelRemovesEveryKind() async {
+        let payload = TimerPayload(label: "Ext reminders", duration: 1800)
+        created.append(payload)
+        TimerStore.save(payload)
+        TimerReminders.set([.halfway, .fiveMinutes, .oneMinute], for: payload.id)
+        defer { TimerReminders.set([], for: payload.id) }
+        TimerReminders.sync(payload)
+        let prefix = "\(payload.id).reminder."
+        func pending() async -> Int {
+            await UNUserNotificationCenter.current().pendingNotificationRequests().filter { $0.identifier.hasPrefix(prefix) }.count
+        }
+        var tries = 0
+        while await pending() < 3, tries < 30 { try? await Task.sleep(for: .milliseconds(100)); tries += 1 }
+        #expect(await pending() == 3)
+        NotificationScheduler.cancelReminders(id: payload.id)
+        tries = 0
+        while await pending() > 0, tries < 30 { try? await Task.sleep(for: .milliseconds(100)); tries += 1 }
+        #expect(await pending() == 0)
+        await tearDown()
+    }
+
+    /// A paused alarm whose timer left the store (deleted in Messages, which can't
+    /// reach AlarmKit) never fires or expires, so its Lock Screen card stays up. The
+    /// launch sweep cancels it, and swaps a paused alarm whose stored timer is running
+    /// for a counting-down one, while leaving every alarm a stored timer explains alone.
+    @Test func straySweepCancelsOrphanedAndStalePausedAlarms() async {
+        let orphan = sequence(loops: 4, end: Date().addingTimeInterval(1500)).paused()
+        created.append(orphan)
+        TimerStore.save(orphan)
+        await AlarmController.rescheduleAwaiting(for: orphan)
+        let orphanID = AlarmController.phaseAlarmID(timerID: orphan.id, globalIndex: 0)
+        #expect(alarmsByID()[orphanID]?.state == .paused)
+        TimerStore.delete(id: orphan.id)  // what Messages' delete does — no AlarmKit
+
+        let stale = TimerPayload(label: "Stale pause", duration: 300).paused()
+        created.append(stale)
+        let staleID = UUID(uuidString: stale.id)!
+        TimerStore.save(stale)
+        await AlarmController.rescheduleAwaiting(for: stale)
+        #expect(alarmsByID()[staleID]?.state == .paused)
+        TimerStore.save(stale.resumed())  // resumed elsewhere; this phone's alarm still paused
+
+        let keptPaused = TimerPayload(label: "Kept pause", duration: 300).paused()
+        let keptRunning = TimerPayload(label: "Kept running", duration: 300)
+        let keptSequence = sequence(loops: 2, end: Date().addingTimeInterval(60))
+        for payload in [keptPaused, keptRunning, keptSequence] {
+            created.append(payload)
+            TimerStore.save(payload)
+            await AlarmController.rescheduleAwaiting(for: payload)
+        }
+        let keptSequenceIDs = phaseIDs(keptSequence, 0..<4).filter { alarmsByID()[$0] != nil }
+        #expect(!keptSequenceIDs.isEmpty)
+
+        let cancelled = await AlarmController.cancelStrayAlarms()
+        #expect(cancelled.contains(orphanID))
+        #expect(cancelled.contains(staleID))
+        let alarms = alarmsByID()
+        #expect(alarms[orphanID] == nil)
+        // Its owner is running, so it's re-armed counting down rather than left bare.
+        #expect(alarms[staleID]?.state == .countdown)
+        #expect(TimerStore.isAlarmKitArmed(id: stale.id))
+        #expect(alarms[UUID(uuidString: keptPaused.id)!]?.state == .paused)
+        #expect(alarms[UUID(uuidString: keptRunning.id)!]?.state == .countdown)
+        #expect(keptSequenceIDs.allSatisfy { alarms[$0] != nil })
+        await tearDown()
+    }
+
     /// Exercise the actual Siri intent entry points, including persistence and the
     /// awaited arming path, rather than calling AlarmController directly.
     /// What AlarmController last scheduled for `id` (title|alarmEnabled). Only written

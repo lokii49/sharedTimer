@@ -1,11 +1,7 @@
-• Novo: iPad. Seus timers à esquerda, o céu ao vivo à direita.
-• Novo: contagens regressivas podem se repetir todo dia, semana ou mês — não só todo ano.
-• Novo: Histórico. Cada timer terminado por 90 dias, com “Rodar de novo”.
-• Novo: avisos na metade, 5 ou 1 minuto antes do fim (1 dia ou 1 hora antes numa contagem regressiva).
-• Novo: tempo extra. Um timer terminado continua contando “+2:13” para você saber quanto tempo passou.
-• Novo: manter a tela ligada, SharePlay em chamadas FaceTime e sincronização com o iCloud para ter seus timers em todos os seus aparelhos.
-• Novo: pergunte à Siri quanto falta e pause ou adicione um minuto direto na resposta.
-• Novo: descreva uma sequência com suas palavras (“25 trabalho, 5 pausa, 4 vezes”) em iPhones com Apple Intelligence.
-• Mais fácil de ler e usar: texto mais claro em cada céu, botões Liquid Glass, cartões maiores com texto grande e Desfazer ao remover um timer.
-• Ajustes agora mostra se alarmes e notificações estão permitidos.
-• Atividades ao Vivo na Pilha Inteligente do Apple Watch e no CarPlay. Download menor, listas mais rápidas e muitas correções.
+• Corrigido: um cartão de alarme pausado podia ficar na tela bloqueada mesmo depois que o timer não existia mais. Agora ele some ao abrir o Timer, e os botões voltam a funcionar.
+• Corrigido: quando alguém parava um timer compartilhado, ele podia recomeçar para todos ao abrir o app.
+• Mudanças feitas no Mensagens agora sempre chegam aos seus alarmes, inclusive ao apagar ou pausar uma sequência.
+• Contagens regressivas diárias e semanais não tocam mais duas vezes na noite em que o horário muda.
+• No iPad, o timer à direita se atualiza na hora quando você pausa ou edita pela lista.
+• Os lembretes não tocam mais depois que um timer é parado ou apagado.
+• Widgets e Atividades ao Vivo mais precisos para timers longos, etiquetas Diária/Semanal/Mensal no Histórico e muitas outras correções.

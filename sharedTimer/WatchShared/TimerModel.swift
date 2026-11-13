@@ -229,7 +229,8 @@ enum TimeFormat {
 
     /// Ultra-compact counterpart to `snapshot`, for the Dynamic Island's compact slots.
     static func compactSnapshot(_ interval: TimeInterval, at now: Date = Date()) -> String {
-        interval >= calendarThreshold ? compactCalendar(interval, at: now) : "\(max(0, Int(interval)) / 86400)d"
+        interval >= calendarThreshold ? compactCalendar(interval, at: now)
+            : String(localized: "\(max(0, Int(interval)) / 86400)d", comment: "Compact days")
     }
 
     /// "2026-08-11" target date, e.g. for countdown rows and share text.

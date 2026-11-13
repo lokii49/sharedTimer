@@ -387,7 +387,10 @@ enum CloudSyncController {
 
     /// Uploads a timer that has no CloudLink as an owner record without a share.
     static func adoptOwnTimer(_ payload: TimerPayload, completion: @escaping () -> Void = {}) {
-        guard syncOwnTimers, CloudLinkStore.get(timerID: payload.id) == nil,
+        // Never from the unit/device test host: with "Sync with iCloud" on, test
+        // fixtures pushed through the real action paths were uploaded and synced to the
+        // owner's other devices.
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil, syncOwnTimers, CloudLinkStore.get(timerID: payload.id) == nil,
               !CloudLinkStore.hasLeft(timerID: payload.id) else { return completion() }
         ensureZoneExists { ok in
             guard ok else { return completion() }
@@ -399,6 +402,20 @@ enum CloudSyncController {
             operation.perRecordSaveBlock = { _, result in
                 switch result {
                 case .success:
+                    // Re-checked: a share accepted for this id while the upload was in
+                    // flight set a participant link, which must win — overwriting it pointed
+                    // the timer at this person's private copy and cut it off from the share.
+                    // The private copy just uploaded is removed again so this person's other
+                    // devices don't take it in as a second, synced timer.
+                    if let link = CloudLinkStore.get(timerID: payload.id) {
+                        log("adoptOwnTimer(\(payload.id)): a link appeared meanwhile; keeping it")
+                        // Only a participant link means the upload is a stray copy. An owner
+                        // link (a pull linked this very record) points at it — keep it.
+                        if !link.isOwner {
+                            container.privateCloudDatabase.add(CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: [record.recordID]))
+                        }
+                        return
+                    }
                     CloudLinkStore.set(CloudLink(timerID: payload.id, recordName: payload.id, zoneName: zoneName,
                                                  zoneOwnerName: CKCurrentUserDefaultName, isOwner: true, shareRecordName: nil))
                 case .failure(let error):
@@ -555,10 +572,76 @@ enum CloudSyncController {
         }
     }
 
+    // MARK: Pull decisions (pure, unit-tested)
+
+    /// The owner link after pulling a private-zone record whose share is `shareName`:
+    /// a new or different share replaces the stored one (shared, or re-shared, on
+    /// another device); nil = leave it. Never clears it — "no share" is only trusted
+    /// once the server confirms (`dropShareIfGone`), since a pull can overlap this
+    /// device's own share creation.
+    static func ownerLink(_ link: CloudLink?, afterPullingShare shareName: String?) -> CloudLink? {
+        guard let link, link.isOwner, let shareName, link.shareRecordName != shareName else { return nil }
+        return CloudLink(timerID: link.timerID, recordName: link.recordName, zoneName: link.zoneName,
+                         zoneOwnerName: link.zoneOwnerName, isOwner: true, shareRecordName: shareName)
+    }
+
+    /// A private-zone record for a timer this device joined as a participant is a
+    /// stray copy (an `adoptOwnTimer` upload that raced the accept) — ignore it.
+    static func ignoresPrivateZoneChange(link: CloudLink?) -> Bool {
+        link?.isOwner == false
+    }
+
+    /// A private-zone deletion applies only to a timer this device owns a link for:
+    /// with Sync off another device's deletion of its own copy must not delete this
+    /// device's timer, and a participant's stray-copy cleanup must not remove the share.
+    static func appliesPrivateZoneDeletion(link: CloudLink?) -> Bool {
+        link?.isOwner == true
+    }
+
+    /// An owner link says shared, but the share may have been removed elsewhere (Stop
+    /// Sharing on another of this person's devices). Downgrades only when the server
+    /// reports the share record itself missing (`.unknownItem`) — every share path stores
+    /// `shareRecordName` only after the server saved the share, so that's proof — and only
+    /// if the link still names that share. A wrong downgrade would bring back a plain,
+    /// unconfirmed Delete that removes the record for every participant.
+    private static func dropShareIfGone(timerID: String, shareRecordName: String, zoneID: CKRecordZone.ID) {
+        let database = container.privateCloudDatabase
+        database.fetch(withRecordID: CKRecord.ID(recordName: shareRecordName, zoneID: zoneID)) { _, error in
+            guard (error as? CKError)?.code == .unknownItem, let link = CloudLinkStore.get(timerID: timerID) else { return }
+            // That share is gone — but the timer may have been shared again since
+            // (stopped and re-shared on another device). Read the root record's current
+            // share and adopt it; only a root with no share means "synced only".
+            database.fetch(withRecordID: CKRecord.ID(recordName: link.recordName, zoneID: zoneID)) { root, rootError in
+                guard rootError == nil, let root else { return }
+                let current = root.share?.recordID.recordName
+                var changed = false
+                CloudLinkStore.update(timerID: timerID) { link in
+                    guard link.isOwner, link.shareRecordName == shareRecordName else { return link }
+                    changed = true
+                    return CloudLink(timerID: link.timerID, recordName: link.recordName, zoneName: link.zoneName,
+                                     zoneOwnerName: link.zoneOwnerName, isOwner: true, shareRecordName: current)
+                }
+                guard changed else { return }
+                log("dropShareIfGone(\(timerID)): share \(shareRecordName) removed elsewhere; now \(current ?? "synced only")")
+                CloudLinkStore.setShareURL(nil, timerID: timerID)
+                DispatchQueue.main.async { NotificationCenter.default.post(name: sharingChanged, object: timerID) }
+            }
+        }
+    }
+
     /// Re-reads whether this device may change each timer shared with it — the owner can
     /// switch a share between "view only" and "can make changes" at any time in Manage
     /// Sharing. Participant links only; the owner can always write. Calls back on main.
     static func refreshPermissions(for timerIDs: [String]? = nil, completion: @escaping () -> Void = {}) {
+        // The full foreground pass also confirms owned shares still exist: a share
+        // removed on another device may never surface as a changed record in a pull.
+        if timerIDs == nil {
+            for link in CloudLinkStore.all().values where link.isOwner {
+                guard let shareName = link.shareRecordName else { continue }
+                dropShareIfGone(timerID: link.timerID, shareRecordName: shareName,
+                                zoneID: CKRecordZone.ID(zoneName: link.zoneName, ownerName: link.zoneOwnerName))
+            }
+        }
         let links = CloudLinkStore.all().values.filter { !$0.isOwner && (timerIDs?.contains($0.timerID) ?? true) }
         guard !links.isEmpty else { return DispatchQueue.main.async(execute: completion) }
         let group = DispatchGroup()
@@ -689,11 +772,14 @@ enum CloudSyncController {
     }
 
     /// `isRetry` bounds the `.changeTokenExpired` recovery below to a single re-run.
-    private static func pullChanges(scope: SyncScope, isRetry: Bool = false, peek: Bool = false, completion: @escaping ([TimerPayload], [String]) -> Void) {
+    /// `ignoringTokens`: fetch from scratch without touching the stored tokens — how a
+    /// peek recovers from an expired token (Messages peeks too, and a person who rarely
+    /// opens the app would otherwise see every Messages pull fail until it does).
+    private static func pullChanges(scope: SyncScope, isRetry: Bool = false, peek: Bool = false, ignoringTokens: Bool = false, completion: @escaping ([TimerPayload], [String]) -> Void) {
         let database = scope.database
         let tokenKey = "dbChangeToken.\(scope.rawValue)"
 
-        let dbOp = CKFetchDatabaseChangesOperation(previousServerChangeToken: loadToken(key: tokenKey))
+        let dbOp = CKFetchDatabaseChangesOperation(previousServerChangeToken: ignoringTokens ? nil : loadToken(key: tokenKey))
         var changedZoneIDs: [CKRecordZone.ID] = []
         var deletedZoneIDs: [CKRecordZone.ID] = []
 
@@ -716,10 +802,12 @@ enum CloudSyncController {
             case .failure(let error):
                 // An expired token fails every fetch that reuses it, so without this
                 // reset live sync dies silently and permanently for this scope.
-                if !isRetry, !peek, (error as? CKError)?.code == .changeTokenExpired {
+                if !isRetry, (error as? CKError)?.code == .changeTokenExpired {
                     log("pullChanges(\(scope.rawValue)) database token expired — refetching from scratch")
-                    clearToken(key: tokenKey)
-                    pullChanges(scope: scope, isRetry: true, completion: completion)
+                    // A peek reads from scratch but leaves the token for the app's own
+                    // pull to clear and replace.
+                    if !peek { clearToken(key: tokenKey) }
+                    pullChanges(scope: scope, isRetry: true, peek: peek, ignoringTokens: peek, completion: completion)
                     return
                 }
                 log("pullChanges(\(scope.rawValue)) fetchDatabaseChanges failed: \(error)")
@@ -743,7 +831,7 @@ enum CloudSyncController {
                 completion([], deletedIDs)
                 return
             }
-            fetchZoneChanges(changedZoneIDs, database: database, peek: peek) { updated, deleted, complete in
+            fetchZoneChanges(changedZoneIDs, database: database, peek: peek, ignoringTokens: ignoringTokens) { updated, deleted, complete in
                 if complete && !peek {
                     saveToken(databaseToken, key: tokenKey)
                 }
@@ -757,11 +845,11 @@ enum CloudSyncController {
     /// zone itself being gone) — the caller then keeps its old database token so the
     /// next pull reports those zones again. A zone whose own token expired is retried
     /// once immediately from a nil token, same recovery as the database level.
-    private static func fetchZoneChanges(_ zoneIDs: [CKRecordZone.ID], database: CKDatabase, isRetry: Bool = false, peek: Bool = false, completion: @escaping ([TimerPayload], [String], _ complete: Bool) -> Void) {
+    private static func fetchZoneChanges(_ zoneIDs: [CKRecordZone.ID], database: CKDatabase, isRetry: Bool = false, peek: Bool = false, ignoringTokens: Bool = false, completion: @escaping ([TimerPayload], [String], _ complete: Bool) -> Void) {
         var configs: [CKRecordZone.ID: CKFetchRecordZoneChangesOperation.ZoneConfiguration] = [:]
         for zoneID in zoneIDs {
             configs[zoneID] = CKFetchRecordZoneChangesOperation.ZoneConfiguration(
-                previousServerChangeToken: loadToken(key: zoneTokenKey(zoneID))
+                previousServerChangeToken: ignoringTokens ? nil : loadToken(key: zoneTokenKey(zoneID))
             )
         }
 
@@ -785,6 +873,35 @@ enum CloudSyncController {
                         applyPermission(permission, shareRecordName: share.recordID.recordName)
                     }
                 } else if let payload = makePayload(from: record) {
+                    // Deleted here, delete still queued (offline): a participant's change
+                    // reaching the owner's zone first must not bring it back.
+                    if CloudLinkStore.pendingDeletes().contains(where: { $0.timerID == payload.id }) { return }
+                    // A private-zone copy of a timer this device joined as a participant
+                    // is a stray (an `adoptOwnTimer` upload that raced the accept): the
+                    // share is authoritative, never this copy.
+                    if database === container.privateCloudDatabase,
+                       ignoresPrivateZoneChange(link: CloudLinkStore.get(timerID: payload.id)) { return }
+                    // Another of this person's devices shared a synced timer: mark this
+                    // device's owner link shared too, or it treats the timer as merely
+                    // synced — plain Delete, no confirmation, which deletes the record for
+                    // every participant. Upgrade only: a pull overlapping this device's own
+                    // share creation could otherwise mark a just-shared timer unshared.
+                    // Also replaces an older share's name (stopped and re-shared there), or
+                    // the foreground check would find the old share gone and downgrade a
+                    // timer that is still shared.
+                    if database === container.privateCloudDatabase, !peek,
+                       let updatedLink = ownerLink(CloudLinkStore.get(timerID: payload.id), afterPullingShare: record.share?.recordID.recordName) {
+                        CloudLinkStore.set(updatedLink)
+                        DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: [updatedLink.timerID]) }
+                    }
+                    // ...and the reverse, Stop Sharing on another device: the record comes
+                    // back without a share. Not trusted on its own (this pull may predate a
+                    // share this device just made) — the server must confirm the share
+                    // record is gone first.
+                    if database === container.privateCloudDatabase, !peek, record.share == nil,
+                       let link = CloudLinkStore.get(timerID: payload.id), link.isOwner, let shareName = link.shareRecordName {
+                        dropShareIfGone(timerID: link.timerID, shareRecordName: shareName, zoneID: recordID.zoneID)
+                    }
                     // Another of this person's devices synced a timer (D12): link it so
                     // changes made here go back up.
                     if database === container.privateCloudDatabase, CloudLinkStore.get(timerID: payload.id) == nil {
@@ -812,7 +929,10 @@ enum CloudSyncController {
             // A deletion in this person's private zone only applies to timers linked
             // here: with "Sync with iCloud" off, another device deleting its own copy
             // must not delete this device's timer of the same id.
-            if database === container.privateCloudDatabase, CloudLinkStore.get(timerID: recordID.recordName) == nil { return }
+            // Nor to a timer joined as a participant: its private copy is a stray that
+            // `adoptOwnTimer` deletes again, and that must not remove the shared timer.
+            if database === container.privateCloudDatabase,
+               !appliesPrivateZoneDeletion(link: CloudLinkStore.get(timerID: recordID.recordName)) { return }
             deletedIDs.append(recordID.recordName)
         }
         operation.recordZoneChangeTokensUpdatedBlock = { zoneID, token, _ in
@@ -825,11 +945,10 @@ enum CloudSyncController {
             case .failure(let error):
                 switch (error as? CKError)?.code {
                 case .changeTokenExpired?:
-                    // A peek leaves recovery to the app's own pull.
-                    if !peek {
-                        clearToken(key: zoneTokenKey(zoneID))
-                        expiredZoneIDs.append(zoneID)
-                    }
+                    // A peek refetches from scratch too, but leaves the token for the
+                    // app's own pull to clear and replace.
+                    if !peek { clearToken(key: zoneTokenKey(zoneID)) }
+                    expiredZoneIDs.append(zoneID)
                 case .zoneNotFound?, .userDeletedZone?:
                     // Gone for good — nothing left to fetch, so this doesn't hold back
                     // the database token (that would refetch a dead zone forever).
@@ -858,7 +977,7 @@ enum CloudSyncController {
                 completion(updated, deletedIDs, false)
                 return
             }
-            fetchZoneChanges(expiredZoneIDs, database: database, isRetry: true) { retryUpdated, retryDeleted, retryComplete in
+            fetchZoneChanges(expiredZoneIDs, database: database, isRetry: true, peek: peek, ignoringTokens: peek) { retryUpdated, retryDeleted, retryComplete in
                 completion(updated + retryUpdated, deletedIDs + retryDeleted, complete && retryComplete)
             }
         }

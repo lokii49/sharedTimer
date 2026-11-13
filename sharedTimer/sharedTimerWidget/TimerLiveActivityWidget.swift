@@ -165,7 +165,7 @@ private func liveActivityRemainingText(_ state: TimerActivityAttributes.ContentS
     let remaining = state.endDate.timeIntervalSinceNow
     if state.pausedRemaining == nil && remaining > 0 && remaining < 7 * 86400 {
         Text(timerInterval: Date.now...state.endDate, countsDown: true)
-    } else if state.pausedRemaining == nil && remaining <= 0 && -remaining < TimerPayload.overtimeLimit {
+    } else if state.pausedRemaining == nil && state.noOvertime != true && remaining <= 0 && -remaining < TimerPayload.overtimeLimit {
         // Overtime (1.0.7, D2): counts up from the end, live, for an hour — the card
         // re-renders at its stale date (the end), so this starts on its own.
         HStack(spacing: 0) {
@@ -183,7 +183,10 @@ private func liveActivityRemainingText(_ state: TimerActivityAttributes.ContentS
 private func compactCountdownText(state: TimerActivityAttributes.ContentState) -> some View {
     if let pausedRemaining = state.pausedRemaining {
         Text(pausedRemaining >= 86400 ? TimeFormat.compactSnapshot(pausedRemaining) : TimeFormat.remaining(pausedRemaining))
-    } else if state.endDate.timeIntervalSinceNow >= 86400 {
+    } else if state.endDate.timeIntervalSinceNow >= 100 * 3600 {
+        // Live below 100 h ("99:59:59" is the width the slot already shows under a
+        // day). A coarse "1d" here never redrew — the card only re-renders on an
+        // update or at its end — so it read "1d" through the whole last day.
         Text(TimeFormat.compactSnapshot(state.endDate.timeIntervalSinceNow))
     } else {
         Text(timerInterval: Date.now...max(Date.now, state.endDate), countsDown: true)

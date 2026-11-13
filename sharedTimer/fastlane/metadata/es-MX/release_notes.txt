@@ -1,11 +1,7 @@
-• Nuevo: iPad. Tus temporizadores a la izquierda y el cielo en vivo a la derecha.
-• Nuevo: las cuentas regresivas pueden repetirse cada día, semana o mes, no solo cada año.
-• Nuevo: Historial. Cada temporizador terminado durante 90 días, con «Repetir».
-• Nuevo: avisos a la mitad, 5 o 1 minuto antes del final (1 día o 1 hora antes en una cuenta regresiva).
-• Nuevo: tiempo extra. Un temporizador terminado sigue contando «+2:13» para que sepas cuánto ha pasado.
-• Nuevo: mantener la pantalla encendida, SharePlay en llamadas FaceTime y sincronización con iCloud para tener tus temporizadores en todos tus dispositivos.
-• Nuevo: pregúntale a Siri cuánto falta y pausa o agrega un minuto desde la respuesta.
-• Nuevo: describe una secuencia con tus palabras («25 trabajo, 5 descanso, 4 veces») en iPhone con Apple Intelligence.
-• Más fácil de leer y usar: texto más claro en cada cielo, botones Liquid Glass, tarjetas más grandes con texto grande y Deshacer al eliminar un temporizador.
-• Configuración ahora muestra si las alarmas y las notificaciones están permitidas.
-• Actividades en vivo en la pila inteligente del Apple Watch y en CarPlay. Descarga más pequeña, listas más rápidas y muchas correcciones.
+• Corregido: una tarjeta de alarma en pausa podía quedarse en la pantalla bloqueada aunque su temporizador ya no existiera. Ahora se borra al abrir Timer y sus botones vuelven a funcionar.
+• Corregido: si alguien detenía un temporizador compartido, podía volver a empezar para todos al abrir la app.
+• Los cambios hechos en Mensajes llegan siempre a tus alarmas, también al eliminar o pausar una secuencia.
+• Las cuentas regresivas diarias y semanales ya no suenan dos veces la noche del cambio de horario.
+• En el iPad, el temporizador de la derecha se actualiza al instante cuando lo pausas o editas desde la lista.
+• Los avisos previos ya no suenan después de detener o eliminar un temporizador.
+• Widgets y actividades en vivo más precisos para temporizadores largos, etiquetas Diaria/Semanal/Mensual en el Historial y muchas otras correcciones.

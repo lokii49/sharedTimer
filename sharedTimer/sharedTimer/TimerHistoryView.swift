@@ -127,7 +127,7 @@ private struct HistoryRow: View {
                 HStack(spacing: 6) {
                     Text(entry.label).font(.subheadline.weight(.semibold)).lineLimit(1)
                     if entry.sequence != nil { tag("Sequence") }
-                    if entry.yearly { tag("Yearly") }
+                    if let repeatTag = entry.repeatTag { tag(repeatTag) }
                 }
                 Text("\(lengthText) · ended \(entry.endedAt.formatted(date: .omitted, time: .shortened))")
                     .font(.caption)

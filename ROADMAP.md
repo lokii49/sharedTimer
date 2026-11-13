@@ -1,9 +1,24 @@
 # Timer Roadmap
 
-Status as of 2026-11-08 (1.0.6 live; 1.0.7 planned on branch `1.0.7`, see below). Goal: beat the real App Store competitors (ShareTimer, ShareMyTimer,
+Status as of 2026-11-13 (1.0.7 live; 1.0.8 on branch `1.0.8`, see below). Goal: beat the real App Store competitors (ShareTimer, ShareMyTimer,
 Synced Timer Plus, TimeTo) by closing the live-sync gap and leaning into the one thing none of
 them have — a real native iMessage extension — instead of routing sharing through a plain link
 or QR code.
+
+## 1.0.8 (audit 2026-11-13, branch `1.0.8`, build 12)
+
+Trigger: a paused AlarmKit "Pomodoro · Phase 1 of 2 · Loop 1 of 4 · 05:46" card stayed on the owner's Lock Screen for days with no timer in the app (likely an alarm orphaned by a Messages delete / a remote delete a Messages pull consumed; cause unconfirmed — owner to check whether a paused Pomodoro is in that phone's list and whether ▶ on the card did anything). Five read-only audit passes; details of every fix in CLAUDE.md "1.0.8 fixes".
+
+**Status (2026-11-13): all High (4), Medium (13) and Low findings fixed and committed on `1.0.8`, apart from three Low items left open on purpose.** Verified: sim 174 unit + 18 UI (incl. new iPad split-view test, confirmed to fail without its fix), web 28, iPhone 14 Pro 38 AlarmKit + 1 Live Activity + 66 unit. Release + Watch schemes build.
+- **No test ran for:** Messages `peek` pulls (incl. expired-token refetch), SharePlay rules, CloudKit link changes (share upgrade / confirmed unshare, participant-stray guards, pending-delete filter, adoptOwnTimer re-check), Messages/NSE reminder cancels, Edit-sheet delete guard, detail `hasBuzzedFinish` reset, warm-foreground sequence re-arm, the launch-time `sweepStrayAlarms` path in the live app (tests call `cancelStrayAlarms` directly).
+- **Unconfirmed:** the `.stale` premise of the Live Activity reuse fix (a foreground app's card still read `.active` 15 s past `staleDate` on device); two-device iCloud share/unshare mirroring.
+- **Release gates:** 1.0.8 release notes drafted in all 11 languages (machine translations — owner to review); `Timer.repeatRuleData` production deploy (from 1.0.7) still unconfirmed; PRs: lokii49/sharedTimer#14, lokii49/mirrornotes-website#2 (merging the latter deploys the page); link-preview Worker deployed 2026-11-13 (version 9a532dc0).
+
+**Low items:** all fixed on `1.0.8` except the three left open on purpose (see CLAUDE.md "1.0.8 fixes": a finished plain timer's re-arm silences its ringing alarm, the custom card's overtime freezes at +1:00:00, the compact slot ≥ 100 h stays coarse). The previously unreviewed areas (tests, extension catalogs, CI, fastlane, KeepAwake, TimerComposeView) were audited too; fixed: test-host History/iCloud writes, the UI tests' tone/History leftovers, scheme parallelism, compact "Nd" localization, Messages' share list projection, fastlane App Clip en-GB subtitle.
+
+**Still open (low):** Messages' share-list row digits don't tick and a pending sequence row says "Ends" with phase 0's end; `testCalendarImportLoadsEventsWithFullAccess` leaves Calendar full access granted on the device; a few tests can't fail (`example()` stubs, the render-for-visual-review tests only check PNG encoding).
+
+**No automated test (manual or two-device only):** real CloudKit pulls incl. the expired-token peek refetch and `dropShareIfGone`; the notification service; two-account / two-device sharing; SharePlay in a FaceTime call; the `.stale` premise of the Live Activity reuse fix; Apple Calendar import of the exported ICS (only ical.js was checked); the link-preview Worker in the real Workers runtime (not deployed).
 
 ## 1.0.7 plan (audit 2026-11-08, branch `1.0.7`, build 10)
 

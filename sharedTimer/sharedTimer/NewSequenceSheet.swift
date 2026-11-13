@@ -270,7 +270,7 @@ struct NewSequenceSheet: View {
                                 Image(systemName: draft.phase.kind == .timer ? "timer" : "calendar")
                                     .foregroundStyle(draft.phase.kind.accentColor)
                                 VStack(alignment: .leading) {
-                                    Text(draft.phase.label.isEmpty ? "Untitled phase" : draft.phase.label)
+                                    Text(draft.phase.label.isEmpty ? String(localized: "Untitled phase") : draft.phase.label)
                                     Text(TimeFormat.daysHours(draft.phase.duration))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
@@ -476,7 +476,7 @@ private struct PhaseEditView: View {
                      : "A quiet notification instead — no ringing.")
             }
         }
-        .navigationTitle(phase.label.isEmpty ? "Phase" : phase.label)
+        .navigationTitle(phase.label.isEmpty ? String(localized: "Phase") : phase.label)
         .navigationBarTitleDisplayMode(.inline)
     }
 }

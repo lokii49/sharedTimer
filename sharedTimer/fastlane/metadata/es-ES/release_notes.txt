@@ -1,11 +1,7 @@
-• Novedad: iPad. Tus temporizadores a la izquierda y el cielo en directo a la derecha.
-• Novedad: las cuentas atrás pueden repetirse cada día, semana o mes, no solo cada año.
-• Novedad: Historial. Cada temporizador terminado durante 90 días, con «Repetir».
-• Novedad: avisos a mitad de tiempo, 5 o 1 minuto antes del final (1 día o 1 hora antes en una cuenta atrás).
-• Novedad: tiempo extra. Un temporizador terminado sigue contando «+2:13» para que sepas cuánto ha pasado.
-• Novedad: mantener la pantalla encendida, SharePlay en llamadas FaceTime y sincronización con iCloud para tener tus temporizadores en todos tus dispositivos.
-• Novedad: pregunta a Siri cuánto queda y pausa o añade un minuto desde la respuesta.
-• Novedad: describe una secuencia con tus palabras («25 trabajo, 5 descanso, 4 veces») en iPhone con Apple Intelligence.
-• Más fácil de leer y usar: texto más claro en cada cielo, botones Liquid Glass, tarjetas más grandes con texto grande y Deshacer al eliminar un temporizador.
-• Ajustes muestra ahora si las alarmas y las notificaciones están permitidas.
-• Actividades en directo en la pila inteligente del Apple Watch y en CarPlay. Descarga más pequeña, listas más rápidas y muchas correcciones.
+• Corregido: una tarjeta de alarma en pausa podía quedarse en la pantalla de bloqueo aunque su temporizador ya no existiera. Ahora se borra al abrir Timer y sus botones vuelven a funcionar.
+• Corregido: si alguien detenía un temporizador compartido, podía volver a empezar para todos al abrir la app.
+• Los cambios hechos en Mensajes llegan siempre a tus alarmas, también al eliminar o pausar una secuencia.
+• Las cuentas atrás diarias y semanales ya no suenan dos veces la noche del cambio de hora.
+• En el iPad, el temporizador de la derecha se actualiza al momento cuando lo pausas o editas desde la lista.
+• Los avisos previos ya no suenan después de detener o eliminar un temporizador.
+• Widgets y actividades en directo más precisos para temporizadores largos, etiquetas Diaria/Semanal/Mensual en el Historial y muchas otras correcciones.

@@ -33,6 +33,12 @@ final class WatchSyncController: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private var activationFailed = false
+    /// Bumped by every applied phone context. A failed tap is rolled back only if no
+    /// newer phone state arrived since it was sent: the phone's state is authoritative,
+    /// and an Extend's optimistic result equals the phone's real one, so "still shows
+    /// the optimistic state" alone can't tell a context that already carried the
+    /// applied change from one that didn't (a late reply error undid a real +1:00).
+    private(set) var contextGeneration = 0
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -77,22 +83,23 @@ final class WatchSyncController: NSObject, ObservableObject, WCSessionDelegate {
         // in the phone's WCD logs ("delegate does not implement delegate method") when this
         // was nil. A real closure here selects the matching selector.
         let optimistic = timers[index]
+        let generation = contextGeneration
         WCSession.default.sendMessage(["id": id, "op": op], replyHandler: { [weak self] reply in
             // The phone rejected it (finished, scheduled, gone): undo. It also pushes
             // its real state, which lands separately.
             guard reply["ok"] as? Bool == false else { return }
-            Task { @MainActor in self?.rollBack(id: id, to: before, ifStill: optimistic) }
+            Task { @MainActor in self?.rollBack(id: id, to: before, ifStill: optimistic, sentAt: generation) }
         }) { [weak self] error in
             print("WatchSync: sendMessage(\(op)) failed: \(error)")
-            Task { @MainActor in self?.rollBack(id: id, to: before, ifStill: optimistic) }
+            Task { @MainActor in self?.rollBack(id: id, to: before, ifStill: optimistic, sentAt: generation) }
         }
     }
 
-    /// Restores `before` only while the timer still shows this tap's optimistic state —
-    /// if the phone's newer context already replaced it (an error can arrive after the
-    /// phone applied the change), that newer state wins.
-    private func rollBack(id: String, to before: TimerPayload, ifStill optimistic: TimerPayload) {
-        guard let i = timers.firstIndex(where: { $0.id == id }),
+    /// Restores `before` only while no phone context arrived since the tap was sent and
+    /// the timer still shows this tap's optimistic state — a newer phone state wins.
+    func rollBack(id: String, to before: TimerPayload, ifStill optimistic: TimerPayload, sentAt generation: Int) {
+        guard generation == contextGeneration,
+              let i = timers.firstIndex(where: { $0.id == id }),
               timers[i].endDate == optimistic.endDate,
               timers[i].pausedRemaining == optimistic.pausedRemaining else { return }
         timers[i] = before
@@ -108,6 +115,7 @@ final class WatchSyncController: NSObject, ObservableObject, WCSessionDelegate {
     func apply(_ context: [String: Any]) {
         guard let data = context["timers"] as? Data,
               let decoded = try? JSONDecoder().decode([TimerPayload].self, from: data) else { return }
+        contextGeneration += 1
         timers = decoded
         persistSnapshot()
     }

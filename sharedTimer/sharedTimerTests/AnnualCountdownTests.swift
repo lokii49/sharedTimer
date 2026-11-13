@@ -221,6 +221,23 @@ struct RepeatingCountdownTests {
         #expect(yearly.nextDate(after: date("2027-03-10T10:00:00Z")) == date("2028-01-05T09:00:00Z"))
     }
 
+    /// 01:30 happens twice on 2027-11-07 in New York (05:30Z EDT, 06:30Z EST). From
+    /// inside the repeated hour the next occurrence is the following night, never the
+    /// second copy — that rang twice.
+    @Test func dailyAndWeeklySkipTheSecondCopyOfARepeatedAutumnTime() throws {
+        let newYork = try #require(TimeZone(identifier: "America/New_York"))
+        let daily = AnnualRecurrence(date: date("2027-11-01T05:30:00Z"), timeZone: newYork, frequency: .daily)
+        #expect(daily.nextDate(after: date("2027-11-07T05:29:59Z")) == date("2027-11-07T05:30:00Z"))
+        #expect(daily.nextDate(after: date("2027-11-07T05:30:00Z")) == date("2027-11-08T06:30:00Z"))
+        #expect(daily.nextDate(after: date("2027-11-07T05:30:01Z")) == date("2027-11-08T06:30:00Z"))
+        #expect(daily.nextDate(after: date("2027-11-07T06:15:00Z")) == date("2027-11-08T06:30:00Z"))
+        // 2027-11-07 is a Sunday; the anchor 2027-10-31 01:30 EDT is a Sunday too.
+        let weekly = AnnualRecurrence(date: date("2027-10-31T05:30:00Z"), timeZone: newYork, frequency: .weekly)
+        #expect(weekly.nextDate(after: date("2027-11-07T05:30:01Z")) == date("2027-11-14T06:30:00Z"))
+        // Not the repeated hour: unchanged.
+        #expect(daily.nextDate(after: date("2027-11-09T07:00:00Z")) == date("2027-11-10T06:30:00Z"))
+    }
+
     @Test func yearlyKeepsTheOldWireAndOtherRepeatsUseTheNewOne() throws {
         let target = Date().addingTimeInterval(3 * 86_400)
         let weekly = TimerPayload.composeAnnual(label: "Standup", targetDate: target, timeZone: .gmt, frequency: .weekly)

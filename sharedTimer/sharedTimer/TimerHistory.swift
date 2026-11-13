@@ -22,6 +22,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 struct TimerHistoryEntry: Codable, Hashable, Identifiable {
     var timerID: String
@@ -37,6 +38,9 @@ struct TimerHistoryEntry: Codable, Hashable, Identifiable {
     /// Blueprint for running a sequence again (phase 0, loop 0); nil otherwise.
     var sequence: SequenceInfo?
     var yearly: Bool
+    /// How a repeating countdown repeats (1.0.8); nil for entries logged before, which
+    /// were all yearly when `yearly` is set. `yearly` stays for older readers.
+    var frequency: AnnualRecurrence.Frequency?
 
     var id: String { "\(timerID)|\(Int(endedAt.timeIntervalSince1970.rounded()))" }
 
@@ -59,6 +63,7 @@ struct TimerHistoryEntry: Codable, Hashable, Identifiable {
         vibrationEnabled = payload.vibrationEnabled
         sequence = payload.sequence.map { SequenceInfo(phases: $0.phases, loopCount: $0.loopCount, phaseIndex: 0, loopIndex: 0) }
         yearly = payload.recurrence != nil
+        frequency = payload.recurrence?.frequency
     }
 
     /// Lenient, like RecentTimer: the log is decoded as a root array, so a field added
@@ -75,6 +80,18 @@ struct TimerHistoryEntry: Codable, Hashable, Identifiable {
         vibrationEnabled = try c.decodeIfPresent(Bool.self, forKey: .vibrationEnabled) ?? false
         sequence = (try? c.decodeIfPresent(SequenceInfo.self, forKey: .sequence)) ?? nil
         yearly = try c.decodeIfPresent(Bool.self, forKey: .yearly) ?? false
+        frequency = (try? c.decodeIfPresent(AnnualRecurrence.Frequency.self, forKey: .frequency)) ?? nil
+    }
+
+    /// The tag a repeating countdown's entry shows ("Daily" … "Yearly"), nil otherwise.
+    var repeatTag: LocalizedStringKey? {
+        guard yearly else { return nil }
+        switch frequency ?? .yearly {
+        case .daily: return "Daily"
+        case .weekly: return "Weekly"
+        case .monthly: return "Monthly"
+        case .yearly: return "Yearly"
+        }
     }
 
     /// A fresh payload for "Run again".
@@ -109,8 +126,14 @@ enum TimerHistory {
         for payload in stored {
             if let run = endedRun(payload, now: now) { runs.append(run) }
             // Ended, then repeated/extended/resumed before a scan saw it finished
-            // (`merged` drops it if it's the same run as above).
-            if let previous = lastSeen[payload.id], let run = endedRun(previous, now: now) {
+            // (`merged` drops it if it's the same run as above) — but only if that
+            // change came after the old run's end. A pause or extend made *before* it
+            // (saved by Messages or the notification service, which never trigger a
+            // scan here) means the old copy never actually finished.
+            // A repeating countdown the clock moved on to a later occurrence keeps its old
+            // `updatedAt` (advancing isn't a user change), so that case always counts.
+            if let previous = lastSeen[payload.id], let run = endedRun(previous, now: now),
+               movedOnByClock(from: previous, to: payload) || !(payload.updatedAt.map { $0 < run.endedAt } ?? false) {
                 runs.append(run)
             }
         }
@@ -119,6 +142,15 @@ enum TimerHistory {
             if let run = endedRun(previous, now: now) { runs.append(run) }
         }
         return runs
+    }
+
+    /// `current` is `previous` rolled forward to a later occurrence of its own rule
+    /// (running, its end exactly a rule date) — not an extend or pause.
+    static func movedOnByClock(from previous: TimerPayload, to current: TimerPayload) -> Bool {
+        guard let rule = previous.recurrence, current.recurrence != nil, current.pausedRemaining == nil,
+              current.endDate > previous.endDate,
+              let occurrence = rule.nextDate(after: current.endDate.addingTimeInterval(-1)) else { return false }
+        return abs(occurrence.timeIntervalSince(current.endDate)) < 1
     }
 
     static func endedRun(_ payload: TimerPayload, now: Date) -> TimerHistoryEntry? {
@@ -179,6 +211,9 @@ enum TimerHistory {
 
     /// Records whatever has ended since the last scan.
     static func scan(now: Date = Date()) {
+        // Never from the unit/device test host (its fixtures would land in the owner's
+        // real History) — `start()` is skipped there too, but foregrounding scans.
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         let stored = TimerStore.loadAll()
         let didChange: Bool = lock.withLock {
             let runs = endedRuns(stored: stored, lastSeen: lastSeen, now: now)

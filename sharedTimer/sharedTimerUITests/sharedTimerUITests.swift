@@ -182,6 +182,12 @@ final class sharedTimerUITests: XCTestCase {
         shot.name = "History"
         shot.lifetime = .keepAlways
         add(shot)
+        // Don't leave the fixture in the device's real History.
+        app.staticTexts[label].firstMatch.swipeLeft()
+        // (The label itself stays visible in the timer list behind the sheet.)
+        let forget = app.buttons["Forget"].firstMatch
+        XCTAssertTrue(forget.waitForExistence(timeout: 3))
+        forget.tap()
         app.buttons["Done"].tap()
     }
 
@@ -197,13 +203,15 @@ final class sharedTimerUITests: XCTestCase {
         screenshot.name = "Settings (Sky Stack)"
         screenshot.lifetime = .keepAlways
         add(screenshot)
-        let glass = app.buttons["Glass"]
-        XCTAssertTrue(glass.exists)
-        glass.tap()
-        XCTAssertTrue(glass.isSelected)
-        // Leave the phone on the default tone.
-        app.buttons["Classic"].tap()
-        XCTAssertTrue(app.buttons["Classic"].isSelected)
+        // Put back whichever tone the phone had (Settings re-arms every alarm with it).
+        let original = ["Classic", "Glass", "Ember", "Dawn"].first { app.buttons[$0].isSelected } ?? "Classic"
+        let other = original == "Glass" ? "Ember" : "Glass"
+        let pick = app.buttons[other]
+        XCTAssertTrue(pick.exists)
+        pick.tap()
+        XCTAssertTrue(pick.isSelected)
+        app.buttons[original].tap()
+        XCTAssertTrue(app.buttons[original].isSelected)
         XCTAssertTrue(app.staticTexts["Privacy Policy"].exists)
         app.buttons["Done"].tap()
     }
@@ -239,6 +247,48 @@ final class sharedTimerUITests: XCTestCase {
         if skipName.waitForExistence(timeout: 3) { skipName.tap() }
         XCTAssertTrue(app.buttons["Share Link"].waitForExistence(timeout: 10))
         app.buttons["Done"].tap()
+    }
+
+    /// iPad: the detail column sits beside the list and keeps its own copy. A Pause from
+    /// the list's swipe must reach it — before 1.0.8 the column kept showing the timer
+    /// running, and its +1:00 saved that running copy back, silently un-pausing it.
+    @MainActor
+    func testIPadDetailFollowsAListPauseAndKeepsItOnExtend() throws {
+        guard UIDevice.current.userInterfaceIdiom == .pad else { throw XCTSkip("iPad split view only") }
+        let app = XCUIApplication()
+        let id = UUID().uuidString
+        let label = "iPad Sync \(id.prefix(4))"
+        var share = URLComponents(string: "https://lokii49.github.io/sharedTimer/t.html")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id), URLQueryItem(name: "label", value: label),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(3600).timeIntervalSince1970)),
+            URLQueryItem(name: "dur", value: "3600"), URLQueryItem(name: "kind", value: "timer"),
+            URLQueryItem(name: "alarm", value: "0"), URLQueryItem(name: "vib", value: "0")
+        ]
+        let link = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        widgetTestURL = link
+        app.open(try XCTUnwrap(share.url))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        app.open(link)  // selects it: the detail column shows this timer
+        XCTAssertTrue(app.buttons["+1:00"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Pause"].exists)
+
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        card.swipeRight()
+        let swipePause = app.collectionViews.buttons["Pause"].firstMatch
+        XCTAssertTrue(swipePause.waitForExistence(timeout: 5))
+        swipePause.tap()
+
+        // The detail column follows the list…
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
+        // …and its +1:00 extends the paused timer instead of un-pausing it.
+        app.buttons["+1:00"].tap()
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Pause"].exists)
     }
 
     @MainActor

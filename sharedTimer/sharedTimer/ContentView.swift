@@ -379,9 +379,15 @@ struct ContentView: View {
                     CloudSyncController.pushUp(revived, action: "repeated")
                 }
             }
-            for payload in timers where !payload.isExpired {
+            // Finished sequences too: one cancelled elsewhere (Messages, the notification
+            // service) still has pre-armed phase alarms; re-arming a finished sequence only
+            // cancels those, never an occurrence that is ringing.
+            for payload in timers where !payload.isExpired || payload.sequence != nil {
                 armAlerts(for: payload)
             }
+            // After arming: cancels AlarmKit alarms no stored timer explains (e.g. a paused
+            // one left by a timer deleted in Messages, which can't reach AlarmKit).
+            AlarmController.sweepStrayAlarms()
             LiveActivityController.endFinished(timers.filter { !AlarmController.ownsAlert(for: $0) })
             SharePlayController.shared.onReceive = { receiveFromSharePlay($0) }
             RecentTimersStore.seedIfNeeded(from: timers)
@@ -459,11 +465,20 @@ struct ContentView: View {
                 if let old = beforeBackground[payload.id], Self.alertShape(old) == Self.alertShape(payload) { continue }
                 armAlerts(for: payload)
             }
+            // Same for a sequence paused, extended or cancelled in Messages (or saved by the
+            // notification service): its pre-armed phase alarms kept the old times. Compared
+            // at the same projection; finished ones too, so a cancel tears the window down
+            // (the sequence path never cancels an occurrence that is ringing).
+            for payload in timers where Self.sequenceNeedsRearm(before: beforeBackground[payload.id], now: payload) {
+                armAlerts(for: payload)
+            }
             // An open TimerDetailView holds its own copy; without this it kept showing
             // (and on Pause/+1:00, saving and pushing) the pre-background state.
             NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
             // Runs that ended while the app was away (TimerHistory.swift).
             TimerHistory.scan()
+            // A timer deleted in Messages while the app was away leaves its alarm behind.
+            AlarmController.sweepStrayAlarms()
             pullCloudChanges()
             // The owner can switch a share to view only at any time; re-read so the
             // controls match before anyone taps one.
@@ -1076,6 +1091,14 @@ struct ContentView: View {
         } else {
             timers.append(updated)
         }
+        // An open TimerDetailView (always on screen on iPad, beside the list) holds its
+        // own @State copy: a swipe/context-menu change here left it stale, and its next
+        // tap saved that stale copy back — un-pausing, reverting an Edit, for everyone.
+        // Not for the clock-driven advance: the detail advances on its own tick, and this
+        // view's observer would stop an in-app phase alert that just started ringing.
+        if action != "sequenceAdvanced" {
+            NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
+        }
     }
 
     /// A newly created plain timer/countdown (sheet, recent chip, Quick Action): apply it
@@ -1106,7 +1129,15 @@ struct ContentView: View {
     /// A timer from a SharePlay session: added if new, adopted only when its `upd`
     /// stamp is newer than ours (same rule as a re-opened link).
     private func receiveFromSharePlay(_ parsed: TimerPayload) {
-        if let stored = timers.first(where: { $0.id == parsed.id }), !stored.shouldAdopt(parsed) { return }
+        // Same rules as a re-opened link (handleIncoming): CloudKit is authoritative for a
+        // linked timer — adopting the call's copy re-pushed every field, overwrote who
+        // changed it, and rolled back a newer change from someone outside the call — and
+        // a view-only share can't be changed here at all.
+        // `isShared`, not "has a link": a timer merely synced between this person's own
+        // devices has an owner link too, and must still follow the call.
+        guard SharePlayController.accepts(parsed, stored: timers.first(where: { $0.id == parsed.id }),
+                                          isShared: CloudLinkStore.get(timerID: parsed.id)?.isShared == true,
+                                          isReadOnly: TimerStore.isReadOnly(id: parsed.id)) else { return }
         apply(parsed.advancedSequence(), action: "updatedFromLink")
     }
 
@@ -1178,7 +1209,7 @@ struct ContentView: View {
                     // resurfacing a sheet that's already been dismissed. A change made here
                     // while the accept was in flight (it couldn't push: no CloudLink yet)
                     // is newer than the record — keep it and push it now instead.
-                    if authoritative.shouldAdopt(local) {
+                    if local.hasChange(newerThan: authoritative) {
                         CloudSyncController.pushUp(local, action: "updated")
                         return
                     }
@@ -1195,8 +1226,18 @@ struct ContentView: View {
     }
 
     /// What the armed alert depends on — a difference means it's out of date.
+    /// A sequence changed while the app was away (Messages pause/extend/cancel, a copy
+    /// the notification service saved) — compared at the same projection; finished ones
+    /// count too, so a cancel tears the pre-armed window down. Pure, unit-tested.
+    static func sequenceNeedsRearm(before: TimerPayload?, now payload: TimerPayload) -> Bool {
+        guard payload.recurrence == nil, payload.sequence != nil else { return false }
+        guard let before else { return true }
+        return alertShape(before.advancedSequence()) != alertShape(payload)
+    }
+
     private static func alertShape(_ payload: TimerPayload) -> String {
         "\(payload.endDate.timeIntervalSince1970)|\(payload.pausedRemaining ?? -1)|\(payload.alarmEnabled)|\(payload.vibrationEnabled)|\(payload.label)"
+            + "|\(payload.sequence?.phaseIndex ?? -1)|\(payload.sequence?.loopIndex ?? -1)"
     }
 
     /// Applies remote changes pulled from CloudKit through the same local mutation
@@ -1219,6 +1260,9 @@ struct ContentView: View {
                 for id in deletedIDs {
                     stopInAppAlertIfRinging(for: id)
                     TimerStore.delete(id: id)
+                    // The record is gone: a link left behind made a re-imported snapshot
+                    // of it read as shared, with pushes failing silently.
+                    CloudLinkStore.remove(timerID: id)
                     TimerReminders.cancel(id: id)
                     AlarmController.clear(id: id)
                     LiveActivityController.end(id: id)

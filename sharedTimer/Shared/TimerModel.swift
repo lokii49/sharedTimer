@@ -207,6 +207,17 @@ struct TimerPayload: Codable, Identifiable {
     /// this stored copy of the same timer: only when it's stamped strictly newer. An
     /// unstamped incoming never wins (an old link must not roll back newer local
     /// state); a stamped incoming beats an unstamped stored copy.
+    /// For a share accept: whether this local copy carries a change made *after* the
+    /// authoritative record (made while the accept was in flight, which couldn't push).
+    /// A 1 s margin, unlike `shouldAdopt`: the link's `upd` keeps full precision while
+    /// CloudKit keeps milliseconds, so an unchanged copy read as "newer" by a fraction
+    /// of a millisecond and every first accept pushed a spurious "updated".
+    func hasChange(newerThan authoritative: TimerPayload) -> Bool {
+        guard let stamp = updatedAt else { return false }
+        guard let serverStamp = authoritative.updatedAt else { return true }
+        return stamp.timeIntervalSince(serverStamp) >= 1
+    }
+
     func shouldAdopt(_ incoming: TimerPayload) -> Bool {
         guard incoming.id == id, let incomingStamp = incoming.updatedAt else { return false }
         guard let stamp = updatedAt else { return true }
@@ -694,11 +705,17 @@ extension TimerPayload {
         }
         switch kind {
         case .timer:
-            return "\(Int((duration / 60).rounded())) min timer"
+            // Under a minute, seconds: "0 min timer" was what a 20 s timer shared as.
+            return duration < 60 ? "\(max(1, Int(duration.rounded()))) sec timer" : "\(Int((duration / 60).rounded())) min timer"
         case .countdown:
-            return recurrence != nil
-                ? "every year, next \(TimeFormat.targetDate(endDate))"
-                : "counting down to \(TimeFormat.targetDate(endDate))"
+            guard let recurrence else { return "counting down to \(TimeFormat.targetDate(endDate))" }
+            let every = switch recurrence.frequency {
+            case .daily: "every day"
+            case .weekly: "every week"
+            case .monthly: "every month"
+            case .yearly: "every year"
+            }
+            return "\(every), next \(TimeFormat.targetDate(endDate))"
         }
     }
 }
@@ -764,7 +781,8 @@ enum TimeFormat {
 
     /// Ultra-compact counterpart to `snapshot`, for the Dynamic Island's compact slots.
     static func compactSnapshot(_ interval: TimeInterval, at now: Date = Date()) -> String {
-        interval >= calendarThreshold ? compactCalendar(interval, at: now) : "\(max(0, Int(interval)) / 86400)d"
+        interval >= calendarThreshold ? compactCalendar(interval, at: now)
+            : String(localized: "\(max(0, Int(interval)) / 86400)d", comment: "Compact days")
     }
 
     /// "2026-08-11" target date, e.g. for countdown rows and share text.

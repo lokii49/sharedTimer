@@ -74,6 +74,8 @@ enum BackgroundRefresh {
             guard needsRefill(current) else { continue }
             if current.endDate != stored.endDate { TimerStore.save(current) }
             await AlarmController.rescheduleAwaiting(for: current)
+            // A repeating countdown's heads-up reminders belong to its new occurrence.
+            TimerReminders.sync(current)
             // Updating an existing activity is allowed in the background (starting
             // one isn't): moves a quiet sequence's card to its current phase, so it
             // doesn't sit at 00:00 past the first boundary the card can follow itself,
@@ -82,6 +84,7 @@ enum BackgroundRefresh {
                 await LiveActivityController.updateAwaiting(for: current)
             }
         }
+        await AlarmController.cancelStrayAlarms()
         WatchSyncController.pushCurrentState()
         NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
     }

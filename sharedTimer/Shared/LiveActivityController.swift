@@ -50,11 +50,16 @@ enum LiveActivityController {
     }
 
     private static func activeActivity(for id: String) -> Activity<TimerActivityAttributes>? {
-        Activity<TimerActivityAttributes>.activities.first { $0.attributes.timerID == id && $0.activityState == .active }
+        // `.stale` too: every running card is stale once its `staleDate` (the end) passes,
+        // and is still on screen — requesting a new one then left two cards for one timer
+        // (a quiet sequence past phase 0, a widget Repeat after a finish).
+        Activity<TimerActivityAttributes>.activities.first { $0.attributes.timerID == id && ($0.activityState == .active || $0.activityState == .stale) }
     }
 
     private static func request(_ payload: TimerPayload) {
-        let attributes = TimerActivityAttributes(timerID: payload.id, label: payload.label, kind: payload.kind)
+        // Labels capped by bytes: ActivityKit rejects content over 4 KB, and a plain
+        // timer's label (unlike a link's or a phase's) is otherwise unbounded.
+        let attributes = TimerActivityAttributes(timerID: payload.id, label: TimerPayload.clampedLabel(payload.label, maxBytes: 256), kind: payload.kind)
         do {
             _ = try Activity.request(attributes: attributes, content: content(for: payload))
         } catch {
@@ -127,7 +132,8 @@ enum LiveActivityController {
         ActivityContent(
             state: TimerActivityAttributes.ContentState(
                 endDate: payload.endDate, pausedRemaining: payload.pausedRemaining,
-                label: payload.label, kind: payload.kind, upcoming: upcomingQuietPhases(of: payload)),
+                label: TimerPayload.clampedLabel(payload.label, maxBytes: 256), kind: payload.kind, upcoming: upcomingQuietPhases(of: payload),
+                noOvertime: payload.sequence != nil || payload.recurrence != nil ? true : nil),
             // Stale at the finish moment: when the app isn't running to end it, the
             // system still re-renders the card as stale, and TimerLiveActivityWidget
             // shows "Finished" (no buttons) instead of a frozen 0:00 for hours. For a
@@ -145,6 +151,6 @@ enum LiveActivityController {
         guard payload.sequence != nil else { return nil }
         let quiet = payload.upcomingSequencePhases(limit: 5).dropFirst()
             .prefix { !$0.phase.alarmEnabled && !$0.phase.vibrationEnabled }
-        return quiet.map { TimerActivityAttributes.Phase(label: String($0.phase.label.prefix(60)), kind: $0.phase.kind, endDate: $0.endDate) }
+        return quiet.map { TimerActivityAttributes.Phase(label: TimerPayload.clampedLabel($0.phase.label, maxBytes: 120), kind: $0.phase.kind, endDate: $0.endDate) }
     }
 }
