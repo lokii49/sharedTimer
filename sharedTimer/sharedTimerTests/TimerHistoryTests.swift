@@ -53,6 +53,22 @@ struct TimerHistoryTests {
         #expect(TimerHistory.endedRuns(stored: [repeatedLater], lastSeen: ["a": seen], now: now).count == 1)
     }
 
+    /// The clock rolls a repeating countdown on without touching `updatedAt`; the
+    /// occurrence that just ended is still recorded (a regression in the rule above).
+    @Test func occurrenceRolledOnByTheClockIsStillRecorded() {
+        var daily = timer("d", endsIn: -5)
+        daily.kind = .countdown
+        daily.recurrence = AnnualRecurrence(date: daily.endDate, timeZone: .gmt, frequency: .daily)
+        daily.updatedAt = now.addingTimeInterval(-3 * 86400)  // created days ago
+        let rolled = daily.advancedSequence(at: now)
+        #expect(rolled.endDate > daily.endDate)
+        #expect(TimerHistory.endedRuns(stored: [rolled], lastSeen: ["d": daily], now: now).count == 1)
+        // Extended before its end instead (not a rule date): no false finish.
+        var extended = daily.extended(by: 600)
+        extended.updatedAt = now.addingTimeInterval(-60)
+        #expect(TimerHistory.endedRuns(stored: [extended], lastSeen: ["d": daily], now: now).isEmpty)
+    }
+
     @Test func repeatingCountdownsAreTaggedByTheirFrequency() throws {
         var weekly = timer("w", endsIn: -10)
         weekly.kind = .countdown

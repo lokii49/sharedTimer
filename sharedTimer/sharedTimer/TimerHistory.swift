@@ -130,8 +130,10 @@ enum TimerHistory {
             // change came after the old run's end. A pause or extend made *before* it
             // (saved by Messages or the notification service, which never trigger a
             // scan here) means the old copy never actually finished.
+            // A repeating countdown the clock moved on to a later occurrence keeps its old
+            // `updatedAt` (advancing isn't a user change), so that case always counts.
             if let previous = lastSeen[payload.id], let run = endedRun(previous, now: now),
-               !(payload.updatedAt.map { $0 < run.endedAt } ?? false) {
+               movedOnByClock(from: previous, to: payload) || !(payload.updatedAt.map { $0 < run.endedAt } ?? false) {
                 runs.append(run)
             }
         }
@@ -140,6 +142,15 @@ enum TimerHistory {
             if let run = endedRun(previous, now: now) { runs.append(run) }
         }
         return runs
+    }
+
+    /// `current` is `previous` rolled forward to a later occurrence of its own rule
+    /// (running, its end exactly a rule date) — not an extend or pause.
+    static func movedOnByClock(from previous: TimerPayload, to current: TimerPayload) -> Bool {
+        guard let rule = previous.recurrence, current.recurrence != nil, current.pausedRemaining == nil,
+              current.endDate > previous.endDate,
+              let occurrence = rule.nextDate(after: current.endDate.addingTimeInterval(-1)) else { return false }
+        return abs(occurrence.timeIntervalSince(current.endDate)) < 1
     }
 
     static func endedRun(_ payload: TimerPayload, now: Date) -> TimerHistoryEntry? {
@@ -200,6 +211,9 @@ enum TimerHistory {
 
     /// Records whatever has ended since the last scan.
     static func scan(now: Date = Date()) {
+        // Never from the unit/device test host (its fixtures would land in the owner's
+        // real History) — `start()` is skipped there too, but foregrounding scans.
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         let stored = TimerStore.loadAll()
         let didChange: Bool = lock.withLock {
             let runs = endedRuns(stored: stored, lastSeen: lastSeen, now: now)

@@ -114,7 +114,10 @@ export function describe(search, now) {
       description = left > 0 ? `${roughly(left)} to go` : "Countdown finished";
     }
   } else {
-    description = duration !== null ? `${Math.max(1, Math.round(duration / 60))} min timer` : "Timer";
+    // Same wording as the app's shareSummary: seconds under a minute ("20 sec timer").
+    description = duration === null ? "Timer"
+      : duration < 60 ? `${Math.max(1, Math.round(duration))} sec timer`
+      : `${Math.round(duration / 60)} min timer`;
   }
   if (isPaused) description += " · paused";
   return { title: label, description };

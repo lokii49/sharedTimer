@@ -9,6 +9,7 @@ const rule = (r = {}) => encodeURIComponent(JSON.stringify({ version: 1, recurre
 
 test("plain timer", () => {
   assert.deepEqual(describe(p("label=Pasta&end=1&dur=480&kind=timer"), now), { title: "Pasta", description: "8 min timer" });
+  assert.equal(describe(p("label=Egg&end=1&dur=20&kind=timer"), now).description, "20 sec timer");
 });
 
 test("countdown says how far away, not a date", () => {
