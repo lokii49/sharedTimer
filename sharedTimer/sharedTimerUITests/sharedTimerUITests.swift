@@ -182,6 +182,12 @@ final class sharedTimerUITests: XCTestCase {
         shot.name = "History"
         shot.lifetime = .keepAlways
         add(shot)
+        // Don't leave the fixture in the device's real History.
+        app.staticTexts[label].firstMatch.swipeLeft()
+        // (The label itself stays visible in the timer list behind the sheet.)
+        let forget = app.buttons["Forget"].firstMatch
+        XCTAssertTrue(forget.waitForExistence(timeout: 3))
+        forget.tap()
         app.buttons["Done"].tap()
     }
 
@@ -197,13 +203,15 @@ final class sharedTimerUITests: XCTestCase {
         screenshot.name = "Settings (Sky Stack)"
         screenshot.lifetime = .keepAlways
         add(screenshot)
-        let glass = app.buttons["Glass"]
-        XCTAssertTrue(glass.exists)
-        glass.tap()
-        XCTAssertTrue(glass.isSelected)
-        // Leave the phone on the default tone.
-        app.buttons["Classic"].tap()
-        XCTAssertTrue(app.buttons["Classic"].isSelected)
+        // Put back whichever tone the phone had (Settings re-arms every alarm with it).
+        let original = ["Classic", "Glass", "Ember", "Dawn"].first { app.buttons[$0].isSelected } ?? "Classic"
+        let other = original == "Glass" ? "Ember" : "Glass"
+        let pick = app.buttons[other]
+        XCTAssertTrue(pick.exists)
+        pick.tap()
+        XCTAssertTrue(pick.isSelected)
+        app.buttons[original].tap()
+        XCTAssertTrue(app.buttons[original].isSelected)
         XCTAssertTrue(app.staticTexts["Privacy Policy"].exists)
         app.buttons["Done"].tap()
     }

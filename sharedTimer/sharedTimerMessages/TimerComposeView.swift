@@ -13,7 +13,7 @@ struct TimerComposeView: View {
     @State private var alarmEnabled = true
     @State private var vibrationEnabled = true
     @State private var shareMode: TimerShareMode = .link
-    @State private var activeTimers: [TimerPayload] = TimerStore.loadAll().filter { !$0.isExpired }
+    @State private var activeTimers: [TimerPayload] = TimerStore.loadAll().map { $0.advancedSequence() }.filter { !$0.isExpired }
     @State private var pickedExisting: TimerPayload?
     @FocusState private var labelFocused: Bool
 
@@ -107,7 +107,7 @@ struct TimerComposeView: View {
             .background(Sky.room.opacity(0.92))
         }
         .onAppear {
-            activeTimers = TimerStore.loadAll().filter { !$0.isExpired }
+            activeTimers = TimerStore.loadAll().map { $0.advancedSequence() }.filter { !$0.isExpired }
         }
     }
 

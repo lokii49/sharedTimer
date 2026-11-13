@@ -387,7 +387,10 @@ enum CloudSyncController {
 
     /// Uploads a timer that has no CloudLink as an owner record without a share.
     static func adoptOwnTimer(_ payload: TimerPayload, completion: @escaping () -> Void = {}) {
-        guard syncOwnTimers, CloudLinkStore.get(timerID: payload.id) == nil,
+        // Never from the unit/device test host: with "Sync with iCloud" on, test
+        // fixtures pushed through the real action paths were uploaded and synced to the
+        // owner's other devices.
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil, syncOwnTimers, CloudLinkStore.get(timerID: payload.id) == nil,
               !CloudLinkStore.hasLeft(timerID: payload.id) else { return completion() }
         ensureZoneExists { ok in
             guard ok else { return completion() }
