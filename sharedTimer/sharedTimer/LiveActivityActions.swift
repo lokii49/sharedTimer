@@ -29,7 +29,7 @@ enum LiveActivityActions {
     /// Idempotent: the toggle sends the desired state, so a double tap or a stale
     /// card can't flip it the wrong way.
     static func setPaused(timerID: String, paused: Bool) async {
-        guard let payload = stored(timerID), !payload.isFinished, !payload.isPending() else { return await refreshUI() }
+        guard let payload = await stored(timerID), !payload.isFinished, !payload.isPending() else { return await refreshUI() }
         guard payload.isPaused != paused else {
             // Already that way here: the card was stale — e.g. a remote pause the
             // notification service saved but can't apply to AlarmKit or the card. Re-arm
@@ -46,7 +46,7 @@ enum LiveActivityActions {
     /// from the custom Live Activity, where there's no Next/Cancel pair) it ends the
     /// whole sequence, same as `endSequence`.
     static func stop(timerID: String) async {
-        guard let payload = stored(timerID) else { return await refreshUI() }
+        guard let payload = await stored(timerID) else { return await refreshUI() }
         guard !payload.isFinished else {
             // Already finished here (a remote Stop the notification service saved): the
             // card and alarm are stale. Bring them in line instead of doing nothing —
@@ -85,7 +85,7 @@ enum LiveActivityActions {
     /// also what 1.0.3-scheduled alarms decode to). Uses `materializingPhase`, never
     /// `advancedSequence` — see AdvanceSequenceIntent's doc comment.
     static func advanceSequence(timerID: String, phaseIndex: Int) async {
-        guard let payload = stored(timerID, project: false), let storedIndex = payload.sequenceGlobalIndex else { return await refreshUI() }
+        guard let payload = await stored(timerID, project: false), let storedIndex = payload.sequenceGlobalIndex else { return await refreshUI() }
         let tappedIndex = phaseIndex >= 0 ? phaseIndex : storedIndex
         guard tappedIndex >= storedIndex else { return await refreshUI() }
         var advanced = payload.materializingPhase(globalIndex: tappedIndex + 1, startingAt: Date())
@@ -104,7 +104,7 @@ enum LiveActivityActions {
     /// loopCount`, the convention `advancedSequence` uses when one runs out on its
     /// own) and tears down every phase alarm, including the one ringing now.
     static func endSequence(timerID: String) async {
-        guard var payload = stored(timerID), var sequence = payload.sequence else { return await refreshUI() }
+        guard var payload = await stored(timerID), var sequence = payload.sequence else { return await refreshUI() }
         sequence.phaseIndex = 0  // same exhausted shape as advancedSequence
         sequence.loopIndex = sequence.loopCount
         payload.sequence = sequence
@@ -128,7 +128,7 @@ enum LiveActivityActions {
     }
 
     static func advanceAnnual(timerID: String, occurrenceEnd: Double) async {
-        guard var payload = stored(timerID, project: false), let recurrence = payload.recurrence,
+        guard var payload = await stored(timerID, project: false), let recurrence = payload.recurrence,
               occurrenceEnd.isFinite, abs(occurrenceEnd) <= 253_402_300_799,
               payload.endDate.timeIntervalSince1970 <= occurrenceEnd + 1,
               let next = recurrence.nextDate(after: max(Date(), Date(timeIntervalSince1970: occurrenceEnd))) else { return await refreshUI() }
@@ -141,7 +141,7 @@ enum LiveActivityActions {
 
     /// Widget "Repeat" on a finished timer — same mutation as the app's Repeat.
     static func repeatTimer(timerID: String) async {
-        guard let payload = stored(timerID), payload.isFinished else { return await refreshUI() }
+        guard let payload = await stored(timerID), payload.isFinished else { return await refreshUI() }
         await commit(payload.repeated(), action: "repeated")
     }
 
@@ -186,12 +186,23 @@ enum LiveActivityActions {
     /// otherwise Pause/Stop on a phase the app never caught up to read it as finished
     /// and did nothing. `project: false` for Next and Next Year, which act on the
     /// stored occurrence the tapped alert belongs to.
-    private static func stored(_ timerID: String, project: Bool = true) -> TimerPayload? {
+    private static func stored(_ timerID: String, project: Bool = true) async -> TimerPayload? {
         TimerStore.setWidgetFocus(id: timerID)
         // Every action here changes the timer, which a view-only share can't — treat it
         // as absent (the buttons are hidden for it anyway; a stale card could still tap).
-        guard !TimerStore.isReadOnly(id: timerID),
-              let payload = TimerStore.loadAll().first(where: { $0.id == timerID }) else { return nil }
+        guard !TimerStore.isReadOnly(id: timerID) else { return nil }
+        guard let payload = TimerStore.loadAll().first(where: { $0.id == timerID }) else {
+            // A card whose timer is gone (deleted in Messages, say — extensions can't
+            // reach AlarmKit): its buttons did nothing and a paused card stayed forever.
+            // Clear its alarms and card — only when the store was fully readable, so a
+            // newer build's timer isn't mistaken for a missing one.
+            if TimerStore.hasStoredData, let all = TimerStore.loadAllIfComplete(), !all.contains(where: { $0.id == timerID }) {
+                await AlarmController.clearAwaiting(id: timerID)
+                TimerReminders.cancel(id: timerID)
+                await LiveActivityController.endAwaiting(id: timerID)
+            }
+            return nil
+        }
         return project ? payload.advancedSequence() : payload
     }
 

@@ -1,9 +1,41 @@
 # Timer Roadmap
 
-Status as of 2026-11-08 (1.0.6 live; 1.0.7 planned on branch `1.0.7`, see below). Goal: beat the real App Store competitors (ShareTimer, ShareMyTimer,
+Status as of 2026-11-13 (1.0.7 live; 1.0.8 on branch `1.0.8`, see below). Goal: beat the real App Store competitors (ShareTimer, ShareMyTimer,
 Synced Timer Plus, TimeTo) by closing the live-sync gap and leaning into the one thing none of
 them have — a real native iMessage extension — instead of routing sharing through a plain link
 or QR code.
+
+## 1.0.8 (audit 2026-11-13, branch `1.0.8`, build 12)
+
+Trigger: a paused AlarmKit "Pomodoro · Phase 1 of 2 · Loop 1 of 4 · 05:46" card stayed on the owner's Lock Screen for days with no timer in the app (likely an alarm orphaned by a Messages delete / a remote delete a Messages pull consumed; cause unconfirmed — owner to check whether a paused Pomodoro is in that phone's list and whether ▶ on the card did anything). Five read-only audit passes; details of every fix in CLAUDE.md "1.0.8 fixes".
+
+**Status (2026-11-13): all High (4) and Medium (13) findings fixed and committed on `1.0.8`.** Verified: sim 174 unit + 18 UI (incl. new iPad split-view test, confirmed to fail without its fix), web 28, iPhone 14 Pro 38 AlarmKit + 1 Live Activity + 66 unit. Release + Watch schemes build.
+- **No test ran for:** Messages `peek` pulls (incl. expired-token refetch), SharePlay rules, CloudKit link changes (share upgrade / confirmed unshare, participant-stray guards, pending-delete filter, adoptOwnTimer re-check), Messages/NSE reminder cancels, Edit-sheet delete guard, detail `hasBuzzedFinish` reset, warm-foreground sequence re-arm, the launch-time `sweepStrayAlarms` path in the live app (tests call `cancelStrayAlarms` directly).
+- **Unconfirmed:** the `.stale` premise of the Live Activity reuse fix (a foreground app's card still read `.active` 15 s past `staleDate` on device); two-device iCloud share/unshare mirroring.
+- **Release gates:** 1.0.8 release notes not written (fastlane metadata still 1.0.7's, 11 languages); `Timer.repeatRuleData` production deploy (from 1.0.7) still unconfirmed; mirrornotes-website `timer.html` fix is on branch `timer-1.0.8`, not merged/deployed.
+
+**Open (Low, from the audit — not fixed):**
+1. Watch rollback can undo an Extend the phone applied (optimistic == real result; lost reply → rollback).
+2. Lock Screen widget: a later sequence phase ≥ 1 day shows frozen coarse text (`TimerWidgetSupport.refreshDate` looks only at the first entry).
+3. Compact Dynamic Island shows "1d" through the last 24 h of a quiet multi-day timer.
+4. Custom Live Activity shows overtime for sequences/yearly countdowns and freezes at +1:00:00.
+5. Widget "midnight" = `startOfDay + 86400` — wrong on DST days (past refresh date → reload loop on fall-back).
+6. Plain-timer label uncapped → may exceed ActivityKit's 4 KB → no Live Activity (unverified).
+7. `performReschedule` on a finished plain timer cancels its ringing alarm (remote edit of a ringing finished timer).
+8. BackgroundRefresh never re-plans reminders for repeating countdowns.
+9. Accept pushes a spurious "updated" (link `upd` full precision vs CloudKit milliseconds).
+10. CloudLinks never removed on record-level deletion.
+11. Messages keeps showing/mutating a remotely deleted timer (Pause re-saves it).
+12. History: stale `lastSeen` logs false finished runs; daily/weekly/monthly tagged "Yearly".
+13. Non-hour DST gaps (Lord_Howe, Chatham): Swift returns the wrong instant/day vs the web.
+14. `status/lib.mjs` `linkSeries` start = earliest day in the window, not first-ever count.
+15. link-preview `describe()`: `Number(null)=0` accepts label-only links; ignores `repeat` (previews "finished").
+16. Web vs app validation differs for hand-built links (`end=1e300`, missing `id`, …).
+17. A 20 s timer shares as "0 min timer".
+18. Phase wheel max 23 h but Describe… allows up to 365 d; Calendar import's untitled label "Countdown" untranslated.
+19. Daily ICS series: later gap/repeated days inside the series get no per-date EXDATE/RDATE (the yearly branch's table).
+
+**Not covered by any audit pass:** test targets themselves, string catalogs outside the main app (Messages, Clip, Widget, Watch, InfoPlist, AppShortcuts), CI workflows, fastlane, Clip `KeepAwake.swift`, all of `TimerComposeView.swift`.
 
 ## 1.0.7 plan (audit 2026-11-08, branch `1.0.7`, build 10)
 

@@ -553,9 +553,7 @@ enum AlarmController {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         Task {
             await cancelStrayAlarms()
-            if TimerStore.hasStoredData, let stored = TimerStore.loadAllIfComplete() {
-                await TimerReminders.cancelOrphaned(keeping: Set(stored.map(\.id)))
-            }
+            await TimerReminders.cancelOrphaned()
         }
     }
 
