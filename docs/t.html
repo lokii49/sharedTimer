@@ -278,21 +278,66 @@
   // Explicit transition dates make the exported IANA time zone self-contained.
   // Thirty years of current rules cover ordinary Calendar imports; calendar apps
   // may refresh IANA rules if governments change them after export.
-  function icsTimeZone(zone, year) {
+  // Offset changes from the start of year - 1 to the start of year + 30: one daily
+  // probe, then a binary search for the exact second. Shared by the VTIMEZONE and the
+  // repeating-rule DST corrections, and cached so an export scans once.
+  const transitionCache = new Map();
+  function zoneTransitions(zone, year) {
+    const key = zone + '|' + year;
+    if (transitionCache.has(key)) return transitionCache.get(key);
     const start = Date.UTC(year - 1, 0, 1), end = Date.UTC(year + 30, 0, 1);
     let offset = zoneOffset(start, zone);
-    const lines = ['BEGIN:VTIMEZONE', `TZID:${zone}`, `X-LIC-LOCATION:${zone}`, 'BEGIN:STANDARD',
-      `DTSTART:${icsDate(start + offset).replace(/Z$/, '')}`, `TZOFFSETFROM:${icsOffset(offset)}`, `TZOFFSETTO:${icsOffset(offset)}`, 'END:STANDARD'];
+    const result = { start, end, initial: offset, transitions: [] };
     for (let day = start + 86400000; day <= end; day += 86400000) {
       const next = zoneOffset(day, zone);
       if (next === offset) continue;
       let low = day - 86400000, high = day;
       while (high - low > 1000) { const mid = Math.floor((low + high) / 2000) * 1000; if (zoneOffset(mid, zone) === offset) low = mid; else high = mid; }
-      const type = next > offset ? 'DAYLIGHT' : 'STANDARD';
-      lines.push(`BEGIN:${type}`, `DTSTART:${icsDate(high + offset).replace(/Z$/, '')}`, `TZOFFSETFROM:${icsOffset(offset)}`, `TZOFFSETTO:${icsOffset(next)}`, `END:${type}`);
+      result.transitions.push({ at: high, from: offset, to: next });
       offset = next;
     }
+    transitionCache.set(key, result);
+    return result;
+  }
+  function icsTimeZone(zone, year) {
+    const { start, initial, transitions } = zoneTransitions(zone, year);
+    const lines = ['BEGIN:VTIMEZONE', `TZID:${zone}`, `X-LIC-LOCATION:${zone}`, 'BEGIN:STANDARD',
+      `DTSTART:${icsDate(start + initial).replace(/Z$/, '')}`, `TZOFFSETFROM:${icsOffset(initial)}`, `TZOFFSETTO:${icsOffset(initial)}`, 'END:STANDARD'];
+    for (const { at, from, to } of transitions) {
+      const type = to > from ? 'DAYLIGHT' : 'STANDARD';
+      lines.push(`BEGIN:${type}`, `DTSTART:${icsDate(at + from).replace(/Z$/, '')}`, `TZOFFSETFROM:${icsOffset(from)}`, `TZOFFSETTO:${icsOffset(to)}`, `END:${type}`);
+    }
     return [...lines, 'END:VTIMEZONE'];
+  }
+  // RFC 5545 skips a recurrence time that doesn't exist (spring gap) and readers differ
+  // on which copy of a repeated autumn time they pick. For one civil date the rule
+  // occurs on: exclude every reading of the nominal wall time that isn't the app's
+  // instant, and add the app's instant (first valid time / first copy) in UTC.
+  function dstCorrection(r, y, m, d, seriesStart, exclusions, additions) {
+    const actual = wallDate(r, y, m, d);
+    if (actual < seriesStart) return;
+    const p = zonedParts(actual * 1000, r.timeZoneID);
+    const exact = p.hour === r.hour && p.minute === r.minute && p.second === r.second;
+    const nominal = Date.UTC(y, m - 1, d, r.hour, r.minute, r.second);
+    const offsets = [...new Set([-36,-12,0,12,36].map(h => zoneOffset(nominal + h * 3600000, r.timeZoneID)))];
+    const repeated = offsets.filter(offset => wallMilliseconds(zonedParts(nominal - offset, r.timeZoneID)) === nominal).length > 1;
+    if (exact && !repeated) return;
+    // Use UTC for repeated autumn times as well: some Calendar readers choose
+    // the second occurrence despite RFC 5545 specifying the first.
+    for (const offset of offsets) {
+      const candidate = nominal - offset;
+      if (candidate !== actual * 1000) exclusions.add(icsDate(candidate));
+    }
+    additions.add(icsDate(actual * 1000));
+  }
+  // An extended first occurrence is swapped out: its rule instant is an EXDATE even if
+  // a DST correction also listed it as RDATE, and the moved `end` is never excluded
+  // (an extension by exactly the autumn hour lands on the repeated copy).
+  function pushCorrections(lines, exclusions, additions, natural, end) {
+    if (Math.abs(natural - end) >= 1) additions.delete(icsDate(natural * 1000));
+    exclusions.delete(icsDate(end * 1000));
+    for (const date of exclusions) lines.push(`EXDATE:${date}`);
+    for (const date of additions) lines.push(`RDATE:${date}`);
   }
   function calendarICS(title, end, recurrence, id = '') {
     const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Shared Timer//Countdown//EN', 'CALSCALE:GREGORIAN'];
@@ -323,10 +368,32 @@
       else if (recurrence.frequency === 'weekly') lines.push(`RRULE:FREQ=WEEKLY;BYDAY=${['SU','MO','TU','WE','TH','FR','SA'][recurrence.weekday - 1]}`);
       else if (recurrence.day <= 28) lines.push(`RRULE:FREQ=MONTHLY;BYMONTHDAY=${recurrence.day}`);
       else lines.push(`RRULE:FREQ=MONTHLY;BYMONTHDAY=${Array.from({ length: recurrence.day - 27 }, (_, i) => 28 + i).join(',')};BYSETPOS=-1`);
+      const exclusions = new Set(), additions = new Set();
       if (Math.abs(natural - end) >= 1) {
-        if (natural >= seriesStart) lines.push(`EXDATE:${icsDate(natural * 1000)}`);
-        lines.push(`RDATE:${icsDate(end * 1000)}`);
-      } else if (seriesStart !== natural) lines.push(`RDATE:${icsDate(end * 1000)}`);
+        if (natural >= seriesStart) exclusions.add(icsDate(natural * 1000));
+        additions.add(icsDate(end * 1000));
+      } else if (seriesStart !== natural) additions.add(icsDate(end * 1000));
+      // Later spring gaps / autumn repeats, as the yearly branch does per year. Only
+      // the civil dates around each time-zone transition in the exported span can be
+      // affected (a day either side covers zones that switch at local midnight).
+      const year = zonedParts(end * 1000, recurrence.timeZoneID).year;
+      const visited = new Set();
+      for (const { at, from, to } of zoneTransitions(recurrence.timeZoneID, year).transitions) {
+        for (const wall of [at + from, at + to]) {
+          for (const shift of [-1, 0, 1]) {
+            const date = new Date(wall + shift * 86400000);
+            const y = date.getUTCFullYear(), m = date.getUTCMonth() + 1, d = date.getUTCDate();
+            const key = `${y}-${m}-${d}`;
+            if (visited.has(key)) continue;
+            visited.add(key);
+            const occurs = recurrence.frequency === 'daily' ||
+              (recurrence.frequency === 'weekly' && date.getUTCDay() + 1 === recurrence.weekday) ||
+              (recurrence.frequency === 'monthly' && d === Math.min(recurrence.day, daysIn(y, m)));
+            if (occurs) dstCorrection(recurrence, y, m, d, seriesStart, exclusions, additions);
+          }
+        }
+      }
+      pushCorrections(lines, exclusions, additions, natural, end);
     } else if (recurrence) {
       const year = zonedParts(end * 1000, recurrence.timeZoneID).year;
       const original = annualDate(recurrence, year);
@@ -341,25 +408,11 @@
       // RFC 5545 skips nonexistent recurrence times. Include the native app's
       // first valid time explicitly, instead of losing that year's anniversary.
       for (let y = year; y <= year + 30; y++) {
-        const actual = annualDate(recurrence, y);
-        if (actual < seriesStart) continue;
-        const day = Math.min(recurrence.day, new Date(Date.UTC(y, recurrence.month, 0)).getUTCDate());
-        const nominal = Date.UTC(y, recurrence.month - 1, day, recurrence.hour, recurrence.minute, recurrence.second);
-        const offsets = [...new Set([-36,-12,0,12,36].map(h => zoneOffset(nominal + h * 3600000, recurrence.timeZoneID)))];
-        const repeated = offsets.filter(offset => wallMilliseconds(zonedParts(nominal - offset, recurrence.timeZoneID)) === nominal).length > 1;
-        if (exactTime(actual) && !repeated) continue;
-        // Use UTC for repeated autumn times as well: some Calendar readers choose
-        // the second occurrence despite RFC 5545 specifying the first.
-        for (const offset of offsets) {
-          const candidate = nominal - offset;
-          if (candidate !== actual * 1000) exclusions.add(icsDate(candidate));
-        }
-        additions.add(icsDate(actual * 1000));
+        dstCorrection(recurrence, y, recurrence.month, Math.min(recurrence.day, daysIn(y, recurrence.month)), seriesStart, exclusions, additions);
       }
       const monthDay = recurrence.month === 2 && recurrence.day === 29 ? -1 : recurrence.day;
       lines.push(`RRULE:FREQ=YEARLY;BYMONTH=${recurrence.month};BYMONTHDAY=${monthDay}`);
-      for (const date of exclusions) lines.push(`EXDATE:${date}`);
-      for (const date of additions) lines.push(`RDATE:${date}`);
+      pushCorrections(lines, exclusions, additions, original, end);
     } else lines.push(`DTSTART:${icsDate(end * 1000)}`);
     lines.push('DURATION:PT1M', 'END:VEVENT', 'END:VCALENDAR');
     return lines.map(foldICS).join('\r\n') + '\r\n';

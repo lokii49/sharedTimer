@@ -344,7 +344,48 @@ test('a daily series whose first occurrence falls in a spring gap starts on the 
   const p = page({ kind: 'countdown', repeat: daily, end: String(Date.parse('2027-03-14T07:00:00Z') / 1000) });
   const ics = evaluate(p, 'calendarICS("Early", Date.parse("2027-03-14T07:00:00Z") / 1000, recurrence, "x")');
   assert(ics.includes('DTSTART;TZID=America/New_York:20270315T023000'), ics);
-  assert(ics.includes('RDATE:20270314T070000Z') && !ics.includes('EXDATE'), ics);
+  // The moved first one is only an RDATE (it's before DTSTART, nothing to exclude);
+  // later spring-forward days get their own correction.
+  assert(ics.includes('RDATE:20270314T070000Z') && !ics.includes('EXDATE:20270314'), ics);
+  assert(ics.includes('RDATE:20280312T070000Z') && ics.includes('EXDATE:20280312T073000Z'), ics);
+});
+test('a daily series corrects every later spring gap and autumn repeat, in UTC', () => {
+  // 02:30 daily in New York: the app rings at 03:00 EDT (07:00Z) on spring-forward days.
+  const gap = annualRule({ frequency: 'daily', month: 1, day: 4, hour: 2, minute: 30, timeZoneID: 'America/New_York' });
+  const p = page({ kind: 'countdown', repeat: gap, end: String(Date.parse('2027-01-04T07:30:00Z') / 1000) });
+  const ics = evaluate(p, 'calendarICS("Early", Date.parse("2027-01-04T07:30:00Z") / 1000, recurrence, "x")');
+  assert(ics.includes('DTSTART;TZID=America/New_York:20270104T023000\r\n'), ics);
+  for (const day of ['20270314', '20280312', '20290311']) {
+    assert(ics.includes(`RDATE:${day}T070000Z\r\n`), day);
+    // Both readings of the nonexistent 02:30 are excluded; the app's 03:00 is not.
+    assert(ics.includes(`EXDATE:${day}T063000Z\r\n`) && ics.includes(`EXDATE:${day}T073000Z\r\n`), day);
+    assert(!ics.includes(`EXDATE:${day}T070000Z`), day);
+  }
+  // Ordinary days and autumn (02:30 isn't repeated) get nothing.
+  assert(!/(EXDATE|RDATE):2027031[35]/.test(ics) && !/(EXDATE|RDATE):20271107/.test(ics));
+  // 01:30 daily: the fall-back day's first copy (EDT, 05:30Z) is the app's; the second goes.
+  const repeat = annualRule({ frequency: 'daily', month: 1, day: 4, hour: 1, minute: 30, timeZoneID: 'America/New_York' });
+  const r = page({ kind: 'countdown', repeat, end: String(Date.parse('2027-01-04T06:30:00Z') / 1000) });
+  const rics = evaluate(r, 'calendarICS("Late", Date.parse("2027-01-04T06:30:00Z") / 1000, recurrence, "x")');
+  for (const day of ['20271107', '20281105', '20291104']) {
+    assert(rics.includes(`RDATE:${day}T053000Z\r\n`), day);
+    assert(rics.includes(`EXDATE:${day}T063000Z\r\n`), day);
+    assert(!rics.includes(`EXDATE:${day}T053000Z`), day);
+  }
+  assert(!/(EXDATE|RDATE):20270314/.test(rics), 'spring 01:30 exists');
+  // Weekly only on its weekday; monthly only on its day.
+  const weekly = annualRule({ frequency: 'weekly', weekday: 1, month: 1, day: 3, hour: 2, minute: 30, timeZoneID: 'America/New_York' }); // Sundays
+  const w = page({ kind: 'countdown', repeat: weekly, end: String(Date.parse('2027-01-03T07:30:00Z') / 1000) });
+  const wics = evaluate(w, 'calendarICS("Sun", Date.parse("2027-01-03T07:30:00Z") / 1000, recurrence, "x")');
+  assert(wics.includes('RDATE:20280312T070000Z\r\n'));
+  const tuesday = annualRule({ frequency: 'weekly', weekday: 3, month: 1, day: 5, hour: 2, minute: 30, timeZoneID: 'America/New_York' });
+  const t = page({ kind: 'countdown', repeat: tuesday, end: String(Date.parse('2027-01-05T07:30:00Z') / 1000) });
+  assert(!evaluate(t, 'calendarICS("Tue", Date.parse("2027-01-05T07:30:00Z") / 1000, recurrence, "x")').includes('RDATE'));
+  const monthly = annualRule({ frequency: 'monthly', month: 1, day: 12, hour: 2, minute: 30, timeZoneID: 'America/New_York' });
+  const m = page({ kind: 'countdown', repeat: monthly, end: String(Date.parse('2027-01-12T07:30:00Z') / 1000) });
+  const mics = evaluate(m, 'calendarICS("12th", Date.parse("2027-01-12T07:30:00Z") / 1000, recurrence, "x")');
+  assert(mics.includes('RDATE:20280312T070000Z\r\n') && !mics.includes('20270314T07'));
+  assert(mics.split('\r\n').every(line => Buffer.byteLength(line) <= 75));
 });
 test('a link carrying both annual and repeat, or repeat on a timer, is invalid', () => {
   const weekly = annualRule({ frequency: 'weekly', weekday: 3 });
