@@ -705,11 +705,17 @@ extension TimerPayload {
         }
         switch kind {
         case .timer:
-            return "\(Int((duration / 60).rounded())) min timer"
+            // Under a minute, seconds: "0 min timer" was what a 20 s timer shared as.
+            return duration < 60 ? "\(max(1, Int(duration.rounded()))) sec timer" : "\(Int((duration / 60).rounded())) min timer"
         case .countdown:
-            return recurrence != nil
-                ? "every year, next \(TimeFormat.targetDate(endDate))"
-                : "counting down to \(TimeFormat.targetDate(endDate))"
+            guard let recurrence else { return "counting down to \(TimeFormat.targetDate(endDate))" }
+            let every = switch recurrence.frequency {
+            case .daily: "every day"
+            case .weekly: "every week"
+            case .monthly: "every month"
+            case .yearly: "every year"
+            }
+            return "\(every), next \(TimeFormat.targetDate(endDate))"
         }
     }
 }

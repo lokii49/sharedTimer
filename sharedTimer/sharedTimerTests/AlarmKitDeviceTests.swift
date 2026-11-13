@@ -404,6 +404,44 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
+    /// ▶ on the card of a timer that's gone (deleted in Messages): the tap clears the
+    /// stray paused alarm instead of doing nothing.
+    @Test func cardButtonOnADeletedTimerClearsItsAlarm() async {
+        let payload = TimerPayload(label: "Gone card", duration: 600).paused()
+        created.append(payload)
+        TimerStore.save(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let id = UUID(uuidString: payload.id)!
+        #expect(alarmsByID()[id]?.state == .paused)
+        TimerStore.delete(id: payload.id)
+        await LiveActivityActions.setPaused(timerID: payload.id, paused: false)
+        #expect(alarmsByID()[id] == nil)
+        await tearDown()
+    }
+
+    /// Messages and the notification service drop heads-up reminders by prefix
+    /// (`NotificationScheduler.cancelReminders`), without knowing the reminder kinds.
+    @Test func extensionReminderCancelRemovesEveryKind() async {
+        let payload = TimerPayload(label: "Ext reminders", duration: 1800)
+        created.append(payload)
+        TimerStore.save(payload)
+        TimerReminders.set([.halfway, .fiveMinutes, .oneMinute], for: payload.id)
+        defer { TimerReminders.set([], for: payload.id) }
+        TimerReminders.sync(payload)
+        let prefix = "\(payload.id).reminder."
+        func pending() async -> Int {
+            await UNUserNotificationCenter.current().pendingNotificationRequests().filter { $0.identifier.hasPrefix(prefix) }.count
+        }
+        var tries = 0
+        while await pending() < 3, tries < 30 { try? await Task.sleep(for: .milliseconds(100)); tries += 1 }
+        #expect(await pending() == 3)
+        NotificationScheduler.cancelReminders(id: payload.id)
+        tries = 0
+        while await pending() > 0, tries < 30 { try? await Task.sleep(for: .milliseconds(100)); tries += 1 }
+        #expect(await pending() == 0)
+        await tearDown()
+    }
+
     /// A paused alarm whose timer left the store (deleted in Messages, which can't
     /// reach AlarmKit) never fires or expires, so its Lock Screen card stays up. The
     /// launch sweep cancels it, and swaps a paused alarm whose stored timer is running

@@ -117,6 +117,16 @@ struct OddDaylightSavingGapTests {
     }
 }
 
+struct ShareSummaryTests {
+    @Test func shortTimersAndRepeatingCountdownsReadRight() {
+        #expect(TimerPayload(label: "Egg", duration: 20).shareSummary == "20 sec timer")
+        #expect(TimerPayload(label: "Pasta", duration: 480).shareSummary == "8 min timer")
+        var weekly = TimerPayload(label: "Standup", duration: 86400, kind: .countdown)
+        weekly.recurrence = AnnualRecurrence(date: weekly.endDate, timeZone: .gmt, frequency: .weekly)
+        #expect(weekly.shareSummary.hasPrefix("every week, next "))
+    }
+}
+
 struct LiveActivityStateCompatTests {
     @Test func stateFromAnOlderBuildDecodesWithoutTheNewField() throws {
         let json = #"{"endDate":800000000,"label":"Tea"}"#
