@@ -87,6 +87,17 @@ final class SharePlayController: ObservableObject {
     }
 
     /// Sends a local change of the shared timer to the others in the call.
+    /// Whether a timer arriving from the call is applied here: never for one shared
+    /// through CloudKit (authoritative — adopting re-pushed every field and rolled back
+    /// newer changes from people outside the call) or a view-only one; otherwise only
+    /// when new here or stamped newer (`shouldAdopt`, as for a re-opened link). A timer
+    /// merely synced between this person's own devices isn't "shared" and follows the call.
+    static func accepts(_ incoming: TimerPayload, stored: TimerPayload?, isShared: Bool, isReadOnly: Bool) -> Bool {
+        guard !isShared, !isReadOnly else { return false }
+        guard let stored else { return true }
+        return stored.shouldAdopt(incoming)
+    }
+
     func send(_ payload: TimerPayload) {
         guard payload.id == sharedTimerID, let messenger else { return }
         let message = TimerUpdateMessage(link: payload.url().absoluteString)

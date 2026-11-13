@@ -569,6 +569,32 @@ enum CloudSyncController {
         }
     }
 
+    // MARK: Pull decisions (pure, unit-tested)
+
+    /// The owner link after pulling a private-zone record whose share is `shareName`:
+    /// a new or different share replaces the stored one (shared, or re-shared, on
+    /// another device); nil = leave it. Never clears it — "no share" is only trusted
+    /// once the server confirms (`dropShareIfGone`), since a pull can overlap this
+    /// device's own share creation.
+    static func ownerLink(_ link: CloudLink?, afterPullingShare shareName: String?) -> CloudLink? {
+        guard let link, link.isOwner, let shareName, link.shareRecordName != shareName else { return nil }
+        return CloudLink(timerID: link.timerID, recordName: link.recordName, zoneName: link.zoneName,
+                         zoneOwnerName: link.zoneOwnerName, isOwner: true, shareRecordName: shareName)
+    }
+
+    /// A private-zone record for a timer this device joined as a participant is a
+    /// stray copy (an `adoptOwnTimer` upload that raced the accept) — ignore it.
+    static func ignoresPrivateZoneChange(link: CloudLink?) -> Bool {
+        link?.isOwner == false
+    }
+
+    /// A private-zone deletion applies only to a timer this device owns a link for:
+    /// with Sync off another device's deletion of its own copy must not delete this
+    /// device's timer, and a participant's stray-copy cleanup must not remove the share.
+    static func appliesPrivateZoneDeletion(link: CloudLink?) -> Bool {
+        link?.isOwner == true
+    }
+
     /// An owner link says shared, but the share may have been removed elsewhere (Stop
     /// Sharing on another of this person's devices). Downgrades only when the server
     /// reports the share record itself missing (`.unknownItem`) — every share path stores
@@ -851,7 +877,7 @@ enum CloudSyncController {
                     // is a stray (an `adoptOwnTimer` upload that raced the accept): the
                     // share is authoritative, never this copy.
                     if database === container.privateCloudDatabase,
-                       CloudLinkStore.get(timerID: payload.id)?.isOwner == false { return }
+                       ignoresPrivateZoneChange(link: CloudLinkStore.get(timerID: payload.id)) { return }
                     // Another of this person's devices shared a synced timer: mark this
                     // device's owner link shared too, or it treats the timer as merely
                     // synced — plain Delete, no confirmation, which deletes the record for
@@ -860,13 +886,10 @@ enum CloudSyncController {
                     // Also replaces an older share's name (stopped and re-shared there), or
                     // the foreground check would find the old share gone and downgrade a
                     // timer that is still shared.
-                    if database === container.privateCloudDatabase, !peek, let share = record.share,
-                       let link = CloudLinkStore.get(timerID: payload.id), link.isOwner,
-                       link.shareRecordName != share.recordID.recordName {
-                        CloudLinkStore.set(CloudLink(timerID: link.timerID, recordName: link.recordName, zoneName: link.zoneName,
-                                                     zoneOwnerName: link.zoneOwnerName, isOwner: true,
-                                                     shareRecordName: record.share?.recordID.recordName))
-                        DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: [link.timerID]) }
+                    if database === container.privateCloudDatabase, !peek,
+                       let updatedLink = ownerLink(CloudLinkStore.get(timerID: payload.id), afterPullingShare: record.share?.recordID.recordName) {
+                        CloudLinkStore.set(updatedLink)
+                        DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: [updatedLink.timerID]) }
                     }
                     // ...and the reverse, Stop Sharing on another device: the record comes
                     // back without a share. Not trusted on its own (this pull may predate a
@@ -906,7 +929,7 @@ enum CloudSyncController {
             // Nor to a timer joined as a participant: its private copy is a stray that
             // `adoptOwnTimer` deletes again, and that must not remove the shared timer.
             if database === container.privateCloudDatabase,
-               CloudLinkStore.get(timerID: recordID.recordName)?.isOwner != true { return }
+               !appliesPrivateZoneDeletion(link: CloudLinkStore.get(timerID: recordID.recordName)) { return }
             deletedIDs.append(recordID.recordName)
         }
         operation.recordZoneChangeTokensUpdatedBlock = { zoneID, token, _ in

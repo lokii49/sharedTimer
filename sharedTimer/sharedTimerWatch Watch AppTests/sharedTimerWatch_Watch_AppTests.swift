@@ -97,6 +97,25 @@ struct sharedTimerWatch_Watch_AppTests {
         #expect(WatchSyncController(defaults: defaults).timers.isEmpty)
     }
 
+    /// A +1:00's optimistic result equals the phone's applied one. Once a phone context
+    /// arrived after the tap, a late reply error must not roll the extend back.
+    @Test func lateErrorAfterPhoneContextDoesNotUndoAnAppliedExtend() throws {
+        let suite = "watch-sync-test.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sync = WatchSyncController(defaults: defaults)
+        let before = timer("tea", seconds: 100)
+        sync.apply(["timers": try JSONEncoder().encode([before])])
+        let sentAt = sync.contextGeneration
+        let extended = before.extended(by: 60)
+        sync.apply(["timers": try JSONEncoder().encode([extended])])  // the phone applied it
+        sync.rollBack(id: "tea", to: before, ifStill: extended, sentAt: sentAt)
+        #expect(sync.timers.first?.endDate == extended.endDate)
+        // No context since the tap: a failed send still rolls back.
+        sync.rollBack(id: "tea", to: before, ifStill: extended, sentAt: sync.contextGeneration)
+        #expect(sync.timers.first?.endDate == before.endDate)
+    }
+
     @Test func linksRoundTripAndRejectPayloads() throws {
         let id = "tea / #?💫"
         let url = try #require(WatchTimerLink.url(id: id))

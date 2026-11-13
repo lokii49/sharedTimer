@@ -13,7 +13,8 @@ struct CalendarCountdownChoice: Identifiable {
 
     init(event: EKEvent) {
         id = (event.eventIdentifier ?? UUID().uuidString) + "#" + String(event.startDate.timeIntervalSince1970)
-        title = (event.title?.isEmpty == false ? event.title : nil) ?? "Countdown"
+        // Becomes the timer's label: in the person's language, like compose's default.
+        title = (event.title?.isEmpty == false ? event.title : nil) ?? String(localized: "Countdown")
         timeZone = event.timeZone ?? .current
         allDay = event.isAllDay
         if allDay {

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 import Testing
 @testable import sharedTimer
 
@@ -37,6 +38,32 @@ struct TimerHistoryTests {
         #expect(deletedRuns.count == 1)
         // Deleted while still running: not a finished run.
         #expect(TimerHistory.endedRuns(stored: [], lastSeen: ["b": timer("b", endsIn: 60)], now: now).isEmpty)
+    }
+
+    /// Last seen running (ends at -100), then paused before that end by something
+    /// that never triggered a scan here (Messages, the notification service): the old
+    /// copy never finished. A change stamped after the end still records the run.
+    @Test func changeMadeBeforeTheOldEndDoesNotLogAFalseFinish() {
+        let seen = timer("a", endsIn: -100)
+        var pausedEarly = seen.paused(at: now.addingTimeInterval(-150))
+        pausedEarly.updatedAt = now.addingTimeInterval(-150)
+        #expect(TimerHistory.endedRuns(stored: [pausedEarly], lastSeen: ["a": seen], now: now).isEmpty)
+        var repeatedLater = timer("a", endsIn: 200)
+        repeatedLater.updatedAt = now.addingTimeInterval(-50)
+        #expect(TimerHistory.endedRuns(stored: [repeatedLater], lastSeen: ["a": seen], now: now).count == 1)
+    }
+
+    @Test func repeatingCountdownsAreTaggedByTheirFrequency() throws {
+        var weekly = timer("w", endsIn: -10)
+        weekly.kind = .countdown
+        weekly.recurrence = AnnualRecurrence(date: weekly.endDate, timeZone: .gmt, frequency: .weekly)
+        let entry = try #require(TimerHistory.endedRun(weekly, now: now))
+        #expect(entry.yearly && entry.frequency == .weekly)
+        #expect(entry.repeatTag == "Weekly")
+        // Logged before 1.0.8: yearly with no frequency still reads "Yearly".
+        var old = entry
+        old.frequency = nil
+        #expect(old.repeatTag == "Yearly")
     }
 
     @Test func sequenceIsRecordedOnlyWhenExhausted() {
@@ -76,7 +103,7 @@ struct SequenceDescriberTests {
         ], loopCount: 500)
         let result = SequenceDescriber.phases(from: draft)
         #expect(result.phases.map(\.label) == ["Focus", "Break", "Fast"])
-        #expect(result.phases.map(\.duration) == [1500, 1, 365 * 86_400])
+        #expect(result.phases.map(\.duration) == [1500, 1, SequenceDescriber.maximumPhaseSeconds])
         #expect(result.loopCount == 99)
         #expect(SequenceDescriber.phases(from: SequenceDraft(phases: [], loopCount: 0)).loopCount == 1)
     }

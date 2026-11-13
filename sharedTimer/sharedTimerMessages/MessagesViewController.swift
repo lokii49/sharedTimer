@@ -138,7 +138,7 @@ class MessagesViewController: MSMessagesAppViewController {
                 // A pause/extend made while the accept was in flight couldn't push (no
                 // CloudLink yet) and is newer than the record — keep it and push it now.
                 if let local = TimerStore.loadAll().first(where: { $0.id == authoritative.id }),
-                   authoritative.shouldAdopt(local) {
+                   local.hasChange(newerThan: authoritative) {
                     CloudSyncController.pushUp(local, action: "updated")
                     return
                 }

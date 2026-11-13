@@ -207,6 +207,17 @@ struct TimerPayload: Codable, Identifiable {
     /// this stored copy of the same timer: only when it's stamped strictly newer. An
     /// unstamped incoming never wins (an old link must not roll back newer local
     /// state); a stamped incoming beats an unstamped stored copy.
+    /// For a share accept: whether this local copy carries a change made *after* the
+    /// authoritative record (made while the accept was in flight, which couldn't push).
+    /// A 1 s margin, unlike `shouldAdopt`: the link's `upd` keeps full precision while
+    /// CloudKit keeps milliseconds, so an unchanged copy read as "newer" by a fraction
+    /// of a millisecond and every first accept pushed a spurious "updated".
+    func hasChange(newerThan authoritative: TimerPayload) -> Bool {
+        guard let stamp = updatedAt else { return false }
+        guard let serverStamp = authoritative.updatedAt else { return true }
+        return stamp.timeIntervalSince(serverStamp) >= 1
+    }
+
     func shouldAdopt(_ incoming: TimerPayload) -> Bool {
         guard incoming.id == id, let incomingStamp = incoming.updatedAt else { return false }
         guard let stamp = updatedAt else { return true }

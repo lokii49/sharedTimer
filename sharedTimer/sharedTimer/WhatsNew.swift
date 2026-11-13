@@ -298,7 +298,8 @@ private struct RepeatScene: View {
             .background(nightCard, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             HStack(spacing: 6) {
                 ForEach(0..<3, id: \.self) { i in
-                    Text(["Daily", "Weekly", "Monthly"][i])
+                    // A String would show English in every language (keys exist translated).
+                    Text(LocalizedStringKey(["Daily", "Weekly", "Monthly"][i]))
                         .font(.caption.weight(.semibold))
                         .frame(width: 70, height: 30)
                         .foregroundStyle(i == chosen ? Color(red: 0.05, green: 0.12, blue: 0.31) : .white)

@@ -71,6 +71,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 }
                 for id in deletedIDs {
                     TimerStore.delete(id: id)
+                    CloudLinkStore.remove(timerID: id)
                     TimerReminders.cancel(id: id)
                     await AlarmController.clearAwaiting(id: id)
                     await LiveActivityController.endAwaiting(id: id)
