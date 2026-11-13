@@ -1,11 +1,7 @@
-• Nouveau : iPad. Vos minuteurs à gauche, le ciel en direct à droite.
-• Nouveau : les comptes à rebours peuvent se répéter chaque jour, semaine ou mois, pas seulement chaque année.
-• Nouveau : Historique. Chaque minuteur terminé pendant 90 jours, avec « Relancer ».
-• Nouveau : rappels à mi-parcours, 5 ou 1 minute avant la fin (1 jour ou 1 heure avant un compte à rebours).
-• Nouveau : dépassement. Un minuteur terminé continue de compter « +2:13 » pour savoir depuis combien de temps.
-• Nouveau : garder l’écran allumé, SharePlay dans les appels FaceTime et synchronisation iCloud pour retrouver vos minuteurs sur tous vos appareils.
-• Nouveau : demandez à Siri le temps restant, puis mettez en pause ou ajoutez une minute depuis la réponse.
-• Nouveau : décrivez une séquence avec vos mots (« 25 travail, 5 pause, 4 fois ») sur les iPhone avec Apple Intelligence.
-• Plus lisible et plus simple : texte plus clair sur chaque ciel, boutons Liquid Glass, cartes plus grandes en grande taille de texte et Annuler après une suppression.
-• Réglages indique désormais si les alarmes et les notifications sont autorisées.
-• Activités en direct dans la pile intelligente de l’Apple Watch et dans CarPlay. Téléchargement plus léger, listes plus rapides et de nombreuses corrections.
+• Corrigé : une carte d’alarme en pause pouvait rester sur l’écran verrouillé alors que son minuteur n’existait plus. Ouvrir Timer l’efface désormais, et ses boutons fonctionnent de nouveau.
+• Corrigé : quand quelqu’un arrêtait un minuteur partagé, il pouvait redémarrer pour tout le monde à l’ouverture de l’app.
+• Les modifications faites dans Messages atteignent toujours vos alarmes, y compris la suppression ou la pause d’une séquence.
+• Les comptes à rebours quotidiens et hebdomadaires ne sonnent plus deux fois la nuit du passage à l’heure d’hiver.
+• Sur iPad, le minuteur de droite se met à jour aussitôt quand vous le mettez en pause ou le modifiez depuis la liste.
+• Les rappels ne se déclenchent plus après l’arrêt ou la suppression d’un minuteur.
+• Widgets et activités en direct plus précis pour les longs minuteurs, étiquettes Quotidien/Hebdomadaire/Mensuel dans l’historique et de nombreuses autres corrections.

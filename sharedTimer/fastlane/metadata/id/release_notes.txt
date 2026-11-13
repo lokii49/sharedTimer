@@ -1,11 +1,7 @@
-• Baru: iPad. Timer Anda di kiri, langit langsung di kanan.
-• Baru: hitung mundur bisa berulang setiap hari, minggu, atau bulan — tidak hanya setiap tahun.
-• Baru: Riwayat. Setiap timer yang selesai selama 90 hari, dengan “Jalankan lagi”.
-• Baru: pengingat di separuh waktu, 5 atau 1 menit sebelum selesai (1 hari atau 1 jam sebelum hitung mundur).
-• Baru: waktu lebih. Timer yang selesai terus menghitung “+2:13” agar Anda tahu sudah berapa lama.
-• Baru: Biarkan Layar Menyala, SharePlay di panggilan FaceTime, dan sinkronisasi iCloud agar timer Anda ada di semua perangkat Anda.
-• Baru: tanya Siri berapa lama lagi, lalu jeda atau tambah satu menit langsung dari jawabannya.
-• Baru: jelaskan urutan dengan kata-kata Anda (“25 kerja, 5 istirahat, 4 kali”) di iPhone dengan Apple Intelligence.
-• Lebih mudah dibaca dan dipakai: teks lebih jelas di setiap langit, tombol Liquid Glass, kartu lebih besar saat teks besar, dan Urungkan setelah menghapus timer.
-• Pengaturan kini menampilkan apakah alarm dan notifikasi diizinkan.
-• Live Activity di Smart Stack Apple Watch dan CarPlay. Unduhan lebih kecil, daftar lebih cepat, dan banyak perbaikan.
+• Diperbaiki: kartu alarm yang dijeda bisa tetap ada di Layar Terkunci meski timernya sudah tidak ada. Sekarang kartu itu hilang saat Timer dibuka, dan tombolnya berfungsi lagi.
+• Diperbaiki: saat seseorang menghentikan timer bersama, timer itu bisa mulai lagi untuk semua orang ketika app dibuka.
+• Perubahan di Pesan kini selalu sampai ke alarm Anda, termasuk menghapus atau menjeda urutan.
+• Hitung mundur harian dan mingguan tidak lagi berbunyi dua kali pada malam jam dimundurkan.
+• Di iPad, timer di sebelah kanan langsung diperbarui saat Anda menjeda atau mengeditnya dari daftar.
+• Pengingat tidak lagi berbunyi setelah timer dihentikan atau dihapus.
+• Widget dan Aktivitas Langsung lebih akurat untuk timer panjang, label Harian/Mingguan/Bulanan di Riwayat, dan banyak perbaikan kecil lainnya.

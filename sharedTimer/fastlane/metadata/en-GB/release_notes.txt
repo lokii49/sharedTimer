@@ -1,11 +1,7 @@
-• New: iPad. Your timers on the left, the live sky on the right.
-• New: Countdowns can repeat every day, week or month — not just every year.
-• New: History. Every finished timer for 90 days, with Run again.
-• New: Heads-up reminders halfway, 5 or 1 minute before the end (1 day or 1 hour before a countdown).
-• New: Overtime. A finished timer keeps counting "+2:13", so you know how long it's been.
-• New: Keep Screen On, SharePlay in FaceTime calls, and Sync with iCloud to have your own timers on all your devices.
-• New: Ask Siri how long is left, then pause or add a minute right from the answer.
-• New: Describe a sequence in your own words ("25 on, 5 off, 4 times") on iPhones with Apple Intelligence.
-• Easier to read and use: clearer text on every sky, Liquid Glass buttons, bigger cards at large text sizes, and Undo after removing a timer.
-• Settings now shows whether alarms and notifications are allowed.
-• Live Activities on the Apple Watch Smart Stack and CarPlay. A smaller download, faster lists and many fixes.
+• Fixed: a paused alarm card could stay on the Lock Screen after its timer was gone. Opening Timer now clears it, and its buttons work again.
+• Fixed: when someone stopped a shared timer, it could start again for everyone the next time you opened the app.
+• Changes made in Messages now always reach your alarms, including deleting or pausing a sequence.
+• Daily and weekly countdowns no longer ring twice on the night the clocks go back.
+• On iPad, the timer on the right updates straight away when you pause or edit it from the list.
+• Heads-up reminders no longer go off after a timer is stopped or deleted.
+• More accurate widgets and Live Activities for long timers, Daily/Weekly/Monthly tags in History, and many smaller fixes.
