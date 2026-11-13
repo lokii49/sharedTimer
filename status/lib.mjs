@@ -105,9 +105,17 @@ export function salesBlock(results, days) {
   };
 }
 
+// The day the Worker started counting (its first data point: 2026-10-22, the live
+// status.json's links.since before the window moved past it). The SQL query only
+// reaches back DAYS + 1 days, so once the counter is older than that, the earliest
+// row in the window is just the earliest day with traffic, not the first-ever one.
+export const LINK_COUNTING_SINCE = "2026-10-22";
+
 // Analytics Engine SQL rows ({ day: epoch seconds, kind, n }) → per-day counts.
-// Days before the first counted day are null (the counter wasn't running yet).
-export function linkSeries(rows, days) {
+// Days before the first counted day are null (the counter wasn't running yet); from
+// then on a day with no traffic is 0. The first counted day is `knownSince`
+// (build.mjs passes LINK_COUNTING_SINCE) or an earlier row; without it, the earliest row.
+export function linkSeries(rows, days, knownSince = null) {
   const byDay = new Map();
   for (const r of rows) {
     const day = new Date(Number(r.day) * 1000).toISOString().slice(0, 10);
@@ -115,7 +123,7 @@ export function linkSeries(rows, days) {
     if (r.kind === "preview" || r.kind === "open") acc[r.kind] += Number(r.n) || 0;
     byDay.set(day, acc);
   }
-  const first = [...byDay.keys()].sort()[0];
+  const first = [...byDay.keys(), ...(knownSince ? [knownSince] : [])].sort()[0];
   const pick = (kind) => days.map((d) => (first === undefined || d < first ? null : byDay.get(d)?.[kind] ?? 0));
   return { since: first ?? null, previews: pick("preview"), opens: pick("open") };
 }

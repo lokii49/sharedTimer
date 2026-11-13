@@ -103,3 +103,22 @@ test("link counts: zero after the counter started, null before it", () => {
   assert.deepEqual(links.opens, [null, null, 1, 0, 0]);
   assert.deepEqual(linkSeries([], days).previews, [null, null, null, null, null]);
 });
+
+test("link counts: a counter older than the window shows quiet days as 0, not null", () => {
+  const days = lastDays("2026-12-05", 5);
+  const at = (d) => String(Date.parse(d + "T00:00:00Z") / 1000);
+  const rows = [
+    { day: at("2026-12-04"), kind: "preview", n: "2" },
+    { day: at("2026-12-04"), kind: "open", n: "2" },
+  ];
+  // The SQL window only reaches back 31 days, so its earliest row isn't the first-ever.
+  const links = linkSeries(rows, days, "2026-10-22");
+  assert.equal(links.since, "2026-10-22");
+  assert.deepEqual(links.opens, [0, 0, 0, 2, 0]);
+  assert.deepEqual(links.previews, [0, 0, 0, 2, 0]);
+  assert.deepEqual(linkSeries([], days, "2026-10-22").opens, [0, 0, 0, 0, 0]);
+  // Days before the known start stay null; a row earlier than it wins.
+  const early = lastDays("2026-10-23", 4);
+  assert.deepEqual(linkSeries([], early, "2026-10-22").opens, [null, null, 0, 0]);
+  assert.equal(linkSeries([{ day: at("2026-10-20"), kind: "open", n: 1 }], early, "2026-10-22").since, "2026-10-20");
+});
