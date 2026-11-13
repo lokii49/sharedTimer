@@ -18,9 +18,11 @@ function page(extra = {}, env = {}) {
   const document = { title: '', getElementById: id => elements[id], body: { dataset: {}, style: {}, classList: {
     toggle(name, value) { value ? classes.add(name) : classes.delete(name); }
   } } };
-  const params = new URLSearchParams({ label: 'Sequence', end: String(epoch + 60), dur: '60', kind: 'timer', ...extra });
+  const params = new URLSearchParams({ id: 'test-id', label: 'Sequence', end: String(epoch + 60), dur: '60', kind: 'timer', ...extra });
+  // env.search: a raw query string, as the app's URLComponents would see it.
+  const search = env.search !== undefined ? env.search : '?' + params;
   class TestDate extends Date { static now() { return now * 1000; } }
-  const context = vm.createContext({ document, window: { location: { search: '?' + params, host: env.host || 'mirrornotes.org' } }, Date: TestDate,
+  const context = vm.createContext({ document, window: { location: { search, host: env.host || 'mirrornotes.org' } }, Date: TestDate,
     ...(env.navigator ? { navigator: env.navigator } : {}),
     URLSearchParams, TextEncoder, Blob, URL: { createObjectURL() { return 'blob:calendar'; }, revokeObjectURL() {} }, setInterval(fn) { intervalCount++; callback = fn; return 1; }, clearInterval() { callback = null; } });
   vm.runInContext(script, context);
@@ -92,6 +94,75 @@ test('numbers parse strictly and out-of-range values are rejected like the app',
   assert(page({ paused: '-5' }).elements.status.textContent.includes('invalid'));
   assert(page({ dur: '0' }).elements.status.textContent.includes('invalid'));
   assert.equal(page({ paused: '80' }).elements.clock.textContent, '01:20');
+});
+// Verdicts from the app's own TimerPayload.from(url:) (TimerModel.swift,
+// TimerSequenceWire.swift and AnnualRecurrence.swift compiled with swiftc on macOS,
+// fed these exact query strings, 2026-11-13). The page must accept exactly the same.
+test('the page accepts exactly the links the app accepts', () => {
+  const E = 4102444800;
+  const ph = (o = {}) => ({ label: 'Work', kind: 'timer', duration: 60, alarmEnabled: true, vibrationEnabled: false, ...o });
+  const sq = (ps, extra = {}) => encodeURIComponent(JSON.stringify({ version: 1, sequence: { phases: ps, loopCount: 2, phaseIndex: 0, loopIndex: 0, ...extra } }));
+  const base = `id=a&label=L&end=${E}&dur=60`;
+  const cases = [
+    ['plain', base, true],
+    ['no dur', `id=a&label=L&end=${E}`, true],
+    ['end 1e300', 'id=a&label=L&end=1e300&dur=60', false],
+    ['end inf', 'id=a&label=L&end=inf&dur=60', false],
+    ['end %20n', `id=a&label=L&end=%20${E}&dur=60`, false],
+    ['end +n', `id=a&label=L&end=+${E}&dur=60`, true],
+    ['end hex', 'id=a&label=L&end=0xF486C380&dur=60', true],
+    ['end 0X hex', 'id=a&label=L&end=0XF486C380&dur=60', false],
+    ['end trailing %20', `id=a&label=L&end=${E}%20&dur=60`, false],
+    ['end empty', 'id=a&label=L&end=&dur=60', false],
+    ['dur 1e13', `id=a&label=L&end=${E}&dur=1e13`, false],
+    ['dur 1e12', `id=a&label=L&end=${E}&dur=1e12`, true],
+    ['dur nan', `id=a&label=L&end=${E}&dur=nan`, false],
+    ['dur inf', `id=a&label=L&end=${E}&dur=inf`, false],
+    ['dur abc', `id=a&label=L&end=${E}&dur=abc`, true],
+    ['dur 0', `id=a&label=L&end=${E}&dur=0`, false],
+    ['dur %2060', `id=a&label=L&end=${E}&dur=%2060`, true],
+    ['paused 1e13', `${base}&paused=1e13`, false],
+    ['paused 1e12', `${base}&paused=1e12`, true],
+    ['paused -1', `${base}&paused=-1`, false],
+    ['paused nan', `${base}&paused=NaN`, false],
+    ['paused abc', `${base}&paused=abc`, true],
+    ['ext 1e300', `${base}&ext=1e300`, true],
+    ['no id', `label=L&end=${E}&dur=60`, false],
+    ['empty id', `id=&label=L&end=${E}&dur=60`, false],
+    ['id 513 bytes', `id=${'a'.repeat(513)}&label=L&end=${E}&dur=60`, false],
+    ['id 512 bytes', `id=${'a'.repeat(512)}&label=L&end=${E}&dur=60`, true],
+    ['no label', `id=a&end=${E}&dur=60`, false],
+    ['label without =', `id=a&label&end=${E}&dur=60`, false],
+    ['empty label', `id=a&label=&end=${E}&dur=60`, true],
+    ['phase label U+0085', `${base}&seq=${sq([ph({ label: '\u0085' })])}`, false],
+    ['phase label U+200B', `${base}&seq=${sq([ph({ label: '\u200B' })])}`, false],
+    ['phase label U+FEFF', `${base}&seq=${sq([ph({ label: '\uFEFF' })])}`, true],
+    ['phase label U+3000', `${base}&seq=${sq([ph({ label: '\u3000' })])}`, false],
+    ['phase without kind', `${base}&seq=${sq([{ label: 'W', duration: 60, alarmEnabled: true, vibrationEnabled: true }])}`, true],
+    ['phase without toggles', `${base}&seq=${sq([{ label: 'W', kind: 'countdown', duration: 60 }])}`, true],
+    ['phase null kind', `${base}&seq=${sq([ph({ kind: null })])}`, true],
+    ['phase bad kind', `${base}&seq=${sq([ph({ kind: 'bogus' })])}`, false],
+    ['phase numeric toggle', `${base}&seq=${sq([ph({ alarmEnabled: 1 })])}`, false],
+    ['phase string duration', `${base}&seq=${sq([ph({ duration: '60' })])}`, false],
+    ['sequence without indices', `${base}&seq=${encodeURIComponent(JSON.stringify({ version: 1, sequence: { phases: [ph()] } }))}`, true],
+    ['sequence loopCount 2.5', `${base}&seq=${sq([ph()], { loopCount: 2.5 })}`, false],
+    ['start empty', `${base}&seq=${sq([ph()])}&start=`, false],
+    ['start abc', `${base}&seq=${sq([ph()])}&start=abc`, false],
+    ['start without =', `${base}&seq=${sq([ph()])}&start`, true],
+    ['start past', `${base}&seq=${sq([ph()])}&start=1000`, true],
+    ['start ignored without seq', `${base}&start=abc`, true],
+  ];
+  for (const [name, query, accepted] of cases) {
+    const p = page({}, { search: '?' + query });
+    const status = p.elements.status.textContent;
+    const rendered = !status.includes('invalid') && status !== 'No timer data in this link.';
+    assert.equal(rendered, accepted, `${name}: ${status}`);
+    assert.equal(p.elements.open.hidden, !accepted, `${name}: Open in Timer`);
+  }
+  // Defaults the app fills in for a phase are what the page shows.
+  const p = page({}, { search: `?${base}&seq=${sq([{ label: 'W', duration: 90 }])}` });
+  assert.equal(p.elements.label.textContent, 'W');
+  assert.equal(p.elements.phase.textContent, 'Phase 1 of 1 · Loop 1 of 2');
 });
 test('an extended link drains against the whole run without throwing', () => {
   const p = page({ end: String(epoch + 240), dur: '300', ext: '300' });

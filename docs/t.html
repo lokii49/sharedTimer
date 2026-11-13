@@ -103,17 +103,66 @@
     if (json === null) return null;
     if (new TextEncoder().encode(json).length > 65536) throw new Error("Sequence too large");
     const envelope = JSON.parse(json);
-    const s = envelope.sequence;
+    // SequenceInfo/SequencePhase decode with decodeIfPresent + defaults: a missing or
+    // null loopCount/phaseIndex/loopIndex/kind/toggle takes the app's default, but a
+    // present value of the wrong type still fails.
+    const given = (value, fallback) => value === undefined || value === null ? fallback : value;
+    const raw = envelope && envelope.sequence;
+    const s = raw && typeof raw === "object" ? { phases: raw.phases, loopCount: given(raw.loopCount, 1),
+      phaseIndex: given(raw.phaseIndex, 0), loopIndex: given(raw.loopIndex, 0) } : null;
     if (envelope.version !== 1 || !s || !Array.isArray(s.phases) || s.phases.length < 1 || s.phases.length > 64 ||
         !Number.isInteger(s.loopCount) || s.loopCount < 1 || s.loopCount > 99 ||
         !Number.isInteger(s.phaseIndex) || s.phaseIndex < 0 || s.phaseIndex >= s.phases.length ||
-        !Number.isInteger(s.loopIndex) || s.loopIndex < 0 || s.loopIndex > s.loopCount ||
-        s.phases.some(p => typeof p.label !== "string" || !p.label.trim() || new TextEncoder().encode(p.label).length > 512 ||
-          !Number.isFinite(p.duration) || p.duration < 1 || p.duration > 31536000 ||
-          !["timer", "countdown"].includes(p.kind) || typeof p.alarmEnabled !== "boolean" || typeof p.vibrationEnabled !== "boolean")) {
+        !Number.isInteger(s.loopIndex) || s.loopIndex < 0 || s.loopIndex > s.loopCount) {
       throw new Error("Invalid sequence");
     }
+    s.phases = s.phases.map(p => {
+      const phase = p && typeof p === "object" ? { label: p.label, duration: p.duration, kind: given(p.kind, "timer"),
+        alarmEnabled: given(p.alarmEnabled, true), vibrationEnabled: given(p.vibrationEnabled, false) } : null;
+      if (!phase || typeof phase.label !== "string" || blankLabel(phase.label) || new TextEncoder().encode(phase.label).length > 512 ||
+          typeof phase.duration !== "number" || !Number.isFinite(phase.duration) || phase.duration < 1 || phase.duration > 31536000 ||
+          !["timer", "countdown"].includes(phase.kind) || typeof phase.alarmEnabled !== "boolean" || typeof phase.vibrationEnabled !== "boolean") {
+        throw new Error("Invalid sequence");
+      }
+      return phase;
+    });
     return s;
+  }
+  // Foundation's CharacterSet.whitespacesAndNewlines, which TimerSequenceWire trims a
+  // phase label with (probed in Swift): unlike String.trim() it has U+0085 and U+200B
+  // and not U+FEFF.
+  function blankLabel(text) {
+    return /^[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200b\u2028\u2029\u202f\u205f\u3000]*$/.test(text);
+  }
+
+  // A query value the way the app's URLComponents.queryItems reads it: percent-decoded
+  // but `+` kept literal (URLSearchParams turns it into a space), and null when the
+  // item is absent or has no "=" at all.
+  function rawParam(name) {
+    const decode = text => { try { return decodeURIComponent(text); } catch (_) { return null; } };
+    for (const piece of String(window.location.search || "").replace(/^\?/, "").split("&")) {
+      const eq = piece.indexOf("=");
+      if (decode(eq < 0 ? piece : piece.slice(0, eq)) !== name) continue;
+      return eq < 0 ? null : decode(piece.slice(eq + 1));
+    }
+    return null;
+  }
+  // Swift's Double(_:) as TimerPayload.from(url:) uses it: null when it can't parse
+  // (no surrounding whitespace, no "0b"/"0X"), otherwise the value — which may be
+  // Infinity or NaN ("inf", "nan"), and those parse, then fail the range checks.
+  function swiftDouble(text) {
+    if (text === null || text === undefined) return null;
+    if (/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(text)) return Number(text);
+    const hex = /^([+-]?)0x([0-9a-fA-F]*)(?:\.([0-9a-fA-F]*))?(?:[pP]([+-]?\d+))?$/.exec(text);
+    if (hex && (hex[2] || hex[3])) {
+      let value = 0;
+      for (const digit of hex[2] + (hex[3] || "")) value = value * 16 + parseInt(digit, 16);
+      if (value) value *= 2 ** (Number(hex[4] || 0) - 4 * (hex[3] || "").length);
+      return hex[1] === "-" ? -value : value;
+    }
+    if (/^[+-]?inf(?:inity)?$/i.test(text)) return text[0] === "-" ? -Infinity : Infinity;
+    if (/^[+-]?s?nan(?:\((?:0x[0-9a-fA-F]*|\d*)\))?$/i.test(text)) return NaN;
+    return null;
   }
 
   // Project directly from the original shared boundary on every tick. Late opens,
@@ -321,22 +370,27 @@
   const statusEl = document.getElementById("status");
 
   const label = qs("label") || "Timer";
-  const endParam = qs("end");
   const kind = qs("kind") || "timer";
   labelEl.textContent = label;
   document.title = label + " · Timer";
 
-  // Strict parsing like Swift's Double(_:): parseFloat read "123abc" as 123, so a link
-  // the app rejects still rendered here.
-  function strictNumber(value) {
-    return value === null || value.trim() === "" ? NaN : Number(value);
-  }
-  const endSeconds = strictNumber(endParam);
-  const durParam = qs("dur");
-  const duration = strictNumber(durParam);
-  const pausedParam = qs("paused");
-  const pausedSeconds = strictNumber(pausedParam);
-  const extraSeconds = strictNumber(qs("ext"));
+  // Accept exactly what TimerPayload.from(url:) accepts. It needs a nonempty `id` (≤512
+  // UTF-8 bytes), a `label` item with a value (it may be empty) and an `end` that
+  // Double(_:) parses, finite and within year 9999. `dur`/`paused` that don't parse
+  // are ignored (default length, running), but parsed ones must be finite and in range
+  // (dur in (0, 1e12], paused in [0, 1e12]); an `ext` out of range is just dropped.
+  const idParam = rawParam("id");
+  const endValue = swiftDouble(rawParam("end"));
+  const missingData = idParam === null || idParam === "" || rawParam("label") === null || endValue === null;
+  const badNumbers = (idParam !== null && new TextEncoder().encode(idParam).length > 512) ||
+    (endValue !== null && !(Number.isFinite(endValue) && Math.abs(endValue) <= 253402300799));
+  const endSeconds = missingData ? NaN : endValue;
+  const durValue = swiftDouble(rawParam("dur"));
+  const pausedValue = swiftDouble(rawParam("paused"));
+  const extValue = swiftDouble(rawParam("ext"));
+  const duration = durValue === null ? NaN : durValue;
+  const pausedSeconds = pausedValue === null ? NaN : pausedValue;
+  const extraSeconds = extValue !== null && Number.isFinite(extValue) && extValue >= 0 && extValue <= 1e12 ? extValue : 0;
   // "alarm=0" means the sender turned the finish alarm off. This page plays no sound
   // either way, so it's only surfaced as a body data-attribute to keep every wire
   // param accounted for (see TimerModel.swift url()/from(url:)).
@@ -354,8 +408,10 @@
   }
 
   const phaseEl = document.getElementById("phase");
-  const startParam = qs("start");
-  const startSeconds = startParam === null ? NaN : Number(startParam);
+  // Only a sequence reads `start`; one present must parse (unlike dur/paused).
+  const startParam = rawParam("start");
+  const startValue = swiftDouble(startParam);
+  const startSeconds = startValue === null ? NaN : startValue;
   let recurrence = null;
   let sequence = null;
   let invalidSequence = false;
@@ -365,8 +421,8 @@
     if (repeating) { if (recurrence) throw new Error("Invalid anniversary"); recurrence = repeating; }
     if (recurrence && (sequence || kind !== "countdown")) throw new Error("Invalid anniversary");
   } catch (_) { invalidSequence = true; }
-  // TimerPayload.from(url:) rejects a negative pause and a non-positive length.
-  if ((Number.isFinite(pausedSeconds) && pausedSeconds < 0) || (Number.isFinite(duration) && duration <= 0)) {
+  if (badNumbers || (pausedValue !== null && !(Number.isFinite(pausedValue) && pausedValue >= 0 && pausedValue <= 1e12)) ||
+      (durValue !== null && !(Number.isFinite(durValue) && durValue > 0 && durValue <= 1e12))) {
     invalidSequence = true;
   }
   if (sequence && startParam !== null && (!Number.isFinite(startSeconds) || Math.abs(startSeconds) > 253402300799 ||
@@ -380,7 +436,7 @@
   // domain, so on iPhone it goes through the old host, which the app still claims;
   // if that page loads instead (no app), its pill points at the App Store.
   const openEl = document.getElementById("open");
-  if (openEl && !invalidSequence) {
+  if (openEl && !invalidSequence && !missingData) {
     const agent = typeof navigator === "undefined" ? "" : navigator.userAgent || "";
     const touchMac = typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
     const ios = /iPhone|iPad|iPod/.test(agent) || touchMac;
