@@ -188,6 +188,14 @@ enum TimerStore {
         loadAllReportingCompleteness().payloads
     }
 
+    /// nil when some stored entry couldn't be decoded (a newer build's timer) — for a
+    /// caller that must know it sees *every* timer, like AlarmController's stray sweep,
+    /// to which a newer build's timer would otherwise look ownerless.
+    static func loadAllIfComplete() -> [TimerPayload]? {
+        let loaded = loadAllReportingCompleteness()
+        return loaded.complete ? loaded.payloads : nil
+    }
+
     /// `complete` is false when some stored entry couldn't be decoded (written by a
     /// newer version, say) — only then does `persist` need its second pass to carry
     /// those entries over.

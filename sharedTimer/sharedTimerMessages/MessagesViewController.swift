@@ -89,7 +89,11 @@ class MessagesViewController: MSMessagesAppViewController {
             presentRunningView(payload: stored)
             acceptShareIfNeeded(from: conversation.selectedMessage?.url, localPayloadID: stored.id)
             if CloudLinkStore.get(timerID: stored.id) != nil {
-                CloudSyncController.pullChanges { updated, deletedIDs in
+                // Peek: Messages can't move AlarmKit, so it must not consume these changes
+                // (tokens, link drops) — the main app's own pull has to see them too, or a
+                // deletion/pause here left its alarm ringing (or paused on the Lock Screen)
+                // forever.
+                CloudSyncController.pullChanges(peek: true) { updated, deletedIDs in
                     for payload in updated {
                         TimerStore.save(payload)
                         if !TimerStore.isAlarmKitArmed(id: payload.id) {
@@ -101,6 +105,7 @@ class MessagesViewController: MSMessagesAppViewController {
                     for id in deletedIDs {
                         TimerStore.delete(id: id)
                         NotificationScheduler.cancel(id: id)
+                        NotificationScheduler.cancelReminders(id: id)
                         LiveActivityController.end(id: id)
                     }
                     NotificationCenter.default.post(name: TimerRunningView.storeChange, object: nil)
@@ -171,6 +176,7 @@ class MessagesViewController: MSMessagesAppViewController {
             onDelete: { [weak self] deleted in
                 TimerStore.delete(id: deleted.id)
                 NotificationScheduler.cancel(id: deleted.id)
+                NotificationScheduler.cancelReminders(id: deleted.id)
                 LiveActivityController.end(id: deleted.id)
                 CloudSyncController.pushDelete(id: deleted.id)
                 self?.presentComposeView()
@@ -182,6 +188,9 @@ class MessagesViewController: MSMessagesAppViewController {
     private func persist(_ payload: TimerPayload, action: String) {
         // View-only share: only the clock-driven phase advance may be stored.
         guard action == "sequenceAdvanced" || !TimerStore.isReadOnly(id: payload.id) else { return }
+        // Reminders were planned for the old finish; the main app re-plans them on its
+        // next foreground (it re-arms every changed timer).
+        if action != "sequenceAdvanced" { NotificationScheduler.cancelReminders(id: payload.id) }
         TimerStore.save(payload)
         if action != "sequenceAdvanced" || !TimerStore.isAlarmKitArmed(id: payload.id) {
             NotificationScheduler.cancel(id: payload.id)

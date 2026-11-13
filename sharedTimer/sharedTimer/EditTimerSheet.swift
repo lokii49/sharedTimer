@@ -54,8 +54,10 @@ struct EditTimerSheet: View {
     /// What Save writes: the fields this sheet actually changed, applied to the newest
     /// stored copy rather than the one it opened with — a pause, extend or rename that
     /// landed meanwhile (Live Activity, Watch, CloudKit) would otherwise be overwritten.
-    private func editedLatest() -> TimerPayload {
-        let latest = (TimerStore.loadAll().first { $0.id == original.id } ?? original).advancedSequence()
+    /// nil when the timer was deleted while the sheet was open (Delete for Everyone,
+    /// a remote delete): saving then would bring it back as a new local timer.
+    private func editedLatest() -> TimerPayload? {
+        guard let latest = TimerStore.loadAll().first(where: { $0.id == original.id })?.advancedSequence() else { return nil }
         let movedTarget = kind == .countdown && abs(targetDate.timeIntervalSince(original.endDate)) >= 1
         return latest.edited(
             label: label != original.label ? label : latest.label,
@@ -122,9 +124,10 @@ struct EditTimerSheet: View {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Button("Save") {
                             guard targetStillValid(at: Date()) else { return }
+                            guard TimerStore.loadAll().contains(where: { $0.id == original.id }) else { return dismiss() }
                             TimerReminders.set(reminders, for: original.id)
-                            if timerFieldsChanged {
-                                onSave(editedLatest())
+                            if timerFieldsChanged, let edited = editedLatest() {
+                                onSave(edited)
                             } else if let latest = TimerStore.loadAll().first(where: { $0.id == original.id }) {
                                 // Only the reminders (a setting on this iPhone): re-plan them,
                                 // without an "edited" change that would sync to everyone.

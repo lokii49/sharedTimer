@@ -29,8 +29,14 @@ enum LiveActivityActions {
     /// Idempotent: the toggle sends the desired state, so a double tap or a stale
     /// card can't flip it the wrong way.
     static func setPaused(timerID: String, paused: Bool) async {
-        guard let payload = stored(timerID), !payload.isFinished, !payload.isPending(),
-              payload.isPaused != paused else { return await refreshUI() }
+        guard let payload = stored(timerID), !payload.isFinished, !payload.isPending() else { return await refreshUI() }
+        guard payload.isPaused != paused else {
+            // Already that way here: the card was stale — e.g. a remote pause the
+            // notification service saved but can't apply to AlarmKit or the card. Re-arm
+            // so both catch up (an unchanged alarm is kept, not re-created).
+            await TimerArming.armAwaiting(payload)
+            return await refreshUI()
+        }
         let updated = paused ? payload.paused() : payload.resumed()
         await commit(updated, action: paused ? "paused" : "resumed")
     }
@@ -40,7 +46,16 @@ enum LiveActivityActions {
     /// from the custom Live Activity, where there's no Next/Cancel pair) it ends the
     /// whole sequence, same as `endSequence`.
     static func stop(timerID: String) async {
-        guard let payload = stored(timerID), !payload.isFinished else { return await refreshUI() }
+        guard let payload = stored(timerID) else { return await refreshUI() }
+        guard !payload.isFinished else {
+            // Already finished here (a remote Stop the notification service saved): the
+            // card and alarm are stale. Bring them in line instead of doing nothing —
+            // a finished payload's reschedule only cancels.
+            await AlarmController.rescheduleAwaiting(for: payload)
+            TimerReminders.cancel(id: payload.id)
+            await LiveActivityController.endAwaiting(id: payload.id)
+            return await refreshUI()
+        }
         if payload.sequence != nil {
             return await endSequence(timerID: timerID)
         }
@@ -56,6 +71,9 @@ enum LiveActivityActions {
         TimerStore.save(updated)
         TimerStore.acknowledgeFinish(id: updated.id)
         await AlarmController.rescheduleAwaiting(for: updated)
+        // Not `armAwaiting` (that would start a card): just drop the heads-up reminders,
+        // which otherwise still fired after a ✕ Stop.
+        TimerReminders.cancel(id: updated.id)
         await LiveActivityController.endAwaiting(id: updated.id)
         await CloudSyncController.pushUpAwaiting(updated, action: "stopped")
         WatchSyncController.pushCurrentState()
@@ -101,6 +119,7 @@ enum LiveActivityActions {
         TimerStore.save(payload)
         TimerStore.acknowledgeFinish(id: timerID)
         NotificationScheduler.cancel(id: timerID)
+        TimerReminders.cancel(id: timerID)
         await AlarmController.cancelSequenceAlarms(for: payload)
         await LiveActivityController.endAwaiting(id: timerID)
         await CloudSyncController.pushUpAwaiting(payload, action: "cancelled")

@@ -77,6 +77,23 @@ struct AnnualRecurrence: Codable, Equatable {
                                  matching: DateComponents(hour: hour, minute: minute, second: second),
                                  matchingPolicy: .nextTime, repeatedTimePolicy: .first, direction: .forward)
     }
+    /// Daily/weekly: `Calendar.nextDate` searching from *inside* an autumn repeated hour
+    /// returns that night's second copy of the time — `.first` only picks between copies
+    /// the search hasn't passed — so a 01:30 daily repeat rang at 01:30 EDT and again an
+    /// hour later (the catch-up a second after the first ring moved `endDate` there).
+    /// A day's occurrence is its first copy only; if that already passed, move on.
+    private func nextWallTime(after date: Date, matching components: DateComponents) -> Date? {
+        func search(after start: Date) -> Date? {
+            calendar.nextDate(after: start, matching: components, matchingPolicy: .nextTime, repeatedTimePolicy: .first, direction: .forward)
+        }
+        guard let candidate = search(after: date) else { return nil }
+        let dayStart = calendar.startOfDay(for: candidate)
+        guard let firstThatDay = search(after: dayStart.addingTimeInterval(-1)),
+              firstThatDay < candidate, firstThatDay <= date,
+              let nextDay = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return candidate }
+        return search(after: nextDay.addingTimeInterval(-1))
+    }
+
     func nextDate(after date: Date) -> Date? {
         let year = year(of: date)
         guard isValid, (1...9998).contains(year) else { return nil }
@@ -88,11 +105,11 @@ struct AnnualRecurrence: Codable, Equatable {
             }
             return nil
         case .daily:
-            return calendar.nextDate(after: date, matching: time, matchingPolicy: .nextTime, repeatedTimePolicy: .first, direction: .forward)
+            return nextWallTime(after: date, matching: time)
         case .weekly:
             var components = time
             components.weekday = weekday
-            return calendar.nextDate(after: date, matching: components, matchingPolicy: .nextTime, repeatedTimePolicy: .first, direction: .forward)
+            return nextWallTime(after: date, matching: components)
         case .monthly:
             let parts = calendar.dateComponents([.year, .month], from: date)
             guard var y = parts.year, var m = parts.month else { return nil }

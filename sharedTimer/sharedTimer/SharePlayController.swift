@@ -103,7 +103,17 @@ final class SharePlayController: ObservableObject {
         }
         session.$activeParticipants
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] in self?.participantCount = $0.count }
+            .sink { [weak self] participants in
+                guard let self else { return }
+                let joined = participants.count > self.participantCount
+                self.participantCount = participants.count
+                // A late joiner only has the activity's start link; send the current
+                // state (receivers keep the newest by its `upd` stamp).
+                if joined, let id = self.sharedTimerID,
+                   let current = TimerStore.loadAll().first(where: { $0.id == id }) {
+                    self.send(current)
+                }
+            }
             .store(in: &subscriptions)
         session.$state
             .receive(on: DispatchQueue.main)

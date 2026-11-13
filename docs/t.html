@@ -252,11 +252,32 @@
     if (recurrence && recurrence.frequency && recurrence.frequency !== 'yearly') {
       // Daily / weekly / monthly from this occurrence on. A monthly day 29-31 picks the
       // month's last day when it's shorter, like the app (BYSETPOS over 28...day).
-      lines.push(`DTSTART;TZID=${recurrence.timeZoneID}:${icsDate(end * 1000, recurrence.timeZoneID)}`);
+      // The series starts at the rule's own occurrence, not `end`: Extend moves only
+      // this occurrence, which is swapped out with EXDATE/RDATE (as the yearly branch
+      // does) — starting at `end` shifted every later occurrence by the extension.
+      const periodDays = { daily: 1, weekly: 7, monthly: 31 }[recurrence.frequency];
+      let natural = end;
+      for (let after = end - (periodDays + 1) * 86400, i = 0; i < 40; i++) {
+        const next = nextAnnual(recurrence, after);
+        if (next > end) break;
+        natural = next; after = next;
+      }
+      // A first occurrence moved by a spring gap (02:30 → 03:00) can't be DTSTART — that
+      // would make 03:00 the whole series' time. Start at the first one on the rule's
+      // own wall time and add the moved one as RDATE, as the yearly branch does.
+      const exactTime = ms => { const p = zonedParts(ms * 1000, recurrence.timeZoneID);
+        return p.hour === recurrence.hour && p.minute === recurrence.minute && p.second === recurrence.second; };
+      let seriesStart = natural;
+      for (let i = 0; i < 40 && !exactTime(seriesStart); i++) seriesStart = nextAnnual(recurrence, seriesStart);
+      lines.push(`DTSTART;TZID=${recurrence.timeZoneID}:${icsDate(seriesStart * 1000, recurrence.timeZoneID)}`);
       if (recurrence.frequency === 'daily') lines.push('RRULE:FREQ=DAILY');
       else if (recurrence.frequency === 'weekly') lines.push(`RRULE:FREQ=WEEKLY;BYDAY=${['SU','MO','TU','WE','TH','FR','SA'][recurrence.weekday - 1]}`);
       else if (recurrence.day <= 28) lines.push(`RRULE:FREQ=MONTHLY;BYMONTHDAY=${recurrence.day}`);
       else lines.push(`RRULE:FREQ=MONTHLY;BYMONTHDAY=${Array.from({ length: recurrence.day - 27 }, (_, i) => 28 + i).join(',')};BYSETPOS=-1`);
+      if (Math.abs(natural - end) >= 1) {
+        if (natural >= seriesStart) lines.push(`EXDATE:${icsDate(natural * 1000)}`);
+        lines.push(`RDATE:${icsDate(end * 1000)}`);
+      } else if (seriesStart !== natural) lines.push(`RDATE:${icsDate(end * 1000)}`);
     } else if (recurrence) {
       const year = zonedParts(end * 1000, recurrence.timeZoneID).year;
       const original = annualDate(recurrence, year);

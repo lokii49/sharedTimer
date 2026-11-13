@@ -543,6 +543,117 @@ enum AlarmController {
         }
     }
 
+    // MARK: - Stray alarms
+
+    /// Fire-and-forget `cancelStrayAlarms`, for launch / foreground. Skipped under
+    /// XCTest: AlarmKit device tests schedule alarms for payloads they never save, and
+    /// the test host's own launch would cancel them mid-test (the stray-alarm device
+    /// test calls `cancelStrayAlarms` directly).
+    static func sweepStrayAlarms() {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        Task {
+            await cancelStrayAlarms()
+            if TimerStore.hasStoredData, let stored = TimerStore.loadAllIfComplete() {
+                await TimerReminders.cancelOrphaned(keeping: Set(stored.map(\.id)))
+            }
+        }
+    }
+
+    /// Cancels AlarmKit alarms the store no longer explains. Nothing else ever looks
+    /// at an alarm whose timer is gone: every reschedule starts from a stored payload.
+    /// A *paused* stray is the visible case. It never fires and never expires, so its
+    /// Lock Screen card (frozen time, dead ▶/⏭ — `LiveActivityActions.stored` finds no
+    /// timer) would stay up indefinitely; likely what a weeks-old paused "Pomodoro"
+    /// card on the owner's phone was (2026-11, unconfirmed). Ways a timer
+    /// leaves the store without AlarmKit hearing about it: a delete in Messages, or a
+    /// remote delete a Messages pull consumed (extensions can't reach AlarmKit, and the
+    /// main app's pull never sees that deletion again); a store entry overwritten by
+    /// an extension or the notification service so it's no longer paused while this
+    /// phone's alarm still is.
+    ///
+    /// - No stored owner (by every id this file derives for a timer) → cancel.
+    /// - Stored owner, but the alarm is `.paused` while the owner (projected to its
+    ///   current phase) isn't paused → cancel, and re-arm the owner if it's still
+    ///   running. A paused alarm only means something for a paused timer, and launch
+    ///   never re-arms a finished one, so it'd stay forever.
+    /// - `.alerting` alarms are left alone (the person dismisses those).
+    /// - Skipped entirely if the store holds entries this build can't decode.
+    ///
+    /// Alarms are read before the store: every mutation path saves before it arms, so
+    /// an alarm in this snapshot whose timer exists has that timer in the store read
+    /// after it. Each cancel re-checks against a fresh store read, and an owned alarm's
+    /// check runs on its timer's serializer, so it can't interleave with a reschedule
+    /// (resume cancels and re-creates under the same id).
+    @discardableResult
+    static func cancelStrayAlarms() async -> [UUID] {
+        // `hasStoredData`: an unreadable / never-written store reads as "zero timers",
+        // which would make every alarm look ownerless.
+        guard TimerStore.hasStoredData,
+              let alarms = try? AlarmManager.shared.alarms, !alarms.isEmpty,
+              let stored = TimerStore.loadAllIfComplete() else { return [] }
+        let owners = AlarmOwners(stored)
+        var cancelled: [UUID] = []
+        for alarm in alarms where alarm.state != .alerting {
+            let strayID = alarm.id
+            if let ownerID = owners.owner(of: strayID) {
+                guard alarm.state == .paused else { continue }
+                let didCancel = OSAllocatedUnfairLock(initialState: false)
+                await Serializer.shared.runAndWait(ownerID) {
+                    guard (try? AlarmManager.shared.alarms)?.first(where: { $0.id == strayID })?.state == .paused,
+                          let owner = TimerStore.loadAllIfComplete()?.first(where: { $0.id == ownerID })?.advancedSequence(),
+                          !owner.isPaused else { return }
+                    try? AlarmManager.shared.cancel(id: strayID)
+                    didCancel.withLock { $0 = true }
+                    // Still running: arm what it should have (inline — already on its queue).
+                    if !owner.isFinished { await performReschedule(for: owner) }
+                }
+                if didCancel.withLock({ $0 }) {
+                    print("AlarmController: cancelled paused alarm \(strayID) of unpaused timer \(ownerID)")
+                    cancelled.append(strayID)
+                }
+            } else {
+                // Re-read: the paused branch above awaits, and an orphan may have started
+                // ringing meanwhile — ringing alarms are the person's to dismiss.
+                guard let fresh = TimerStore.loadAllIfComplete(), AlarmOwners(fresh).owner(of: strayID) == nil,
+                      let state = (try? AlarmManager.shared.alarms)?.first(where: { $0.id == strayID })?.state,
+                      state != .alerting else { continue }
+                // Counting down although it already fired: someone tapped Repeat on its
+                // alert after the timer was pruned (finished > 24h). That's the person's
+                // own restart — leave it (same test as `reconcileRepeat`).
+                if state == .countdown, let fired = intendedEnd(for: strayID), fired <= Date() { continue }
+                try? AlarmManager.shared.cancel(id: strayID)
+                print("AlarmController: cancelled stray alarm \(strayID) (\(state)) — no stored timer owns it")
+                cancelled.append(strayID)
+            }
+        }
+        return cancelled
+    }
+
+    /// Which stored timer an alarm id belongs to: the plain/legacy id, each sequence
+    /// phase occurrence, or a yearly slot (looked up in the cached `annualIDs` set
+    /// rather than copied — that's ~20k ids per yearly countdown).
+    private struct AlarmOwners {
+        private var direct: [UUID: String] = [:]
+        private var annualTimerIDs: [String] = []
+
+        init(_ stored: [TimerPayload]) {
+            for payload in stored {
+                direct[AlarmController.alarmID(for: payload.id)] = payload.id
+                if let sequence = payload.sequence {
+                    for index in 0..<(sequence.phases.count * sequence.loopCount) {
+                        direct[AlarmController.phaseAlarmID(timerID: payload.id, globalIndex: index)] = payload.id
+                    }
+                }
+                if payload.recurrence != nil { annualTimerIDs.append(payload.id) }
+            }
+        }
+
+        func owner(of id: UUID) -> String? {
+            if let owner = direct[id] { return owner }
+            return annualTimerIDs.first { AlarmController.annualIDs(timerID: $0).contains(id) }
+        }
+    }
+
     /// Folds an AlarmKit-side "Repeat" back into the local model: if the user tapped
     /// Repeat on a fired timer's panel, its alarm is counting down again while our copy
     /// still reads finished. Revive those payloads in place and return their ids; the
@@ -566,6 +677,17 @@ enum AlarmController {
             let id = alarmID(for: timers[index].id)
             guard let alarm = alarms.first(where: { $0.id == id }),
                   alarm.state == .countdown else { continue }
+            // A panel Repeat only exists once the alarm has fired. One still counting
+            // toward its original end is stale instead: the stored copy was finished
+            // elsewhere (a remote Stop saved by the notification service or Messages,
+            // neither of which can reach AlarmKit). Reviving it turned that Stop into a
+            // Repeat for every participant. Cancel the stale alarm (queued, like every
+            // reschedule; a finished plain payload just cancels). A missing record
+            // (scheduled before 1.0.4) keeps the old behavior.
+            if let intended = intendedEnd(for: id), intended > Date().addingTimeInterval(1) {
+                reschedule(for: timers[index])
+                continue
+            }
             let length = alarm.countdownDuration?.postAlert ?? timers[index].duration
             var revived = timers[index]
             revived.endDate = Date().addingTimeInterval(length)

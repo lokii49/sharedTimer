@@ -82,6 +82,7 @@ enum BackgroundRefresh {
                 await LiveActivityController.updateAwaiting(for: current)
             }
         }
+        await AlarmController.cancelStrayAlarms()
         WatchSyncController.pushCurrentState()
         NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
     }

@@ -252,6 +252,29 @@ test('weekly and monthly repeats follow their rule and export a matching RRULE',
   assert.equal(evaluate(m, 'nextAnnual(recurrence, Date.parse("2027-02-01T00:00:00Z") / 1000)'), Date.parse('2027-02-28T09:00:00Z') / 1000);
   assert(evaluate(m, 'calendarICS("Rent", Date.parse("2027-02-28T09:00:00Z") / 1000, recurrence, "x")').includes('BYMONTHDAY=28,29,30,31;BYSETPOS=-1'));
 });
+test('an extended daily or weekly occurrence exports the rule series plus a moved date', () => {
+  const daily = annualRule({ frequency: 'daily', month: 1, day: 4, hour: 9, minute: 0 });
+  const p = page({ kind: 'countdown', repeat: daily, end: String(Date.parse('2027-01-04T09:15:00Z') / 1000) });
+  const ics = evaluate(p, 'calendarICS("Standup", Date.parse("2027-01-04T09:15:00Z") / 1000, recurrence, "x")');
+  assert(ics.includes('DTSTART;TZID=GMT:20270104T090000'), ics);
+  assert(ics.includes('EXDATE:20270104T090000Z') && ics.includes('RDATE:20270104T091500Z'));
+  // Unextended: no EXDATE/RDATE.
+  const plain = evaluate(p, 'calendarICS("Standup", Date.parse("2027-01-05T09:00:00Z") / 1000, recurrence, "x")');
+  assert(plain.includes('DTSTART;TZID=GMT:20270105T090000') && !plain.includes('EXDATE') && !plain.includes('RDATE'));
+  // Weekly Tuesday 23:30 extended past midnight stays a Tuesday-23:30 series.
+  const weekly = annualRule({ frequency: 'weekly', weekday: 3, month: 1, day: 5, hour: 23, minute: 30 });
+  const w = page({ kind: 'countdown', repeat: weekly, end: String(Date.parse('2027-01-06T00:30:00Z') / 1000) });
+  const wics = evaluate(w, 'calendarICS("Late", Date.parse("2027-01-06T00:30:00Z") / 1000, recurrence, "x")');
+  assert(wics.includes('DTSTART;TZID=GMT:20270105T233000') && wics.includes('RDATE:20270106T003000Z'), wics);
+});
+test('a daily series whose first occurrence falls in a spring gap starts on the rule time', () => {
+  // 02:30 doesn't exist in New York on 2027-03-14; the app moves it to 03:00 EDT (07:00Z).
+  const daily = annualRule({ frequency: 'daily', month: 3, day: 13, hour: 2, minute: 30, timeZoneID: 'America/New_York' });
+  const p = page({ kind: 'countdown', repeat: daily, end: String(Date.parse('2027-03-14T07:00:00Z') / 1000) });
+  const ics = evaluate(p, 'calendarICS("Early", Date.parse("2027-03-14T07:00:00Z") / 1000, recurrence, "x")');
+  assert(ics.includes('DTSTART;TZID=America/New_York:20270315T023000'), ics);
+  assert(ics.includes('RDATE:20270314T070000Z') && !ics.includes('EXDATE'), ics);
+});
 test('a link carrying both annual and repeat, or repeat on a timer, is invalid', () => {
   const weekly = annualRule({ frequency: 'weekly', weekday: 3 });
   assert.equal(page({ kind: 'countdown', annual: annualRule(), repeat: weekly }).elements.clock.textContent, '--:--');

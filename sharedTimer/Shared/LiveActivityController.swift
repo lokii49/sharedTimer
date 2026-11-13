@@ -50,7 +50,10 @@ enum LiveActivityController {
     }
 
     private static func activeActivity(for id: String) -> Activity<TimerActivityAttributes>? {
-        Activity<TimerActivityAttributes>.activities.first { $0.attributes.timerID == id && $0.activityState == .active }
+        // `.stale` too: every running card is stale once its `staleDate` (the end) passes,
+        // and is still on screen — requesting a new one then left two cards for one timer
+        // (a quiet sequence past phase 0, a widget Repeat after a finish).
+        Activity<TimerActivityAttributes>.activities.first { $0.attributes.timerID == id && ($0.activityState == .active || $0.activityState == .stale) }
     }
 
     private static func request(_ payload: TimerPayload) {

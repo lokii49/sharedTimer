@@ -44,6 +44,12 @@ final class NotificationService: UNNotificationServiceExtension {
                     || old.isPaused != payload.isPaused || old.label != payload.label
             }
             for payload in changed {
+                // A paused or stopped timer's reminders must not fire. Only then: the
+                // same push wakes the app, which re-plans a moved finish under the same
+                // ids — a late cancel here would wipe those.
+                if payload.isPaused || payload.isExpired {
+                    NotificationScheduler.cancelReminders(id: payload.id)
+                }
                 TimerStore.save(payload)
                 guard !TimerStore.isAlarmKitArmed(id: payload.id) else { continue }
                 NotificationScheduler.cancel(id: payload.id)
