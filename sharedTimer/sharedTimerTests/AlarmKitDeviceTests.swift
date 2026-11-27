@@ -827,7 +827,7 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
-    @Test @MainActor func nextAnnualIntentIsIdempotentAndStopDisablesTheSeries() async {
+    @Test @MainActor func nextAnnualIntentIsIdempotentAndStopSkipsToTheNextOccurrence() async {
         let payload = TimerPayload.composeAnnual(label: "Annual intent test", targetDate: Date().addingTimeInterval(3600), timeZone: .gmt)
         created.append(payload)
         TimerStore.save(payload)
@@ -840,12 +840,12 @@ final class AlarmKitDeviceTests {
         #expect(TimerPayload.from(url: advanced?.url())?.recurrence == payload.recurrence)
         _ = try? await AdvanceAnnualCountdownIntent(timerID: payload.id, occurrenceEnd: occurrenceEnd).perform()
         #expect(TimerStore.loadAll().first { $0.id == payload.id }?.endDate == advanced?.endDate)
+        // ✕ on a widget/card skips this occurrence and keeps the series (owner's call).
         await LiveActivityActions.stop(timerID: payload.id)
-        let stopped = TimerStore.loadAll().first { $0.id == payload.id }
-        #expect(stopped?.recurrence == nil)
-        #expect(stopped?.isFinished == true)
-        let years = payload.recurrence!.year(of: payload.endDate)...payload.recurrence!.year(of: payload.endDate) + 2
-        #expect(years.allSatisfy { alarmsByID()[AlarmController.annualAlarmID(timerID: payload.id, year: $0)] == nil })
+        let skipped = TimerStore.loadAll().first { $0.id == payload.id }
+        #expect(skipped?.recurrence == payload.recurrence, "the series continues")
+        #expect(skipped?.endDate == payload.recurrence!.nextDate(after: advanced!.endDate))
+        #expect(skipped?.isFinished == false)
         await tearDown()
     }
 

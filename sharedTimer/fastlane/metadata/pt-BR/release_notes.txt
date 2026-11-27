@@ -1,7 +1,7 @@
-• Corrigido: um cartão de alarme pausado podia ficar na tela bloqueada mesmo depois que o timer não existia mais. Agora ele some ao abrir o Timer, e os botões voltam a funcionar.
-• Corrigido: quando alguém parava um timer compartilhado, ele podia recomeçar para todos ao abrir o app.
-• Mudanças feitas no Mensagens agora sempre chegam aos seus alarmes, inclusive ao apagar ou pausar uma sequência.
-• Contagens regressivas diárias e semanais não tocam mais duas vezes na noite em que o horário muda.
-• No iPad, o timer à direita se atualiza na hora quando você pausa ou edita pela lista.
-• Os lembretes não tocam mais depois que um timer é parado ou apagado.
-• Widgets e Atividades ao Vivo mais precisos para timers longos, etiquetas Diária/Semanal/Mensal no Histórico e muitas outras correções.
+• Corrigido: o Histórico podia fechar inesperadamente ao mostrar uma sequência ou uma contagem regressiva repetida.
+• Próximo, Próxima semana e os outros botões de um alarme em tela cheia agora o fecham na hora.
+• Widgets em dia: finais e novas fases aparecem na hora certa, tocar em um widget ou Atividade ao Vivo abre o timer, há um widget de uma linha para a Tela Bloqueada e um visual mais claro em Telas de Início coloridas, no Modo Mesa de Cabeceira à noite e no tamanho extragrande do iPad.
+• ✕ em uma contagem regressiva repetida agora pula para a próxima em vez de encerrar a série.
+• Mensagens: um timer aberto acompanha cada mudança, contagens regressivas repetidas ganham Próxima semana e compartilhar de novo substitui o cartão antigo.
+• Um novo botão de cadeado mantém a tela ligada enquanto você olha.
+• Além de muitas outras correções.

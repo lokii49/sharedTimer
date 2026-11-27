@@ -67,8 +67,8 @@ enum WhatsNew {
                 body: String(localized: "An open timer follows every change, a repeating countdown skips ahead with Next Week, and sharing again replaces the old card.")),
         Feature(id: 2, title: String(localized: "Keep the screen on"),
                 body: String(localized: "A new lock button keeps the screen awake while you watch, and says so.")),
-        Feature(id: 3, title: String(localized: "Steadier sharing"),
-                body: String(localized: "When two people change a shared timer at once, everyone ends up with the same, newest change."))
+        Feature(id: 3, title: String(localized: "Alarms that listen"),
+                body: String(localized: "Next, Next Week and the other alarm buttons now dismiss the alarm right away, and ✕ on a repeating countdown skips just this one."))
     ]
 }
 
@@ -203,7 +203,7 @@ private struct WhatsNewIllustration: View {
                 case 0: WidgetScene(t: t)
                 case 1: MessagesScene(t: t)
                 case 2: KeepAwakeScene(t: t)
-                default: SharingScene(t: t)
+                default: AlarmButtonsScene(t: t)
                 }
             }
             .frame(width: 260, height: 210)
@@ -349,32 +349,59 @@ private struct KeepAwakeScene: View {
     }
 }
 
-/// Two phones change one shared timer at once — a Pause and a +5:00 — and both settle on
-/// the newest change.
-private struct SharingScene: View {
+/// The full-screen alarm's banner (as on the Lock Screen / over the app): ⏩ is tapped,
+/// the alarm slides away, and the next phase is running.
+private struct AlarmButtonsScene: View {
     let t: Double
 
     var body: some View {
-        let meet = ramp(t, 0.2, 0.55)
-        let settled = t > 0.6
-        HStack(spacing: 12) {
-            phone(top: "Pause", digits: settled ? "12:42" : "07:42")
-            Image(systemName: settled ? "checkmark.circle.fill" : "arrow.left.arrow.right")
-                .font(.system(size: 22))
-                .opacity(settled ? 1 : 0.4 + 0.6 * meet)
-            phone(top: "+5:00", digits: settled ? "12:42" : "07:42")
-        }
-    }
+        let tapped = t > 0.35
+        let gone = ramp(t, 0.42, 0.58)
+        ZStack(alignment: .top) {
+            // What's underneath: the next phase, already running.
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: "REST").skyLabel(10).opacity(0.85)
+                Text(verbatim: "Phase 2 of 2").font(.caption2).opacity(0.7)
+                Spacer(minLength: 0)
+                Text(verbatim: "25:00").skyDigits(30, weight: .thin)
+            }
+            .padding(12)
+            .frame(width: 230, height: 110, alignment: .leading)
+            .background(emberCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(.top, 70)
+            .opacity(0.5 + 0.5 * gone)
 
-    private func phone(top: LocalizedStringKey, digits: String) -> some View {
-        VStack(spacing: 8) {
-            Text(top).font(.caption.weight(.semibold))
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(.white.opacity(0.2), in: Capsule())
-                .opacity(1 - ramp(t, 0.55, 0.65))
-            Text(verbatim: digits).skyDigits(20, weight: .thin)
+            // The alarm banner.
+            HStack(spacing: 10) {
+                Image(systemName: "alarm.fill")
+                    .font(.system(size: 26))
+                    .foregroundStyle(Color(red: 1, green: 0.62, blue: 0.25))
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(verbatim: "Timer").font(.caption2).opacity(0.7)
+                    Text(verbatim: "Work").font(.subheadline.weight(.semibold))
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "forward.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color(red: 1, green: 0.62, blue: 0.25))
+                    .frame(width: 40, height: 40)
+                    .background(Color(red: 1, green: 0.62, blue: 0.25).opacity(tapped ? 0.55 : 0.28), in: Circle())
+                    .overlay {
+                        Circle().stroke(.white.opacity(0.8), lineWidth: 2)
+                            .frame(width: 40 + 26 * ramp(t, 0.3, 0.45), height: 40 + 26 * ramp(t, 0.3, 0.45))
+                            .opacity(pulse(t, 0.28, 0.32, 0.4, 0.46))
+                    }
+                Image(systemName: "xmark")
+                    .font(.system(size: 15, weight: .bold))
+                    .frame(width: 40, height: 40)
+                    .background(.white.opacity(0.18), in: Circle())
+            }
+            .padding(.horizontal, 14)
+            .frame(width: 250, height: 62)
+            .background(.black, in: Capsule())
+            .offset(y: -60 * gone)
+            .opacity(1 - gone)
         }
-        .frame(width: 92, height: 150)
-        .background(emberCard, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .frame(width: 260, height: 200, alignment: .top)
     }
 }

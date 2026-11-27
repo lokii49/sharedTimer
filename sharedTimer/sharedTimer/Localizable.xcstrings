@@ -4681,6 +4681,64 @@
         }
       }
     },
+    "Alarms that listen": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "منبهات تستجيب"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "কথা শোনে এমন অ্যালার্ম"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarmas que hacen caso"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Des alarmes qui obéissent"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बात मानने वाले अलार्म"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm yang menurut"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarmes que obedecem"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Будильники слушаются"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "响应更快的闹钟"
+          }
+        }
+      }
+    },
     "Alerts": {
       "localizations": {
         "ar": {
@@ -11377,6 +11435,64 @@
           "stringUnit": {
             "state": "translated",
             "value": "下一年"
+          }
+        }
+      }
+    },
+    "Next, Next Week and the other alarm buttons now dismiss the alarm right away, and ✕ on a repeating countdown skips just this one.": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أزرار التالي والأسبوع التالي وغيرها تُغلق المنبه الآن فورًا، و✕ على عد تنازلي متكرر يتخطى هذا الموعد فقط."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "পরের, পরের সপ্তাহ ও অন্য অ্যালার্ম বোতাম এখন সঙ্গে সঙ্গে অ্যালার্ম বন্ধ করে, আর পুনরাবৃত্ত কাউন্টডাউনে ✕ শুধু এবারেরটি বাদ দেয়।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siguiente, Semana siguiente y los demás botones de la alarma ahora la cierran al instante, y ✕ en una cuenta atrás que se repite solo salta esta."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suivant, Semaine suivante et les autres boutons de l’alarme la ferment désormais aussitôt, et ✕ sur un compte à rebours récurrent ne saute que celui-ci."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अगला, अगला सप्ताह और अलार्म के बाकी बटन अब उसे तुरंत बंद कर देते हैं, और दोहराने वाले काउंटडाउन पर ✕ सिर्फ़ इस बार वाला छोड़ता है।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berikutnya, Minggu Berikutnya, dan tombol alarm lainnya kini langsung menutup alarm, dan ✕ pada hitung mundur berulang hanya melewati yang ini."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Próximo, Próxima semana e os outros botões do alarme agora o fecham na hora, e ✕ em uma contagem regressiva repetida pula só esta."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Далее», «Следующая неделя» и другие кнопки будильника теперь сразу его закрывают, а ✕ на повторяющемся отсчёте пропускает только этот раз."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“下一步”“下一周”等闹钟按钮现在会立即关闭闹钟，在重复倒计时上点 ✕ 只会跳过这一次。"
           }
         }
       }
@@ -18603,64 +18719,6 @@
         }
       }
     },
-    "Steadier sharing": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "مشاركة أكثر ثباتًا"
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "আরও স্থির শেয়ারিং"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compartir más fiable"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Un partage plus fiable"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "और भरोसेमंद शेयरिंग"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Berbagi lebih andal"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compartilhamento mais confiável"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Надёжнее совместный доступ"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "更稳定的共享"
-          }
-        }
-      }
-    },
     "Stop": {
       "localizations": {
         "ar": {
@@ -21325,64 +21383,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "此阶段结束时"
-          }
-        }
-      }
-    },
-    "When two people change a shared timer at once, everyone ends up with the same, newest change.": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "عندما يغيّر شخصان مؤقتًا مشتركًا في الوقت نفسه، يحصل الجميع على التغيير الأحدث نفسه."
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "দুজন একসঙ্গে শেয়ার করা টাইমার বদলালে, সবাই একই, সবচেয়ে নতুন পরিবর্তনটি পায়।"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cuando dos personas cambian a la vez un temporizador compartido, todos acaban con el mismo cambio, el más reciente."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quand deux personnes modifient en même temps un minuteur partagé, tout le monde obtient le même changement, le plus récent."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "जब दो लोग एक साथ साझा टाइमर बदलते हैं, तो सबके पास वही, सबसे नया बदलाव पहुँचता है।"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saat dua orang mengubah timer bersama secara bersamaan, semua orang mendapat perubahan terbaru yang sama."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quando duas pessoas mudam um timer compartilhado ao mesmo tempo, todos ficam com a mesma mudança, a mais recente."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Если двое меняют общий таймер одновременно, у всех остаётся одно и то же, самое новое изменение."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "当两个人同时更改共享计时器时，所有人都会得到同一个最新的更改。"
           }
         }
       }

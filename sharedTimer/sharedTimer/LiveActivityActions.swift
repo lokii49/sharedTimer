@@ -59,6 +59,13 @@ enum LiveActivityActions {
         if payload.sequence != nil {
             return await endSequence(timerID: timerID)
         }
+        // A repeating countdown's ✕ skips this occurrence and keeps the series (owner's
+        // call, 2026-11-27): it used to end the whole series for everyone, with no undo,
+        // from one tap on a widget or card. Ending the series stays an in-app choice
+        // (Edit → Repeat → Never, or Delete).
+        if let skipped = payload.skippingOccurrence(endingAt: payload.endDate) {
+            return await commit(skipped, action: "advanced")
+        }
         var updated = payload
         updated.recurrence = nil
         updated.endDate = Date()

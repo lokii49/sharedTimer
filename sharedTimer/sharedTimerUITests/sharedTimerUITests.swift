@@ -423,7 +423,7 @@ final class sharedTimerUITests: XCTestCase {
         firstPage.lifetime = .keepAlways
         add(firstPage)
         let continueButton = app.buttons["Continue"]
-        for (index, title) in ["More in Messages", "Keep the screen on", "Steadier sharing"].enumerated() {
+        for (index, title) in ["More in Messages", "Keep the screen on", "Alarms that listen"].enumerated() {
             continueButton.tap()
             XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 5), title)
             sleep(2)  // let the page's scene play to a telling frame
@@ -438,7 +438,7 @@ final class sharedTimerUITests: XCTestCase {
         add(lastPage)
         app.buttons["Start"].tap()
         XCTAssertTrue(app.navigationBars["Timers"].waitForExistence(timeout: 5) || app.buttons["New"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["Steadier sharing"].exists)
+        XCTAssertFalse(app.staticTexts["Alarms that listen"].exists)
     }
 
     @MainActor
