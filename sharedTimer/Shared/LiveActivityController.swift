@@ -149,22 +149,20 @@ enum LiveActivityController {
     /// first, then any other running timer, then paused ones (least time left first),
     /// then a lingering Finished card. Derived from the finish *time*, not the time
     /// left, so cards updated at different moments still compare correctly without
-    /// re-scoring every card. Minute resolution keeps the values small (ActivityKit
-    /// documents no range; only the order matters). Only this app's custom card —
-    /// AlarmKit's own Live Activity takes no score.
+    /// re-scoring every card. Bands, in whole minutes (ActivityKit documents no range;
+    /// only the order matters, and it stores the value as a Double — read back exact on
+    /// device): running = 2e9 − minutes since 1970 of the finish (always above 1e9 until
+    /// the year 3870), paused = 1e9 − minutes left (1…1e9−1), Finished 0. Only this app's
+    /// custom card — AlarmKit's own Live Activity takes no score.
     static func relevanceScore(for payload: TimerPayload, at date: Date = Date()) -> Double {
         let current = payload.advancedSequence(at: date)
         if let remaining = current.pausedRemaining {
-            return 1_000_000 - min(max(0, (remaining / 60).rounded(.up)), 999_999)
+            return 1_000_000_000 - min(max(1, (remaining / 60).rounded(.up)), 999_999_999)
         }
         guard current.endDate > date else { return 0 }
-        let minutesFromReference = (current.endDate.timeIntervalSince(relevanceReference) / 60).rounded(.up)
-        return 3_000_000 - min(max(0, minutesFromReference), 1_999_999)
+        let finishMinute = (current.endDate.timeIntervalSince1970 / 60).rounded(.up)
+        return 2_000_000_000 - min(max(0, finishMinute), 999_999_999)
     }
-
-    /// 2026-01-01 UTC: finish times are counted in minutes from here (about 3.8 years
-    /// of range before far-off countdowns tie at the bottom of the running band).
-    private static let relevanceReference = Date(timeIntervalSince1970: 1_767_225_600)
 
     /// The run of quiet phases right after the current one — the only ones this card
     /// shows. A phase with either toggle on gets AlarmKit's own Live Activity, so the

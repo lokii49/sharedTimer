@@ -377,6 +377,21 @@ enum CloudSyncController {
     /// record — not the base read at call time — is its ancestor.
     private static let ownSaves = OSAllocatedUnfairLock<[String: (record: CKRecord, at: Date)]>(initialState: [:])
 
+    /// A saved record is the next queued push's ancestor only if it is exactly what this
+    /// push sent — the server kept nothing of its own. If it kept another phone's change,
+    /// the next snapshot (built from the stored copy, which doesn't have that change yet)
+    /// would read as having undone it and overwrite it; that push uses its call-time
+    /// base instead.
+    static func ownSaveIsAncestor(pushed: TimerPayload, saved: CKRecord, at date: Date = Date()) -> Bool {
+        guard let result = makePayload(from: saved) else { return false }
+        return changedFields(from: pushed, to: result, at: date).isEmpty
+    }
+
+    private static func noteOwnSave(_ saved: CKRecord, pushed: TimerPayload) {
+        let usable = ownSaveIsAncestor(pushed: pushed, saved: saved)
+        ownSaves.withLock { $0[pushed.id] = usable ? (saved, Date()) : nil }
+    }
+
     /// The ancestor for a push called at `calledAt`: this process's own save if it
     /// landed after the call (an earlier queued push), else the base read at call time.
     static func pushBase(callTimeBase: CKRecord?, ownSave: (record: CKRecord, at: Date)?, calledAt: Date) -> CKRecord? {
@@ -412,7 +427,7 @@ enum CloudSyncController {
     /// interleave, and the sync base covers those.
     private static let pushQueue = PushQueue()
 
-    private final class PushQueue: @unchecked Sendable {
+    final class PushQueue: @unchecked Sendable {
         private let lock = NSLock()
         private var waiting: [String: [(@escaping () -> Void) -> Void]] = [:]
 
@@ -580,7 +595,7 @@ enum CloudSyncController {
         operation.modifyRecordsResultBlock = { result in
             guard case .failure(let error) = result else {
                 if let saved {
-                    ownSaves.withLock { $0[payload.id] = (saved, Date()) }
+                    noteOwnSave(saved, pushed: payload)
                     settle(pushed: payload, serverNow: saved)
                 }
                 return completion()
@@ -628,7 +643,7 @@ enum CloudSyncController {
                 log("pushUp merged save(\(record.recordID.recordName)) failed: \(error)")
             } else if let saved {
                 // The merge may have kept the server's timing: follow it.
-                ownSaves.withLock { $0[pushed.id] = (saved, Date()) }
+                noteOwnSave(saved, pushed: pushed)
                 settle(pushed: pushed, serverNow: saved)
             }
             completion()

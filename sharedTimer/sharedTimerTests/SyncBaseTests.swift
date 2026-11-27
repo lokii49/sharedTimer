@@ -9,6 +9,7 @@
 
 import CloudKit
 import Foundation
+import os
 import Testing
 @testable import sharedTimer
 
@@ -213,4 +214,58 @@ struct SyncBaseTests {
         let sent = try #require(CloudSyncController.plannedPush(local: mine, action: "edited", server: record(theirs), base: record(base)).record)
         #expect(sent["label"] as? String == "Soup")
     }
+
+    @Test func anOwnSaveThatKeptAnotherPhonesChangeIsNotTheNextAncestor() {
+        let base = running()
+        let pause = base.paused(at: t0.addingTimeInterval(30))
+        // Saved exactly as pushed: the next queued push may build on it.
+        #expect(CloudSyncController.ownSaveIsAncestor(pushed: pause, saved: record(pause), at: t0.addingTimeInterval(31)))
+        // The server kept another phone's rename: not an ancestor of our next snapshot.
+        var merged = pause
+        merged.label = "Tea"
+        #expect(!CloudSyncController.ownSaveIsAncestor(pushed: pause, saved: record(merged), at: t0.addingTimeInterval(31)))
+    }
+
+    @Test func pushesOfOneTimerRunInCallOrderOneAtATime() async {
+        let queue = CloudSyncController.PushQueue()
+        let log = OSAllocatedUnfairLock<[String]>(initialState: [])
+        await withCheckedContinuation { (finished: CheckedContinuation<Void, Never>) in
+            let remaining = OSAllocatedUnfairLock(initialState: 3)
+            for (index, delay) in [0.3, 0.1, 0.0].enumerated() {
+                queue.run("same") { done in
+                    log.withLock { $0.append("start \(index)") }
+                    DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+                        log.withLock { $0.append("end \(index)") }
+                        done()
+                        if remaining.withLock({ $0 -= 1; return $0 }) == 0 { finished.resume() }
+                    }
+                }
+            }
+        }
+        #expect(log.withLock { $0 } == ["start 0", "end 0", "start 1", "end 1", "start 2", "end 2"])
+    }
+
+    @Test func aRenameKeptByTheFirstQueuedPushSurvivesTheSecond() throws {
+        let base = running()
+        var renamed = base
+        renamed.label = "Tea"
+        renamed.updatedAt = t0.addingTimeInterval(20)
+        // Push 1 (pause, newer) lands on the renamed record and keeps the rename.
+        let pause = base.paused(at: t0.addingTimeInterval(30))
+        let first = try #require(CloudSyncController.plannedPush(local: pause, action: "paused", server: record(renamed), base: record(base)).record)
+        #expect(first["label"] as? String == "Tea")
+        // Push 2 (+1:00) was built from the stored copy, which still says "Pasta".
+        var plusOne = pause.extended(by: 60)
+        plusOne.updatedAt = t0.addingTimeInterval(31)
+        let calledAt = t0.addingTimeInterval(31), savedAt = t0.addingTimeInterval(32)
+        let ownSave = CloudSyncController.ownSaveIsAncestor(pushed: pause, saved: first, at: savedAt) ? (record: first, at: savedAt) : nil
+        let chosen = CloudSyncController.pushBase(callTimeBase: record(base), ownSave: ownSave, calledAt: calledAt)
+        let second = try #require(CloudSyncController.plannedPush(local: plusOne, action: "extended", server: first, base: chosen).record)
+        #expect(second["label"] as? String == "Tea")
+        #expect(abs(((second["pausedRemaining"] as? Double) ?? 0) - (plusOne.pausedRemaining ?? 0)) < 0.001)
+        // The previous rule (always the own save) loses the rename.
+        let before = try #require(CloudSyncController.plannedPush(local: plusOne, action: "extended", server: first, base: first).record)
+        #expect(before["label"] as? String == "Pasta")
+    }
 }
+

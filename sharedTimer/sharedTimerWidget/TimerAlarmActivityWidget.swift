@@ -94,7 +94,7 @@ struct TimerAlarmActivityWidget: Widget {
                         .lineLimit(1)
                         .frame(maxWidth: 70)
                 } narrow: {
-                    alarmRing(context.state, tint: kind.accentColor)
+                    alarmRing(context.state, span: context.attributes.metadata?.span, tint: kind.accentColor)
                 }
             } minimal: {
                 Image(systemName: kind.symbolName)
@@ -109,16 +109,19 @@ struct TimerAlarmActivityWidget: Widget {
 }
 
 /// The narrow island's ring from AlarmKit's own state: draining toward the fire date
-/// (its virtual start is `fireDate - totalCountdownDuration`, which also holds after a
-/// resume), frozen while paused, empty once it rings.
-private func alarmRing(_ state: AlarmPresentationState, tint: Color) -> CompactRing {
+/// over the whole run (`span` from the metadata — AlarmKit's `totalCountdownDuration`
+/// is only what was left when the alarm was last armed, so a resumed or extended timer
+/// would restart full), frozen while paused, empty once it rings.
+private func alarmRing(_ state: AlarmPresentationState, span: TimeInterval?, tint: Color) -> CompactRing {
     switch state.mode {
     case .countdown(let countdown):
-        let start = countdown.fireDate.addingTimeInterval(-countdown.totalCountdownDuration)
+        let run = max(span ?? 0, countdown.totalCountdownDuration - countdown.previouslyElapsedDuration)
+        let start = countdown.fireDate.addingTimeInterval(-run)
         return CompactRing(interval: start...max(start, countdown.fireDate), tint: tint)
     case .paused(let paused):
-        let total = paused.totalCountdownDuration
-        return CompactRing(fraction: total > 0 ? (total - paused.previouslyElapsedDuration) / total : 0, tint: tint)
+        let left = paused.totalCountdownDuration - paused.previouslyElapsedDuration
+        let run = max(span ?? 0, paused.totalCountdownDuration)
+        return CompactRing(fraction: run > 0 ? left / run : 0, tint: tint)
     default:
         return CompactRing(fraction: 0, tint: tint)
     }

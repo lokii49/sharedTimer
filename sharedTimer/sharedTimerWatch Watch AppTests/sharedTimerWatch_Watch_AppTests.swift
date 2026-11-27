@@ -81,6 +81,33 @@ struct sharedTimerWatch_Watch_AppTests {
         }
     }
 
+    @Test func voiceOverSaysTheStateNotAStaleTimeLeft() {
+        let running = WatchTimerSnapshot(date: now, timer: timer("Tea", seconds: 200))
+        #expect(running.accessibilityName == "Tea")
+        // A running entry's value must stay true for the whole entry: when it ends, not
+        // "3:20 remaining" (the old label, frozen at the entry's date).
+        #expect(running.accessibilityValue.hasPrefix("Running, ends "))
+        #expect(!running.accessibilityValue.contains("3:20"))
+        #expect(WatchTimerSnapshot(date: now, timer: timer("Tea", seconds: 200, paused: 80)).accessibilityValue == "Paused, 01:20 remaining")
+        #expect(WatchTimerSnapshot(date: now, timer: timer("Tea", seconds: -1)).accessibilityValue == "Done")
+        #expect(WatchTimerSnapshot(date: now, timer: nil).accessibilityValue == "Sync timers from iPhone")
+    }
+
+    @Test func privacyRedactionHidesOnlyTheName() throws {
+        // Rendered redacted for a look: the name is hidden, the time and ring stay.
+        let view = WatchTimerWidgetView(snapshot: WatchTimerSnapshot(date: now, timer: timer("Secret name", seconds: 100, paused: 80)), family: .accessoryRectangular)
+            .redacted(reason: .privacy)
+            .frame(width: 170, height: 64).background(Color.black).foregroundStyle(.white)
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 2
+        let image = try #require(renderer.cgImage)
+        let data = NSMutableData()
+        let destination = try #require(CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, image, nil)
+        #expect(CGImageDestinationFinalize(destination))
+        Attachment.record(data as Data, named: "watch-rectangular-redacted.png")
+    }
+
     @Test func receivedSnapshotsPersistRestoreAndDelete() throws {
         let suite = "watch-sync-test.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))

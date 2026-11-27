@@ -25,4 +25,9 @@ struct TimerAlarmMetadata: AlarmMetadata {
     var sequenceCaption: String? = nil
     var phaseIndex: Int? = nil
     var isFinalPhase: Bool? = nil
+    /// The whole run this alarm's countdown belongs to (duration + extends), for the
+    /// narrow Dynamic Island ring. AlarmKit's own `totalCountdownDuration` is only the
+    /// time left when the alarm was (re)armed — after a resume or an extend the ring
+    /// would restart full. nil from older builds: the ring falls back to that total.
+    var span: TimeInterval? = nil
 }

@@ -32,6 +32,17 @@ struct WatchTimerSnapshot {
         if remaining <= 0 { return String(localized: "Done") }
         return timer.isPaused ? String(localized: "Paused") : String(localized: "Remaining")
     }
+    /// VoiceOver: the timer's name is the label, this is the value — like the phone's
+    /// Lock Screen widget. A running timer says when it ends (fixed and true for the
+    /// whole entry), never a "time left" that was right only when the entry was made.
+    var accessibilityName: String { timer?.label ?? String(localized: "Shared Timer") }
+    var accessibilityValue: String {
+        guard let timer else { return String(localized: "Sync timers from iPhone") }
+        if remaining <= 0 { return String(localized: "Done") }
+        if timer.isPaused { return String(localized: "Paused, \(TimeFormat.display(remaining, at: date)) remaining") }
+        return String(localized: "Running, ends \(timer.endDate.formatted(date: .abbreviated, time: .shortened))")
+    }
+
     /// Against the whole run, extends included (the phone's `span`).
     var progress: Double { min(1, remaining / max(1, timer.map { $0.duration + $0.extraTime } ?? 1)) }
 

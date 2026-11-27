@@ -51,4 +51,22 @@ struct LiveActivityRelevanceTests {
         #expect(score(sequence) > 0)
         #expect(score(sequence) == score(running(endingIn: 590)))
     }
+
+    @Test func theOrderStillHoldsYearsFromNow() {
+        // The first scheme clamped at ~2029: every running timer then scored the same.
+        let later = Date(timeIntervalSince1970: 1_956_528_000)   // 2032-01-01
+        func endingIn(_ seconds: TimeInterval) -> TimerPayload {
+            TimerPayload(id: UUID().uuidString, label: "T", endDate: later.addingTimeInterval(seconds), duration: 600,
+                         alarmEnabled: false, vibrationEnabled: false)
+        }
+        let soon = LiveActivityController.relevanceScore(for: endingIn(120), at: later)
+        let after = LiveActivityController.relevanceScore(for: endingIn(600), at: later)
+        let paused = LiveActivityController.relevanceScore(for: endingIn(60).paused(at: later), at: later)
+        #expect(soon > after)
+        #expect(after > paused)
+        #expect(paused > 0)
+        // A countdown decades out still outranks a paused timer.
+        #expect(LiveActivityController.relevanceScore(for: endingIn(86_400 * 365 * 60), at: later) > paused)
+    }
 }
+

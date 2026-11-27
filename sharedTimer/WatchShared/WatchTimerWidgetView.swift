@@ -62,14 +62,17 @@ struct WatchTimerWidgetView: View {
             switch family {
             case .accessoryInline:
                 ViewThatFits {
-                    HStack { Image(systemName: symbol); Text(snapshot.timer?.label ?? String(localized: "Shared Timer")); time }
+                    HStack { Image(systemName: symbol); Text(snapshot.timer?.label ?? String(localized: "Shared Timer")).privacySensitive(); time }
                     HStack { Image(systemName: symbol); time }
                 }
             case .accessoryRectangular:
                 HStack(spacing: 8) {
                     ring(showTime: false).frame(width: 40, height: 40)
                     VStack(alignment: .leading, spacing: 2) {
+                        // Only the name is private (owner's call, as on the phone): a
+                        // wrist-down or locked Watch still shows the time.
                         Text(snapshot.timer?.label ?? String(localized: "Shared Timer")).font(.headline).lineLimit(1)
+                            .privacySensitive()
                         time.font(.title3).lineLimit(1).minimumScaleFactor(0.5)
                         Text(snapshot.timer == nil ? String(localized: "Sync timers from iPhone") : snapshot.status)
                             .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
@@ -80,9 +83,9 @@ struct WatchTimerWidgetView: View {
         }
         .containerBackground(for: .widget) { Color.clear }
         .widgetURL(snapshot.timer.flatMap { WatchTimerLink.url(id: $0.id) })
-        .privacySensitive()
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(String(localized: "\(snapshot.timer?.label ?? String(localized: "Shared Timer")), \(snapshot.status), \(TimeFormat.display(snapshot.remaining, at: snapshot.date))"))
+        .accessibilityLabel(snapshot.accessibilityName)
+        .accessibilityValue(snapshot.accessibilityValue)
     }
 }
 

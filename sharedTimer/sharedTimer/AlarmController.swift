@@ -881,7 +881,8 @@ enum AlarmController {
                 timerID: payload.id, label: payload.label, kind: payload.kind,
                 sequenceCaption: payload.sequenceCaption,
                 phaseIndex: payload.sequenceGlobalIndex,
-                isFinalPhase: payload.sequence == nil ? nil : isFinalSequencePhase
+                isFinalPhase: payload.sequence == nil ? nil : isFinalSequencePhase,
+                span: payload.span
             ),
             tintColor: payload.kind.accentColor
         )
