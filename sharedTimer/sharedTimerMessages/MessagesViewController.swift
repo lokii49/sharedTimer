@@ -377,9 +377,10 @@ class MessagesViewController: MSMessagesAppViewController {
 
         case .appCard:
             // Re-sharing from this timer's own bubble continues that bubble's session; a
-            // new card starts its own. Apple's docs say a newer message in a session
-            // collapses the older one, but on iOS 27 (iPhone 13, iMessage, 2026-11-27)
-            // both cards stayed full — don't promise the collapse anywhere.
+            // new card starts its own. A forum thread says a newer message in a session
+            // collapses the older one; on iOS 27 (iPhone 13, iMessage, 2026-11-27) both
+            // cards stayed full, cause unconfirmed (whether this path reused the session
+            // wasn't logged — ROADMAP M11). Don't promise the collapse anywhere.
             let selected = conversation.selectedMessage
             let sameTimer = selected.flatMap { TimerPayload.from(url: $0.url)?.id } == payload.id
             let message = MSMessage(session: (sameTimer ? selected?.session : nil) ?? MSSession())
