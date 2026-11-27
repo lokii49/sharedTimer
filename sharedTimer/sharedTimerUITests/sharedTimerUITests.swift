@@ -416,16 +416,21 @@ final class sharedTimerUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-ShowWhatsNew"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["Made for iPad"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Widgets that keep up"].waitForExistence(timeout: 10))
+        sleep(4)  // the widget scene reaches "Time's up"
         let firstPage = XCTAttachment(screenshot: app.screenshot())
         firstPage.name = "What's New page 1"
         firstPage.lifetime = .keepAlways
         add(firstPage)
         let continueButton = app.buttons["Continue"]
-        for title in ["Countdowns that come back", "Everything you've timed", "Know before it ends",
-                      "On every screen you use", "Just ask", "Easier on the eyes"] {
+        for (index, title) in ["More in Messages", "Keep the screen on", "Steadier sharing"].enumerated() {
             continueButton.tap()
             XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 5), title)
+            sleep(2)  // let the page's scene play to a telling frame
+            let page = XCTAttachment(screenshot: app.screenshot())
+            page.name = "What's New page \(index + 2)"
+            page.lifetime = .keepAlways
+            add(page)
         }
         let lastPage = XCTAttachment(screenshot: app.screenshot())
         lastPage.name = "What's New last page"
@@ -433,7 +438,7 @@ final class sharedTimerUITests: XCTestCase {
         add(lastPage)
         app.buttons["Start"].tap()
         XCTAssertTrue(app.navigationBars["Timers"].waitForExistence(timeout: 5) || app.buttons["New"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["Easier on the eyes"].exists)
+        XCTAssertFalse(app.staticTexts["Steadier sharing"].exists)
     }
 
     @MainActor

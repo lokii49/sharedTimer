@@ -3509,6 +3509,64 @@
         }
       }
     },
+    "A new lock button keeps the screen awake while you watch, and says so.": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "زر قفل جديد يُبقي الشاشة مضاءة أثناء المتابعة، ويؤكد ذلك."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "নতুন লক বোতাম দেখার সময় স্ক্রিন চালু রাখে, আর তা জানিয়েও দেয়।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un nuevo botón de candado mantiene la pantalla encendida mientras miras, y te lo confirma."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un nouveau bouton cadenas garde l’écran allumé pendant que vous regardez, et vous le confirme."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नया लॉक बटन देखते समय स्क्रीन चालू रखता है, और यह बताता भी है।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tombol gembok baru menjaga layar tetap menyala saat Anda melihat, dan memberi tahu Anda."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um novo botão de cadeado mantém a tela ligada enquanto você olha, e avisa."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Новая кнопка с замком не даёт экрану погаснуть, пока вы смотрите, и сообщает об этом."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新的锁形按钮会在你查看时保持屏幕常亮，并给出提示。"
+          }
+        }
+      }
+    },
     "A quiet notification instead — no ringing.": {
       "localizations": {
         "ar": {
@@ -4735,6 +4793,64 @@
           "stringUnit": {
             "state": "translated",
             "value": "请在“设置”中允许访问日历以选择事件。你也可以自己输入日期。"
+          }
+        }
+      }
+    },
+    "An open timer follows every change, a repeating countdown skips ahead with Next Week, and sharing again replaces the old card.": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "المؤقت المفتوح يتابع كل تغيير، والعد التنازلي المتكرر يتقدّم بزر «الأسبوع التالي»، والمشاركة مجددًا تستبدل البطاقة القديمة."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "খোলা টাইমার প্রতিটি পরিবর্তন অনুসরণ করে, পুনরাবৃত্ত কাউন্টডাউন \"পরের সপ্তাহ\" দিয়ে এগিয়ে যায়, আর আবার শেয়ার করলে পুরোনো কার্ড বদলে যায়।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un temporizador abierto sigue cada cambio, una cuenta atrás que se repite avanza con Semana siguiente y volver a compartir sustituye la tarjeta anterior."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un minuteur ouvert suit chaque changement, un compte à rebours récurrent avance avec Semaine suivante, et partager à nouveau remplace l’ancienne carte."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खुला टाइमर हर बदलाव के साथ चलता है, दोहराने वाला काउंटडाउन \"अगला सप्ताह\" से आगे बढ़ता है, और दोबारा शेयर करने पर पुराना कार्ड बदल जाता है।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer yang terbuka mengikuti setiap perubahan, hitung mundur berulang bisa maju dengan Minggu Berikutnya, dan berbagi lagi menggantikan kartu lama."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um timer aberto acompanha cada mudança, uma contagem regressiva repetida avança com Próxima Semana e compartilhar de novo substitui o cartão antigo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открытый таймер следит за каждым изменением, повторяющийся отсчёт переходит вперёд кнопкой «Следующая неделя», а повторная отправка заменяет старую карточку."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开的计时器会跟随每次更改，重复倒计时可用“下一周”跳到下一次，再次分享会替换旧卡片。"
           }
         }
       }
@@ -8359,6 +8475,64 @@
         }
       }
     },
+    "Finishes and next phases show right on time, a tap opens the timer, and there's a one-line Lock Screen widget and a look for tinted Home Screens.": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تظهر النهايات والمراحل التالية في وقتها تمامًا، ونقرة تفتح المؤقت، وهناك أداة بسطر واحد لشاشة القفل ومظهر للشاشات الرئيسية الملوّنة."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "শেষ হওয়া আর পরের ধাপ ঠিক সময়ে দেখা যায়, একটি ট্যাপে টাইমার খোলে, আর আছে লক স্ক্রিনের এক লাইনের উইজেট ও টিন্টেড হোম স্ক্রিনের নতুন চেহারা।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los finales y las siguientes fases aparecen justo a tiempo, un toque abre el temporizador y hay un widget de una línea para la pantalla bloqueada y un aspecto para pantallas de inicio con tinte."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les fins et les phases suivantes s’affichent pile à l’heure, un toucher ouvre le minuteur, et il y a un widget d’une ligne pour l’écran verrouillé et un style pour les écrans d’accueil teintés."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खत्म होना और अगले चरण ठीक समय पर दिखते हैं, एक टैप से टाइमर खुलता है, और लॉक स्क्रीन के लिए एक-पंक्ति विजेट व टिंटेड होम स्क्रीन के लिए नया रूप है।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waktu habis dan fase berikutnya tampil tepat waktu, satu ketukan membuka timer, ada widget satu baris untuk Layar Kunci dan tampilan untuk Layar Utama berwarna."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finais e próximas fases aparecem na hora certa, um toque abre o timer, e há um widget de uma linha para a Tela Bloqueada e um visual para Telas de Início coloridas."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Окончание и следующие этапы показываются точно вовремя, касание открывает таймер, а ещё есть однострочный виджет для экрана блокировки и вид для тонированных экранов «Домой»."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "结束和下一阶段准时显示，轻点即可打开计时器，还有单行锁定屏幕小组件和适配着色主屏幕的外观。"
+          }
+        }
+      }
+    },
     "Forget": {
       "localizations": {
         "ar": {
@@ -9635,6 +9809,64 @@
         }
       }
     },
+    "Keep the screen on": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أبقِ الشاشة مضاءة"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "স্ক্রিন চালু রাখুন"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantén la pantalla encendida"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gardez l’écran allumé"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्क्रीन चालू रखें"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biarkan layar menyala"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantenha a tela ligada"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Экран не гаснет"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保持屏幕常亮"
+          }
+        }
+      }
+    },
     "Know before it ends": {
       "localizations": {
         "zh-Hans": {
@@ -10269,6 +10501,64 @@
           "stringUnit": {
             "state": "translated",
             "value": "每月"
+          }
+        }
+      }
+    },
+    "More in Messages": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "المزيد في الرسائل"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "মেসেজেসে আরও বেশি"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Más en Mensajes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus dans Messages"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messages में और भी"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lebih banyak di Pesan"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mais no Mensagens"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Больше в «Сообщениях»"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "信息中的更多功能"
           }
         }
       }
@@ -18313,6 +18603,64 @@
         }
       }
     },
+    "Steadier sharing": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "مشاركة أكثر ثباتًا"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "আরও স্থির শেয়ারিং"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir más fiable"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un partage plus fiable"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "और भरोसेमंद शेयरिंग"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berbagi lebih andal"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartilhamento mais confiável"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Надёжнее совместный доступ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更稳定的共享"
+          }
+        }
+      }
+    },
     "Stop": {
       "localizations": {
         "ar": {
@@ -20977,6 +21325,122 @@
           "stringUnit": {
             "state": "translated",
             "value": "此阶段结束时"
+          }
+        }
+      }
+    },
+    "When two people change a shared timer at once, everyone ends up with the same, newest change.": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عندما يغيّر شخصان مؤقتًا مشتركًا في الوقت نفسه، يحصل الجميع على التغيير الأحدث نفسه."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "দুজন একসঙ্গে শেয়ার করা টাইমার বদলালে, সবাই একই, সবচেয়ে নতুন পরিবর্তনটি পায়।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuando dos personas cambian a la vez un temporizador compartido, todos acaban con el mismo cambio, el más reciente."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand deux personnes modifient en même temps un minuteur partagé, tout le monde obtient le même changement, le plus récent."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जब दो लोग एक साथ साझा टाइमर बदलते हैं, तो सबके पास वही, सबसे नया बदलाव पहुँचता है।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saat dua orang mengubah timer bersama secara bersamaan, semua orang mendapat perubahan terbaru yang sama."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quando duas pessoas mudam um timer compartilhado ao mesmo tempo, todos ficam com a mesma mudança, a mais recente."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если двое меняют общий таймер одновременно, у всех остаётся одно и то же, самое новое изменение."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当两个人同时更改共享计时器时，所有人都会得到同一个最新的更改。"
+          }
+        }
+      }
+    },
+    "Widgets that keep up": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أدوات تواكب الوقت"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "সময়ের সঙ্গে চলা উইজেট"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Widgets que van al día"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Des widgets toujours à l’heure"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "समय के साथ चलते विजेट"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Widget yang selalu tepat waktu"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Widgets sempre em dia"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Виджеты, которые не отстают"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "准时更新的小组件"
           }
         }
       }

@@ -61,6 +61,8 @@ Web test harnesses now encode links the way the app does (`%20`, `%2B`) instead 
 
 **Release gates for 1.0.9 (owner):** no new CloudKit fields. Bump to 1.0.9 / build 13. Re-copy `docs/t.html` to `mirrornotes-website/timer.html` (F19). Deploy the link-preview Worker (`npx wrangler@4 deploy` in `link-preview/`, F20). Release notes in 11 languages. What's New stays quiet (fix release; `contentVersion` unchanged).
 
+**What's New 1.0.9:** four pages (owner's pick): Widgets that keep up · More in Messages · Keep the screen on · Steadier sharing — new scenes, 8 strings × 9 languages; replaces the 1.0.7 tour. Shows to people updating once the version is bumped to 1.0.9 (release gate). Verified: unit gate tests (4 pages, 1.0.7/1.0.8 → 1.0.9) and the UI tour test with a screenshot of each page.
+
 ### App Clip, iMessage and Watch pass (2026-11-27, owner request)
 
 Two read-only audits (Messages; Clip + Watch app) plus a ripple check of every 1.0.9 change against these targets and a parity grep. Platform facts checked against Apple's pages, not memory: App Clip size limit 15 MB for physical invocations, 100 MB for digital-only on iOS 17+ ([App Store Connect](https://developer.apple.com/help/app-store-connect/reference/app-uploads/maximum-build-file-sizes/)) — the Clip is 3.9 MB (Release build, before thinning); ephemeral Clip notifications last 8 h per WWDC20, 24 h per WWDC21 (conflicting; the Clip doesn't use them — it asks normally); there is no API to edit a sent bubble, but a new message in the same `MSSession` collapses the older one ([forum](https://developer.apple.com/forums/thread/51570)).
