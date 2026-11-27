@@ -17,6 +17,9 @@ struct TimerComposeView: View {
     @State private var shareMode: TimerShareMode = .link
     @State private var activeTimers: [TimerPayload] = TimerStore.loadAll().map { $0.advancedSequence() }.filter { !$0.isExpired }
     @State private var pickedExisting: TimerPayload?
+    /// Templates saved in the app (owner's pick 2A): one tap starts and shares one.
+    /// Building or editing sequences stays in the app.
+    @State private var savedSequences: [SavedSequence] = SavedSequenceStore.loadAll()
     @FocusState private var labelFocused: Bool
 
     /// (payload, mode, isExisting) — `isExisting` when re-sharing a picked timer.
@@ -60,6 +63,14 @@ struct TimerComposeView: View {
                                 existingRow(timer)
                             }
                             .foregroundStyle(.primary)
+                        }
+                    }
+                }
+
+                if !savedSequences.isEmpty {
+                    Section("Your sequences") {
+                        ForEach(savedSequences) { saved in
+                            savedSequenceRow(saved)
                         }
                     }
                 }
@@ -128,6 +139,7 @@ struct TimerComposeView: View {
         }
         .onAppear {
             activeTimers = TimerStore.loadAll().map { $0.advancedSequence() }.filter { !$0.isExpired }
+            savedSequences = SavedSequenceStore.loadAll()
         }
     }
 
@@ -139,6 +151,38 @@ struct TimerComposeView: View {
     private var composedPayload: TimerPayload {
         ComposeRules.payload(label: label, kind: kind, minutes: minutes, targetDate: targetDate, repeatFrequency: repeatFrequency,
                              alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
+    }
+
+    /// A saved template: Start composes a fresh run from it and shares it like Start &
+    /// Share. One too big for a share link is shown, but can't be started here.
+    private func savedSequenceRow(_ saved: SavedSequence) -> some View {
+        let payload = saved.shareablePayload()
+        return Button {
+            guard let fresh = saved.shareablePayload() else { return }
+            labelFocused = false
+            onStart(fresh, shareMode, false)
+        } label: {
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(payload.map { Sky.gradient(for: $0) } ?? Sky.gradient(for: previewPayload))
+                    .frame(width: 30, height: 30)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(saved.name).font(.body).lineLimit(1)
+                    Text(payload == nil
+                         ? String(localized: "Too long to send in Messages")
+                         : String(localized: "Phases per loop: \(saved.phases.count) · Loops: \(saved.loopCount)"))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if payload != nil {
+                    Text("Start").fontWeight(.semibold).foregroundStyle((payload?.kind ?? .timer).accentColor)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .foregroundStyle(.primary)
+        .disabled(payload == nil)
     }
 
     /// Ticks every second (it used to show the time left when the sheet opened), follows

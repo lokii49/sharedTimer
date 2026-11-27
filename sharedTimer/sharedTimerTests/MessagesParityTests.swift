@@ -42,4 +42,31 @@ struct MessagesParityTests {
         let decoded = try #require(TimerPayload.from(url: weekly.url()))
         #expect(decoded.recurrence?.frequency == .weekly)
     }
+
+    // MARK: 2A Saved sequences
+
+    private func phase(_ label: String, _ seconds: TimeInterval) -> SequencePhase {
+        SequencePhase(label: label, kind: .timer, duration: seconds, alarmEnabled: true, vibrationEnabled: false)
+    }
+
+    @Test func aSavedSequenceStartsAFreshShareableRun() throws {
+        let saved = SavedSequence(name: "Pomodoro", phases: [phase("Work", 1500), phase("Rest", 300)], loopCount: 4)
+        let payload = try #require(saved.shareablePayload())
+        #expect(payload.sequence?.phaseIndex == 0 && payload.sequence?.loopIndex == 0)
+        #expect(payload.sequence?.loopCount == 4)
+        #expect(payload.label == "Work")
+        #expect(payload.scheduledStartDate == nil)
+        let decoded = try #require(TimerPayload.from(url: payload.url()))
+        #expect(decoded.sequence?.phases == saved.phases)
+        // Each start is its own timer.
+        #expect(saved.shareablePayload()?.id != payload.id)
+    }
+
+    @Test func aTemplatePastTheLinkLimitsCantBeSent() {
+        #expect(SavedSequence(name: "Empty", phases: [], loopCount: 1).shareablePayload() == nil)
+        #expect(SavedSequence(name: "Many", phases: (0..<65).map { phase("P\($0)", 60) }, loopCount: 1).shareablePayload() == nil)
+        #expect(SavedSequence(name: "Loops", phases: [phase("A", 60)], loopCount: 100).shareablePayload() == nil)
+        #expect(SavedSequence(name: "Long", phases: [phase(String(repeating: "x", count: 600), 60)], loopCount: 1).shareablePayload() == nil)
+        #expect(SavedSequence(name: "Edge", phases: (0..<64).map { phase("P\($0)", 60) }, loopCount: 99).shareablePayload() != nil)
+    }
 }
