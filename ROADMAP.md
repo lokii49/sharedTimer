@@ -109,7 +109,7 @@ Ranked by value ÷ effort, from competitor listings/reviews and Apple docs (rese
 | N6 | **"Days since" count-up** from a past date | M | W, CK | Needs a new kind or flag. Older apps reject an unknown `kind` (whole timer dropped) — ship as a new optional param/field with a countdown-compatible fallback, like `repeat`/`repeatRuleData`. |
 | N7 | **Stopwatch with laps** | M–L | W, CK, L10n | Same compat issue as N6; probably local-only first. |
 | N8 | **Scheduled Live Activity start** (`Activity.request(…, start:)`, iOS 26) for quiet scheduled sequences | S–M | — | Replaces the foreground-only `pendingIDs` tick. A forum report says it can create a second activity — device-test reuse first. |
-| N9 | **App Intents upgrades**: `IndexedEntity` for TimerChoice (Spotlight filtering + generated "Find timers"), `UndoableIntent` for Siri pause/extend/delete | S–M | L10n | WWDC25-275. |
+| N9 | **Built on `1.0.10`** (Find via EnumerableEntityQuery + IndexedEntity properties, Spotlight association, undo for Pause/Resume/Add/Remove Time; see CLAUDE.md) — **App Intents upgrades**: `IndexedEntity` for TimerChoice (Spotlight filtering + generated "Find timers"), `UndoableIntent` for Siri pause/extend/delete | S–M | L10n | WWDC25-275. |
 | N10 | **Focus filter** (`SetFocusFilterIntent`): mute heads-up reminders / pick timers per Focus | S–M | L10n | Local preference. |
 | N11 | **Widget accented/clear rendering** (`widgetAccentedRenderingMode`) so the skies don't wash out when tinted | S | — | Needs a mockup of the tinted look. |
 | N12 | **More tones** (+4, IMA4 ≈ 75 KB × 4 targets) | S | L10n | Imported sounds unverified with AlarmKit `.named` (Library/Sounds). |
