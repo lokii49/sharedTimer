@@ -162,13 +162,14 @@ struct SettingsView: View {
         case .idle, .refused, .failed:
             Button(String(localized: "Test my alarm")) { startAlarmTest() }
                 .buttonStyle(.glassPill)
-            Text(alarmTest == .refused
-                 ? String(localized: "Full-screen alarms are off, so the test can't ring.")
-                 : alarmTest == .failed
-                 ? String(localized: "The test alarm couldn't be set. Try again.")
-                 : String(localized: "Rings full-screen in 5 seconds, even with the phone locked."))
-                .font(.footnote)
-                .opacity(0.8)
+            // Refused: the card's own "full-screen alarms are off" note below says why.
+            if alarmTest != .refused {
+                Text(alarmTest == .failed
+                     ? String(localized: "The test alarm couldn't be set. Try again.")
+                     : String(localized: "Rings full-screen in 5 seconds, even with the phone locked."))
+                    .font(.footnote)
+                    .opacity(0.8)
+            }
         case .counting(let until):
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let left = Int(max(0, until.timeIntervalSince(context.date)).rounded(.up))

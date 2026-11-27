@@ -9693,64 +9693,6 @@
         }
       }
     },
-    "Full-screen alarms are off, so the test can't ring.": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "المنبّهات بملء الشاشة متوقفة، لذا لا يمكن أن يرن الاختبار."
-          }
-        },
-        "bn": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ফুল-স্ক্রিন অ্যালার্ম বন্ধ, তাই পরীক্ষাটি বাজতে পারবে না।"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Las alarmas a pantalla completa están desactivadas, así que la prueba no puede sonar."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les alarmes plein écran sont désactivées, le test ne peut donc pas sonner."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "फ़ुल-स्क्रीन अलार्म बंद हैं, इसलिए टेस्ट नहीं बज सकता।"
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alarm layar penuh nonaktif, jadi uji tidak bisa berbunyi."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Os alarmes em tela cheia estão desativados, então o teste não pode tocar."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Полноэкранные будильники выключены, поэтому тест не может зазвонить."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "全屏闹钟已关闭，因此测试无法响铃。"
-          }
-        }
-      }
-    },
     "Get Time Remaining": {
       "localizations": {
         "ar": {

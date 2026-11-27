@@ -157,16 +157,11 @@ struct TimerDetailView: View {
                     } else if !done {
                         // One merged glass shape for the pair (C8 · A).
                         GlassEffectContainer(spacing: 16) {
-                            HStack(spacing: 12) {
-                                ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true },
-                                               canRemove: { payload.canShorten(by: $0) },
-                                               // Hidden, not just disabled, on a repeating countdown (see canShorten).
-                                               onRemove: payload.recurrence == nil ? { remove($0) } : nil)
-
-                                Button(payload.isPaused ? "Resume" : "Pause") {
-                                    togglePause()
-                                }
-                                .buttonStyle(.glassPill)
+                            // One row while it fits; at the largest text sizes Pause moves
+                            // under the time controls rather than squeezing "+1:00".
+                            ViewThatFits(in: .horizontal) {
+                                HStack(spacing: 12) { timeControls; pauseButton }
+                                VStack(spacing: 12) { timeControls; pauseButton }
                             }
                         }
                         .disabled(readOnly)
@@ -493,6 +488,18 @@ struct TimerDetailView: View {
         guard canChange() else { return }
         payload = payload.extended(by: interval)
         onUpdate(payload, "extended")
+    }
+
+    private var timeControls: some View {
+        ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true },
+                       canRemove: { payload.canShorten(by: $0) },
+                       // Hidden, not just disabled, on a repeating countdown (see canShorten).
+                       onRemove: payload.recurrence == nil ? { remove($0) } : nil)
+    }
+
+    private var pauseButton: some View {
+        Button(payload.isPaused ? "Resume" : "Pause") { togglePause() }
+            .buttonStyle(.glassPill)
     }
 
     private func remove(_ interval: TimeInterval) {

@@ -124,15 +124,10 @@ struct TimerRunningView: View {
                                 .buttonStyle(.glassPill)
                         } else if !done {
                             GlassEffectContainer(spacing: 16) {
-                                HStack(spacing: 12) {
-                                    ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true },
-                                                   canRemove: { payload.canShorten(by: $0) },
-                                                   onRemove: payload.recurrence == nil ? { remove($0) } : nil)
-
-                                    Button(payload.isPaused ? "Resume" : "Pause") {
-                                        togglePause()
-                                    }
-                                    .buttonStyle(.glassPill)
+                                // As in the app: Pause drops below when the row doesn't fit.
+                                ViewThatFits(in: .horizontal) {
+                                    HStack(spacing: 12) { timeControls; pauseButton }
+                                    VStack(spacing: 12) { timeControls; pauseButton }
                                 }
                             }
                         } else {
@@ -342,6 +337,17 @@ struct TimerRunningView: View {
         guard let base = latestForChange(), !base.isFinished else { return }
         payload = base.extended(by: interval)
         onUpdate(payload, "extended")
+    }
+
+    private var timeControls: some View {
+        ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true },
+                       canRemove: { payload.canShorten(by: $0) },
+                       onRemove: payload.recurrence == nil ? { remove($0) } : nil)
+    }
+
+    private var pauseButton: some View {
+        Button(payload.isPaused ? "Resume" : "Pause") { togglePause() }
+            .buttonStyle(.glassPill)
     }
 
     private func remove(_ interval: TimeInterval) {

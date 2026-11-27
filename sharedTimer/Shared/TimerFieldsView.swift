@@ -275,6 +275,8 @@ struct ExtendTimeMenu: View {
     private var splitPill: some View {
         HStack(spacing: 0) {
             Button("+1:00") { onExtend(60) }
+                .lineLimit(1)
+                .fixedSize()   // never "+1:\n00"; the caller moves Pause instead
                 .buttonStyle(SplitPillSegmentStyle(leading: 22, trailing: 14))
                 .accessibilityLabel(String(localized: "Add 1 minute"))
                 // Stable hook for UI tests/automation, whatever the spoken label says.
