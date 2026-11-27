@@ -103,6 +103,12 @@ enum WatchSyncController {
         }
 
         func sessionDidBecomeInactive(_ session: WCSession) {}
+        /// A Watch was paired or the Watch app installed/removed while this app runs:
+        /// send the current timers now instead of waiting for the next change or
+        /// foreground (`pushCurrentState` checks `isWatchAppInstalled` itself).
+        func sessionWatchStateDidChange(_ session: WCSession) {
+            DispatchQueue.main.async { pushCurrentState() }
+        }
         func sessionDidDeactivate(_ session: WCSession) { session.activate() }
 
         /// A mutation relayed from the watch. Applied independently of ContentView — same

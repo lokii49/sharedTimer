@@ -85,3 +85,19 @@ struct SpokenCueTests {
         #expect(!SpokenCuePreference.isOn(for: first, defaults: defaults))
     }
 }
+
+import AVFoundation
+
+extension SpokenCueTests {
+    /// Every app language code resolves to a voice of that language (where one is
+    /// installed) — "zh-Hans" isn't a locale code, but the system maps it to zh-CN.
+    @Test func everyAppLanguageResolvesToAVoiceOfThatLanguage() {
+        let voices = AVSpeechSynthesisVoice.speechVoices()
+        for code in ["en", "zh-Hans", "hi", "es", "ar", "fr", "bn", "pt-BR", "ru", "id"] {
+            let language = Locale(identifier: code).language.languageCode?.identifier ?? code
+            guard voices.contains(where: { Locale(identifier: $0.language).language.languageCode?.identifier == language }) else { continue }
+            let voice = AVSpeechSynthesisVoice(language: code)
+            #expect(voice.map { Locale(identifier: $0.language).language.languageCode?.identifier } == language, "\(code)")
+        }
+    }
+}

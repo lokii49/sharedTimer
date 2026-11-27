@@ -126,6 +126,8 @@ final class SpokenCuePlayer: NSObject, AVSpeechSynthesizerDelegate {
         activate { [self] in
             if let text = cue.text {
                 let utterance = AVSpeechUtterance(string: text)
+                // App language codes ("zh-Hans", "pt-BR") resolve to a voice of that
+                // language — checked on simulator and iPhone (test below pins it).
                 utterance.voice = AVSpeechSynthesisVoice(language: Bundle.main.preferredLocalizations.first ?? Locale.current.identifier)
                 synthesizer.speak(utterance)
             } else {
