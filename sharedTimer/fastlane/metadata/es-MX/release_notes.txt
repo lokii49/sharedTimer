@@ -2,6 +2,6 @@
 • Siguiente, Semana siguiente y los demás botones de una alarma a pantalla completa ahora la cierran al instante.
 • Widgets al día: los finales y las nuevas fases aparecen justo a tiempo, al tocar un widget o una actividad en directo se abre su temporizador, hay un widget de una línea para la pantalla bloqueada y un aspecto más claro en pantallas de inicio con tinte, en StandBy de noche y en el tamaño extragrande del iPad.
 • ✕ en una cuenta atrás que se repite ahora salta a la siguiente en lugar de terminar la serie.
-• Mensajes: un temporizador abierto sigue cada cambio, las cuentas atrás que se repiten tienen Semana siguiente y volver a compartir sustituye la tarjeta anterior.
+• Mensajes: un temporizador abierto sigue cada cambio y las cuentas atrás que se repiten tienen Semana siguiente.
 • Un nuevo botón de candado mantiene la pantalla encendida mientras miras.
 • Y muchas correcciones más.

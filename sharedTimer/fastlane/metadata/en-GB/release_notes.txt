@@ -2,6 +2,6 @@
 • Next, Next Week and the other buttons on a full-screen alarm now dismiss it straight away.
 • Widgets keep up: finishes and new phases show right on time, tapping a widget or Live Activity opens its timer, there's a one-line Lock Screen widget, and a clearer look on tinted Home Screens, in StandBy at night and in the iPad's extra-large size.
 • ✕ on a repeating countdown now skips to the next one instead of ending the series.
-• Messages: an open timer follows every change, repeating countdowns get Next Week, and sharing again replaces the older card.
+• Messages: an open timer follows every change, and repeating countdowns get Next Week.
 • A new lock button keeps the screen on while you watch.
 • Plus many smaller fixes.

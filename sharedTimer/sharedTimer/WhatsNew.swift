@@ -64,7 +64,7 @@ enum WhatsNew {
         Feature(id: 0, title: String(localized: "Widgets that keep up"),
                 body: String(localized: "Finishes and next phases show right on time, a tap opens the timer, and there's a one-line Lock Screen widget and a look for tinted Home Screens.")),
         Feature(id: 1, title: String(localized: "More in Messages"),
-                body: String(localized: "An open timer follows every change, a repeating countdown skips ahead with Next Week, and sharing again replaces the old card.")),
+                body: String(localized: "An open timer follows every change, and a repeating countdown skips ahead with Next Week.")),
         Feature(id: 2, title: String(localized: "Keep the screen on"),
                 body: String(localized: "A new lock button keeps the screen awake while you watch, and says so.")),
         Feature(id: 3, title: String(localized: "Alarms that listen"),
@@ -286,31 +286,26 @@ private struct WidgetScene: View {
     }
 }
 
-/// An older card folding into its summary as the new one arrives, then "Next Week".
+/// An open timer following a change made elsewhere (it pauses), then "Next Week" on a
+/// repeating countdown. (No "re-share collapses the old card": checked on device
+/// 2026-11-27, Messages keeps both cards.)
 private struct MessagesScene: View {
     let t: Double
 
     var body: some View {
-        let arrived = ramp(t, 0.15, 0.4)
+        let paused = ramp(t, 0.15, 0.3)
         VStack(alignment: .trailing, spacing: 8) {
-            // The earlier card: collapses to its one-line summary.
-            Group {
-                if arrived < 1 {
-                    card(caption: "6 min timer", height: 70 - 40 * arrived)
-                        .opacity(1 - 0.4 * arrived)
-                } else {
-                    Text(verbatim: "Shared timer: Gym").font(.caption2).opacity(0.7)
-                        .padding(.horizontal, 10).padding(.vertical, 6)
-                        .background(.white.opacity(0.12), in: Capsule())
-                }
+            ZStack(alignment: .topLeading) {
+                card(caption: "6:00 left", height: 70).opacity(1 - paused)
+                card(caption: "Paused · 4:12 left", height: 70).opacity(paused)
             }
             card(caption: "every week, next Sat", height: 70)
-                .offset(y: 30 * (1 - arrived))
-                .opacity(arrived)
+                .offset(y: 30 * (1 - ramp(t, 0.35, 0.5)))
+                .opacity(ramp(t, 0.35, 0.5))
             Text("Next Week").font(.caption.weight(.semibold))
                 .padding(.horizontal, 14).padding(.vertical, 7)
                 .glassEffect(.regular, in: Capsule())
-                .opacity(ramp(t, 0.5, 0.65))
+                .opacity(ramp(t, 0.55, 0.7))
         }
         .frame(width: 230, alignment: .trailing)
     }

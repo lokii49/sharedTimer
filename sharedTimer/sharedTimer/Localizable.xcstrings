@@ -4855,60 +4855,60 @@
         }
       }
     },
-    "An open timer follows every change, a repeating countdown skips ahead with Next Week, and sharing again replaces the old card.": {
+    "An open timer follows every change, and a repeating countdown skips ahead with Next Week.": {
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "المؤقت المفتوح يتابع كل تغيير، والعد التنازلي المتكرر يتقدّم بزر «الأسبوع التالي»، والمشاركة مجددًا تستبدل البطاقة القديمة."
+            "value": "المؤقت المفتوح يتابع كل تغيير، والعد التنازلي المتكرر يتقدّم بزر «الأسبوع التالي»."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "খোলা টাইমার প্রতিটি পরিবর্তন অনুসরণ করে, পুনরাবৃত্ত কাউন্টডাউন \"পরের সপ্তাহ\" দিয়ে এগিয়ে যায়, আর আবার শেয়ার করলে পুরোনো কার্ড বদলে যায়।"
+            "value": "খোলা টাইমার প্রতিটি পরিবর্তন অনুসরণ করে, আর পুনরাবৃত্ত কাউন্টডাউন \"পরের সপ্তাহ\" দিয়ে এগিয়ে যায়।"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un temporizador abierto sigue cada cambio, una cuenta atrás que se repite avanza con Semana siguiente y volver a compartir sustituye la tarjeta anterior."
+            "value": "Un temporizador abierto sigue cada cambio, y una cuenta atrás que se repite avanza con Semana siguiente."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un minuteur ouvert suit chaque changement, un compte à rebours récurrent avance avec Semaine suivante, et partager à nouveau remplace l’ancienne carte."
+            "value": "Un minuteur ouvert suit chaque changement, et un compte à rebours récurrent avance avec Semaine suivante."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "खुला टाइमर हर बदलाव के साथ चलता है, दोहराने वाला काउंटडाउन \"अगला सप्ताह\" से आगे बढ़ता है, और दोबारा शेयर करने पर पुराना कार्ड बदल जाता है।"
+            "value": "खुला टाइमर हर बदलाव के साथ चलता है, और दोहराने वाला काउंटडाउन \"अगला सप्ताह\" से आगे बढ़ता है।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Timer yang terbuka mengikuti setiap perubahan, hitung mundur berulang bisa maju dengan Minggu Berikutnya, dan berbagi lagi menggantikan kartu lama."
+            "value": "Timer yang terbuka mengikuti setiap perubahan, dan hitung mundur berulang bisa maju dengan Minggu Berikutnya."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Um timer aberto acompanha cada mudança, uma contagem regressiva repetida avança com Próxima Semana e compartilhar de novo substitui o cartão antigo."
+            "value": "Um timer aberto acompanha cada mudança, e uma contagem regressiva repetida avança com Próxima Semana."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Открытый таймер следит за каждым изменением, повторяющийся отсчёт переходит вперёд кнопкой «Следующая неделя», а повторная отправка заменяет старую карточку."
+            "value": "Открытый таймер следит за каждым изменением, а повторяющийся отсчёт переходит вперёд кнопкой «Следующая неделя»."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开的计时器会跟随每次更改，重复倒计时可用“下一周”跳到下一次，再次分享会替换旧卡片。"
+            "value": "打开的计时器会跟随每次更改，重复倒计时可用“下一周”跳到下一次。"
           }
         }
       }
