@@ -914,6 +914,32 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
+    /// Slots alternate, so every second daily occurrence is current in slot 1 with the
+    /// next one in slot 0. Extending it used to take slot 0 — tomorrow's — and leave
+    /// tomorrow with neither an alarm nor a notification.
+    @Test func extendingADailyRepeatKeepsTheNextOccurrenceArmed() async {
+        let first = TimerPayload.composeAnnual(label: "Daily extend device test", targetDate: Date().addingTimeInterval(2 * 3600),
+                                               timeZone: .gmt, frequency: .daily)
+        created.append(first)
+        await AlarmController.rescheduleAwaiting(for: first)          // d1 → slot 0, d2 → slot 1
+        let dates = first.upcomingAnnualDates()
+        #expect(dates.count == 2)
+        var second = first
+        second.endDate = dates[1]                                     // d1 has passed
+        await AlarmController.rescheduleAwaiting(for: second)         // d2 stays, d3 → slot 0
+        let next = second.upcomingAnnualDates()
+        #expect(next.count == 2)
+        let extended = second.extended(by: 300)
+        await AlarmController.rescheduleAwaiting(for: extended)
+        let fixed = alarmsByID().values.compactMap { alarm -> Date? in
+            guard case .fixed(let date)? = alarm.schedule else { return nil }
+            return date
+        }
+        #expect(fixed.contains { abs($0.timeIntervalSince(extended.endDate)) < 1 }, "the extended occurrence is armed")
+        #expect(fixed.contains { abs($0.timeIntervalSince(next[1])) < 1 }, "the following day is still armed")
+        await tearDown()
+    }
+
     @Test func quietAnnualCountdownPrearmsBothNotificationDates() async {
         let payload = TimerPayload.composeAnnual(label: "Quiet annual device test", targetDate: Date().addingTimeInterval(3600),
                                                   timeZone: .gmt, alarmEnabled: false, vibrationEnabled: false)

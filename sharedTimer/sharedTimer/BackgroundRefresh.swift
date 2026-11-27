@@ -37,7 +37,7 @@ enum BackgroundRefresh {
     /// Asks for the next run; only worth it while a sequence or yearly countdown exists,
     /// or a quiet timer's custom Live Activity shows a coarse "1d 6h" that goes stale.
     static func schedule() {
-        guard TimerStore.loadAll().contains(where: { needsRefill($0) || needsCardRefresh($0) }) else {
+        guard wantsRuns(for: TimerStore.loadAll()) else {
             BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
             return
         }
@@ -50,16 +50,31 @@ enum BackgroundRefresh {
         }
     }
 
-    private static func needsRefill(_ payload: TimerPayload) -> Bool {
-        (payload.sequence != nil || payload.recurrence != nil) && !payload.isPaused && !payload.isFinished
+    /// Projected first: a stored copy whose phase or occurrence already ended reads as
+    /// finished (`remaining` 0) although the sequence or repeat carries on — testing the
+    /// raw copy cancelled the next request on the first run past a boundary, so a long
+    /// sequence or a daily repeat got one refill and then none.
+    static func wantsRuns(for payloads: [TimerPayload], at date: Date = Date()) -> Bool {
+        payloads.contains { stored in
+            let current = stored.advancedSequence(at: date)
+            return needsRefill(current, at: date) || needsCardRefresh(current, at: date)
+        }
+    }
+
+    private static func timeLeft(_ payload: TimerPayload, at date: Date) -> TimeInterval {
+        max(0, payload.pausedRemaining ?? payload.endDate.timeIntervalSince(date))
+    }
+
+    private static func needsRefill(_ payload: TimerPayload, at date: Date = Date()) -> Bool {
+        (payload.sequence != nil || payload.recurrence != nil) && !payload.isPaused && timeLeft(payload, at: date) > 0
     }
 
     /// A quiet (custom Live Activity) timer about a day or more out: its card shows a static
     /// day/hour figure and only redraws on an update, so a background run refreshes it.
-    private static func needsCardRefresh(_ payload: TimerPayload) -> Bool {
+    private static func needsCardRefresh(_ payload: TimerPayload, at date: Date = Date()) -> Bool {
         // Down to 18h, not 24h: the redraw that swaps "1d" for the live count has to
         // happen after it crosses the day, not just before.
-        !payload.isPaused && payload.remaining > 18 * 3600 && !AlarmController.ownsAlert(for: payload)
+        !payload.isPaused && timeLeft(payload, at: date) > 18 * 3600 && !AlarmController.ownsAlert(for: payload)
     }
 
     @MainActor

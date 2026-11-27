@@ -118,29 +118,47 @@ struct TimerComposeView: View {
             kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
     }
 
-    private func existingRow(_ timer: TimerPayload) -> some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Sky.gradient(for: timer))
-                .frame(width: 30, height: 30)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(timer.label)
-                    .font(.body)
-                    .lineLimit(1)
-                Text(timer.isPaused
-                     ? String(localized: "Paused")
-                     : (timer.kind == .countdown
-                        ? TimeFormat.targetDate(timer.endDate)
-                        : String(localized: "Ends \(timer.endDate.formatted(date: .omitted, time: .shortened))")))
+    /// Ticks every second (it used to show the time left when the sheet opened), follows
+    /// a sequence into its next phase, and gives a scheduled sequence its start time —
+    /// not "Ends" with phase 0's end and a countdown through the wait.
+    private func existingRow(_ stored: TimerPayload) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let timer = stored.advancedSequence(at: context.date)
+            let start = timer.isPending(at: context.date) ? timer.scheduledStartDate : nil
+            let left = timer.pausedRemaining ?? max(0, timer.endDate.timeIntervalSince(context.date))
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Sky.gradient(for: timer))
+                    .frame(width: 30, height: 30)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(timer.label)
+                        .font(.body)
+                        .lineLimit(1)
+                    Group {
+                        if let start {
+                            Text(Sky.pendingStartText(for: start, at: context.date))
+                        } else if timer.isPaused {
+                            Text("Paused")
+                        } else if timer.kind == .countdown {
+                            Text(TimeFormat.targetDate(timer.endDate))
+                        } else {
+                            Text("Ends \(timer.endDate.formatted(date: .omitted, time: .shortened))")
+                        }
+                    }
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                }
+                Spacer()
+                // A scheduled sequence shows its start time, never a countdown to it
+                // (the pending state's rule, see CLAUDE.md).
+                if start == nil {
+                    Text(TimeFormat.display(left))
+                        .font(.body.weight(.medium))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
             }
-            Spacer()
-            Text(TimeFormat.display(timer.remaining))
-                .font(.body.weight(.medium))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+            .contentShape(Rectangle())
         }
-        .contentShape(Rectangle())
     }
 }

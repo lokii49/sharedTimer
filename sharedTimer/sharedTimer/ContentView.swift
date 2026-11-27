@@ -33,6 +33,9 @@ struct ContentView: View {
     /// without leaving again, the declined timer appeared on the next pull anyway.
     @State private var declinedShareIDs: Set<String> = []
     @State private var lastOfferedShareID: String?
+    /// The offered timer the person tapped Add for — anything else offered was declined,
+    /// even when a pull already stored it while the sheet was up.
+    @State private var addedOfferID: String?
     /// The last removed timer, for the Undo toast (local timers and ones shared with
     /// this phone; "Delete for Everyone" has its own confirmation instead).
     @State private var undoableDeletion: TimerPayload?
@@ -290,7 +293,7 @@ struct ContentView: View {
                 AddSharedTimerSheet(
                     payload: payload,
                     onAdd: { accepted in
-                        apply(accepted.advancedSequence())
+                        addOffered(accepted)
                         incomingPayload = nil
                     },
                     onDismiss: { incomingPayload = nil }
@@ -341,11 +344,16 @@ struct ContentView: View {
         }
         .tint(.white)
         .overlay(alignment: .bottom) {
-            if alarm.isPlaying || vibration.isVibrating {
-                alarmBanner
-            } else if let deleted = undoableDeletion {
-                undoToast(for: deleted)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            // Both at once: a timer ringing within the 5 s used to replace the toast, and
+            // its Undo ran out unseen.
+            VStack(spacing: 0) {
+                if let deleted = undoableDeletion {
+                    undoToast(for: deleted)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                if alarm.isPlaying || vibration.isVibrating {
+                    alarmBanner
+                }
             }
         }
         .animation(.easeOut(duration: 0.2), value: undoableDeletion?.id)
@@ -733,6 +741,8 @@ struct ContentView: View {
             card
                 .contentShape(Rectangle())
                 .onTapGesture { navigationPath = [payload.id] }
+                // VoiceOver hears which timer the detail column shows, not just sighted users.
+                .accessibilityAddTraits(navigationPath.last == payload.id ? .isSelected : [])
                 .overlay {
                     if navigationPath.last == payload.id {
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -905,8 +915,9 @@ struct ContentView: View {
         }
     }
 
-    private func delete(_ payload: TimerPayload) {
-        let link = CloudLinkStore.get(timerID: payload.id)
+    /// Everything on this device for a timer — store, alerts, card, row — without
+    /// touching its CloudLink or the record.
+    private func removeLocally(_ payload: TimerPayload) {
         stopInAppAlertIfRinging(for: payload.id)
         TimerStore.delete(id: payload.id)
         TimerReminders.cancel(id: payload.id)
@@ -916,6 +927,11 @@ struct ContentView: View {
         timers.removeAll { $0.id == payload.id }
         // iPad: don't leave the detail column on a deleted timer.
         navigationPath.removeAll { $0 == payload.id }
+    }
+
+    private func delete(_ payload: TimerPayload) {
+        let link = CloudLinkStore.get(timerID: payload.id)
+        removeLocally(payload)
         if let link, link.isOwner, link.isShared {
             // Already confirmed in a dialog, and it reaches everyone — no Undo.
             CloudSyncController.pushDelete(id: payload.id)
@@ -1077,14 +1093,14 @@ struct ContentView: View {
 
     /// `rearm: false` only for the foreground tick's sequence advance while AlarmKit is
     /// presenting the just-finished phase's alert — see checkForNewlyExpired.
-    private func apply(_ updated: TimerPayload, action: String = "updated", rearm: Bool = true) {
+    private func apply(_ updated: TimerPayload, action: String = "updated", rearm: Bool = true, push: Bool = true) {
         TimerStore.save(updated)
         if rearm {
             armAlerts(for: updated)
         }
         // Advancing by the clock is a projection of the same shared schedule, not
         // a user mutation. Pushing it could overwrite a remote pause/step/extend.
-        if action != "sequenceAdvanced" { CloudSyncController.pushUp(updated, action: action) }
+        if push, action != "sequenceAdvanced" { CloudSyncController.pushUp(updated, action: action) }
         WatchSyncController.pushCurrentState()
         if let index = timers.firstIndex(where: { $0.id == updated.id }) {
             timers[index] = updated
@@ -1146,16 +1162,41 @@ struct ContentView: View {
     /// "Remove from My Timers" does (`pushDelete` on a participant link only marks it
     /// left and drops the CloudLink — it never touches the shared record).
     private func leaveDeclinedShares() {
-        let stored = Set(TimerStore.loadAll().map(\.id))
-        if let offered = incomingPayload?.id ?? lastOfferedShareID, !stored.contains(offered) {
-            declinedShareIDs.insert(offered)
+        // A real dismissal (Add, Not Now, swipe) has already cleared `incomingPayload`.
+        // Still set means a second link replaced the sheet, or an accept callback called
+        // in: the offer on screen isn't decided yet.
+        if incomingPayload == nil {
+            if let offered = lastOfferedShareID, offered != addedOfferID { declinedShareIDs.insert(offered) }
+            lastOfferedShareID = nil
+            addedOfferID = nil
         }
-        lastOfferedShareID = nil
-        for id in declinedShareIDs where !stored.contains(id) {
-            if let link = CloudLinkStore.get(timerID: id), !link.isOwner {
-                CloudSyncController.pushDelete(id: id)
-            }
+        let stored = TimerStore.loadAll()
+        for id in declinedShareIDs where id != incomingPayload?.id {
+            // No link yet: the accept is still in flight and calls back in here when it
+            // lands. An owner link: the sender's own timer — nothing to leave.
+            guard let link = CloudLinkStore.get(timerID: id), !link.isOwner else { continue }
+            // The accept links the share before the person decides, so a pull while the
+            // sheet was up (foreground, or the share's own push) may have stored and armed
+            // it — "stored" doesn't mean added.
+            if let copy = stored.first(where: { $0.id == id }) { removeLocally(copy) }
+            CloudSyncController.pushDelete(id: id)
+            declinedShareIDs.remove(id)
         }
+    }
+
+    /// Add on the confirmation sheet. A live share's record is authoritative and the
+    /// sheet's copy is from the moment it was accepted: pushing it would roll back a
+    /// change made since (and tell every participant "updated") — save the newest copy
+    /// here instead. A plain link's snapshot goes through `apply` as before (with Sync
+    /// with iCloud on, that uploads it as this person's own timer).
+    private func addOffered(_ accepted: TimerPayload) {
+        addedOfferID = accepted.id
+        guard CloudLinkStore.get(timerID: accepted.id) != nil else {
+            apply(accepted.advancedSequence())
+            return
+        }
+        let newest = TimerStore.loadAll().first(where: { $0.id == accepted.id }) ?? accepted
+        apply(newest.advancedSequence(), action: "added", push: false)
     }
 
     /// Universal link / App Clip handoff into the full app. A timer already in the local
@@ -1182,6 +1223,9 @@ struct ContentView: View {
                 apply(parsed, action: "updatedFromLink")
             }
         } else {
+            // A second link while the sheet still offers the first: the first is declined
+            // (its accept may already have joined the share).
+            if let shown = incomingPayload, shown.id != parsed.id { declinedShareIDs.insert(shown.id) }
             incomingPayload = parsed
             lastOfferedShareID = parsed.id
         }

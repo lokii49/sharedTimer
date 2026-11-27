@@ -40,6 +40,34 @@ final class WatchSyncController: NSObject, ObservableObject, WCSessionDelegate {
     /// applied change from one that didn't (a late reply error undid a real +1:00).
     private(set) var contextGeneration = 0
 
+    /// Per timer while taps await the phone: what to fall back to (the state before the
+    /// first unacknowledged tap, moved forward as the phone acknowledges each) and the
+    /// newest tap's optimistic state. Rolling a failed tap back to its own `before` was
+    /// wrong once a second tap followed: Pause then Resume, both failing, ended on the
+    /// first tap's "paused" while the phone was still running.
+    private var inFlight: [String: (fallback: TimerPayload, latest: TimerPayload, count: Int)] = [:]
+
+    func noteSent(id: String, before: TimerPayload, optimistic: TimerPayload) {
+        if var entry = inFlight[id] {
+            entry.latest = optimistic
+            entry.count += 1
+            inFlight[id] = entry
+        } else {
+            inFlight[id] = (before, optimistic, 1)
+        }
+    }
+
+    func noteAcknowledged(id: String, optimistic: TimerPayload) {
+        inFlight[id]?.fallback = optimistic
+        settle(id)
+    }
+
+    private func settle(_ id: String) {
+        guard var entry = inFlight[id] else { return }
+        entry.count -= 1
+        inFlight[id] = entry.count > 0 ? entry : nil
+    }
+
     func activate() {
         guard WCSession.isSupported() else { return }
         activationFailed = false
@@ -84,10 +112,14 @@ final class WatchSyncController: NSObject, ObservableObject, WCSessionDelegate {
         // was nil. A real closure here selects the matching selector.
         let optimistic = timers[index]
         let generation = contextGeneration
+        noteSent(id: id, before: before, optimistic: optimistic)
         WCSession.default.sendMessage(["id": id, "op": op], replyHandler: { [weak self] reply in
             // The phone rejected it (finished, scheduled, gone): undo. It also pushes
             // its real state, which lands separately.
-            guard reply["ok"] as? Bool == false else { return }
+            guard reply["ok"] as? Bool == false else {
+                Task { @MainActor in self?.noteAcknowledged(id: id, optimistic: optimistic) }
+                return
+            }
             Task { @MainActor in self?.rollBack(id: id, to: before, ifStill: optimistic, sentAt: generation) }
         }) { [weak self] error in
             print("WatchSync: sendMessage(\(op)) failed: \(error)")
@@ -97,12 +129,17 @@ final class WatchSyncController: NSObject, ObservableObject, WCSessionDelegate {
 
     /// Restores `before` only while no phone context arrived since the tap was sent and
     /// the timer still shows this tap's optimistic state — a newer phone state wins.
+    /// With later taps in flight, "this tap's state" is the newest tap's, and the state
+    /// to restore is the last one the phone acknowledged (see `inFlight`).
     func rollBack(id: String, to before: TimerPayload, ifStill optimistic: TimerPayload, sentAt generation: Int) {
+        let target = inFlight[id]?.fallback ?? before
+        let shown = inFlight[id]?.latest ?? optimistic
+        defer { settle(id) }
         guard generation == contextGeneration,
               let i = timers.firstIndex(where: { $0.id == id }),
-              timers[i].endDate == optimistic.endDate,
-              timers[i].pausedRemaining == optimistic.pausedRemaining else { return }
-        timers[i] = before
+              timers[i].endDate == shown.endDate,
+              timers[i].pausedRemaining == shown.pausedRemaining else { return }
+        timers[i] = target
         persistSnapshot()
     }
 

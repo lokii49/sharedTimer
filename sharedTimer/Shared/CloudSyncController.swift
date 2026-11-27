@@ -30,6 +30,7 @@
 
 import CloudKit
 import Foundation
+import os
 
 enum CloudSyncController {
     private static let appGroupID = "group.com.lokesh.sharedTimer"
@@ -470,6 +471,12 @@ enum CloudSyncController {
         }
     }
 
+    #if DEBUG
+    /// Conflicts that went through `merged` in this process — the two-device clash test
+    /// reads it to tell a real merge from two saves that simply didn't overlap.
+    static let conflictMerges = OSAllocatedUnfairLock(initialState: 0)
+    #endif
+
     private static func save(_ record: CKRecord, to database: CKDatabase, retryOnConflict: Bool, completion: @escaping () -> Void) {
         let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
         // `.changedKeys` never compares change tags, so it never reported a conflict
@@ -492,6 +499,9 @@ enum CloudSyncController {
                 completion()
                 return
             }
+            #if DEBUG
+            conflictMerges.withLock { $0 += 1 }
+            #endif
             let merged = merged(client: record, ancestor: conflict.ancestorRecord, server: serverRecord)
             save(merged, to: database, retryOnConflict: false, completion: completion)
         }
@@ -500,16 +510,40 @@ enum CloudSyncController {
 
     /// Three-way merge for a write conflict: only the keys this device changed since
     /// its fetch (`ancestor`) go onto the server's newer record, so a concurrent change
-    /// to another field (their extend, our pause) survives. A key cleared to nil counts
+    /// to another field (their rename, our pause) survives. A key cleared to nil counts
     /// as changed. Without an ancestor every local key wins, as before.
+    ///
+    /// The timing keys are one state, not independent fields: `paused()` derives
+    /// `pausedRemaining` from `endDate`, `resumed()` rewrites `endDate` and clears it. If
+    /// this device changed any of them, all of them go together — merging them one by one
+    /// produced states nobody made (a Resume racing its own Pause landed as "paused" for
+    /// everyone, because only `endDate` differed from the pre-pause ancestor). And when
+    /// the server's `updatedAt` is newer than this push's, the server's timing wins.
+    static let timingKeys: Set<String> = ["endDate", "pausedRemaining", "duration", "scheduledStartDate",
+                                          "sequenceData", "recurrenceData", "repeatRuleData"]
+
     static func merged(client: CKRecord, ancestor: CKRecord?, server: CKRecord) -> CKRecord {
-        let keys = Set(client.allKeys()).union(client.changedKeys()).union(ancestor?.allKeys() ?? [])
+        let keys = Set(client.allKeys()).union(client.changedKeys()).union(ancestor?.allKeys() ?? []).union(timingKeys)
+        func changed(_ key: String) -> Bool {
+            guard let ancestor else { return true }
+            return client[key] as? NSObject != ancestor[key] as? NSObject
+        }
+        // The server already holds a newer user change (`updatedAt` is stamped by every
+        // pause/resume/extend/edit): its timing state and stamp stay. Without this the
+        // order of two racing saves decided the outcome — a Pause landing after its own
+        // Resume put the timer back to paused for everyone.
+        let serverIsNewer: Bool = {
+            guard let mine = client["updatedAt"] as? Date, let theirs = server["updatedAt"] as? Date else { return false }
+            return theirs > mine
+        }()
+        let timingChanged = !serverIsNewer && timingKeys.contains(where: changed)
         for key in keys {
-            if let ancestor {
-                let mine = client[key] as? NSObject
-                let base = ancestor[key] as? NSObject
-                guard mine != base else { continue }
-            }
+            // …and so does its "who did what": the banner must name the change that won.
+            if serverIsNewer && (key == "updatedAt" || key == "lastActorName" || key == "lastAction") { continue }
+            let isTiming = timingKeys.contains(key)
+            guard isTiming ? timingChanged : changed(key) else { continue }
+            // A timing key neither copy ever had stays absent rather than being written as nil.
+            if isTiming, client[key] == nil, server[key] == nil { continue }
             server[key] = client[key]
         }
         return server
@@ -583,6 +617,13 @@ enum CloudSyncController {
         guard let link, link.isOwner, let shareName, link.shareRecordName != shareName else { return nil }
         return CloudLink(timerID: link.timerID, recordName: link.recordName, zoneName: link.zoneName,
                          zoneOwnerName: link.zoneOwnerName, isOwner: true, shareRecordName: shareName)
+    }
+
+    /// The link for a shared-database record this device has no link for (joined on
+    /// another device of the same iCloud account).
+    static func participantLink(timerID: String, recordID: CKRecord.ID, shareRecordName: String?) -> CloudLink {
+        CloudLink(timerID: timerID, recordName: recordID.recordName, zoneName: recordID.zoneID.zoneName,
+                  zoneOwnerName: recordID.zoneID.ownerName, isOwner: false, shareRecordName: shareRecordName)
     }
 
     /// A private-zone record for a timer this device joined as a participant is a
@@ -914,6 +955,18 @@ enum CloudSyncController {
                                                          zoneOwnerName: recordID.zoneID.ownerName, isOwner: true,
                                                          shareRecordName: record.share?.recordID.recordName))
                         }
+                    }
+                    // A share accepted on another of this person's devices: accepted shares
+                    // belong to the iCloud account, so it shows up in this device's shared
+                    // database with no link here. Link it as the participant it is — never
+                    // store it unlinked, where Delete wouldn't mark it left (the owner's next
+                    // change brought it back), changes never reached the share, and a
+                    // view-only share was editable. A peek leaves that to the app's pull.
+                    if database === container.sharedCloudDatabase, CloudLinkStore.get(timerID: payload.id) == nil {
+                        guard !peek, !CloudLinkStore.hasLeft(timerID: payload.id) else { return }
+                        CloudLinkStore.set(participantLink(timerID: payload.id, recordID: recordID,
+                                                           shareRecordName: record.share?.recordID.recordName))
+                        refreshPermissions(for: [payload.id])
                     }
                     updated.append(payload)
                 } else {

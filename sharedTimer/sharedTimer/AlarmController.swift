@@ -189,7 +189,7 @@ enum AlarmController {
 
         guard ownsAlert(for: payload) else {
             // Both toggles off: a quiet notification, never AlarmKit.
-            NotificationScheduler.scheduleAlert(for: payload)
+            await NotificationScheduler.scheduleAlertAwaiting(for: payload)
             return
         }
         if await scheduleAlarm(for: payload, id: alarmID(for: payload.id)) == .scheduled {
@@ -199,7 +199,7 @@ enum AlarmController {
             // a weaker alarm (one-shot, obeys the silent switch) but beats
             // finishing a timer in silence — same philosophy as
             // NotificationScheduler's own denial fallback.
-            NotificationScheduler.scheduleAlert(for: payload)
+            await NotificationScheduler.scheduleAlertAwaiting(for: payload)
         }
     }
 
@@ -217,6 +217,35 @@ enum AlarmController {
         return ids
     }
     private static let annualIDCache = OSAllocatedUnfairLock<[String: Set<UUID>]>(initialState: [:])
+
+    /// What planning needs to know about an existing annual-slot alarm: the fixed date it
+    /// can be kept for (nil when it can't be kept: no fixed date, a countdown, a stale
+    /// presentation), and whether it is ringing.
+    struct AnnualSlot { var keptDate: Date?; var isAlerting: Bool }
+
+    /// Which slot each upcoming date goes in. Dates already armed keep their slot first;
+    /// only then do the rest take a free one. Deciding date by date gave a moved date the
+    /// slot still holding the *next* date's alarm — then both dates claimed it, the next
+    /// one counted as covered from the stale snapshot, and an extended daily repeat lost
+    /// tomorrow's alarm and its notification. Pure, so it's unit-tested without AlarmKit.
+    static func planAnnualSlots(dates: [Date], existing: [UUID: AnnualSlot], slots: (Date) -> [UUID]) -> [(Date, UUID)] {
+        var planned: [(Date, UUID)] = []
+        var unmatched: [Date] = []
+        func taken(_ id: UUID) -> Bool { planned.contains(where: { $0.1 == id }) }
+        for end in dates {
+            let kept = slots(end).first { id in
+                guard !taken(id), let date = existing[id]?.keptDate else { return false }
+                return abs(date.timeIntervalSince(end)) < 1
+            }
+            if let kept { planned.append((end, kept)) } else { unmatched.append(end) }
+        }
+        for end in unmatched {
+            if let free = slots(end).first(where: { !taken($0) && existing[$0]?.isAlerting != true }) {
+                planned.append((end, free))
+            }
+        }
+        return planned
+    }
     private static func performAnnualReschedule(for payload: TimerPayload) async {
         guard let recurrence = payload.recurrence else { return }
         let current = payload.advancedRecurrence()
@@ -224,15 +253,13 @@ enum AlarmController {
         // before the edit — otherwise it kept ringing next to the quiet notification.
         let dates = ownsAlert(for: current) ? current.upcomingAnnualDates(limit: annualWindow) : []
         let existing = Dictionary(((try? AlarmManager.shared.alarms) ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        var planned: [(Date, UUID)] = []
-        for end in dates {
-            let ids = (0...1).map { annualAlarmID(timerID: current.id, year: recurrence.year(of: end), slot: $0) }
-            let matching = ids.first { id in
-                guard let alarm = existing[id], case .fixed(let fixed)? = alarm.schedule else { return false }
-                return abs(fixed.timeIntervalSince(end)) < 1 && alarm.countdownDuration == nil && signatureMatches(current, for: id)
-            }
-            let available = ids.first { id in !planned.contains(where: { $0.1 == id }) && existing[id]?.state != .alerting }
-            if let id = matching ?? available { planned.append((end, id)) }
+        let slots = existing.mapValues { alarm -> AnnualSlot in
+            var fixed: Date?
+            if case .fixed(let date)? = alarm.schedule, alarm.countdownDuration == nil, signatureMatches(current, for: alarm.id) { fixed = date }
+            return AnnualSlot(keptDate: fixed, isAlerting: alarm.state == .alerting)
+        }
+        let planned = planAnnualSlots(dates: dates, existing: slots) { end in
+            (0...1).map { annualAlarmID(timerID: current.id, year: recurrence.year(of: end), slot: $0) }
         }
         let wanted = Set(planned.map { $0.1 })
         var candidates = annualIDs(timerID: current.id)
@@ -255,7 +282,7 @@ enum AlarmController {
             if await scheduleAlarm(for: occurrence, id: id, fixedAt: end) == .scheduled { covered.insert(end) }
         }
         TimerStore.setAlarmKitArmed(id: current.id, !covered.isEmpty)
-        NotificationScheduler.scheduleAlert(for: current, excludingAnnualDates: covered)
+        await NotificationScheduler.scheduleAlertAwaiting(for: current, excludingAnnualDates: covered)
     }
 
     // MARK: - Sequence pre-armed window
@@ -362,7 +389,7 @@ enum AlarmController {
         if !window.isEmpty {
             // Pre-arm notifications only for phases AlarmKit did not cover. This
             // includes quiet phases and scheduling failures, without double alerts.
-            NotificationScheduler.scheduleAlert(for: payload, excludingSequenceIndices: covered)
+            await NotificationScheduler.scheduleAlertAwaiting(for: payload, excludingSequenceIndices: covered)
         }
     }
 
@@ -491,8 +518,10 @@ enum AlarmController {
     }
 
     /// True when `alarm` is already the pre-armed `.fixed` alarm for this occurrence.
+    /// Never a paused one: this only runs for a running sequence, and a phase paused in
+    /// place then resumed within 1 s kept its paused alarm — the phase never rang.
     private static func matchesPrearmed(_ alarm: Alarm, endDate: Date, duration: TimeInterval) -> Bool {
-        guard case .fixed(let date)? = alarm.schedule,
+        guard alarm.state != .paused, case .fixed(let date)? = alarm.schedule,
               abs(date.timeIntervalSince(endDate)) < 1,
               let preAlert = alarm.countdownDuration?.preAlert,
               abs(preAlert - duration) < 1 else { return false }

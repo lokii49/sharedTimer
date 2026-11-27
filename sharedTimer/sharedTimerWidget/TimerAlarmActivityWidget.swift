@@ -42,10 +42,13 @@ struct TimerAlarmActivityWidget: Widget {
                         .monospacedDigit()
                     Spacer(minLength: 8)
                     alarmControls(context)
+                        .environment(\.liveControlInk, .primary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
+            // Tapping the card opens that timer's details.
+            .widgetURL(context.attributes.metadata.map { TimerAppLink.url(for: $0.timerID) })
             } small: {
                 SmallActivityTile(label: context.attributes.metadata?.label ?? String(localized: "Timer"),
                                   symbol: kind.symbolName, sky: alarmSky(context.state)) {
@@ -94,6 +97,7 @@ struct TimerAlarmActivityWidget: Widget {
                     .foregroundStyle(kind.accentColor)
             }
             .keylineTint(kind.accentColor)
+            .widgetURL(context.attributes.metadata.map { TimerAppLink.url(for: $0.timerID) })
         }
         // Apple Watch Smart Stack and CarPlay (SmallActivityTile).
         .supplementalActivityFamilies([.small])

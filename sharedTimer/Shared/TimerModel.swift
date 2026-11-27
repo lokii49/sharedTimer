@@ -331,7 +331,7 @@ struct TimerPayload: Codable, Identifiable {
             let start = min(endDate.addingTimeInterval(-span), date)
             var end = max(targetDate, date)
             if let recurrence {
-                let anchor = recurrence.with(frequency: recurrence.frequency, anchoredOn: targetDate)
+                let anchor = recurrence.reanchored(from: endDate, to: targetDate)
                 copy.recurrence = anchor
                 end = targetDate > date ? targetDate : (anchor.nextDate(after: date) ?? end)
             }

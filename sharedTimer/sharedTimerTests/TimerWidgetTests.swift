@@ -111,7 +111,79 @@ struct TimerWidgetTests {
                                    sequence: SequenceInfo(phases: phases, loopCount: 1, phaseIndex: 0, loopIndex: 0))
         let entries = TimerWidgetSnapshot.timeline(payload: payload, at: now)
         #expect(entries.map(\.date).contains(now.addingTimeInterval(3600)))
-        #expect(TimerWidgetSnapshot.refreshDate(for: entries) == now.addingTimeInterval(7200))
+        // "2d 0h" turns into "1d 23h" one second into that phase (it rounds down).
+        #expect(TimerWidgetSnapshot.refreshDate(for: entries) == now.addingTimeInterval(3601))
+    }
+
+    /// Home widgets: an entry at the finish (Repeat, no 0:00 with Pause/✕), sky-drain
+    /// steps in between, all ascending from now, within the cap.
+    @Test func homeTimelineCoversTheFinishAndDrainsTheSky() {
+        let now = Date()
+        let timer = TimerPayload(id: UUID().uuidString, label: "Tea", endDate: now.addingTimeInterval(600), duration: 600)
+        let entries = TimerWidgetSnapshot.homeTimeline(payload: timer, at: now)
+        #expect(entries.first?.date == now)
+        #expect(entries.map(\.date) == entries.map(\.date).sorted())
+        #expect(entries.contains { $0.date == timer.endDate && $0.status == .finished })
+        #expect(entries.count > 3 && entries.count <= 40)
+        #expect(entries.filter { $0.status == .running }.map(\.progress) == entries.filter { $0.status == .running }.map(\.progress).sorted(by: >))
+        // The finished auto-selected timer gives way an hour after its end; no polling.
+        #expect(TimerWidgetSnapshot.reloadDate(for: [entries.last!]) == timer.endDate.addingTimeInterval(3600))
+    }
+
+    /// A multi-day countdown's "3d 4h" changes on the hour: entries, not reloads.
+    @Test func coarseDayTextRollsOverInEntriesAndReloadsOnlyPastThem() {
+        let now = Date()
+        let trip = TimerPayload(id: UUID().uuidString, label: "Trip", endDate: now.addingTimeInterval(3 * 86400 + 4 * 3600 + 60), duration: 4 * 86400, kind: .countdown)
+        let entries = TimerWidgetSnapshot.homeTimeline(payload: trip, at: now)
+        #expect(entries.contains { abs($0.date.timeIntervalSince(now.addingTimeInterval(61))) < 0.001 })
+        let reload = TimerWidgetSnapshot.reloadDate(for: entries)
+        // Half a day of hourly changes needs no reload at all…
+        #expect(reload > now.addingTimeInterval(12 * 3600))
+        // …because every hour boundary before the reload has its own entry.
+        var boundary = now.addingTimeInterval(61)
+        while boundary < reload {
+            #expect(entries.contains { abs($0.date.timeIntervalSince(boundary)) < 0.001 })
+            boundary = boundary.addingTimeInterval(3600)
+        }
+    }
+
+    /// Paused, empty and long-finished widgets don't poll every 15 min: every store save
+    /// reloads them, with a 6 h safety net.
+    @Test func frozenWidgetsOnlyKeepASlowSafetyNet() {
+        let now = Date()
+        let idle = now.addingTimeInterval(TimerWidgetSnapshot.idleReloadInterval)
+        let paused = TimerPayload(id: UUID().uuidString, label: "Tea", endDate: now.addingTimeInterval(600), duration: 600).paused(at: now)
+        #expect(TimerWidgetSnapshot.reloadDate(for: TimerWidgetSnapshot.homeTimeline(payload: paused, at: now)) == idle)
+        #expect(TimerWidgetSnapshot.reloadDate(for: TimerWidgetSnapshot.homeTimeline(payload: nil, at: now)) == idle)
+        let longFinished = TimerPayload(id: UUID().uuidString, label: "Old", endDate: now.addingTimeInterval(-7200), duration: 60)
+        #expect(TimerWidgetSnapshot.reloadDate(for: [TimerWidgetSnapshot(payload: longFinished, at: now)]) == idle)
+    }
+
+    /// The list judges each row on the entries it really keeps: a multi-day row next to
+    /// a short timer reloads within the hour its coarse text needs, not hours later.
+    @Test func listReloadUsesTheListsOwnEntries() {
+        let now = Date()
+        let tea = TimerPayload(id: UUID().uuidString, label: "Tea", endDate: now.addingTimeInterval(600), duration: 600)
+        let trip = TimerPayload(id: UUID().uuidString, label: "Trip", endDate: now.addingTimeInterval(3 * 86400 + 4 * 3600 + 60), duration: 4 * 86400, kind: .countdown)
+        let dates = TimerWidgetSnapshot.listDates(for: [tea, trip], at: now)
+        let reload = TimerWidgetSnapshot.listReloadDate(for: [tea, trip], dates: dates, at: now)
+        // Every hour boundary of the trip before the reload is one of the list's dates.
+        var boundary = now.addingTimeInterval(61)
+        while boundary < reload {
+            #expect(dates.contains { abs($0.timeIntervalSince(boundary)) < 0.001 })
+            boundary = boundary.addingTimeInterval(3600)
+        }
+    }
+
+    /// The list widget gets every listed timer's finish as an entry.
+    @Test func listDatesIncludeEachTimersFinish() {
+        let now = Date()
+        let a = TimerPayload(id: UUID().uuidString, label: "A", endDate: now.addingTimeInterval(120), duration: 120)
+        let b = TimerPayload(id: UUID().uuidString, label: "B", endDate: now.addingTimeInterval(900), duration: 900)
+        let dates = TimerWidgetSnapshot.listDates(for: [a, b], at: now)
+        #expect(dates.first == now)
+        #expect(dates.contains(a.endDate) && dates.contains(b.endDate))
+        #expect(dates.count <= 40)
     }
 
     @Test func coarseCountdownRefreshesAtDayThresholdAndPausedTimelineStaysFrozen() {

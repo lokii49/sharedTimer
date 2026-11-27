@@ -13,6 +13,21 @@
 import AppIntents
 import SwiftUI
 
+/// Glyph colour for the round controls. White on the skies (custom Live Activity, home
+/// widgets, Dynamic Island); the AlarmKit card sits on the system's Lock Screen
+/// background, light in Light Mode, so it uses `Color.primary` — white glyphs on a
+/// white 18% circle were near-invisible there.
+private struct LiveControlInkKey: EnvironmentKey {
+    static let defaultValue: Color = .white
+}
+
+extension EnvironmentValues {
+    var liveControlInk: Color {
+        get { self[LiveControlInkKey.self] }
+        set { self[LiveControlInkKey.self] = newValue }
+    }
+}
+
 /// What the second button does.
 enum LiveActivitySecondaryAction {
     /// Plain timer/countdown: end it now (StopTimerIntent).
@@ -24,6 +39,7 @@ enum LiveActivitySecondaryAction {
 }
 
 struct LiveActivityControls: View {
+    @Environment(\.liveControlInk) private var ink
     let timerID: String
     let isPaused: Bool
     let secondary: LiveActivitySecondaryAction
@@ -60,9 +76,9 @@ struct LiveActivityControls: View {
     private func symbol(_ name: String) -> some View {
         Image(systemName: name)
             .font(.system(size: size * 0.38, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(ink)
             .frame(width: size, height: size)
-            .background(.white.opacity(0.18), in: Circle())
+            .background(ink.opacity(0.18), in: Circle())
     }
 }
 
@@ -71,12 +87,15 @@ struct LiveActivityControls: View {
 /// Pause/Resume + Stop / Next / Cancel pair as the Live Activities.
 struct WidgetTimerControls: View {
     let payload: TimerPayload
+    /// The timeline entry's date (a precomputed finish entry shows Repeat).
+    var date: Date = .now
     var size: CGFloat = 36
 
     var body: some View {
-        if payload.isPending() || TimerStore.isReadOnly(id: payload.id) {
+        let status = TimerWidgetSnapshot(payload: payload, at: date).status
+        if status == .scheduled || TimerStore.isReadOnly(id: payload.id) {
             EmptyView()
-        } else if payload.isFinished {
+        } else if status == .finished {
             Button(intent: RepeatTimerIntent(timerID: payload.id)) {
                 Label("Repeat", systemImage: "arrow.clockwise")
                     .font(.system(size: size * 0.36, weight: .semibold))
@@ -105,6 +124,7 @@ struct WidgetTimerControls: View {
 /// Pause ⇄ Resume button — see SetTimerPausedIntent for why a plain button and not
 /// a toggle.
 struct PauseToggle: View {
+    @Environment(\.liveControlInk) private var ink
     let timerID: String
     let isPaused: Bool
     var size: CGFloat = 44
@@ -113,9 +133,9 @@ struct PauseToggle: View {
         Button(intent: SetTimerPausedIntent(timerID: timerID, paused: !isPaused)) {
             Image(systemName: isPaused ? "play.fill" : "pause.fill")
                 .font(.system(size: size * 0.38, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(ink)
                 .frame(width: size, height: size)
-                .background(.white.opacity(0.18), in: Circle())
+                .background(ink.opacity(0.18), in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isPaused ? "Resume" : "Pause")

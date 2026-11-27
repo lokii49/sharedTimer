@@ -43,6 +43,10 @@ final class NotificationService: UNNotificationServiceExtension {
                 return Self.differs(old.endDate, payload.endDate) || Self.differs(old.updatedAt, payload.updatedAt)
                     || old.isPaused != payload.isPaused || old.label != payload.label
             }
+            // Delivering lets the system end this extension, so the moved notifications
+            // must be handed over first (`scheduleAlert` cancels synchronously and adds
+            // asynchronously).
+            let scheduled = DispatchGroup()
             for payload in changed {
                 // A paused or stopped timer's reminders must not fire. Only then: the
                 // same push wakes the app, which re-plans a moved finish under the same
@@ -53,9 +57,14 @@ final class NotificationService: UNNotificationServiceExtension {
                 TimerStore.save(payload)
                 guard !TimerStore.isAlarmKitArmed(id: payload.id) else { continue }
                 NotificationScheduler.cancel(id: payload.id)
-                if !payload.isPaused && !payload.isExpired { NotificationScheduler.scheduleAlert(for: payload) }
+                if !payload.isPaused && !payload.isExpired {
+                    scheduled.enter()
+                    NotificationScheduler.scheduleAlert(for: payload) { scheduled.leave() }
+                }
             }
-            self.describe(changed.first, more: changed.count - 1)
+            scheduled.notify(queue: .global(qos: .userInitiated)) {
+                self.describe(changed.first, more: changed.count - 1)
+            }
         }
     }
 

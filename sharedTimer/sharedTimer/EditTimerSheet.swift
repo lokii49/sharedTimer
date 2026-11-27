@@ -11,7 +11,12 @@ import SwiftUI
 /// never edited (see `TimerPayload.edited`); callers hide the entry point for them.
 struct EditTimerSheet: View {
     @Environment(\.dismiss) private var dismiss
-    let original: TimerPayload
+    /// The copy the sheet opened with, frozen like the field values below. A plain `let`
+    /// was replaced whenever the presenter re-rendered (the detail screen passes its live
+    /// payload, refreshed by every store change), while the fields kept their first
+    /// values — so a rename or extend landing meanwhile made untouched fields compare as
+    /// "changed", and Save wrote the old values back over it.
+    @State private var original: TimerPayload
     let onSave: (TimerPayload) -> Void
 
     @State private var label: String
@@ -25,7 +30,7 @@ struct EditTimerSheet: View {
     @FocusState private var labelFocused: Bool
 
     init(payload: TimerPayload, onSave: @escaping (TimerPayload) -> Void) {
-        self.original = payload
+        _original = State(initialValue: payload)
         self.onSave = onSave
         _label = State(initialValue: payload.label)
         _kind = State(initialValue: payload.kind)

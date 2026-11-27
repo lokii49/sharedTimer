@@ -159,6 +159,8 @@ enum LiveActivityActions {
         WatchSyncController.pushCurrentState()
         announceStarted(payload)
         await refreshUI()
+        // Uploaded only with "Sync with iCloud" on, like a timer started in the app.
+        await CloudSyncController.pushUpAwaiting(payload, action: "started")
     }
 
     /// A Control Center / Action button tap has no visible result of its own — the

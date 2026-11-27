@@ -21,6 +21,8 @@ struct TimerLiveActivityWidget: Widget {
                             SkyCornerScrim(widthFraction: 0.6, heightFraction: 1.2, anchorY: 0.7)
                         }
                     }
+                    // Tapping the card opens that timer's details.
+                    .widgetURL(TimerAppLink.url(for: context.attributes.timerID))
             } small: {
                 SmallActivityTile(label: liveLabel(context), symbol: liveKind(context).symbolName,
                                   sky: Sky.gradient(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining)) {
@@ -62,14 +64,18 @@ struct TimerLiveActivityWidget: Widget {
                 Image(systemName: liveKind(context).symbolName)
                     .foregroundStyle(liveKind(context).accentColor)
             } compactTrailing: {
+                // Scales instead of truncating: "1:23:45" didn't fit a fixed 44 pt.
                 compactCountdownText(state: liveState(context))
                     .monospacedDigit()
                     .foregroundStyle(.white)
-                    .frame(width: 44)
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                    .frame(maxWidth: 70)
             } minimal: {
                 Image(systemName: liveKind(context).symbolName)
                     .foregroundStyle(liveKind(context).accentColor)
             }
+            .widgetURL(TimerAppLink.url(for: context.attributes.timerID))
         }
         // Apple Watch Smart Stack and CarPlay (SmallActivityTile).
         .supplementalActivityFamilies([.small])

@@ -8,9 +8,10 @@
 //
 //  Deliberately doesn't share the created timer — there's no background-intent API that
 //  can address a specific iMessage contact and insert text the way MessagesViewController
-//  does; that machinery is extension-only and tied to a live MSConversation. A freshly
-//  created timer has no CloudLink yet, so CloudSyncController.pushUp would no-op anyway;
-//  sharing stays a one-tap follow-up via the existing ShareTimerSheet.
+//  does; that machinery is extension-only and tied to a live MSConversation. Sharing
+//  stays a one-tap follow-up via the existing ShareTimerSheet. A freshly created timer
+//  has no CloudLink, so `pushUpAwaiting` only uploads it when "Sync with iCloud" is on
+//  (`adoptOwnTimer`) — as a timer started in the app does.
 //
 
 import AppIntents
@@ -44,6 +45,7 @@ struct StartTimerIntent: AppIntent {
         RecentTimersStore.record(payload)
         RecentTimersSync.refresh()
         await announceExternalChange()
+        await CloudSyncController.pushUpAwaiting(payload, action: "started")
         return .result(dialog: "Started \(payload.label) for \(RecentTimer.lengthText(payload.duration)).")
     }
 }
@@ -74,6 +76,7 @@ struct StartCountdownIntent: AppIntent {
         // StartTimerIntent above.
         await TimerArming.armAwaiting(payload)
         await announceExternalChange()
+        await CloudSyncController.pushUpAwaiting(payload, action: "started")
         return .result(dialog: "Counting down to \(payload.label).")
     }
 }

@@ -116,6 +116,36 @@ struct sharedTimerWatch_Watch_AppTests {
         #expect(sync.timers.first?.endDate == before.endDate)
     }
 
+    /// Pause then Resume while the phone is unreachable: both fail, and the watch must end
+    /// on the state the phone actually has (running), not the first tap's "paused".
+    @Test func twoFailedTapsRollBackToThePhonesState() throws {
+        let suite = "watch-sync-test.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sync = WatchSyncController(defaults: defaults)
+        let running = timer("tea", seconds: 100)
+        let paused = running.paused()
+        let resumed = paused.resumed().extended(by: 1)  // distinct end, like a later tap's
+        sync.apply(["timers": try JSONEncoder().encode([running])])
+        sync.noteSent(id: "tea", before: running, optimistic: paused)
+        sync.noteSent(id: "tea", before: paused, optimistic: resumed)
+        sync.apply(["timers": try JSONEncoder().encode([resumed])])  // the watch shows tap 2
+        let sentAt = sync.contextGeneration
+        sync.rollBack(id: "tea", to: running, ifStill: paused, sentAt: sentAt)
+        sync.rollBack(id: "tea", to: paused, ifStill: resumed, sentAt: sentAt)
+        #expect(sync.timers.first?.pausedRemaining == nil)
+        #expect(sync.timers.first?.endDate == running.endDate)
+
+        // The phone acknowledged the Pause, then the Resume failed: paused is right.
+        sync.apply(["timers": try JSONEncoder().encode([running])])
+        sync.noteSent(id: "tea", before: running, optimistic: paused)
+        sync.noteSent(id: "tea", before: paused, optimistic: resumed)
+        sync.apply(["timers": try JSONEncoder().encode([resumed])])
+        sync.noteAcknowledged(id: "tea", optimistic: paused)
+        sync.rollBack(id: "tea", to: paused, ifStill: resumed, sentAt: sync.contextGeneration)
+        #expect(sync.timers.first?.pausedRemaining == paused.pausedRemaining)
+    }
+
     @Test func linksRoundTripAndRejectPayloads() throws {
         let id = "tea / #?💫"
         let url = try #require(WatchTimerLink.url(id: id))

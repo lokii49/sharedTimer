@@ -249,6 +249,40 @@ final class sharedTimerUITests: XCTestCase {
         app.buttons["Done"].tap()
     }
 
+    /// A friend's link opened while a detail screen is pushed must still offer the timer:
+    /// the Add sheet hung off the list root inside the NavigationStack and never appeared
+    /// there (1.0.9 moved it outside the stack, like the share sheet).
+    @MainActor
+    func testIncomingLinkOffersTheTimerWhileADetailScreenIsOpen() throws {
+        let app = XCUIApplication()
+        func shareURL(_ id: String, _ label: String) throws -> URL {
+            var share = URLComponents(string: "https://mirrornotes.org/timer")!
+            share.queryItems = [
+                URLQueryItem(name: "id", value: id),
+                URLQueryItem(name: "label", value: label),
+                URLQueryItem(name: "end", value: String(Date().addingTimeInterval(300).timeIntervalSince1970)),
+                URLQueryItem(name: "dur", value: "300"),
+                URLQueryItem(name: "kind", value: "timer"),
+                URLQueryItem(name: "alarm", value: "0"),
+                URLQueryItem(name: "vib", value: "0")
+            ]
+            return try XCTUnwrap(share.url)
+        }
+        let id = UUID().uuidString
+        let link = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        widgetTestURL = link
+        app.open(try shareURL(id, "Pushed Detail Test"))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        app.open(link)
+        XCTAssertTrue(app.buttons["Share"].waitForExistence(timeout: 10))  // the detail screen is up
+        app.open(try shareURL(UUID().uuidString, "Second Link Test"))
+        XCTAssertTrue(app.buttons["Add to My Timers"].waitForExistence(timeout: 10), "the offer must appear over the detail screen")
+        app.buttons["Not Now"].firstMatch.tap()
+    }
+
     /// iPad: the detail column sits beside the list and keeps its own copy. A Pause from
     /// the list's swipe must reach it — before 1.0.8 the column kept showing the timer
     /// running, and its +1:00 saved that running copy back, silently un-pausing it.

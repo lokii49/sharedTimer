@@ -976,6 +976,20 @@ struct sharedTimerTests {
         #expect(TimerStore.finishMoved(from: nil, to: stopped))
     }
 
+    @Test func backgroundRefreshKeepsAskingPastAPhaseBoundary() {
+        let now = Date()
+        // Phase 0 ended 30 s ago; the stored copy reads finished, the sequence isn't.
+        var sequence = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 60)], loopCount: 4)
+        sequence.endDate = now.addingTimeInterval(-30)
+        #expect(sequence.isFinished)
+        #expect(BackgroundRefresh.wantsRuns(for: [sequence], at: now))
+        // Exhausted: no more runs.
+        #expect(!BackgroundRefresh.wantsRuns(for: [sequence], at: now.addingTimeInterval(8 * 60)))
+        // A daily repeat whose occurrence passed still wants runs.
+        let daily = TimerPayload.composeAnnual(label: "Pills", targetDate: now.addingTimeInterval(-3600), timeZone: .gmt, frequency: .daily, at: now.addingTimeInterval(-7200))
+        #expect(BackgroundRefresh.wantsRuns(for: [daily], at: now))
+    }
+
     @Test func conflictMergeKeepsAConcurrentChangeToAnotherField() {
         func record(_ end: Date, _ paused: Double?) -> CKRecord {
             let record = CKRecord(recordType: "Timer", recordID: CKRecord.ID(recordName: "merge"))
@@ -984,15 +998,45 @@ struct sharedTimerTests {
             return record
         }
         let t0 = Date(timeIntervalSince1970: 1_000), t1 = Date(timeIntervalSince1970: 1_060)
-        // We paused; someone else extended in between.
-        let mine = record(t0, 30)
-        let merged = CloudSyncController.merged(client: mine, ancestor: record(t0, nil), server: record(t1, nil))
-        #expect(merged["endDate"] as? Date == t1)
+        // A field outside the timing state (their rename) survives our pause.
+        let renamed = record(t0, nil); renamed["label"] = "Pasta" as CKRecordValue
+        let paused = CloudSyncController.merged(client: record(t0, 30), ancestor: record(t0, nil), server: renamed)
+        #expect(paused["label"] as? String == "Pasta")
+        #expect(paused["pausedRemaining"] as? Double == 30)
+        // We paused; someone else extended in between. The timing state is ours whole —
+        // never their end with our paused remainder, a state nobody made.
+        let merged = CloudSyncController.merged(client: record(t0, 30), ancestor: record(t0, nil), server: record(t1, nil))
+        #expect(merged["endDate"] as? Date == t0)
         #expect(merged["pausedRemaining"] as? Double == 30)
         // We resumed (cleared to nil); the server still has the pause.
         let resumed = CloudSyncController.merged(client: record(t0, nil), ancestor: record(t0, 30), server: record(t1, 30))
         #expect(resumed["pausedRemaining"] == nil)
-        #expect(resumed["endDate"] as? Date == t1)
+        #expect(resumed["endDate"] as? Date == t0)
+        // Resume racing this device's own Pause: the Resume push fetched the pre-pause
+        // record, so only endDate differs from its ancestor. It must land running.
+        let t2 = Date(timeIntervalSince1970: 1_005)
+        let race = CloudSyncController.merged(client: record(t2, nil), ancestor: record(t0, nil), server: record(t0, 300))
+        #expect(race["pausedRemaining"] == nil)
+        #expect(race["endDate"] as? Date == t2)
+        // The other order: the Resume saved first, then this device's earlier Pause push
+        // conflicts. The server's newer stamp keeps it running (and keeps its stamp).
+        let pausedAt = Date(timeIntervalSince1970: 1_001), resumedAt = Date(timeIntervalSince1970: 1_004)
+        let stalePause = record(t0, 300); stalePause["updatedAt"] = pausedAt as CKRecordValue
+        stalePause["lastAction"] = "paused" as CKRecordValue; stalePause["lastActorName"] = "Owner" as CKRecordValue
+        let base = record(t0, nil); base["updatedAt"] = Date(timeIntervalSince1970: 900) as CKRecordValue
+        let resumedOnServer = record(t2, nil); resumedOnServer["updatedAt"] = resumedAt as CKRecordValue
+        resumedOnServer["lastAction"] = "resumed" as CKRecordValue; resumedOnServer["lastActorName"] = "Friend" as CKRecordValue
+        let reverse = CloudSyncController.merged(client: stalePause, ancestor: base, server: resumedOnServer)
+        #expect(reverse["pausedRemaining"] == nil)
+        #expect(reverse["endDate"] as? Date == t2)
+        #expect(reverse["updatedAt"] as? Date == resumedAt)
+        #expect(reverse["lastAction"] as? String == "resumed" && reverse["lastActorName"] as? String == "Friend")
+        // A change to no timing key leaves the server's timing state alone.
+        let relabel = record(t0, nil); relabel["label"] = "Tea" as CKRecordValue
+        let onlyLabel = CloudSyncController.merged(client: relabel, ancestor: record(t0, nil), server: record(t1, 30))
+        #expect(onlyLabel["endDate"] as? Date == t1)
+        #expect(onlyLabel["pausedRemaining"] as? Double == 30)
+        #expect(onlyLabel["label"] as? String == "Tea")
         // No ancestor: every local key wins, as before.
         let fallback = CloudSyncController.merged(client: record(t0, 30), ancestor: nil, server: record(t1, nil))
         #expect(fallback["endDate"] as? Date == t0)

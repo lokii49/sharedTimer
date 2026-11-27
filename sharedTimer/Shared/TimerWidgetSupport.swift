@@ -1,4 +1,5 @@
 import Foundation
+import WidgetKit
 
 /// ID-only app links: opening a stale widget must never import its old timer snapshot.
 enum TimerAppLink {
@@ -96,6 +97,82 @@ struct TimerWidgetSnapshot {
         return [first] + future.map { TimerWidgetSnapshot(payload: current, at: $0) }
     }
 
+    /// Home-screen skies drain with time, but a widget can't animate a gradient: extra
+    /// entries between the state boundaries redraw it (entries cost no reload budget —
+    /// only reloads do). Before 1.0.9 the home widgets had a single entry, so a finish
+    /// or phase change waited for a reload: "0:00" with Pause/✕ still showing, the old
+    /// phase's label, a frozen sky.
+    static func homeTimeline(payload: TimerPayload?, at date: Date, maxEntries: Int = 40) -> [TimerWidgetSnapshot] {
+        let base = timeline(payload: payload, at: date)
+        guard let first = base.first, first.status == .running, let current = first.payload,
+              let horizon = base.last?.date, horizon > date else { return base }
+        var dates = Set(base.map(\.date))
+        // A coarse "3d 4h" changes on each whole hour: entries, not reloads.
+        if first.remaining >= 86400 && first.remaining < TimeFormat.calendarThreshold {
+            var rollover = date.addingTimeInterval(first.remaining.truncatingRemainder(dividingBy: 3600) + 1)
+            while rollover < horizon && dates.count < maxEntries / 2 {
+                dates.insert(rollover)
+                rollover = rollover.addingTimeInterval(3600)
+            }
+        }
+        let step = max(60, current.span / 24)
+        var next = date.addingTimeInterval(step)
+        while next < horizon && dates.count < maxEntries {
+            dates.insert(next)
+            next = next.addingTimeInterval(step)
+        }
+        return dates.sorted().map { TimerWidgetSnapshot(payload: current, at: $0) }
+    }
+
+    /// Entry dates for a widget listing several timers: every listed timer's own state
+    /// boundaries (start, phase changes, finish), soonest first, capped.
+    static func listDates(for payloads: [TimerPayload], at date: Date, maxEntries: Int = 40) -> [Date] {
+        var dates: Set<Date> = [date]
+        for payload in payloads {
+            for snapshot in homeTimeline(payload: payload, at: date, maxEntries: 12) { dates.insert(snapshot.date) }
+        }
+        return Array(dates.filter { $0 >= date }.sorted().prefix(maxEntries))
+    }
+
+    /// Fallback for a widget with nothing on its clock (paused, empty, long finished).
+    /// Every store save reloads all timelines (`TimerStore.persist`), but a save made in
+    /// Messages or the notification service reaching the widget is unverified on device,
+    /// so a slow safety net rather than `.never` — 4 a day, against the 96 the old
+    /// 15-minute polling spent (over WidgetKit's budget, so the reloads that mattered
+    /// were throttled).
+    static let idleReloadInterval: TimeInterval = 6 * 3600
+
+    /// When WidgetKit should ask for a new timeline.
+    static func reloadDate(for snapshots: [TimerWidgetSnapshot]) -> Date {
+        guard let first = snapshots.first else { return Date().addingTimeInterval(idleReloadInterval) }
+        let idle = first.date.addingTimeInterval(idleReloadInterval)
+        switch first.status {
+        case .empty, .paused:
+            return idle
+        case .finished:
+            // An auto-selected finished timer stays an hour (Repeat where it was
+            // tapped), then gives way to the next running one; overtime also ends then.
+            guard let end = first.payload?.endDate, end.addingTimeInterval(3600) > first.date else { return idle }
+            return min(idle, end.addingTimeInterval(3600))
+        case .running, .scheduled:
+            return refreshDate(for: snapshots)
+        }
+    }
+
+    static func reloadPolicy(for snapshots: [TimerWidgetSnapshot]) -> TimelineReloadPolicy {
+        .after(reloadDate(for: snapshots))
+    }
+
+    /// A list widget's reload: each listed timer judged on the entry dates the list
+    /// really has (it caps every timer's share), not on that timer's own full timeline —
+    /// otherwise a row's coarse "3d 4h" counted on hourly entries the list didn't keep.
+    static func listReloadDate(for payloads: [TimerPayload], dates: [Date], at date: Date) -> Date {
+        let perTimer = payloads.map { payload in
+            reloadDate(for: dates.map { TimerWidgetSnapshot(payload: payload, at: $0) })
+        }
+        return perTimer.min() ?? date.addingTimeInterval(idleReloadInterval)
+    }
+
     static func refreshDate(for snapshots: [TimerWidgetSnapshot]) -> Date {
         guard let first = snapshots.first else { return Date().addingTimeInterval(900) }
         guard first.status == .running || first.status == .scheduled else { return first.date.addingTimeInterval(900) }
@@ -104,12 +181,19 @@ struct TimerWidgetSnapshot {
         // exactly when they enter the live (<24h) or calendar/day formatting range.
         // Every entry counts, not just the first: a later sequence phase of a day or
         // more otherwise showed a frozen "2d 0h" from its start until the app saved.
-        for snapshot in snapshots where snapshot.status == .running || snapshot.status == .scheduled {
+        // A change already redrawn by the next entry needs no reload.
+        for (index, snapshot) in snapshots.enumerated() where snapshot.status == .running || snapshot.status == .scheduled {
+            var change: Date?
             if snapshot.remaining > TimeFormat.calendarThreshold {
-                refresh = min(refresh, snapshot.date.addingTimeInterval(min(snapshot.remaining - TimeFormat.calendarThreshold, 21600)))
+                change = snapshot.date.addingTimeInterval(min(snapshot.remaining - TimeFormat.calendarThreshold, 21600))
             } else if snapshot.remaining >= 86400 {
-                refresh = min(refresh, snapshot.date.addingTimeInterval(max(1, min(snapshot.remaining - 86400, 3600))))
+                // "3d 4h" rounds down, so it changes when the remaining time crosses a
+                // whole hour — refresh then, not up to an hour later.
+                let toNextHour = snapshot.remaining.truncatingRemainder(dividingBy: 3600) + 1
+                change = snapshot.date.addingTimeInterval(max(1, min(snapshot.remaining - 86400, toNextHour)))
             }
+            let nextEntry = index + 1 < snapshots.count ? snapshots[index + 1].date : .distantFuture
+            if let change, change < nextEntry { refresh = min(refresh, change) }
         }
         return refresh
     }

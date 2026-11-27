@@ -145,6 +145,29 @@ struct AnnualRecurrence: Codable, Equatable {
         AnnualRecurrence(date: date, timeZone: TimeZone(identifier: timeZoneID) ?? .current, frequency: frequency)
     }
 
+    /// The rule after an edit moved the shown occurrence from `shown` to `target`, keeping
+    /// whatever the person didn't change. The shown occurrence can be clamped (Feb 29 →
+    /// Feb 28, a monthly 31st → the 30th) or DST-shifted (a 02:30 in a spring gap shown at
+    /// 03:00), so re-reading the rule from the target alone would bake the clamp into the
+    /// rule when only the time — or only the date — was edited.
+    func reanchored(from shown: Date, to target: Date) -> AnnualRecurrence {
+        var result = with(frequency: frequency, anchoredOn: target)
+        let parts: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second]
+        let old = calendar.dateComponents(parts, from: shown)
+        let new = calendar.dateComponents(parts, from: target)
+        if old.year == new.year, old.month == new.month, old.day == new.day {
+            result.month = month
+            result.day = day
+            result.weekday = weekday
+        }
+        if old.hour == new.hour, old.minute == new.minute, old.second == new.second {
+            result.hour = hour
+            result.minute = minute
+            result.second = second
+        }
+        return result
+    }
+
     private struct Envelope: Codable { let version: Int; let recurrence: AnnualRecurrence }
     /// Yearly only (`annual` / `recurrenceData`), so an older app never reads a daily or
     /// weekly rule as an anniversary.

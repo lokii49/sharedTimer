@@ -271,7 +271,11 @@ struct TimerDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .keepsScreenAwake($keepAwake, finished: payload.isFinished && payload.sequence == nil && payload.recurrence == nil)
+        // A sequence is done once exhausted (last phase over, or Cancel) — not at each phase
+        // boundary, where it reads finished for a moment before advancing. Before, it never
+        // counted as finished, so the screen stayed on with its button already gone.
+        .keepsScreenAwake($keepAwake, finished: payload.recurrence == nil
+                          && (payload.sequence.map { $0.loopIndex >= $0.loopCount } ?? payload.isFinished))
         .toolbar {
             if !payload.isFinished && !payload.isPending() {
                 ToolbarItem(placement: .topBarTrailing) {

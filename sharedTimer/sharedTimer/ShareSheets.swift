@@ -32,8 +32,12 @@ struct ShareTimerSheet: View {
                     SkyCard(payload: payload, date: Date())
                         .padding(.horizontal, 20)
 
-                    // D11 · B: only during a FaceTime call, never for a view-only share.
-                    if sharePlay.isEligible && !TimerStore.isReadOnly(id: payload.id) {
+                    // D11 · B: only during a FaceTime call, never for a view-only share —
+                    // nor one already shared live through iCloud: its owner's device
+                    // ignores changes arriving from the call (CloudKit is authoritative
+                    // there), so a call member's Pause would only pause their own copy.
+                    if sharePlay.isEligible && !TimerStore.isReadOnly(id: payload.id)
+                        && CloudLinkStore.get(timerID: payload.id)?.isShared != true {
                         Button {
                             Task { await sharePlay.start(payload) }
                         } label: {
