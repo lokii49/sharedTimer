@@ -109,7 +109,7 @@ struct TimerHistoryView: View {
     }
 }
 
-private struct HistoryRow: View {
+struct HistoryRow: View {
     struct Action {
         let title: LocalizedStringKey
         let run: () -> Void
@@ -126,8 +126,8 @@ private struct HistoryRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(entry.label).font(.subheadline.weight(.semibold)).lineLimit(1)
-                    if entry.sequence != nil { tag("Sequence") }
-                    if let repeatTag = entry.repeatTag { tag(repeatTag) }
+                    if entry.sequence != nil { pill("Sequence") }
+                    if let repeatTag = entry.repeatTag { pill(repeatTag) }
                 }
                 Text("\(lengthText) · ended \(entry.endedAt.formatted(date: .omitted, time: .shortened))")
                     .font(.caption)
@@ -167,7 +167,10 @@ private struct HistoryRow: View {
         return String(localized: "\(total) (\(RecentTimer.lengthText(entry.duration)) + \(RecentTimer.lengthText(entry.length - entry.duration)) added)")
     }
 
-    private func tag(_ title: LocalizedStringKey) -> some View {
+    /// Not named `tag`: inside a View that name can resolve to SwiftUI's `View.tag(_:)`,
+    /// which nested the row inside itself without end — History crashed (stack
+    /// overflow) as soon as a sequence or repeating-countdown run was on screen (1.0.9).
+    private func pill(_ title: LocalizedStringKey) -> some View {
         Text(title)
             .font(.caption2.weight(.semibold))
             .padding(.horizontal, 6)
