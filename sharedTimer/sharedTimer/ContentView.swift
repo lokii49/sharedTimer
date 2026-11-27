@@ -168,8 +168,7 @@ struct ContentView: View {
     private func pruneTagsAndNotes() {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
               TimerStore.hasStoredData, let stored = TimerStore.loadAllIfComplete() else { return }
-        let recents = Set(RecentTimersStore.all().map(\.id))
-        TimerTagStore.update { $0.prune(keeping: Set(stored.map(\.id)), recents: recents) }
+        TimerTagStore.update { $0.prune(keeping: Set(stored.map(\.id))) }
     }
 
     /// Timers the tag filter hides: a count, tap to show everything. A finished timer

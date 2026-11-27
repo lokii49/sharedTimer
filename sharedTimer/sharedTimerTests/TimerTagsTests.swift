@@ -119,7 +119,8 @@ struct TimerTagsTests {
         // First run, from New Timer: its own tag and note become the recent's.
         o.setTags([kitchen], for: "run1"); o.setNote("Turn at half time", for: "run1")
         o.adopt(timerID: "run1", recentKey: "Pasta|480")
-        #expect(o.recentExtras["Pasta|480"] == TimerOrganizer.Carried(tagIDs: [kitchen], note: "Turn at half time"))
+        #expect(o.recentExtras["Pasta|480"]?.tagIDs == [kitchen])
+        #expect(o.recentExtras["Pasta|480"]?.note == "Turn at half time")
         // A later change on the timer follows to the recent.
         o.setNote("Salt the water", for: "run1")
         #expect(o.recentExtras["Pasta|480"]?.note == "Salt the water")
@@ -130,14 +131,29 @@ struct TimerTagsTests {
         // Clearing them on the new run clears the recent too.
         o.setTags([], for: "run2"); o.setNote(nil, for: "run2")
         #expect(o.recentExtras["Pasta|480"] == nil)
-        // A deleted tag leaves the recent; pruning keeps only listed recents.
+        // A deleted tag leaves the remembered value.
         o.setTags([kitchen], for: "run2")
         o.deleteTag(id: kitchen)
         #expect(o.recentExtras["Pasta|480"]?.tagIDs.isEmpty ?? true)
+        // Kept after the timer itself is gone (and whether or not it's still in Recents).
         o.setNote("x", for: "run2")
-        o.prune(keeping: ["run2"], recents: [])
-        #expect(o.recentExtras.isEmpty)
-        #expect(o.recentOf.keys.sorted() == ["run2"])
+        o.prune(keeping: [])
+        #expect(o.recentExtras["Pasta|480"]?.note == "x")
+        #expect(o.recentOf.isEmpty)
+    }
+
+    @Test func rememberedValuesAreCappedByLeastRecentUse() {
+        var o = TimerOrganizer()
+        let base = Date(timeIntervalSince1970: 1_800_000_000)
+        for i in 0...(TimerOrganizer.maxRemembered) {
+            o.setNote("n\(i)", for: "t\(i)")
+            o.adopt(timerID: "t\(i)", recentKey: "k\(i)", at: base.addingTimeInterval(Double(i)))
+        }
+        #expect(o.recentExtras.count == TimerOrganizer.maxRemembered + 1)
+        o.prune(keeping: [])
+        #expect(o.recentExtras.count == TimerOrganizer.maxRemembered)
+        #expect(o.recentExtras["k0"] == nil)
+        #expect(o.recentExtras["k\(TimerOrganizer.maxRemembered)"] != nil)
     }
 
     @Test func aPlainTimerIsFiledUnderItsRecentByNameAndLength() {

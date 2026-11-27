@@ -26,12 +26,16 @@ struct TimerOrganizer: Codable, Equatable {
     /// Timer id → tag ids, in the order tags were added.
     var tagsByTimer: [String: [String]] = [:]
     var notes: [String: String] = [:]
-    /// Recents carry tags and notes (owner's call): what a recent (by RecentTimer.id —
-    /// name + length) last had, and which recent each timer came from.
+    /// Recents carry tags and notes (owner's call): what a timer of this name + length
+    /// (RecentTimer.id) last had — kept for every name + length used, not just the six
+    /// listed Recents — and which one each timer came from.
     struct Carried: Codable, Equatable {
         var tagIDs: [String] = []
         var note: String?
+        /// When it was last used or changed, for the size cap.
+        var usedAt: Date?
     }
+    static let maxRemembered = 500
     var recentExtras: [String: Carried] = [:]
     var recentOf: [String: String] = [:]
 
@@ -110,32 +114,38 @@ struct TimerOrganizer: Codable, Equatable {
     /// A timer just started or recorded as the recent `key`: if it has tags or a note of
     /// its own (set in New Timer), the recent takes them; otherwise it gets the recent's
     /// (started again from a chip, Quick Action, Control Center or Siri).
-    mutating func adopt(timerID: String, recentKey key: String) {
+    mutating func adopt(timerID: String, recentKey key: String, at date: Date = Date()) {
         recentOf[timerID] = key
         if tagsByTimer[timerID] != nil || notes[timerID] != nil {
-            remember(timerID)
+            remember(timerID, at: date)
         } else if let carried = recentExtras[key] {
             let known = Set(tags.map(\.id))
             let ids = carried.tagIDs.filter { known.contains($0) }
             tagsByTimer[timerID] = ids.isEmpty ? nil : ids
             notes[timerID] = carried.note
+            recentExtras[key]?.usedAt = date
         }
     }
 
     /// Keeps the timer's recent in step with the timer's latest tags and note.
-    private mutating func remember(_ timerID: String) {
+    private mutating func remember(_ timerID: String, at date: Date = Date()) {
         guard let key = recentOf[timerID] else { return }
-        let carried = Carried(tagIDs: tagsByTimer[timerID] ?? [], note: notes[timerID])
+        let carried = Carried(tagIDs: tagsByTimer[timerID] ?? [], note: notes[timerID], usedAt: date)
         recentExtras[key] = (carried.tagIDs.isEmpty && carried.note == nil) ? nil : carried
     }
 
     /// Drops tags and notes of timers no longer stored. Only with a complete store.
-    /// Recents' tags and notes stay while that recent is in the list.
-    mutating func prune(keeping timerIDs: Set<String>, recents recentIDs: Set<String>? = nil) {
+    /// Remembered name + length values are kept whether or not that timer is still in
+    /// Recents; only past `maxRemembered`, the least recently used go.
+    mutating func prune(keeping timerIDs: Set<String>) {
         tagsByTimer = tagsByTimer.filter { timerIDs.contains($0.key) }
         notes = notes.filter { timerIDs.contains($0.key) }
         recentOf = recentOf.filter { timerIDs.contains($0.key) }
-        if let recentIDs { recentExtras = recentExtras.filter { recentIDs.contains($0.key) } }
+        if recentExtras.count > Self.maxRemembered {
+            let keep = recentExtras.sorted { ($0.value.usedAt ?? .distantPast) > ($1.value.usedAt ?? .distantPast) }
+                .prefix(Self.maxRemembered).map(\.key)
+            recentExtras = recentExtras.filter { Set(keep).contains($0.key) }
+        }
     }
 
     /// The list filter: timers carrying `tagID` (all when nil or the tag is gone), and
