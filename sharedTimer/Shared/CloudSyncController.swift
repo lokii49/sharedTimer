@@ -310,7 +310,6 @@ enum CloudSyncController {
             guard metadata.participantRole != .owner else {
                 CloudLinkStore.clearLeft(timerID: payload.id)
                 CloudLinkStore.set(link)
-                SyncBase.store(rootRecord, timerID: payload.id)
                 TimerStore.setReadOnly(id: payload.id, false)
                 completion(payload)
                 return
@@ -324,8 +323,7 @@ enum CloudSyncController {
                     // Opening the link again is an explicit re-join.
                     CloudLinkStore.clearLeft(timerID: payload.id)
                     CloudLinkStore.set(link)
-                    SyncBase.store(rootRecord, timerID: payload.id)
-                    TimerStore.setReadOnly(id: payload.id, readOnly)
+                        TimerStore.setReadOnly(id: payload.id, readOnly)
                     completion(payload)
                 case .failure(let error):
                     log("acceptShare(\(payload.id)) CKAcceptSharesOperation failed: \(error)")
@@ -580,8 +578,7 @@ enum CloudSyncController {
         guard let outgoing = plan.record else {
             // Nothing this device changed since its base survives against the server's
             // newer copy: send nothing, and take that copy (store, base, alerts).
-            settle(pushed: payload, serverNow: server)
-            return completion()
+            return finish(adopted: settle(pushed: payload, serverNow: server), completion)
         }
         let operation = CKModifyRecordsOperation(recordsToSave: [outgoing], recordIDsToDelete: nil)
         // `.changedKeys` never compares change tags, so it never reported a conflict
@@ -594,11 +591,9 @@ enum CloudSyncController {
         }
         operation.modifyRecordsResultBlock = { result in
             guard case .failure(let error) = result else {
-                if let saved {
-                    noteOwnSave(saved, pushed: payload)
-                    settle(pushed: payload, serverNow: saved)
-                }
-                return completion()
+                guard let saved else { return completion() }
+                noteOwnSave(saved, pushed: payload)
+                return finish(adopted: settle(pushed: payload, serverNow: saved), completion)
             }
             if isPermissionFailure(error, for: outgoing.recordID) {
                 // The owner made this share view-only since we last checked: CloudKit
@@ -644,7 +639,7 @@ enum CloudSyncController {
             } else if let saved {
                 // The merge may have kept the server's timing: follow it.
                 noteOwnSave(saved, pushed: pushed)
-                settle(pushed: pushed, serverNow: saved)
+                return finish(adopted: settle(pushed: pushed, serverNow: saved), completion)
             }
             completion()
         }
@@ -762,15 +757,33 @@ enum CloudSyncController {
     }
 
     /// Applies `settlement`: the base, the stored copy, and — when the server's change
-    /// won — open screens (they reload and re-arm, as for a refused write).
-    private static func settle(pushed: TimerPayload, serverNow record: CKRecord) {
+    /// won — open screens (they reload and re-arm, as for a refused write). Returns the
+    /// copy that replaced the stored one, if any.
+    private static func settle(pushed: TimerPayload, serverNow record: CKRecord) -> TimerPayload? {
         let stored = TimerStore.loadAll().first { $0.id == pushed.id }
         let server = makePayload(from: record)
         let plan = settlement(pushed: pushed, stored: stored, serverNow: server)
         if plan.storeBase { SyncBase.store(record, timerID: pushed.id) }
-        guard plan.replaceStored, let server else { return }
+        guard plan.replaceStored, let server else { return nil }
         TimerStore.save(server)
         DispatchQueue.main.async { NotificationCenter.default.post(name: revertedToServer, object: server) }
+        return server
+    }
+
+    /// Set by the main app (AppDelegate): arms a timer whose stored copy a push just
+    /// replaced with the server's, awaited — the push (and an intent's `perform()`
+    /// awaiting it) returns only after the alarm matches the store. Without it a stale
+    /// Lock Screen/Siri/Watch Pause that lost left the store running and the AlarmKit
+    /// alarm paused (never rings). nil in extensions: Messages follows
+    /// `revertedToServer`; the notification service doesn't push.
+    nonisolated(unsafe) static var rearmAdopted: (@Sendable (TimerPayload) async -> Void)?
+
+    private static func finish(adopted: TimerPayload?, _ completion: @escaping () -> Void) {
+        guard let adopted, let rearm = rearmAdopted else { return completion() }
+        Task {
+            await rearm(adopted)
+            completion()
+        }
     }
 
     /// The server record this device last synced for each timer (pulled, pushed,

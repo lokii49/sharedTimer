@@ -450,7 +450,7 @@ final class AlarmKitDeviceTests {
     /// stored timer — and the stray sweep must leave it to ring. 60 s here and cancelled
     /// at once, so nothing rings during the run.
     @Test func testAlarmIsArmedAndSurvivesTheStraySweep() async {
-        #expect(await AlarmController.ringTestAlarm(in: 60))
+        #expect(await AlarmController.ringTestAlarm(in: 60) == .scheduled)
         let id = AlarmController.testAlarmID
         #expect(alarmsByID()[id]?.state == .countdown)
         let cancelled = await AlarmController.cancelStrayAlarms()

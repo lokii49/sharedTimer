@@ -56,4 +56,11 @@ struct TimerStatsTests {
         #expect(lines[1].contains(",\"Say \"\"hi\"\"\",timer,2.5,"))   // oldest first
         #expect(lines[2].contains(",\"Tea, green\",timer,4.0,"))
     }
+
+    @Test func csvNeverStartsAFieldWithAFormula() {
+        let csv = TimerStats.csv([run("=HYPERLINK(\"x\")", minutes: 1, daysAgo: 1), run("+1", minutes: 1, daysAgo: 2), run("@a", minutes: 1, daysAgo: 3)])
+        #expect(csv.contains(",\"'=HYPERLINK(\"\"x\"\")\",timer,"))
+        #expect(csv.contains(",'+1,timer,"))
+        #expect(csv.contains(",'@a,timer,"))
+    }
 }

@@ -506,6 +506,9 @@ struct ContentView: View {
         .onOpenURL { url in
             afterWhatsNewYields {
                 if let timerID = TimerAppLink.timerID(from: url) {
+                    // Settings' test alarm card links to an id no timer has: just open
+                    // the app, not the "timer unavailable" screen.
+                    guard timerID != AlarmController.testAlarmTimerID else { return }
                     openTimerDetails(timerID)
                 } else {
                     handleIncoming(url: url)

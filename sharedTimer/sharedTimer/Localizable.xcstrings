@@ -5203,60 +5203,60 @@
         }
       }
     },
-    "Both are on. Check that Focus isn't set to silence Timer, then try again.": {
+    "Both are on, so Timer is allowed to ring. Check the alarm sound below, then try again.": {
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "كلاهما مفعّل. تحقّق من أن وضع التركيز لا يُسكت Timer، ثم حاول مجددًا."
+            "value": "كلاهما مفعّل، لذا يُسمح لـ Timer بالرنين. تحقّق من صوت المنبّه أدناه، ثم حاول مجددًا."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "দুটোই চালু। দেখুন ফোকাস যেন Timer-কে নীরব না করে, তারপর আবার চেষ্টা করুন।"
+            "value": "দুটোই চালু, তাই Timer বাজতে পারে। নিচে অ্যালার্মের শব্দ দেখে নিন, তারপর আবার চেষ্টা করুন।"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ambos están activados. Comprueba que Concentración no silencie Timer y vuelve a intentarlo."
+            "value": "Ambos están activados, así que Timer puede sonar. Revisa el sonido de alarma abajo y vuelve a intentarlo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les deux sont activés. Vérifiez que Concentration ne rend pas Timer silencieux, puis réessayez."
+            "value": "Les deux sont activés, Timer a donc le droit de sonner. Vérifiez le son d'alarme ci-dessous, puis réessayez."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "दोनों चालू हैं। जाँचें कि फ़ोकस Timer को चुप न करे, फिर दोबारा कोशिश करें।"
+            "value": "दोनों चालू हैं, इसलिए Timer बज सकता है। नीचे अलार्म की आवाज़ जाँचें, फिर दोबारा कोशिश करें।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Keduanya aktif. Pastikan Fokus tidak membisukan Timer, lalu coba lagi."
+            "value": "Keduanya aktif, jadi Timer boleh berbunyi. Periksa suara alarm di bawah, lalu coba lagi."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Os dois estão ativados. Verifique se o Foco não silencia o Timer e tente de novo."
+            "value": "Os dois estão ativados, então o Timer pode tocar. Confira o som do alarme abaixo e tente de novo."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Оба включены. Проверьте, что режим «Фокусирование» не заглушает Timer, и попробуйте снова."
+            "value": "Оба включены, значит Timer может звонить. Проверьте звук будильника ниже и попробуйте снова."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "两者都已开启。请确认专注模式没有将 Timer 静音，然后再试一次。"
+            "value": "两者都已开启，Timer 可以响铃。请检查下方的闹钟声音，然后再试一次。"
           }
         }
       }
@@ -8997,60 +8997,60 @@
         }
       }
     },
-    "From History on this iPhone, which keeps 90 days.": {
+    "From History on this iPhone: the last 90 days, up to 200 runs.": {
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "من السجل على هذا الـ iPhone، الذي يحتفظ بـ 90 يومًا."
+            "value": "من السجل على هذا الـ iPhone: آخر 90 يومًا، حتى 200 مرة تشغيل."
           }
         },
         "bn": {
           "stringUnit": {
             "state": "translated",
-            "value": "এই iPhone-এর ইতিহাস থেকে, যা ৯০ দিন রাখে।"
+            "value": "এই iPhone-এর ইতিহাস থেকে: শেষ ৯০ দিন, সর্বোচ্চ ২০০টি রান।"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Del historial de este iPhone, que guarda 90 días."
+            "value": "Del historial de este iPhone: los últimos 90 días, hasta 200 usos."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "D'après l'historique de cet iPhone, qui conserve 90 jours."
+            "value": "D'après l'historique de cet iPhone : les 90 derniers jours, jusqu'à 200 utilisations."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "इस iPhone के इतिहास से, जो 90 दिन रखता है।"
+            "value": "इस iPhone के इतिहास से: पिछले 90 दिन, अधिकतम 200 रन।"
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dari Riwayat di iPhone ini, yang menyimpan 90 hari."
+            "value": "Dari Riwayat di iPhone ini: 90 hari terakhir, hingga 200 jalan."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Do histórico deste iPhone, que guarda 90 dias."
+            "value": "Do histórico deste iPhone: os últimos 90 dias, até 200 execuções."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Из истории на этом iPhone, которая хранится 90 дней."
+            "value": "Из истории на этом iPhone: последние 90 дней, до 200 запусков."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "来自此 iPhone 上的历史记录，保留 90 天。"
+            "value": "来自此 iPhone 上的历史记录：最近 90 天，最多 200 次。"
           }
         }
       }
@@ -20745,6 +20745,64 @@
           "stringUnit": {
             "state": "translated",
             "value": "该计时器以“仅查看”方式与你共享，只有其所有者可以更改。"
+          }
+        }
+      }
+    },
+    "The test alarm couldn't be set. Try again.": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذّر ضبط المنبّه التجريبي. حاول مجددًا."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "পরীক্ষামূলক অ্যালার্ম সেট করা যায়নি। আবার চেষ্টা করুন।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo programar la alarma de prueba. Vuelve a intentarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'alarme de test n'a pas pu être programmée. Réessayez."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "टेस्ट अलार्म सेट नहीं हो सका। फिर कोशिश करें।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alarm uji tidak dapat diatur. Coba lagi."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível definir o alarme de teste. Tente de novo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось поставить тестовый будильник. Попробуйте снова."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法设置测试闹钟。请再试一次。"
           }
         }
       }

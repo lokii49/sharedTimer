@@ -25,7 +25,7 @@ struct SettingsView: View {
     @State private var notificationsAllowed = true
     @State private var syncOwnTimers = CloudSyncController.syncOwnTimers
     /// N2 "Test my alarm" (owner's pick B): count down, ring, then ask.
-    private enum AlarmTest: Equatable { case idle, counting(until: Date), asking, passed, help, refused }
+    private enum AlarmTest: Equatable { case idle, counting(until: Date), asking, passed, help, refused, failed }
     @State private var alarmTest = AlarmTest.idle
     @Environment(\.scenePhase) private var scenePhase
 
@@ -159,11 +159,13 @@ struct SettingsView: View {
     @ViewBuilder
     private var alarmTestControls: some View {
         switch alarmTest {
-        case .idle, .refused:
+        case .idle, .refused, .failed:
             Button(String(localized: "Test my alarm")) { startAlarmTest() }
                 .buttonStyle(.glassPill)
             Text(alarmTest == .refused
                  ? String(localized: "Full-screen alarms are off, so the test can't ring.")
+                 : alarmTest == .failed
+                 ? String(localized: "The test alarm couldn't be set. Try again.")
                  : String(localized: "Rings full-screen in 5 seconds, even with the phone locked."))
                 .font(.footnote)
                 .opacity(0.8)
@@ -193,8 +195,10 @@ struct SettingsView: View {
                 .font(.footnote)
                 .opacity(0.8)
         case .help:
+            // Nothing here can tell why a permitted alarm stayed quiet, so it says what is
+            // known and offers what can be checked (the sound is the card below).
             Text(alarmsAllowed && notificationsAllowed
-                 ? String(localized: "Both are on. Check that Focus isn't set to silence Timer, then try again.")
+                 ? String(localized: "Both are on, so Timer is allowed to ring. Check the alarm sound below, then try again.")
                  : String(localized: "Turn on what's off below, then try again."))
                 .font(.footnote)
                 .opacity(0.8)
@@ -212,9 +216,15 @@ struct SettingsView: View {
     private func startAlarmTest() {
         let seconds: TimeInterval = 5
         Task {
-            guard await AlarmController.ringTestAlarm(in: seconds) else {
+            switch await AlarmController.ringTestAlarm(in: seconds) {
+            case .scheduled: break
+            case .notAllowed:
                 await refreshAlertStatus()
                 alarmTest = .refused
+                return
+            case .failed:
+                await refreshAlertStatus()
+                alarmTest = .failed
                 return
             }
             await refreshAlertStatus()

@@ -109,8 +109,11 @@ enum TimerStats {
     /// was, its length in minutes (extends included), and how it repeats.
     static func csv(_ entries: [TimerHistoryEntry]) -> String {
         let iso = ISO8601DateFormatter()
-        func field(_ text: String) -> String {
-            text.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" || $0 == "\r" })
+        func field(_ raw: String) -> String {
+            // Names can come from other people's links: one starting = + - @ (or a tab
+            // or return) would run as a formula in a spreadsheet, so it's prefixed with '.
+            let text = raw.first.map { "=+-@\t\r".contains($0) } == true ? "'" + raw : raw
+            return text.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" || $0 == "\r" })
                 ? "\"" + text.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : text
         }
         var lines = ["Ended,Name,Type,Minutes,Repeats"]

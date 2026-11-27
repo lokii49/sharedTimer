@@ -62,7 +62,7 @@ struct TimerStatsView: View {
                     }
                 }
 
-                Text("From History on this iPhone, which keeps 90 days.")
+                Text("From History on this iPhone: the last 90 days, up to 200 runs.")
                     .font(.footnote)
                     .foregroundStyle(Sky.roomInk.opacity(0.6))
             }

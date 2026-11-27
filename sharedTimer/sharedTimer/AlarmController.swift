@@ -813,15 +813,17 @@ enum AlarmController {
 
     /// Rings a real AlarmKit alarm in `seconds`, with the chosen tone, through the same
     /// `scheduleAlarm` every timer uses — so a person can see that a timer will actually
-    /// ring before one matters. False when full-screen alarms aren't allowed (asks first
-    /// if never asked) or AlarmKit refused it.
-    static func ringTestAlarm(in seconds: TimeInterval = 5) async -> Bool {
-        guard await ensureAuthorized() else { return false }
+    /// ring before one matters. `.notAllowed` when full-screen alarms are off (asks
+    /// first if never asked); `.failed` when AlarmKit refused it anyway.
+    enum TestAlarmResult { case scheduled, notAllowed, failed }
+
+    static func ringTestAlarm(in seconds: TimeInterval = 5) async -> TestAlarmResult {
+        guard await ensureAuthorized() else { return .notAllowed }
         let id = alarmID(for: testAlarmTimerID)
         try? AlarmManager.shared.cancel(id: id)
         let test = TimerPayload(id: testAlarmTimerID, label: String(localized: "Test alarm"), duration: seconds,
                                 alarmEnabled: true, vibrationEnabled: true)
-        return await scheduleAlarm(for: test, id: id) == .scheduled
+        return await scheduleAlarm(for: test, id: id) == .scheduled ? .scheduled : .failed
     }
 
     /// `fixedAt` non-nil pins the alert to that date with a `duration`-long countdown

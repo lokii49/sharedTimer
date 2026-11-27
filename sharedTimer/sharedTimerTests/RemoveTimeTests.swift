@@ -53,3 +53,22 @@ struct RemoveTimeTests {
         #expect(!pending.canShorten(by: 60, at: now))
     }
 }
+
+extension RemoveTimeTests {
+    /// Taking time off a repeating countdown would end the occurrence before its rule
+    /// time; once that passes, the next rule date is the same occurrence again — it
+    /// would ring twice. So "−" isn't offered there.
+    @Test func aRepeatingCountdownOffersNoRemoveTime() throws {
+        let target = Date(timeIntervalSince1970: 1_800_000_000 + 3_600)
+        for frequency in [AnnualRecurrence.Frequency.daily, .weekly, .yearly] {
+            let countdown = TimerPayload.composeAnnual(label: "Gym", targetDate: target, timeZone: .gmt, frequency: frequency,
+                                                       at: Date(timeIntervalSince1970: 1_800_000_000))
+            // What would happen: shortened by 1 minute, then just after that end…
+            let shorter = countdown.extended(by: -60)
+            let after = shorter.advancedRecurrence(at: shorter.endDate.addingTimeInterval(1))
+            #expect(abs(after.endDate.timeIntervalSince(countdown.endDate)) < 1, "\(frequency): the same occurrence comes back")
+            // …so it's not offered.
+            #expect(!countdown.canShorten(by: 60, at: Date(timeIntervalSince1970: 1_800_000_000)))
+        }
+    }
+}

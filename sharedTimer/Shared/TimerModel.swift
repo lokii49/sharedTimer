@@ -299,7 +299,7 @@ struct TimerPayload: Codable, Identifiable {
     }
 
     /// N3 Remove time (owner's pick A, 2026-11-27): takes `interval` off the current run
-    /// (a sequence's current phase, a repeating countdown's current occurrence), never to
+    /// (a sequence's current phase; never a repeating countdown — see `canShorten`), never to
     /// or past its end — nil then, and the button is disabled, so a tap can't finish the
     /// timer by accident. Not for a pending sequence (it hasn't started). Extends are
     /// eaten first (`extraTime` floors at 0 in `extended`).
@@ -309,7 +309,9 @@ struct TimerPayload: Codable, Identifiable {
     }
 
     func canShorten(by interval: TimeInterval, at date: Date = Date()) -> Bool {
-        guard interval > 0, !isPending(at: date) else { return false }
+        // Not a repeating countdown: an occurrence ended before its rule time comes back
+        // as the next rule date and rings twice (test aRepeatingCountdownOffersNoRemoveTime).
+        guard interval > 0, !isPending(at: date), recurrence == nil else { return false }
         return (pausedRemaining ?? endDate.timeIntervalSince(date)) > interval
     }
 
