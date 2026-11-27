@@ -83,7 +83,7 @@ struct WatchTimerWidget: Widget {
         AppIntentConfiguration(kind: "WatchTimerWidget", intent: SelectWatchTimerIntent.self, provider: WatchTimerProvider()) { entry in
             WatchTimerWidgetView(snapshot: entry.snapshot)
         }
-        .configurationDisplayName("Shared Timer")
+        .configurationDisplayName("Timer")
         .description("See a synced timer on your watch face or in the Smart Stack.")
         .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline, .accessoryCorner])
     }

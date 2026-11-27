@@ -36,7 +36,7 @@ struct WatchTimerSnapshot {
     /// VoiceOver: the timer's name is the label, this is the value — like the phone's
     /// Lock Screen widget. A running timer says when it ends (fixed and true for the
     /// whole entry), never a "time left" that was right only when the entry was made.
-    var accessibilityName: String { timer?.label ?? String(localized: "Shared Timer") }
+    var accessibilityName: String { timer?.label ?? String(localized: "Timer") }
     var accessibilityValue: String {
         guard let timer else { return String(localized: "Sync timers from iPhone") }
         if remaining <= 0 { return String(localized: "Done") }
