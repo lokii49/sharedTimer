@@ -940,6 +940,97 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
+    // MARK: Buttons on a ringing alert (1.0.9)
+
+    /// Waits up to `seconds` for one of `ids` to be ringing.
+    private func waitForRinging(_ ids: [UUID], seconds: Int = 10) async -> Bool {
+        for _ in 0..<(seconds * 10) {
+            if ids.contains(where: { alarmsByID()[$0]?.state == .alerting }) { return true }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return false
+    }
+
+    private func ringingSequence() async -> TimerPayload {
+        let phases = [SequencePhase(label: "Ring fast test", duration: 2), SequencePhase(label: "Next phase test", duration: 300)]
+        let payload = TimerPayload.composeSequence(phases: phases, loopCount: 1)
+        created.append(payload)
+        TimerStore.save(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        return payload
+    }
+
+    /// Next on the ringing phase alert, the stored copy still on that phase: the alert
+    /// ends, the next phase starts and keeps its own alarm.
+    @Test func nextOnARingingPhaseEndsTheAlert() async {
+        let payload = await ringingSequence()
+        let ringing = AlarmController.phaseAlarmID(timerID: payload.id, globalIndex: 0)
+        #expect(await waitForRinging([ringing]))
+        await LiveActivityActions.advanceSequence(timerID: payload.id, phaseIndex: 0)
+        #expect(alarmsByID()[ringing]?.state != .alerting, "the tapped alert is gone")
+        #expect(TimerStore.loadAll().first { $0.id == payload.id }?.sequenceGlobalIndex == 1)
+        #expect(alarmsByID()[AlarmController.phaseAlarmID(timerID: payload.id, globalIndex: 1)] != nil, "the next phase is armed")
+        await tearDown()
+    }
+
+    /// The reported case: the app in front had already stored the next phase (its tick
+    /// advances without re-arming), so Next used to return at the "already past" guard
+    /// and the alert stayed on screen.
+    @Test func nextAfterTheAppAlreadyAdvancedStillEndsTheAlert() async {
+        let payload = await ringingSequence()
+        let ringing = AlarmController.phaseAlarmID(timerID: payload.id, globalIndex: 0)
+        #expect(await waitForRinging([ringing]))
+        let advanced = payload.advancedSequence()
+        #expect(advanced.sequenceGlobalIndex == 1)
+        TimerStore.save(advanced)  // what ContentView's tick stores, without re-arming
+        await LiveActivityActions.advanceSequence(timerID: payload.id, phaseIndex: 0)
+        #expect(alarmsByID()[ringing]?.state != .alerting, "the tapped alert is gone")
+        #expect(TimerStore.loadAll().first { $0.id == payload.id }?.sequenceGlobalIndex == 1, "no second step")
+        #expect(alarmsByID()[AlarmController.phaseAlarmID(timerID: payload.id, globalIndex: 1)] != nil, "the next phase's alarm untouched")
+        await tearDown()
+    }
+
+    /// Next Year/Week/… on a ringing repeating countdown's alert ends that alert (the
+    /// rollover keeps a ringing slot) and counts to the following occurrence.
+    @Test func nextOccurrenceOnARingingAlertEndsIt() async {
+        let payload = TimerPayload.composeAnnual(label: "Ring fast daily test", targetDate: Date().addingTimeInterval(3), timeZone: .current, frequency: .daily)
+        created.append(payload)
+        TimerStore.save(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let slots = AlarmController.annualAlarmIDs(timerID: payload.id, around: payload.endDate)
+        #expect(await waitForRinging(slots))
+        await LiveActivityActions.advanceAnnual(timerID: payload.id, occurrenceEnd: payload.endDate.timeIntervalSince1970)
+        #expect(!slots.contains { alarmsByID()[$0]?.state == .alerting }, "the ringing occurrence's alert is gone")
+        #expect((TimerStore.loadAll().first { $0.id == payload.id }?.endDate ?? .distantPast) > Date().addingTimeInterval(3600), "counts to the next day")
+        await tearDown()
+    }
+
+    /// Owner's call (2026-11-27): a person's change to the timer — here Pause on the next
+    /// phase from its card — also ends the previous phase's alert still ringing.
+    @Test func pausingTheNextPhaseEndsTheRingingAlert() async {
+        let payload = await ringingSequence()
+        let ringing = AlarmController.phaseAlarmID(timerID: payload.id, globalIndex: 0)
+        #expect(await waitForRinging([ringing]))
+        TimerStore.save(payload.advancedSequence())  // the app's tick moved on
+        await LiveActivityActions.setPaused(timerID: payload.id, paused: true)
+        #expect(alarmsByID()[ringing]?.state != .alerting, "the earlier alert ended")
+        #expect(TimerStore.loadAll().first { $0.id == payload.id }?.isPaused == true)
+        await tearDown()
+    }
+
+    /// Open on a view-only timer's alert ends the alert as the app opens.
+    @Test func openOnARingingAlertEndsIt() async {
+        let payload = TimerPayload(id: UUID().uuidString, label: "Ring fast open test", endDate: Date().addingTimeInterval(2), duration: 2)
+        created.append(payload)
+        TimerStore.save(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let id = UUID(uuidString: payload.id)!
+        #expect(await waitForRinging([id]))
+        await LiveActivityActions.dismissAlert(timerID: payload.id)
+        #expect(alarmsByID()[id]?.state != .alerting)
+        await tearDown()
+    }
+
     @Test func quietAnnualCountdownPrearmsBothNotificationDates() async {
         let payload = TimerPayload.composeAnnual(label: "Quiet annual device test", targetDate: Date().addingTimeInterval(3600),
                                                   timeZone: .gmt, alarmEnabled: false, vibrationEnabled: false)

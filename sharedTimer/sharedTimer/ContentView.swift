@@ -1063,6 +1063,8 @@ struct ContentView: View {
     private func applyMutation(_ updated: TimerPayload, action: String) {
         // View-only share: the controls are hidden, and CloudKit would refuse the write.
         guard !TimerStore.isReadOnly(id: updated.id) else { return }
+        // A person's change: an earlier occurrence's alert still ringing is over.
+        AlarmController.endRingingForChange(timerID: updated.id)
         apply(updated, action: action)
         // Shared with a FaceTime call (SharePlayController): tell the others.
         SharePlayController.shared.send(updated)

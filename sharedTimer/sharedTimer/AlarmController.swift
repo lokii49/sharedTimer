@@ -561,6 +561,74 @@ enum AlarmController {
         for alarmID in candidates.intersection(existing) { try? AlarmManager.shared.cancel(id: alarmID) }
     }
 
+    // MARK: - A person's tap on the ringing alert
+
+    /// Ends a ringing alarm of this timer because a person tapped a button on its alert
+    /// (Next, Next Year/…, Cancel, Open) — before any check of the stored copy. Without
+    /// it the alert stayed on screen: AlarmKit doesn't dismiss after a `.custom` button,
+    /// and the reschedule deliberately keeps an earlier occurrence that is ringing. In
+    /// the reported case the app was in front, its clock had already stored the next
+    /// phase, and Next returned at the "already past it" guard without touching AlarmKit.
+    /// Only explicit actions call this: clock-driven paths (tick, foreground, background
+    /// refresh, the stray sweep, pulls) must never end a ringing occurrence (the "alert
+    /// flashes and disappears" bug). `ids` nil = every alarm id this timer can own.
+    static func dismissRinging(timerID: String, ids: [UUID]? = nil, reason: String) async {
+        await Serializer.shared.runAndWait(timerID) { endRingingNow(timerID: timerID, ids: ids, reason: reason) }
+    }
+
+    /// A person changed this timer in the app (pause, extend, resume, start now, edit,
+    /// repeat — owner's call, 2026-11-27): an earlier occurrence still ringing is over.
+    /// Queued on the timer's serializer, so it runs before the reschedule the same change
+    /// enqueues next. Never from clock-driven paths.
+    static func endRingingForChange(timerID: String) {
+        enqueue(timerID) { endRingingNow(timerID: timerID, ids: nil, reason: "change") }
+    }
+
+    private static func endRingingNow(timerID: String, ids: [UUID]?, reason: String) {
+        let candidates = Set(ids ?? Array(everyDerivedID(timerID: timerID)))
+        let ringing = ((try? AlarmManager.shared.alarms) ?? []).filter { candidates.contains($0.id) && $0.state == .alerting }
+        for alarm in ringing {
+            do { try AlarmManager.shared.stop(id: alarm.id) } catch { try? AlarmManager.shared.cancel(id: alarm.id) }
+        }
+        #if DEBUG
+        guard !ringing.isEmpty || reason != "change" else { return }
+        let after = ((try? AlarmManager.shared.alarms) ?? []).filter { candidates.contains($0.id) && $0.state == .alerting }.count
+        logAlertButton("\(reason) timer=\(timerID.prefix(8)) ringing=\(ringing.count) stillRinging=\(after)")
+        #endif
+    }
+
+    /// The tapped phase occurrence's alarm (and the single id 1.0.3 used for every phase).
+    static func phaseAlarmIDs(timerID: String, globalIndex: Int) -> [UUID] {
+        [phaseAlarmID(timerID: timerID, globalIndex: max(0, globalIndex)), alarmID(for: timerID)]
+    }
+
+    /// The annual slots that can hold the occurrence ending at `occurrenceEnd` (two per
+    /// year; the year is read in UTC, so neighbouring years are included for the edges).
+    static func annualAlarmIDs(timerID: String, around occurrenceEnd: Date) -> [UUID] {
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = .gmt
+        let year = utc.component(.year, from: occurrenceEnd)
+        return (year - 1...year + 1).flatMap { y in (0...1).map { annualAlarmID(timerID: timerID, year: y, slot: $0) } } + [alarmID(for: timerID)]
+    }
+
+    private static func everyDerivedID(timerID: String) -> Set<UUID> {
+        var ids: Set<UUID> = [alarmID(for: timerID)]
+        ids.formUnion(annualIDs(timerID: timerID))
+        ids.formUnion((0..<TimerSequenceWire.maximumOccurrences).map { phaseAlarmID(timerID: timerID, globalIndex: $0) })
+        return ids
+    }
+
+    #if DEBUG
+    /// Device-check marker: what each alert-button action did (App Group, last 30).
+    static let alertButtonLogKey = "debugAlertButtonLog"
+    static func logAlertButton(_ line: String) {
+        let defaults = UserDefaults(suiteName: "group.com.lokesh.sharedTimer")
+        var log = defaults?.stringArray(forKey: alertButtonLogKey) ?? []
+        log.append("\(Date().formatted(date: .omitted, time: .standard)) \(line)")
+        defaults?.set(Array(log.suffix(30)), forKey: alertButtonLogKey)
+    }
+    #endif
+
     /// Full teardown including every phase of a local sequence, whose draft can be
     /// larger than the shared wire format's limits.
     static func clear(_ payload: TimerPayload) {
@@ -862,7 +930,7 @@ enum AlarmController {
         // app foreground (the `advancedSequence` re-derivation guarantee).
         var secondaryIntent: (any LiveActivityIntent)?
         if readOnly {
-            secondaryIntent = OpenTimerAppIntent()
+            secondaryIntent = OpenTimerAppIntent(timerID: payload.id)
         } else if payload.recurrence != nil {
             secondaryIntent = AdvanceAnnualCountdownIntent(timerID: payload.id, occurrenceEnd: payload.endDate.timeIntervalSince1970)
         } else if payload.sequence != nil {

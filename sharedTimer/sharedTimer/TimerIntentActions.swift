@@ -70,6 +70,8 @@ enum TimerIntentActions {
         if case .pause = mutation, stored?.isPaused == true { return updated }
         if case .resume = mutation, stored?.isPaused == false { return updated }
         TimerStore.save(updated)
+        // A person's change (Siri / Shortcuts): end an earlier occurrence still ringing.
+        await AlarmController.dismissRinging(timerID: updated.id, reason: "change")
         await TimerArming.armAwaiting(updated)
         // Refresh local surfaces before waiting for the best-effort cloud upload.
         WatchSyncController.pushCurrentState()

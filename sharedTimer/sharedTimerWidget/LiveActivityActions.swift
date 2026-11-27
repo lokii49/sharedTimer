@@ -20,4 +20,5 @@ enum LiveActivityActions {
     static func endSequence(timerID: String) async {}
     static func repeatTimer(timerID: String) async {}
     static func startRecent(id: String) async {}
+    static func dismissAlert(timerID: String) async {}
 }

@@ -164,6 +164,8 @@ enum WatchSyncController {
                 // suspend it again before a fire-and-forget reschedule reaches
                 // AlarmKit — same rule as the intents and the push handler.
                 Task { @MainActor in
+                    // A person's change on the watch: end an earlier occurrence still ringing.
+                    await AlarmController.dismissRinging(timerID: updated.id, reason: "change")
                     await TimerArming.armAwaiting(updated)
                     pushCurrentState()
                     NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)

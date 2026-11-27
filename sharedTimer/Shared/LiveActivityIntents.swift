@@ -222,5 +222,15 @@ struct OpenTimerAppIntent: LiveActivityIntent {
     /// (also non-discoverable); AlarmKit's alert button is a device check (1.0.9).
     static let isDiscoverable = false
     static var openAppWhenRun = true
-    func perform() async throws -> some IntentResult { .result() }
+
+    /// Empty for alarms armed before 1.0.9 (then the alert is left to its Stop).
+    @Parameter(title: "Timer ID", default: "") var timerID: String
+
+    init() { timerID = "" }
+    init(timerID: String) { self.timerID = timerID }
+
+    func perform() async throws -> some IntentResult {
+        await LiveActivityActions.dismissAlert(timerID: timerID)
+        return .result()
+    }
 }
