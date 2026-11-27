@@ -10,6 +10,8 @@ struct TimerComposeView: View {
     @State private var kind: TimerKind = .timer
     @State private var minutes: Double = 5
     @State private var targetDate: Date = Date().addingTimeInterval(86400)
+    /// Never (nil) / Daily / Weekly / Monthly / Yearly, as in the app (owner's pick 1A).
+    @State private var repeatFrequency: AnnualRecurrence.Frequency?
     @State private var alarmEnabled = true
     @State private var vibrationEnabled = true
     @State private var shareMode: TimerShareMode = .link
@@ -22,7 +24,7 @@ struct TimerComposeView: View {
 
     private func canStart(at date: Date) -> Bool {
         if pickedExisting != nil { return true }
-        return kind == .timer ? minutes * 60 >= 1 : targetDate > date
+        return ComposeRules.canStart(kind: kind, minutes: minutes, targetDate: targetDate, repeatFrequency: repeatFrequency, at: date)
     }
 
     var body: some View {
@@ -70,8 +72,25 @@ struct TimerComposeView: View {
                     alarmEnabled: $alarmEnabled,
                     vibrationEnabled: $vibrationEnabled,
                     labelFocused: $labelFocused,
+                    yearlyCountdown: repeatFrequency != nil && kind == .countdown,
+                    repeatFrequency: kind == .countdown ? repeatFrequency : nil,
                     notificationOnlyHere: true
                 )
+
+                if kind == .countdown {
+                    Section {
+                        Picker("Repeat", selection: $repeatFrequency) {
+                            Text("Never").tag(AnnualRecurrence.Frequency?.none)
+                            ForEach(AnnualRecurrence.Frequency.allCases) { frequency in
+                                Text(frequency.pickerTitle).tag(Optional(frequency))
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .tint(kind.accentColor)
+                    } footer: {
+                        if let repeatFrequency { Text(repeatFrequency.composeFooter(targetDate: targetDate, timeZone: .current)) }
+                    }
+                }
             }
 
             Section {
@@ -95,7 +114,7 @@ struct TimerComposeView: View {
                 Button {
                     guard canStart(at: Date()) else { return }
                     labelFocused = false
-                    let toShare = pickedExisting ?? TimerPayload.compose(label: label, kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
+                    let toShare = pickedExisting ?? composedPayload
                     onStart(toShare, shareMode, pickedExisting != nil)
                 } label: {
                     Label(pickedExisting == nil ? "Start & Share" : "Share", systemImage: "paperplane.fill")
@@ -114,9 +133,12 @@ struct TimerComposeView: View {
 
     /// The live preview of the sky the composed timer will get.
     private var previewPayload: TimerPayload {
-        pickedExisting ?? TimerPayload.compose(
-            label: label.isEmpty ? (kind == .timer ? String(localized: "Timer") : String(localized: "Countdown")) : label,
-            kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
+        pickedExisting ?? composedPayload
+    }
+
+    private var composedPayload: TimerPayload {
+        ComposeRules.payload(label: label, kind: kind, minutes: minutes, targetDate: targetDate, repeatFrequency: repeatFrequency,
+                             alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
     }
 
     /// Ticks every second (it used to show the time left when the sheet opened), follows

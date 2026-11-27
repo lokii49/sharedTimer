@@ -34,45 +34,14 @@ struct NewTimerSheet: View {
         composedPayload
     }
 
-    /// A 0:00:00 timer or a countdown target already in the past would ring at once
-    /// (compose clamps both to one second). A yearly countdown rolls a past date to
-    /// its next anniversary, so it's always fine.
+    /// Same rules as Messages' compose (`ComposeRules`).
     private func canStart(at date: Date) -> Bool {
-        switch kind {
-        case .timer: return minutes * 60 >= 1
-        case .countdown: return repeatFrequency != nil || targetDate > date
-        }
+        ComposeRules.canStart(kind: kind, minutes: minutes, targetDate: targetDate, repeatFrequency: repeatFrequency, at: date)
     }
 
     private var composedPayload: TimerPayload {
-        if kind == .countdown, let repeatFrequency {
-            return TimerPayload.composeAnnual(label: label, targetDate: targetDate, timeZone: countdownTimeZone, frequency: repeatFrequency,
-                                              alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
-        }
-        return TimerPayload.compose(label: label.isEmpty ? (kind == .timer ? String(localized: "Timer") : String(localized: "Countdown")) : label,
-                             kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
-    }
-
-    /// "Every Tuesday at 9:00 AM in Europe/Lisbon." — what the rule will do.
-    private func repeatFooter(_ frequency: AnnualRecurrence.Frequency) -> String {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = countdownTimeZone
-        let time = targetDate.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: countdownTimeZone))
-        let zone = countdownTimeZone.identifier
-        switch frequency {
-        case .daily:
-            return String(localized: "Every day at \(time) in \(zone).")
-        case .weekly:
-            let weekday = targetDate.formatted(Date.FormatStyle(timeZone: countdownTimeZone).weekday(.wide))
-            return String(localized: "Every \(weekday) at \(time) in \(zone).")
-        case .monthly:
-            let day = calendar.component(.day, from: targetDate)
-            return day > 28
-                ? String(localized: "Every month on day \(day) at \(time) in \(zone). Shorter months use their last day.")
-                : String(localized: "Every month on day \(day) at \(time) in \(zone).")
-        case .yearly:
-            return String(localized: "Repeats at this date and time in \(zone). February 29 uses February 28 in non-leap years. Open Timer each year to keep future reminders scheduled.")
-        }
+        ComposeRules.payload(label: label, kind: kind, minutes: minutes, targetDate: targetDate, repeatFrequency: repeatFrequency,
+                             timeZone: countdownTimeZone, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
     }
 
     var body: some View {
@@ -146,7 +115,7 @@ struct NewTimerSheet: View {
                         .pickerStyle(.menu)
                         .tint(kind.accentColor)
                     } footer: {
-                        if let repeatFrequency { Text(repeatFooter(repeatFrequency)) }
+                        if let repeatFrequency { Text(repeatFrequency.composeFooter(targetDate: targetDate, timeZone: countdownTimeZone)) }
                     }
                 }
 
