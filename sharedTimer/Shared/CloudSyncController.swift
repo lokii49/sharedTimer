@@ -208,6 +208,9 @@ enum CloudSyncController {
             var savedShare: CKShare?
             var shareRecordError: Error?
             operation.perRecordSaveBlock = { recordID, result in
+                if recordID == record.recordID, case .success(let saved) = result {
+                    SyncBase.store(saved, timerID: payload.id)
+                }
                 guard recordID == share.recordID else { return }
                 switch result {
                 case .success(let saved):
@@ -307,6 +310,7 @@ enum CloudSyncController {
             guard metadata.participantRole != .owner else {
                 CloudLinkStore.clearLeft(timerID: payload.id)
                 CloudLinkStore.set(link)
+                SyncBase.store(rootRecord, timerID: payload.id)
                 TimerStore.setReadOnly(id: payload.id, false)
                 completion(payload)
                 return
@@ -320,6 +324,7 @@ enum CloudSyncController {
                     // Opening the link again is an explicit re-join.
                     CloudLinkStore.clearLeft(timerID: payload.id)
                     CloudLinkStore.set(link)
+                    SyncBase.store(rootRecord, timerID: payload.id)
                     TimerStore.setReadOnly(id: payload.id, readOnly)
                     completion(payload)
                 case .failure(let error):
@@ -342,11 +347,26 @@ enum CloudSyncController {
     // MARK: - Push local mutations up
 
     /// Fire-and-forget. No-ops silently if this timer has no CloudLink (pure local
-    /// timer). Retries once on a write conflict, reapplying only the fields this device
-    /// changed onto the server's newer record (see `merged`).
-    /// `action` is a short human-readable verb ("paused", "resumed", "extended") written
-    /// alongside this device's DisplayNameStore name for the "who did what" surfaces.
+    /// timer). `action` is a short human-readable verb ("paused", "resumed",
+    /// "extended") written alongside this device's DisplayNameStore name for the "who
+    /// did what" surfaces.
+    ///
+    /// Pushes of one timer run one at a time, in call order (N15): two started together
+    /// (a Pause and a +5 min) used to race, and whichever save landed last won whole —
+    /// sometimes the older one. Each push is planned against the timer's sync base (the
+    /// server copy this device last saw, `SyncBase`): when the server moved since then,
+    /// only what this device changed goes up, and a newer server change survives
+    /// (`plannedPush`).
     static func pushUp(_ payload: TimerPayload, action: String, completion: @escaping () -> Void = {}) {
+        pushQueue.run(payload.id) { done in
+            performPush(payload, action: action) {
+                done()
+                completion()
+            }
+        }
+    }
+
+    private static func performPush(_ payload: TimerPayload, action: String, completion: @escaping () -> Void) {
         guard let link = CloudLinkStore.get(timerID: payload.id) else {
             // Not in iCloud yet: with "Sync with iCloud" on, upload it as this person's own.
             return adoptOwnTimer(payload, completion: completion)
@@ -364,9 +384,49 @@ enum CloudSyncController {
                 completion()
                 return
             }
-            applyFields(from: payload, to: record)
-            applyAttribution(action: action, to: record)
-            save(record, to: database, retryOnConflict: true, completion: completion)
+            push(payload, action: action, server: record, base: SyncBase.load(timerID: payload.id),
+                 to: database, retryOnConflict: true, completion: completion)
+        }
+    }
+
+    /// Per-timer FIFO for `pushUp`: the next push for an id starts when the previous
+    /// one called back. Process-local; pushes from another process (Messages) still
+    /// interleave, and the sync base covers those.
+    private static let pushQueue = PushQueue()
+
+    private final class PushQueue: @unchecked Sendable {
+        private let lock = NSLock()
+        private var waiting: [String: [(@escaping () -> Void) -> Void]] = [:]
+
+        func run(_ id: String, _ work: @escaping (@escaping () -> Void) -> Void) {
+            lock.lock()
+            if waiting[id] != nil {
+                waiting[id]!.append(work)
+                lock.unlock()
+                return
+            }
+            waiting[id] = []
+            lock.unlock()
+            start(id, work)
+        }
+
+        private func start(_ id: String, _ work: @escaping (@escaping () -> Void) -> Void) {
+            var finished = false
+            work { [self] in
+                lock.lock()
+                // Exactly once, even if a path calls back twice.
+                guard !finished else { lock.unlock(); return }
+                finished = true
+                guard var queue = waiting[id], !queue.isEmpty else {
+                    waiting[id] = nil
+                    lock.unlock()
+                    return
+                }
+                let next = queue.removeFirst()
+                waiting[id] = queue
+                lock.unlock()
+                start(id, next)
+            }
         }
     }
 
@@ -402,7 +462,7 @@ enum CloudSyncController {
             operation.savePolicy = .ifServerRecordUnchanged
             operation.perRecordSaveBlock = { _, result in
                 switch result {
-                case .success:
+                case .success(let saved):
                     // Re-checked: a share accepted for this id while the upload was in
                     // flight set a participant link, which must win — overwriting it pointed
                     // the timer at this person's private copy and cut it off from the share.
@@ -417,6 +477,7 @@ enum CloudSyncController {
                         }
                         return
                     }
+                    SyncBase.store(saved, timerID: payload.id)
                     CloudLinkStore.set(CloudLink(timerID: payload.id, recordName: payload.id, zoneName: zoneName,
                                                  zoneOwnerName: CKCurrentUserDefaultName, isOwner: true, shareRecordName: nil))
                 case .failure(let error):
@@ -449,6 +510,9 @@ enum CloudSyncController {
         var url: URL?
         operation.perRecordSaveBlock = { _, result in
             // Read the URL from the saved instance (see createShare).
+            if case .success(let saved) = result, !(saved is CKShare) {
+                SyncBase.store(saved, timerID: payload.id)
+            }
             if case .success(let saved) = result, let saved = saved as? CKShare {
                 url = saved.url
                 CloudLinkStore.update(timerID: payload.id) { link in
@@ -477,35 +541,220 @@ enum CloudSyncController {
     static let conflictMerges = OSAllocatedUnfairLock(initialState: 0)
     #endif
 
-    private static func save(_ record: CKRecord, to database: CKDatabase, retryOnConflict: Bool, completion: @escaping () -> Void) {
-        let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
+    private static func push(_ payload: TimerPayload, action: String, server: CKRecord, base: CKRecord?,
+                             to database: CKDatabase, retryOnConflict: Bool, completion: @escaping () -> Void) {
+        let plan = plannedPush(local: payload, action: action, server: server, base: base)
+        guard let outgoing = plan.record else {
+            // Nothing this device changed since its base survives against the server's
+            // newer copy: send nothing, and take that copy (store, base, alerts).
+            adoptServerCopy(server, timerID: payload.id)
+            return completion()
+        }
+        let operation = CKModifyRecordsOperation(recordsToSave: [outgoing], recordIDsToDelete: nil)
         // `.changedKeys` never compares change tags, so it never reported a conflict
         // and the merge below never ran — every push overwrote every field. pushUp
         // always saves a just-fetched record, so this only trips on a real race.
         operation.savePolicy = .ifServerRecordUnchanged
+        var saved: CKRecord?
+        operation.perRecordSaveBlock = { _, result in
+            if case .success(let record) = result { saved = record }
+        }
         operation.modifyRecordsResultBlock = { result in
-            guard case .failure(let error) = result else { return completion() }
-            if isPermissionFailure(error, for: record.recordID) {
+            guard case .failure(let error) = result else {
+                if let saved {
+                    // The server now holds `saved`. If it kept some of its own newer state,
+                    // the local copy (and its alarm) must follow; either way it's the base.
+                    if plan.adoptsServer { adoptServerCopy(saved, timerID: payload.id) }
+                    else { SyncBase.store(saved, timerID: payload.id) }
+                }
+                return completion()
+            }
+            if isPermissionFailure(error, for: outgoing.recordID) {
                 // The owner made this share view-only since we last checked: CloudKit
                 // refused the write. Stop offering changes here and put the server's
                 // state back over the local edit.
-                revertToServer(record.recordID, in: database)
+                revertToServer(outgoing.recordID, in: database)
                 return completion()
             }
             guard retryOnConflict,
-                  let conflict = serverRecordChangedError(from: error, for: record.recordID),
+                  let conflict = serverRecordChangedError(from: error, for: outgoing.recordID),
                   let serverRecord = conflict.serverRecord else {
-                log("pushUp save(\(record.recordID.recordName)) failed, not retrying: \(error)")
+                log("pushUp save(\(outgoing.recordID.recordName)) failed, not retrying: \(error)")
                 completion()
                 return
             }
             #if DEBUG
             conflictMerges.withLock { $0 += 1 }
             #endif
-            let merged = merged(client: record, ancestor: conflict.ancestorRecord, server: serverRecord)
-            save(merged, to: database, retryOnConflict: false, completion: completion)
+            if let base {
+                // Another write landed between the fetch and this save: plan again
+                // against it, from the same base.
+                push(payload, action: action, server: serverRecord, base: base, to: database, retryOnConflict: false, completion: completion)
+            } else {
+                // No base yet (a timer linked before N15): the fetched copy this push was
+                // built on is the ancestor, as before.
+                let merged = merged(client: outgoing, ancestor: conflict.ancestorRecord, server: serverRecord)
+                saveMerged(merged, timerID: payload.id, to: database, completion: completion)
+            }
         }
         database.add(operation)
+    }
+
+    private static func saveMerged(_ record: CKRecord, timerID: String, to database: CKDatabase, completion: @escaping () -> Void) {
+        let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
+        operation.savePolicy = .ifServerRecordUnchanged
+        var saved: CKRecord?
+        operation.perRecordSaveBlock = { _, result in
+            if case .success(let record) = result { saved = record }
+        }
+        operation.modifyRecordsResultBlock = { result in
+            if case .failure(let error) = result {
+                log("pushUp merged save(\(record.recordID.recordName)) failed: \(error)")
+            } else if let saved {
+                // The merge may have kept the server's timing: follow it.
+                adoptServerCopy(saved, timerID: timerID)
+            }
+            completion()
+        }
+        database.add(operation)
+    }
+
+    // MARK: - Sync base (N15)
+
+    /// What a push should send, given the server's current record and the copy this
+    /// device last synced (`base`). `record` nil = send nothing. `adoptsServer` = the
+    /// saved record will hold server state the local copy lacks, so the device must take
+    /// it afterwards.
+    struct PushPlan {
+        let record: CKRecord?
+        let adoptsServer: Bool
+    }
+
+    /// The parts of a timer a person changes independently. `timing` is one state (end,
+    /// pause, duration, start, phase position, repeat rule, kind) — never merged field by
+    /// field (see `merged`).
+    enum SyncField: CaseIterable {
+        case timing, label, alarm, vibration
+
+        var keys: [String] {
+            switch self {
+            case .timing: return Array(CloudSyncController.timingKeys) + ["kind"]
+            case .label: return ["label"]
+            case .alarm: return ["alarmEnabled"]
+            case .vibration: return ["vibrationEnabled"]
+            }
+        }
+    }
+
+    /// What differs between two copies of one timer, both projected to the same moment
+    /// (a sequence or repeating countdown moves on by the clock alone — that is no
+    /// one's change) and with the 1 s tolerance used elsewhere (CloudKit keeps dates to
+    /// the millisecond). Decoded values, never raw record bytes. A sequence's label and
+    /// toggles are its current phase's projection, not editable, so only timing counts.
+    static func changedFields(from old: TimerPayload, to new: TimerPayload, at date: Date) -> Set<SyncField> {
+        let a = old.advancedSequence(at: date), b = new.advancedSequence(at: date)
+        func differs(_ x: Date?, _ y: Date?) -> Bool {
+            switch (x, y) {
+            case let (x?, y?): return abs(x.timeIntervalSince(y)) >= 1
+            case (nil, nil): return false
+            default: return true
+            }
+        }
+        var fields: Set<SyncField> = []
+        let timing = differs(a.endDate, b.endDate) || a.isPaused != b.isPaused
+            || abs((a.pausedRemaining ?? 0) - (b.pausedRemaining ?? 0)) >= 1
+            || abs(a.duration - b.duration) >= 1 || differs(a.scheduledStartDate, b.scheduledStartDate)
+            || a.kind != b.kind || a.recurrence != b.recurrence
+            || a.sequence?.phases != b.sequence?.phases || a.sequence?.loopCount != b.sequence?.loopCount
+            || a.sequence?.phaseIndex != b.sequence?.phaseIndex || a.sequence?.loopIndex != b.sequence?.loopIndex
+        if timing { fields.insert(.timing) }
+        if a.sequence == nil, b.sequence == nil {
+            if a.label != b.label { fields.insert(.label) }
+            if a.alarmEnabled != b.alarmEnabled { fields.insert(.alarm) }
+            if a.vibrationEnabled != b.vibrationEnabled { fields.insert(.vibration) }
+        }
+        return fields
+    }
+
+    /// N15. Without a usable base (none yet, or one for another record — a stop and
+    /// re-share makes a new record under the same timer id), every local field goes up,
+    /// as before. Otherwise only the fields this device changed since its base are
+    /// written onto the server's record; when both sides changed timing, the newer
+    /// `updatedAt` wins — the only place two phones' clocks are compared, and only for a
+    /// true conflict. A push that would change nothing sends nothing (and no "Sam
+    /// paused" for a pause that lost).
+    static func plannedPush(local: TimerPayload, action: String, server: CKRecord, base: CKRecord?, at date: Date = Date()) -> PushPlan {
+        guard let base, base.recordID == server.recordID,
+              let before = makePayload(from: base), let theirsNow = makePayload(from: server) else {
+            applyFields(from: local, to: server)
+            applyAttribution(action: action, to: server)
+            return PushPlan(record: server, adoptsServer: false)
+        }
+        let mine = changedFields(from: before, to: local, at: date)
+        let theirs = changedFields(from: before, to: theirsNow, at: date)
+        let localIsNewer = (local.updatedAt ?? .distantPast) > (theirsNow.updatedAt ?? .distantPast)
+        let take = mine.filter { $0 != .timing || !theirs.contains(.timing) || localIsNewer }
+        guard !take.isEmpty else { return PushPlan(record: nil, adoptsServer: true) }
+
+        let scratch = server.copy() as! CKRecord
+        applyFields(from: local, to: scratch)
+        for field in take {
+            for key in field.keys {
+                // A key neither copy has stays absent rather than being written as nil.
+                if scratch[key] == nil, server[key] == nil { continue }
+                server[key] = scratch[key]
+            }
+        }
+        if let stamp = [local.updatedAt, theirsNow.updatedAt].compactMap({ $0 }).max() {
+            server["updatedAt"] = stamp as CKRecordValue
+        }
+        // "Who did what" names this change only when all of it went up.
+        if take == mine { applyAttribution(action: action, to: server) }
+        return PushPlan(record: server, adoptsServer: !theirs.isEmpty || take != mine)
+    }
+
+    /// The server's copy is now this device's: store it as the base and the local copy,
+    /// and tell open screens (they reload and re-arm, as for a refused write).
+    private static func adoptServerCopy(_ record: CKRecord, timerID: String) {
+        SyncBase.store(record, timerID: timerID)
+        guard let payload = makePayload(from: record) else { return }
+        TimerStore.save(payload)
+        DispatchQueue.main.async { NotificationCenter.default.post(name: revertedToServer, object: payload) }
+    }
+
+    /// The server record this device last synced for each timer (pulled, pushed,
+    /// created, accepted): the ancestor `plannedPush` compares against. One archived
+    /// CKRecord per timer in the App Group container, so the app, Messages and the
+    /// notification service share it. Written wherever the stored copy is updated from
+    /// the server — a base ahead of the stored copy would make old local values look
+    /// like this device's edits. On device only; no CloudKit field.
+    enum SyncBase {
+        private static var directory: URL? {
+            FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)?
+                .appendingPathComponent("SyncBase", isDirectory: true)
+        }
+
+        private static func url(_ timerID: String) -> URL? {
+            let name = timerID.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? timerID
+            return directory?.appendingPathComponent(name).appendingPathExtension("ckrecord")
+        }
+
+        static func load(timerID: String) -> CKRecord? {
+            guard let url = url(timerID), let data = try? Data(contentsOf: url) else { return nil }
+            return try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKRecord.self, from: data)
+        }
+
+        static func store(_ record: CKRecord, timerID: String) {
+            guard let directory, let url = url(timerID),
+                  let data = try? NSKeyedArchiver.archivedData(withRootObject: record, requiringSecureCoding: true) else { return }
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try? data.write(to: url, options: .atomic)
+        }
+
+        static func remove(timerID: String) {
+            guard let url = url(timerID) else { return }
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 
     /// Three-way merge for a write conflict: only the keys this device changed since
@@ -556,8 +805,9 @@ enum CloudSyncController {
             && (ckError.partialErrorsByItemID?[recordID] as? CKError)?.code == .permissionFailure
     }
 
-    /// Posted on main with the server's copy (`object`) after a refused write was undone
-    /// locally; the visible list/detail reload and re-arm from it.
+    /// Posted on main with the server's copy (`object`) after the local copy was replaced
+    /// by it — a refused write undone, or a push whose change lost to a newer one on the
+    /// server (N15). The visible list/detail reload and re-arm from it.
     static let revertedToServer = Notification.Name("SharedTimerRevertedToServer")
 
     private static func revertToServer(_ recordID: CKRecord.ID, in database: CKDatabase) {
@@ -573,6 +823,7 @@ enum CloudSyncController {
                 DispatchQueue.main.async { NotificationCenter.default.post(name: permissionsChanged, object: [link.timerID]) }
                 return
             }
+            SyncBase.store(record, timerID: link.timerID)
             DispatchQueue.main.async {
                 // Store the server copy first, so the re-arm the permission change
                 // triggers works from it, never from the refused edit.
@@ -730,7 +981,7 @@ enum CloudSyncController {
     /// doesn't wait on the network round trip.
     static func pushDelete(id: String) {
         guard let link = CloudLinkStore.get(timerID: id) else { return }
-        defer { CloudLinkStore.remove(timerID: id) }
+        defer { CloudLinkStore.remove(timerID: id); SyncBase.remove(timerID: id) }
         guard link.isOwner else {
             CloudLinkStore.markLeft(timerID: id)
             return
@@ -968,6 +1219,9 @@ enum CloudSyncController {
                                                            shareRecordName: record.share?.recordID.recordName))
                         refreshPermissions(for: [payload.id])
                     }
+                    // Every caller stores what this returns (peeks too), so the base moves
+                    // with the stored copy.
+                    SyncBase.store(record, timerID: payload.id)
                     updated.append(payload)
                 } else {
                     log("fetchZoneChanges: record \(recordID.recordName) fetched but unparseable")
@@ -987,6 +1241,7 @@ enum CloudSyncController {
             if database === container.privateCloudDatabase,
                !appliesPrivateZoneDeletion(link: CloudLinkStore.get(timerID: recordID.recordName)) { return }
             deletedIDs.append(recordID.recordName)
+            SyncBase.remove(timerID: recordID.recordName)
         }
         operation.recordZoneChangeTokensUpdatedBlock = { zoneID, token, _ in
             if let token, !peek, !failedZoneIDs.contains(zoneID) { saveToken(token, key: zoneTokenKey(zoneID)) }

@@ -11,6 +11,7 @@
 //    race    (both, together)     CLASH_TIMER_ID, CLASH_T0 (epoch s), CLASH_ACTION
 //                                 (pause | extend), CLASH_ROUNDS, CLASH_RESET=1 on the owner
 //    cleanup (both)               owner deletes the record; participant leaves
+//    solo / forced / stale (one phone)  see each function; each ends with `purge`
 //
 //  Each round: the owner resets the record to "running, 30 min left"; both read it;
 //  at T the owner pauses and, 0.3 s later, the participant adds 5 min — each pushing from
@@ -39,6 +40,7 @@ struct TwoDeviceClashTests {
         case "solo": try await solo()
         case "forced": try await forced()
         case "purge": await purge()
+        case "stale": try await stale()
         default: Issue.record("unknown CLASH_ROLE")
         }
     }
@@ -196,6 +198,78 @@ struct TwoDeviceClashTests {
         await purge()
     }
 
+    /// N15, one phone, real iCloud. "The other phone" writes straight to the server, so
+    /// this phone's sync base never sees it — exactly a second device's change this
+    /// phone hasn't pulled yet. Then this phone pushes from its stale copy:
+    ///   1. a pause made *before* the other phone's extend → the extend stays, and this
+    ///      phone's stored copy takes it;
+    ///   2. a pause made *after* another extend → the pause wins whole;
+    ///   3. a vibration switch elsewhere + a pause here → both kept.
+    private func stale() async throws {
+        await diagnose()
+        let seed = TimerPayload(label: "Clash test", duration: 1800, alarmEnabled: false, vibrationEnabled: false)
+        _ = await withCheckedContinuation { continuation in
+            CloudSyncController.createShare(for: seed, timeout: 60) { continuation.resume(returning: $0) }
+        }
+        let link = try #require(CloudLinkStore.get(timerID: seed.id), "record created")
+        defer { print("CLASH_STALE id=\(seed.id)") }
+
+        func resetRunning() async throws -> TimerPayload {
+            let running = TimerPayload(id: seed.id, label: "Clash test", endDate: Date().addingTimeInterval(1800), duration: 1800,
+                                       alarmEnabled: false, vibrationEnabled: false, updatedAt: Date())
+            TimerStore.save(running)
+            await CloudSyncController.pushUpAwaiting(running, action: "updated")
+            return try #require(await serverPayload(link), "reset read")
+        }
+        /// The other phone: fetch, change, save — never through this phone's pushUp.
+        func otherPhone(_ change: (CKRecord) -> Void, action: String) async throws {
+            let record = try #require(await record(link))
+            change(record)
+            record["updatedAt"] = Date() as CKRecordValue
+            record["lastActorName"] = "Other phone" as CKRecordValue
+            record["lastAction"] = action as CKRecordValue
+            _ = try await Self.container.privateCloudDatabase.modifyRecords(saving: [record], deleting: [], savePolicy: .ifServerRecordUnchanged)
+        }
+
+        // 1. Stale pause (stamped before the extend) loses.
+        let base1 = try await resetRunning()
+        let stalePause = base1.paused(at: Date())
+        try await Task.sleep(for: .seconds(1))
+        try await otherPhone({ record in (record["endDate"] as? Date).map { record["endDate"] = $0.addingTimeInterval(300) as CKRecordValue } }, action: "extended")
+        await CloudSyncController.pushUpAwaiting(stalePause, action: "paused")
+        let (after1, actor1) = try #require(await serverState(link))
+        print("CLASH_STALE 1 paused=\(after1.isPaused) endOffset=\(Int(after1.endDate.timeIntervalSince(base1.endDate).rounded()))s last=\(actor1?.action ?? "nil")")
+        #expect(!after1.isPaused, "the newer extend survives a stale pause")
+        #expect(abs(after1.endDate.timeIntervalSince(base1.endDate) - 300) <= 1, "+5 min kept")
+        #expect(actor1?.action == "extended")
+        let stored1 = TimerStore.loadAll().first { $0.id == seed.id }
+        #expect(stored1?.isPaused == false && abs((stored1?.endDate.timeIntervalSince(after1.endDate) ?? 99)) < 1, "this phone took the server copy")
+
+        // 2. A pause stamped after the other phone's extend wins.
+        let base2 = try await resetRunning()
+        try await otherPhone({ record in (record["endDate"] as? Date).map { record["endDate"] = $0.addingTimeInterval(300) as CKRecordValue } }, action: "extended")
+        try await Task.sleep(for: .seconds(1))
+        let newerPause = base2.paused(at: Date())
+        await CloudSyncController.pushUpAwaiting(newerPause, action: "paused")
+        let (after2, actor2) = try #require(await serverState(link))
+        print("CLASH_STALE 2 paused=\(after2.isPaused) last=\(actor2?.action ?? "nil")")
+        #expect(after2.isPaused, "a newer pause wins")
+        #expect(actor2?.action == "paused")
+
+        // 3. Different fields: both survive.
+        let base3 = try await resetRunning()
+        let pause3 = base3.paused(at: Date())
+        try await Task.sleep(for: .seconds(1))
+        try await otherPhone({ $0["vibrationEnabled"] = true as CKRecordValue }, action: "edited")
+        await CloudSyncController.pushUpAwaiting(pause3, action: "paused")
+        let (after3, _) = try #require(await serverState(link))
+        print("CLASH_STALE 3 paused=\(after3.isPaused) vibration=\(after3.vibrationEnabled)")
+        #expect(after3.isPaused, "the pause goes up")
+        #expect(after3.vibrationEnabled, "the other phone's switch stays")
+
+        await purge()
+    }
+
     /// Removes every "Clash test" timer this phone holds — records (awaited), links and
     /// stored copies — so nothing from these runs lingers in the person's app.
     private func purge() async {
@@ -204,6 +278,7 @@ struct TwoDeviceClashTests {
             guard let record = await record(link), record["label"] as? String == "Clash test" else { continue }
             _ = try? await Self.container.privateCloudDatabase.modifyRecords(saving: [], deleting: [record.recordID])
             CloudLinkStore.remove(timerID: link.timerID)
+            CloudSyncController.SyncBase.remove(timerID: link.timerID)
             removed += 1
         }
         for payload in TimerStore.loadAll() where payload.label == "Clash test" { TimerStore.delete(id: payload.id) }
