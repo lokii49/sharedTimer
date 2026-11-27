@@ -85,6 +85,6 @@ struct WatchTimerWidget: Widget {
         }
         .configurationDisplayName("Shared Timer")
         .description("See a synced timer on your watch face or in the Smart Stack.")
-        .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
+        .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline, .accessoryCorner])
     }
 }

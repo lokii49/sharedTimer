@@ -74,8 +74,8 @@ struct sharedTimerWatch_Watch_AppTests {
             ("empty", nil)
         ]
         for (name, timer) in states {
-            for family in [WidgetFamily.accessoryCircular, .accessoryRectangular, .accessoryInline] {
-                let width: CGFloat = family == .accessoryCircular ? 58 : 170
+            for family in [WidgetFamily.accessoryCircular, .accessoryRectangular, .accessoryInline, .accessoryCorner] {
+                let width: CGFloat = family == .accessoryCircular || family == .accessoryCorner ? 58 : 170
                 let height: CGFloat = family == .accessoryInline ? 24 : 64
                 let view = WatchTimerWidgetView(snapshot: WatchTimerSnapshot(date: now, timer: timer), family: family)
                     .frame(width: width, height: height).background(Color.black).foregroundStyle(.white)
