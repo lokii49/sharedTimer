@@ -179,6 +179,9 @@ enum LiveActivityActions {
         let payload = recent?.payload()
             ?? TimerPayload.compose(label: String(localized: "Timer"), kind: .timer, minutes: 5, targetDate: Date())
         TimerStore.setWidgetFocus(id: payload.id)
+        if let key = recent?.id ?? RecentTimer.key(for: payload) {
+            TimerTagStore.update { $0.adopt(timerID: payload.id, recentKey: key) }
+        }
         TimerStore.save(payload)
         await TimerArming.armAwaiting(payload)
         if let recent { RecentTimersStore.record(recent) } else { RecentTimersStore.record(payload) }

@@ -19,13 +19,17 @@ struct NewTimerSheet: View {
     @State private var alarmEnabled = true
     @State private var vibrationEnabled = true
     @State private var reminders: Set<TimerReminder> = []
+    /// N5: this phone's tags (the list's current filter preselected) and a note.
+    @State private var tagIDs: [String] = []
+    @State private var note = ""
     @FocusState private var labelFocused: Bool
     @State private var recents: [RecentTimer] = RecentTimersStore.all()
 
     let onCreate: (TimerPayload) -> Void
 
-    init(initialKind: TimerKind = .timer, onCreate: @escaping (TimerPayload) -> Void) {
+    init(initialKind: TimerKind = .timer, initialTagID: String? = nil, onCreate: @escaping (TimerPayload) -> Void) {
         self._kind = State(initialValue: initialKind)
+        self._tagIDs = State(initialValue: initialTagID.map { [$0] } ?? [])
         self.onCreate = onCreate
     }
 
@@ -54,7 +58,9 @@ struct NewTimerSheet: View {
                         ChipFlowLayout(spacing: 8) {
                             ForEach(recents) { recent in
                                 Button {
-                                    onCreate(recent.payload())
+                                    let started = recent.payload()
+                                    TimerTagStore.update { $0.adopt(timerID: started.id, recentKey: recent.id) }
+                                    onCreate(started)
                                     RecentTimersStore.record(recent)
                                     dismiss()
                                 } label: {
@@ -133,6 +139,15 @@ struct NewTimerSheet: View {
                     whenItEndsExtra: AnyView(ReminderChips(kind: kind, span: kind == .timer ? minutes * 60 : max(0, targetDate.timeIntervalSinceNow), selection: $reminders))
                 )
                 .environment(\.timeZone, countdownTimeZone)
+
+                Section {
+                    TagChipsPicker(selection: $tagIDs)
+                }
+                Section("Note") {
+                    TextField("Add a note", text: $note, axis: .vertical)
+                        .lineLimit(2...6)
+                        .accessibilityIdentifier("noteField")
+                }
             }
             .sheet(isPresented: $showingCalendarImport) {
                 CalendarImportSheet { choice in
@@ -159,6 +174,11 @@ struct NewTimerSheet: View {
                             let payload = composedPayload
                             // Set before onCreate: its arm plans the reminders.
                             TimerReminders.set(reminders.filter { $0.fits(span: payload.span) && TimerReminder.choices(for: payload.kind).contains($0) }, for: payload.id)
+                            let tags = tagIDs, text = note
+                            TimerTagStore.update { organizer in
+                                organizer.setTags(tags, for: payload.id)
+                                organizer.setNote(text, for: payload.id)
+                            }
                             onCreate(payload)
                             dismiss()
                         }

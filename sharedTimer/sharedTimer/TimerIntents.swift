@@ -42,7 +42,9 @@ struct StartTimerIntent: AppIntent {
         // process just to run this intent and tear it down the instant `perform()`
         // returns, same class of bug `AdvanceSequenceIntent` had — see CLAUDE.md.
         await TimerArming.armAwaiting(payload)
-        RecentTimersStore.record(payload)
+        if let key = RecentTimersStore.record(payload) {
+            TimerTagStore.update { $0.adopt(timerID: payload.id, recentKey: key) }
+        }
         RecentTimersSync.refresh()
         await announceExternalChange()
         await CloudSyncController.pushUpAwaiting(payload, action: "started")

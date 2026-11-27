@@ -25,6 +25,12 @@ struct EditTimerSheet: View {
     /// Messages, for a timer the app arms through AlarmKit: an Alarm/Vibrate change made
     /// here only reaches that full-screen alarm once Timer opens (owner's call).
     var alarmChangeWaitsForApp = false
+    /// App only (N5): tags and the note, kept on this phone. Messages doesn't show them.
+    var showsTagsAndNote = false
+    @State private var tagIDs: [String] = []
+    @State private var originalTagIDs: [String] = []
+    @State private var note = ""
+    @State private var originalNote = ""
 
     @State private var label: String
     @State private var kind: TimerKind
@@ -37,12 +43,19 @@ struct EditTimerSheet: View {
     @FocusState private var labelFocused: Bool
 
     init(payload: TimerPayload, fullScreenAlarmsOff: Bool = false, notificationOnlyHere: Bool = false,
-         alarmChangeWaitsForApp: Bool = false, onSave: @escaping (TimerPayload) -> Void) {
+         alarmChangeWaitsForApp: Bool = false, showsTagsAndNote: Bool = false, onSave: @escaping (TimerPayload) -> Void) {
         _original = State(initialValue: payload)
         self.onSave = onSave
         self.fullScreenAlarmsOff = fullScreenAlarmsOff
         self.notificationOnlyHere = notificationOnlyHere
         self.alarmChangeWaitsForApp = alarmChangeWaitsForApp
+        self.showsTagsAndNote = showsTagsAndNote
+        let organizer = TimerTagStore.load()
+        let tags = organizer.tags(for: payload.id).map(\.id)
+        _tagIDs = State(initialValue: tags)
+        _originalTagIDs = State(initialValue: tags)
+        _note = State(initialValue: organizer.note(for: payload.id) ?? "")
+        _originalNote = State(initialValue: organizer.note(for: payload.id) ?? "")
         _label = State(initialValue: payload.label)
         _kind = State(initialValue: payload.kind)
         _minutes = State(initialValue: payload.duration / 60)
@@ -84,7 +97,12 @@ struct EditTimerSheet: View {
 
     /// `edited` always restamps `updatedAt`, so compare the fields an edit can change.
     private var hasChanges: Bool {
-        timerFieldsChanged || reminders != originalReminders
+        timerFieldsChanged || reminders != originalReminders || localExtrasChanged
+    }
+
+    /// Tags and note: this phone only, never an "edited" change for everyone.
+    private var localExtrasChanged: Bool {
+        showsTagsAndNote && (tagIDs != originalTagIDs || note != originalNote)
     }
 
     private var timerFieldsChanged: Bool {
@@ -131,6 +149,17 @@ struct EditTimerSheet: View {
                         : nil
                 )
                 .environment(\.timeZone, timeZone)
+
+                if showsTagsAndNote {
+                    Section {
+                        TagChipsPicker(selection: $tagIDs)
+                    }
+                    Section("Note") {
+                        TextField("Add a note", text: $note, axis: .vertical)
+                            .lineLimit(2...6)
+                            .accessibilityIdentifier("noteField")
+                    }
+                }
             }
             .scrollContentBackground(.hidden)
             .background(Sky.room)
@@ -146,6 +175,12 @@ struct EditTimerSheet: View {
                             guard targetStillValid(at: Date()) else { return }
                             guard TimerStore.loadAll().contains(where: { $0.id == original.id }) else { return dismiss() }
                             TimerReminders.set(reminders, for: original.id)
+                            if localExtrasChanged {
+                                TimerTagStore.update { organizer in
+                                    organizer.setTags(tagIDs, for: original.id)
+                                    organizer.setNote(note, for: original.id)
+                                }
+                            }
                             if timerFieldsChanged, let edited = editedLatest() {
                                 onSave(edited)
                             } else if let latest = TimerStore.loadAll().first(where: { $0.id == original.id }) {

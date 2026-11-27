@@ -39,6 +39,12 @@ struct ContentView: View {
     /// The last removed timer, for the Undo toast (local timers and ones shared with
     /// this phone; "Delete for Everyone" has its own confirmation instead).
     @State private var undoableDeletion: TimerPayload?
+    /// N5: this phone's tags and notes, and the list filter (view state only — a stale
+    /// stored filter would hide a ringing timer on the next launch).
+    @State private var organizer = TimerTagStore.load()
+    @State private var tagFilter: String?
+    @State private var taggingPayload: TimerPayload?
+    @State private var newTagName = ""
     @State private var undoTask: Task<Void, Never>?
     @State private var showingNamePrompt = false
     @State private var nameInput: String = ""
@@ -73,10 +79,29 @@ struct ContentView: View {
                         // rather than sitting in Active forever. Pending gets its own
                         // section (it hasn't started, semantically not "Active" yet)
                         // sorted by start date, soonest first.
-                        let pending = timers.filter { $0.isPending(at: now) }
+                        let split = organizer.filter(timers, tagID: tagFilter)
+                        let listed = split.shown
+                        if !organizer.tags.isEmpty {
+                            TagFilterBar(tags: organizer.tags, selection: $tagFilter, onRename: renameTag, onDelete: deleteTag)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                        }
+                        if listed.isEmpty {
+                            // A filter that matches nothing: its own small note, not the
+                            // first-run quick start.
+                            Text("No timers with this tag.")
+                                .font(.subheadline)
+                                .foregroundStyle(Sky.roomInk)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 24)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                        }
+                        let pending = listed.filter { $0.isPending(at: now) }
                             .sorted { ($0.scheduledStartDate ?? .distantFuture) < ($1.scheduledStartDate ?? .distantFuture) }
-                        let active = timers.filter { !$0.isFinished && !$0.isPending(at: now) }.sorted { $0.endDate < $1.endDate }
-                        let expired = timers.filter { $0.isFinished }.sorted { $0.endDate > $1.endDate }
+                        let active = listed.filter { !$0.isFinished && !$0.isPending(at: now) }.sorted { $0.endDate < $1.endDate }
+                        let expired = listed.filter { $0.isFinished }.sorted { $0.endDate > $1.endDate }
 
                         if !active.isEmpty {
                             Section {
@@ -99,6 +124,9 @@ struct ContentView: View {
                                 Text("Finished").skyLabel().foregroundStyle(Sky.roomInk)
                             }
                         }
+                        if !split.hidden.isEmpty {
+                            otherTagsRow(split.hidden)
+                        }
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
@@ -115,6 +143,87 @@ struct ContentView: View {
                     }
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: TimerTagStore.changed)) { _ in
+                organizer = TimerTagStore.load()
+            }
+            .alert("New Tag", isPresented: Binding(get: { taggingPayload != nil }, set: { if !$0 { taggingPayload = nil } })) {
+                TextField("Name", text: $newTagName)
+                Button("Add") {
+                    guard let payload = taggingPayload else { return }
+                    TimerTagStore.update { organizer in
+                        if let tag = organizer.addTag(named: newTagName), !(organizer.tagsByTimer[payload.id] ?? []).contains(tag.id) {
+                            organizer.toggle(tagID: tag.id, for: payload.id)
+                        }
+                    }
+                    organizer = TimerTagStore.load()
+                    taggingPayload = nil
+                }
+                Button("Cancel", role: .cancel) { taggingPayload = nil }
+            }
+    }
+
+    /// Tags and notes of timers no longer stored. Only with a complete store, and never
+    /// in the test host (the suites swap the real store out — a prune there would wipe
+    /// the person's notes on their own phone).
+    private func pruneTagsAndNotes() {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
+              TimerStore.hasStoredData, let stored = TimerStore.loadAllIfComplete() else { return }
+        let recents = Set(RecentTimersStore.all().map(\.id))
+        TimerTagStore.update { $0.prune(keeping: Set(stored.map(\.id)), recents: recents) }
+    }
+
+    /// Timers the tag filter hides: a count, tap to show everything. A finished timer
+    /// still counting overtime among them gets the bell, so a ringing one isn't missed.
+    private func otherTagsRow(_ hidden: [TimerPayload]) -> some View {
+        let ringing = hidden.contains { $0.isFinished && $0.overtime() != nil && !TimerStore.isFinishAcknowledged(id: $0.id) }
+        return Button {
+            tagFilter = nil
+        } label: {
+            Label(String(localized: "In other tags: \(hidden.count)"), systemImage: ringing ? "bell.fill" : "line.3.horizontal.decrease.circle")
+                .font(.subheadline)
+                .foregroundStyle(ringing ? Sky.overtimeInk : Sky.roomInk)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("otherTagsRow")
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    private func renameTag(_ tag: TimerTag, to name: String) {
+        TimerTagStore.update { $0.rename(tagID: tag.id, to: name) }
+        organizer = TimerTagStore.load()
+    }
+
+    private func deleteTag(_ tag: TimerTag) {
+        TimerTagStore.update { $0.deleteTag(id: tag.id) }
+        organizer = TimerTagStore.load()
+        if tagFilter == tag.id { tagFilter = nil }
+    }
+
+    /// The "Tags" submenu on a row: this phone's tags as checkmarks, plus New Tag…
+    /// Outside the view-only group — a tag never changes the timer itself.
+    @ViewBuilder private func tagsMenu(for payload: TimerPayload) -> some View {
+        Menu {
+            ForEach(organizer.tags) { tag in
+                let on = (organizer.tagsByTimer[payload.id] ?? []).contains(tag.id)
+                Button {
+                    TimerTagStore.update { $0.toggle(tagID: tag.id, for: payload.id) }
+                    organizer = TimerTagStore.load()
+                } label: {
+                    if on { Label(tag.name, systemImage: "checkmark") } else { Text(tag.name) }
+                }
+            }
+            Button {
+                newTagName = ""
+                taggingPayload = payload
+            } label: {
+                Label("New Tag…", systemImage: "plus")
+            }
+        } label: {
+            Label("Tags", systemImage: "tag")
+        }
     }
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -190,12 +299,12 @@ struct ContentView: View {
                 }
             }
             .sheet(item: $pendingNewTimerKind) { kind in
-                NewTimerSheet(initialKind: kind) { payload in
+                NewTimerSheet(initialKind: kind, initialTagID: tagFilter) { payload in
                     startNew(payload)
                 }
             }
             .sheet(item: $editingPayload) { payload in
-                EditTimerSheet(payload: payload, fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied) { edited in
+                EditTimerSheet(payload: payload, fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied, showsTagsAndNote: true) { edited in
                     applyEdit(edited)
                 }
             }
@@ -434,6 +543,7 @@ struct ContentView: View {
             }
             guard newPhase == .active else { return }
             TimerSpotlightIndex.shared.requestRefresh()
+            pruneTagsAndNotes()
             // Re-read TimerStore first — a timer created while backgrounded (e.g. via
             // TimerIntents.swift's Siri intents) writes straight to the App Group and has
             // no CloudLink, so pullCloudChanges alone would never surface it here.
@@ -595,7 +705,7 @@ struct ContentView: View {
                     } else {
                         ForEach(recents) { recent in
                             emptyStateChip(Text(recent.title), symbol: recent.isSequence ? recent.symbolName : nil) {
-                                startNew(recent.payload())
+                                startNew(recent.payload(), fromRecent: recent)
                                 RecentTimersStore.record(recent)
                                 RecentTimersSync.refresh()
                             }
@@ -742,7 +852,7 @@ struct ContentView: View {
     /// a tap gesture installed on iPhone rows too (even with a gated body) can take the
     /// tap away from the NavigationLink.
     @ViewBuilder private func selectableCard(_ payload: TimerPayload) -> some View {
-        let card = LiveSkyCard(payload: payload)
+        let card = LiveSkyCard(payload: payload, tags: organizer.tags(for: payload.id).map(\.name))
             .accessibilityAddTraits(.isButton)
             // C9 · A: landscape (and iPad) cards stop at 560 pt, centered.
             .frame(maxWidth: 560)
@@ -835,6 +945,7 @@ struct ContentView: View {
                     Label("Manage Sharing", systemImage: "person.2")
                 }
             }
+            tagsMenu(for: payload)
             // View only: the change items show but are disabled (see swipeActions).
             Group {
             if payload.sequence == nil {
@@ -1131,7 +1242,12 @@ struct ContentView: View {
 
     /// A newly created plain timer/countdown (sheet, recent chip, Quick Action): apply it
     /// and remember it in RecentTimersStore (timers only — see that file).
-    private func startNew(_ payload: TimerPayload) {
+    private func startNew(_ payload: TimerPayload, fromRecent recent: RecentTimer? = nil) {
+        // Recents carry tags and notes: before `apply`, so the card shows them at once.
+        if let key = recent?.id ?? RecentTimer.key(for: payload) {
+            TimerTagStore.update { $0.adopt(timerID: payload.id, recentKey: key) }
+            organizer = TimerTagStore.load()
+        }
         apply(payload)
         RecentTimersStore.record(payload)
         RecentTimersSync.refresh()
@@ -1141,7 +1257,7 @@ struct ContentView: View {
         if type.hasPrefix(RecentTimersSync.quickActionPrefix) {
             let id = String(type.dropFirst(RecentTimersSync.quickActionPrefix.count))
             if let recent = RecentTimersStore.all().first(where: { $0.id == id }) {
-                startNew(recent.payload())
+                startNew(recent.payload(), fromRecent: recent)
                 RecentTimersStore.record(recent)
                 RecentTimersSync.refresh()
             }
@@ -1344,11 +1460,12 @@ struct ContentView: View {
 /// a new payload).
 private struct LiveSkyCard: View {
     let payload: TimerPayload
+    var tags: [String] = []
 
     var body: some View {
         // Overtime (a finished timer's "+2:13") still ticks every second for its hour.
         TimelineView(.periodic(from: .now, by: payload.isPaused || (payload.isFinished && payload.overtime() == nil) ? 60 : 1)) { context in
-            SkyCard(payload: payload, date: context.date)
+            SkyCard(payload: payload, date: context.date, tags: tags)
         }
     }
 }
@@ -1388,5 +1505,58 @@ private struct EmptyStateTile: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// N5: the tag filter row above the list — All, then this phone's tags. Long-press a
+/// tag to rename or delete it. Own view: ContentView.body is at the type-checker limit.
+private struct TagFilterBar: View {
+    let tags: [TimerTag]
+    @Binding var selection: String?
+    let onRename: (TimerTag, String) -> Void
+    let onDelete: (TimerTag) -> Void
+    @State private var renaming: TimerTag?
+    @State private var renameText = ""
+    @State private var deleting: TimerTag?
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                chip(String(localized: "All"), on: selection == nil) { selection = nil }
+                ForEach(tags) { tag in
+                    chip(tag.name, on: selection == tag.id) { selection = selection == tag.id ? nil : tag.id }
+                        .contextMenu {
+                            Button { renameText = tag.name; renaming = tag } label: { Label("Rename…", systemImage: "pencil") }
+                            Button(role: .destructive) { deleting = tag } label: { Label("Delete Tag", systemImage: "trash") }
+                        }
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .accessibilityIdentifier("tagFilterBar")
+        .alert("Rename Tag", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField("Name", text: $renameText)
+            Button("Save") { if let tag = renaming { onRename(tag, renameText) }; renaming = nil }
+            Button("Cancel", role: .cancel) { renaming = nil }
+        }
+        .confirmationDialog(String(localized: "Delete this tag?"), isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+            Button("Delete Tag", role: .destructive) { if let tag = deleting { onDelete(tag) }; deleting = nil }
+        } message: {
+            Text("Timers keep running; they just lose this tag.")
+        }
+    }
+
+    private func chip(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.medium))
+                .lineLimit(1)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(on ? Color.white.opacity(0.9) : .white.opacity(0.12), in: Capsule())
+                .foregroundStyle(on ? Color.black : .white)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }

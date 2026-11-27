@@ -4438,6 +4438,64 @@
         }
       }
     },
+    "Add a note" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加备注"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "नोट जोड़ें"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir una nota"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إضافة ملاحظة"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter une note"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "নোট যোগ করুন"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar nota"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавить заметку"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tambahkan catatan"
+          }
+        }
+      }
+    },
     "Add a timer in the app" : {
       "localizations" : {
         "ar" : {
@@ -5148,16 +5206,16 @@
     },
     "All Timer notifications" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "所有 Timer 通知"
+            "value" : "كل إشعارات Timer"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Timer की सभी सूचनाएँ"
+            "value" : "Timer-এর সব নোটিফিকেশন"
           }
         },
         "es" : {
@@ -5166,22 +5224,22 @@
             "value" : "Todas las notificaciones de Timer"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "كل إشعارات Timer"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Toutes les notifications de Timer"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Timer-এর সব নোটিফিকেশন"
+            "value" : "Timer की सभी सूचनाएँ"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Semua notifikasi Timer"
           }
         },
         "pt-BR" : {
@@ -5196,10 +5254,10 @@
             "value" : "Все уведомления Timer"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Semua notifikasi Timer"
+            "value" : "所有 Timer 通知"
           }
         }
       }
@@ -6135,16 +6193,16 @@
     },
     "Choose which Timer notifications stay quiet during this Focus. Alarms and “Time’s up” always come through." : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "选择在此专注模式下哪些 Timer 通知保持安静。闹钟和“时间到”始终会提醒。"
+            "value" : "اختر إشعارات Timer التي تبقى صامتة أثناء وضع التركيز هذا. تصل المنبّهات و«انتهى الوقت» دائمًا."
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "चुनें कि इस फ़ोकस के दौरान Timer की कौन-सी सूचनाएँ शांत रहें। अलार्म और “समय पूरा” हमेशा आते हैं।"
+            "value" : "এই ফোকাসে Timer-এর কোন নোটিফিকেশন চুপ থাকবে তা বেছে নিন। অ্যালার্ম ও “সময় শেষ” সবসময় আসবে।"
           }
         },
         "es" : {
@@ -6153,22 +6211,22 @@
             "value" : "Elige qué notificaciones de Timer se silencian durante este modo de concentración. Las alarmas y “Se acabó el tiempo” siempre llegan."
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "اختر إشعارات Timer التي تبقى صامتة أثناء وضع التركيز هذا. تصل المنبّهات و«انتهى الوقت» دائمًا."
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choisissez les notifications de Timer qui restent silencieuses pendant ce mode de concentration. Les alarmes et « Temps écoulé » passent toujours."
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "এই ফোকাসে Timer-এর কোন নোটিফিকেশন চুপ থাকবে তা বেছে নিন। অ্যালার্ম ও “সময় শেষ” সবসময় আসবে।"
+            "value" : "चुनें कि इस फ़ोकस के दौरान Timer की कौन-सी सूचनाएँ शांत रहें। अलार्म और “समय पूरा” हमेशा आते हैं।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilih notifikasi Timer mana yang tetap senyap selama Fokus ini. Alarm dan “Waktu habis” selalu masuk."
           }
         },
         "pt-BR" : {
@@ -6183,10 +6241,10 @@
             "value" : "Выберите, какие уведомления Timer будут беззвучными в этом режиме фокусирования. Будильники и «Время вышло» приходят всегда."
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pilih notifikasi Timer mana yang tetap senyap selama Fokus ini. Alarm dan “Waktu habis” selalu masuk."
+            "value" : "选择在此专注模式下哪些 Timer 通知保持安静。闹钟和“时间到”始终会提醒。"
           }
         }
       }
@@ -7469,6 +7527,64 @@
         }
       }
     },
+    "Delete Tag" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除标签"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "टैग हटाएँ"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar etiqueta"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حذف الوسم"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer le tag"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ট্যাগ মুছুন"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apagar etiqueta"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить тег"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hapus Tag"
+          }
+        }
+      }
+    },
     "Delete for Everyone" : {
       "localizations" : {
         "ar" : {
@@ -7581,6 +7697,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "要为所有人删除吗？"
+          }
+        }
+      }
+    },
+    "Delete this tag?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除此标签？"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह टैग हटाएँ?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Eliminar esta etiqueta?"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "حذف هذا الوسم؟"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer ce tag ?"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই ট্যাগটি মুছবেন?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apagar esta etiqueta?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить этот тег?"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hapus tag ini?"
           }
         }
       }
@@ -8104,6 +8278,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "编辑计时器"
+          }
+        }
+      }
+    },
+    "Edits the note" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑备注"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "नोट संपादित करता है"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edita la nota"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يحرّر الملاحظة"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifie la note"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "নোট সম্পাদনা করে"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edita a nota"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Изменяет заметку"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mengedit catatan"
           }
         }
       }
@@ -10344,16 +10576,16 @@
     },
     "Heads-up reminders" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "提前提醒"
+            "value" : "تذكيرات مسبقة"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "पहले से रिमाइंडर"
+            "value" : "আগাম রিমাইন্ডার"
           }
         },
         "es" : {
@@ -10362,22 +10594,22 @@
             "value" : "Avisos previos"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تذكيرات مسبقة"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rappels anticipés"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "আগাম রিমাইন্ডার"
+            "value" : "पहले से रिमाइंडर"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pengingat awal"
           }
         },
         "pt-BR" : {
@@ -10392,26 +10624,26 @@
             "value" : "Предварительные напоминания"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pengingat awal"
+            "value" : "提前提醒"
           }
         }
       }
     },
     "Heads-up reminders, no shared-timer updates" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "提前提醒，不含共享计时器更新"
+            "value" : "تذكيرات مسبقة، دون تحديثات المؤقتات المشتركة"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "पहले से रिमाइंडर, साझा टाइमर अपडेट नहीं"
+            "value" : "আগাম রিমাইন্ডার, শেয়ার করা টাইমারের আপডেট নয়"
           }
         },
         "es" : {
@@ -10420,22 +10652,22 @@
             "value" : "Avisos previos, sin novedades de temporizadores compartidos"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تذكيرات مسبقة، دون تحديثات المؤقتات المشتركة"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rappels anticipés, sans les nouvelles des minuteurs partagés"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "আগাম রিমাইন্ডার, শেয়ার করা টাইমারের আপডেট নয়"
+            "value" : "पहले से रिमाइंडर, साझा टाइमर अपडेट नहीं"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pengingat awal, tanpa kabar timer bersama"
           }
         },
         "pt-BR" : {
@@ -10450,10 +10682,10 @@
             "value" : "Предварительные напоминания, без новостей общих таймеров"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pengingat awal, tanpa kabar timer bersama"
+            "value" : "提前提醒，不含共享计时器更新"
           }
         }
       }
@@ -10980,6 +11212,64 @@
         }
       }
     },
+    "In other tags: %lld" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他标签中：%lld"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "दूसरे टैग में: %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En otras etiquetas: %lld"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "في وسوم أخرى: %lld"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans d’autres tags : %lld"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "অন্য ট্যাগে: %lld"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Em outras etiquetas: %lld"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В других тегах: %lld"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Di tag lain: %lld"
+          }
+        }
+      }
+    },
     "Intermittent Fasting" : {
       "localizations" : {
         "ar" : {
@@ -11267,6 +11557,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保持屏幕常亮"
+          }
+        }
+      }
+    },
+    "Kept on this iPhone. People you share the timer with don't see it." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅保存在这台 iPhone 上。与你共享此计时器的人看不到。"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह इसी iPhone पर रहता है। जिनके साथ आप टाइमर शेयर करते हैं, वे इसे नहीं देखते।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se guarda en este iPhone. Las personas con las que compartes el temporizador no la ven."
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تُحفظ على هذا الـ iPhone. لا يراها من تشارك معهم المؤقت."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conservée sur cet iPhone. Les personnes avec qui vous partagez le minuteur ne la voient pas."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই iPhone-এই থাকে। যাদের সঙ্গে টাইমার শেয়ার করেন, তারা এটি দেখতে পান না।"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fica neste iPhone. Quem recebe o timer compartilhado não vê."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Хранится на этом iPhone. Те, с кем вы делитесь таймером, её не видят."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disimpan di iPhone ini. Orang yang Anda bagikan timer tidak melihatnya."
           }
         }
       }
@@ -12491,6 +12839,122 @@
         }
       }
     },
+    "New Tag" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新标签"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "नया टैग"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nueva etiqueta"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "وسم جديد"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveau tag"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "নতুন ট্যাগ"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nova etiqueta"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новый тег"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tag Baru"
+          }
+        }
+      }
+    },
+    "New Tag…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新标签…"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "नया टैग…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nueva etiqueta…"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "وسم جديد…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveau tag…"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "নতুন ট্যাগ…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nova etiqueta…"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новый тег…"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tag Baru…"
+          }
+        }
+      }
+    },
     "New Timer" : {
       "localizations" : {
         "ar" : {
@@ -13309,6 +13773,64 @@
         }
       }
     },
+    "No timers with this tag." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有带此标签的计时器。"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस टैग वाला कोई टाइमर नहीं।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay temporizadores con esta etiqueta."
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد مؤقتات بهذا الوسم."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun minuteur avec ce tag."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই ট্যাগে কোনো টাইমার নেই।"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum timer com esta etiqueta."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет таймеров с этим тегом."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak ada timer dengan tag ini."
+          }
+        }
+      }
+    },
     "No upcoming events in the next year. You can enter a date yourself." : {
       "localizations" : {
         "ar" : {
@@ -13595,6 +14117,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "未设置"
+          }
+        }
+      }
+    },
+    "Note" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "备注"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "नोट"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nota"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ملاحظة"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Note"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "নোট"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nota"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Заметка"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catatan"
           }
         }
       }
@@ -14066,16 +14646,16 @@
     },
     "Only when a timer ends" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "仅在计时结束时"
+            "value" : "فقط عند انتهاء مؤقت"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "सिर्फ़ टाइमर खत्म होने पर"
+            "value" : "শুধু টাইমার শেষ হলে"
           }
         },
         "es" : {
@@ -14084,22 +14664,22 @@
             "value" : "Solo cuando termina un temporizador"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "فقط عند انتهاء مؤقت"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Seulement quand un minuteur se termine"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "শুধু টাইমার শেষ হলে"
+            "value" : "सिर्फ़ टाइमर खत्म होने पर"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hanya saat timer selesai"
           }
         },
         "pt-BR" : {
@@ -14114,10 +14694,10 @@
             "value" : "Только когда таймер заканчивается"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hanya saat timer selesai"
+            "value" : "仅在计时结束时"
           }
         }
       }
@@ -16926,6 +17506,122 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已移除“%@”"
+          }
+        }
+      }
+    },
+    "Rename Tag" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重命名标签"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "टैग का नाम बदलें"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renombrar etiqueta"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إعادة تسمية الوسم"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renommer le tag"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ট্যাগের নাম বদলান"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renomear etiqueta"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Переименовать тег"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganti Nama Tag"
+          }
+        }
+      }
+    },
+    "Rename…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重命名…"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "नाम बदलें…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renombrar…"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إعادة تسمية…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renommer…"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "নাম বদলান…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renomear…"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Переименовать…"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganti Nama…"
           }
         }
       }
@@ -20181,16 +20877,16 @@
     },
     "Shared-timer updates" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "共享计时器更新"
+            "value" : "تحديثات المؤقتات المشتركة"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "साझा टाइमर अपडेट"
+            "value" : "শেয়ার করা টাইমারের আপডেট"
           }
         },
         "es" : {
@@ -20199,22 +20895,22 @@
             "value" : "Novedades de temporizadores compartidos"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تحديثات المؤقتات المشتركة"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nouvelles des minuteurs partagés"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "শেয়ার করা টাইমারের আপডেট"
+            "value" : "साझा टाइमर अपडेट"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kabar timer bersama"
           }
         },
         "pt-BR" : {
@@ -20229,26 +20925,26 @@
             "value" : "Новости общих таймеров"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kabar timer bersama"
+            "value" : "共享计时器更新"
           }
         }
       }
     },
     "Shared-timer updates, no heads-up reminders" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "共享计时器更新，不含提前提醒"
+            "value" : "تحديثات المؤقتات المشتركة، دون تذكيرات مسبقة"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "साझा टाइमर अपडेट, पहले से रिमाइंडर नहीं"
+            "value" : "শেয়ার করা টাইমারের আপডেট, আগাম রিমাইন্ডার নয়"
           }
         },
         "es" : {
@@ -20257,22 +20953,22 @@
             "value" : "Novedades de temporizadores compartidos, sin avisos previos"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تحديثات المؤقتات المشتركة، دون تذكيرات مسبقة"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nouvelles des minuteurs partagés, sans rappels anticipés"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "শেয়ার করা টাইমারের আপডেট, আগাম রিমাইন্ডার নয়"
+            "value" : "साझा टाइमर अपडेट, पहले से रिमाइंडर नहीं"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kabar timer bersama, tanpa pengingat awal"
           }
         },
         "pt-BR" : {
@@ -20287,10 +20983,10 @@
             "value" : "Новости общих таймеров, без предварительных напоминаний"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kabar timer bersama, tanpa pengingat awal"
+            "value" : "共享计时器更新，不含提前提醒"
           }
         }
       }
@@ -22274,6 +22970,64 @@
         }
       }
     },
+    "Tags" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标签"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "टैग"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etiquetas"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الوسوم"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tags"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ট্যাগ"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etiquetas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Теги"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tag"
+          }
+        }
+      }
+    },
     "Take the tour of this version again." : {
       "localizations" : {
         "ar" : {
@@ -23778,6 +24532,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "全屏闹钟关闭时，计时器无法在静音模式或专注模式下响铃。"
+          }
+        }
+      }
+    },
+    "Timers keep running; they just lose this tag." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "计时器会继续运行，只是不再带有此标签。"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "टाइमर चलते रहेंगे; बस यह टैग हट जाएगा।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los temporizadores siguen; solo pierden esta etiqueta."
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تستمر المؤقتات في العمل، وتفقد هذا الوسم فقط."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les minuteurs continuent ; ils perdent seulement ce tag."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "টাইমার চলতেই থাকবে; শুধু এই ট্যাগটি থাকবে না।"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os timers continuam; só perdem esta etiqueta."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Таймеры продолжат идти, просто без этого тега."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timer tetap berjalan; hanya tag ini yang dilepas."
           }
         }
       }

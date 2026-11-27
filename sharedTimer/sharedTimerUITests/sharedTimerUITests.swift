@@ -495,6 +495,78 @@ final class sharedTimerUITests: XCTestCase {
         XCTAssertNotEqual(endsAfter.label, endsBefore, "the end time moves back a minute")
     }
 
+    /// N5: tag a timer and give it a note from its screen, filter the list by the tag
+    /// (the other timer drops out and is counted), then clear the filter. Cleans up the
+    /// second timer and the tag itself; teardown deletes the first.
+    @MainActor
+    func testTagFilterAndNote() throws {
+        let app = XCUIApplication()
+        func importTimer(_ label: String) throws -> String {
+            let id = UUID().uuidString
+            var share = URLComponents(string: "https://mirrornotes.org/timer")!
+            share.queryItems = [
+                URLQueryItem(name: "id", value: id), URLQueryItem(name: "label", value: label),
+                URLQueryItem(name: "end", value: String(Date().addingTimeInterval(900).timeIntervalSince1970)),
+                URLQueryItem(name: "dur", value: "900"), URLQueryItem(name: "kind", value: "timer"),
+                URLQueryItem(name: "alarm", value: "0"), URLQueryItem(name: "vib", value: "0")
+            ]
+            app.open(try XCTUnwrap(share.url))
+            let add = app.buttons["Add to My Timers"]
+            XCTAssertTrue(add.waitForExistence(timeout: 10))
+            add.tap()
+            if app.alerts.buttons["Not Now"].waitForExistence(timeout: 2) { app.alerts.buttons["Not Now"].tap() }
+            return id
+        }
+        let tagged = try importTimer("Tag test A")
+        widgetTestURL = try XCTUnwrap(URL(string: "sharedtimer://timer/" + tagged))
+        let other = try importTimer("Tag test B")
+        let tagName = "UITag\(Int(Date().timeIntervalSince1970) % 100_000)"
+
+        // On the timer's screen: a new tag, then a note.
+        app.open(try XCTUnwrap(widgetTestURL))
+        let tagsMenu = app.buttons["tagsMenu"]
+        XCTAssertTrue(tagsMenu.waitForExistence(timeout: 10))
+        tagsMenu.tap()
+        let newTag = app.buttons["New Tag…"].firstMatch
+        XCTAssertTrue(newTag.waitForExistence(timeout: 5))
+        newTag.waitForHittable(timeout: 3)
+        newTag.tap()
+        let nameField = app.alerts.textFields.firstMatch
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        nameField.typeText(tagName)
+        app.alerts.buttons["Add"].tap()
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", tagName)).firstMatch.waitForExistence(timeout: 5))
+        app.buttons["addNoteButton"].tap()
+        let editor = app.textViews["noteEditor"].exists ? app.textViews["noteEditor"] : app.textFields["noteEditor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.typeText("Turn at half time")
+        app.navigationBars.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["noteBox"].waitForExistence(timeout: 5))
+        let detailShot = XCTAttachment(screenshot: app.screenshot()); detailShot.name = "Tags detail"; detailShot.lifetime = .keepAlways; add(detailShot)
+
+        // The list, filtered by the tag: A shows, B is counted under "other tags".
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let chip = app.scrollViews["tagFilterBar"].buttons[tagName]
+        XCTAssertTrue(chip.waitForExistence(timeout: 5))
+        chip.tap()
+        let otherRow = app.buttons["otherTagsRow"]
+        XCTAssertTrue(otherRow.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'Tag test B'")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'Tag test A'")).firstMatch.exists)
+        let listShot = XCTAttachment(screenshot: app.screenshot()); listShot.name = "Tags list filtered"; listShot.lifetime = .keepAlways; add(listShot)
+        otherRow.tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'Tag test B'")).firstMatch.waitForExistence(timeout: 5))
+
+        // Clean up: the tag, then the second timer.
+        app.scrollViews["tagFilterBar"].buttons[tagName].press(forDuration: 1.0)
+        app.buttons["Delete Tag"].firstMatch.tap()
+        let confirm = app.buttons.matching(NSPredicate(format: "label == 'Delete Tag'")).firstMatch
+        if confirm.waitForExistence(timeout: 3) { confirm.tap() }
+        app.open(try XCTUnwrap(URL(string: "sharedtimer://timer/" + other)))
+        let delete = app.buttons["Delete"]
+        if delete.waitForExistence(timeout: 5) { delete.tap() }
+    }
+
     /// History redesign + Stats, on realistic seeded runs (simulator only — the seed
     /// doesn't exist in device builds): screenshots of each screen for review.
     @MainActor
@@ -772,5 +844,14 @@ final class sharedTimerUITests: XCTestCase {
         measure(metrics: [XCTApplicationLaunchMetric()]) {
             XCUIApplication().launch()
         }
+    }
+}
+
+private extension XCUIElement {
+    @discardableResult
+    func waitForHittable(timeout: TimeInterval) -> Bool {
+        let end = Date().addingTimeInterval(timeout)
+        while Date() < end { if exists && isHittable { return true }; usleep(100_000) }
+        return exists && isHittable
     }
 }

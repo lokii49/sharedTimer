@@ -219,6 +219,7 @@
 				TimerChoice.swift,
 				TimerFieldsView.swift,
 				TimerReminders.swift,
+				TimerTags.swift,
 				TimerWidgetSupport.swift,
 			);
 			target = 470A5022302896F0006EB758 /* sharedTimerClip */;
@@ -249,6 +250,7 @@
 				SavedSequence.swift,
 				TimerFieldsView.swift,
 				TimerReminders.swift,
+				TimerTags.swift,
 			);
 			target = AB0000040000000000000000 /* sharedTimerWidget */;
 		};
@@ -282,6 +284,7 @@
 				TimerChoice.swift,
 				TimerFieldsView.swift,
 				TimerReminders.swift,
+				TimerTags.swift,
 				TimerWidgetSupport.swift,
 			);
 			target = 9245414F74508D055B69709F /* sharedTimerNotificationService */;

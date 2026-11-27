@@ -230,6 +230,9 @@ extension ButtonStyle where Self == GlassPillButtonStyle {
 struct SkyCard: View {
     let payload: TimerPayload
     let date: Date
+    /// N5: this phone's tag names, shown as small pills by the label. Only the app's
+    /// list passes them — share previews, Messages and the Edit sheet never do.
+    var tags: [String] = []
     @Environment(\.dynamicTypeSize) private var typeSize
     /// Digits grow with Dynamic Type on the large layout (C9 · A), capped so a long
     /// countdown still fits one line.
@@ -248,6 +251,16 @@ struct SkyCard: View {
                 Text(payload.label)
                     .skyLabel(12)
                     .lineLimit(large ? 2 : 1)
+                    .layoutPriority(1)
+                ForEach(tags.prefix(2), id: \.self) { name in
+                    Text(name)
+                        .font(.caption2.weight(.semibold))
+                        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                        .lineLimit(1)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(.white.opacity(0.22), in: Capsule())
+                }
                 Spacer()
                 if pending {
                     Text("Scheduled").skyLabel(12)
@@ -321,10 +334,11 @@ struct SkyCard: View {
 
     private var accessibilityTitle: String {
         let kind = payload.sequence != nil ? String(localized: "sequence") : payload.kind == .countdown ? String(localized: "countdown") : String(localized: "timer")
+        let tagged = tags.isEmpty ? "" : ", " + tags.joined(separator: ", ")
         if let caption = payload.sequenceCaption, !payload.isPending(at: date) {
-            return "\(payload.label), \(kind), \(caption)"
+            return "\(payload.label), \(kind), \(caption)\(tagged)"
         }
-        return "\(payload.label), \(kind)"
+        return "\(payload.label), \(kind)\(tagged)"
     }
 
     private func accessibilityStatus(remaining: TimeInterval, pending: Bool) -> String {
