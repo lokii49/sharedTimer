@@ -1,7 +1,7 @@
 • Corrigé : l’Historique pouvait se fermer brusquement lorsqu’il affichait une séquence ou un compte à rebours récurrent.
 • Suivant, Semaine suivante et les autres boutons d’une alarme en plein écran la ferment désormais aussitôt.
 • Des widgets à l’heure : les fins et les nouvelles phases s’affichent pile à temps, toucher un widget ou une activité en direct ouvre son minuteur, un widget d’une ligne arrive sur l’écran verrouillé, avec un style plus lisible sur les écrans d’accueil teintés, en mode En veille la nuit et en très grande taille sur iPad.
-• ✕ sur un compte à rebours récurrent passe désormais au suivant au lieu de terminer la série.
+• Arrêter un compte à rebours récurrent depuis son widget ou son Activité en direct passe désormais au suivant au lieu de terminer la série.
 • Messages : un minuteur ouvert suit chaque changement, et les comptes à rebours récurrents ont Semaine suivante.
 • Un nouveau bouton cadenas garde l’écran allumé pendant que vous regardez.
 • Et de nombreuses autres corrections.

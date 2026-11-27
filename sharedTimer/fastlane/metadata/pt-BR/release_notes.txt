@@ -1,7 +1,7 @@
 • Corrigido: o Histórico podia fechar inesperadamente ao mostrar uma sequência ou uma contagem regressiva repetida.
 • Próximo, Próxima semana e os outros botões de um alarme em tela cheia agora o fecham na hora.
 • Widgets em dia: finais e novas fases aparecem na hora certa, tocar em um widget ou Atividade ao Vivo abre o timer, há um widget de uma linha para a Tela Bloqueada e um visual mais claro em Telas de Início coloridas, no Modo Mesa de Cabeceira à noite e no tamanho extragrande do iPad.
-• ✕ em uma contagem regressiva repetida agora pula para a próxima em vez de encerrar a série.
+• Parar uma contagem regressiva repetida pelo widget ou pela Atividade ao Vivo agora pula para a próxima em vez de encerrar a série.
 • Mensagens: um timer aberto acompanha cada mudança e contagens regressivas repetidas ganham Próxima semana.
 • Um novo botão de cadeado mantém a tela ligada enquanto você olha.
 • Além de muitas outras correções.
