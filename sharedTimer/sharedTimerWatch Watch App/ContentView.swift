@@ -22,9 +22,16 @@ struct ContentView: View {
             .sorted { ($0.pausedRemaining ?? $0.endDate.timeIntervalSince(date)) < ($1.pausedRemaining ?? $1.endDate.timeIntervalSince(date)) }
     }
 
+    private var endSchedule: [Date] {
+        let now = Date()
+        return [now] + sync.timers.filter { !$0.isPaused && $0.endDate > now }.map(\.endDate).sorted()
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
+            // Redrawn at each running timer's end (and whenever the phone sends a new
+            // snapshot), not every second — the rows' digits tick on their own.
+            TimelineView(.explicit(endSchedule)) { context in
                 let active = active(at: context.date)
                 if active.isEmpty {
                     emptyState

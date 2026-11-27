@@ -690,6 +690,40 @@ struct TimerPayload: Codable, Identifiable {
     }
 }
 
+// MARK: - Live share links
+
+extension TimerPayload {
+    /// `url()` plus the CloudKit share as a `ckshare` item, which the App Clip, the web
+    /// page and older apps ignore. Appended to the already-encoded query: re-setting
+    /// `queryItems` re-encodes the whole query and undid `url()`'s `+` → `%2B` (a "C++"
+    /// label read "C  " on the web).
+    func url(liveShare shareURL: URL?) -> URL {
+        let base = url()
+        guard let shareURL, var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else { return base }
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: "&=+?#")
+        guard let share = shareURL.absoluteString.addingPercentEncoding(withAllowedCharacters: allowed) else { return base }
+        components.percentEncodedQuery = (components.percentEncodedQuery.map { $0 + "&" } ?? "") + "ckshare=" + share
+        return components.url ?? base
+    }
+}
+
+// MARK: - Outside changes
+
+extension TimerPayload {
+    /// Whether `stored` carries a change this on-screen copy doesn't — compared with both
+    /// projected to the same moment. Projecting only the stored side made a phase or
+    /// occurrence boundary look like an outside change in the second before the view's
+    /// own tick advanced, so a reload swallowed that phase's alert (Messages, 1.0.9).
+    /// CloudKit keeps milliseconds, so times get 1 s.
+    func hasOutsideChange(_ stored: TimerPayload, at date: Date = Date()) -> Bool {
+        let a = stored.advancedSequence(at: date), b = advancedSequence(at: date)
+        return abs(a.endDate.timeIntervalSince(b.endDate)) >= 1 || a.isPaused != b.isPaused || a.label != b.label
+            || abs((a.pausedRemaining ?? 0) - (b.pausedRemaining ?? 0)) >= 1 || a.updatedAt != b.updatedAt
+            || a.sequence?.phaseIndex != b.sequence?.phaseIndex || a.sequence?.loopIndex != b.sequence?.loopIndex
+    }
+}
+
 // MARK: - Share text
 
 extension TimerPayload {

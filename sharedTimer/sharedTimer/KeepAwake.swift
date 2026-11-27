@@ -51,6 +51,8 @@ private struct KeepAwakeModifier: ViewModifier {
     /// The short confirmation under the toolbar ("Screen stays on" / "Screen can sleep").
     @State private var confirmation: LocalizedStringKey?
     @State private var confirmationTask: Task<Void, Never>?
+    /// Set as the screen goes away, so that automatic off isn't announced.
+    @State private var leaving = false
 
     func body(content: Content) -> some View {
         content
@@ -72,6 +74,9 @@ private struct KeepAwakeModifier: ViewModifier {
             .animation(.easeOut(duration: 0.2), value: confirmation)
             .onChange(of: isOn) { _, on in
                 UIApplication.shared.isIdleTimerDisabled = on
+                // Only the person's own tap is confirmed — not the automatic off at the
+                // finish, in the background or when leaving the screen.
+                guard on || (!finished && !leaving && scenePhase == .active) else { return }
                 UIAccessibility.post(notification: .announcement,
                                      argument: on ? String(localized: "Screen stays on") : String(localized: "Screen can sleep"))
                 confirmationTask?.cancel()
@@ -84,7 +89,9 @@ private struct KeepAwakeModifier: ViewModifier {
             }
             .onChange(of: finished) { _, done in if done { isOn = false } }
             .onChange(of: scenePhase) { _, phase in if phase != .active { isOn = false } }
+            .onAppear { leaving = false }
             .onDisappear {
+                leaving = true
                 isOn = false
                 UIApplication.shared.isIdleTimerDisabled = false
             }

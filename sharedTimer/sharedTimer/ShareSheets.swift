@@ -148,13 +148,11 @@ struct ShareTimerSheet: View {
         let shareURL: URL? = live ? await withCheckedContinuation { continuation in
             CloudSyncController.createShare(for: current) { continuation.resume(returning: $0) }
         } : nil
-        var components = URLComponents(url: current.url(), resolvingAgainstBaseURL: false)!
-        if let shareURL {
-            components.queryItems = (components.queryItems ?? []) + [URLQueryItem(name: "ckshare", value: shareURL.absoluteString)]
-        }
         isLive = shareURL != nil
         snapshotURL = current.url()
-        preparedURL = components.url ?? current.url()
+        // `url(liveShare:)` keeps `url()`'s encoding (re-setting `queryItems` turned a
+        // label's `%2B` back into `+`, a space on the web page).
+        preparedURL = current.url(liveShare: shareURL)
     }
 
     private func manageSharing() {

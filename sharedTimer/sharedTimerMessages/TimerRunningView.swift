@@ -240,7 +240,7 @@ struct TimerRunningView: View {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
                 guard !Task.isCancelled else { return }
-                if let stored = TimerStore.loadAll().first(where: { $0.id == payload.id }), Self.differs(stored.advancedSequence(), payload) {
+                if let stored = TimerStore.loadAll().first(where: { $0.id == payload.id }), payload.hasOutsideChange(stored) {
                     reloadFromStore()
                 } else if wasStored, !TimerStore.loadAll().contains(where: { $0.id == payload.id }) {
                     reloadFromStore()
@@ -289,12 +289,6 @@ struct TimerRunningView: View {
             vibration.stop()
             onNewTimer()
         }
-    }
-
-    /// A change worth reloading for (CloudKit keeps milliseconds, so dates get 1 s).
-    static func differs(_ a: TimerPayload, _ b: TimerPayload) -> Bool {
-        abs(a.endDate.timeIntervalSince(b.endDate)) >= 1 || a.isPaused != b.isPaused || a.label != b.label
-            || abs((a.pausedRemaining ?? 0) - (b.pausedRemaining ?? 0)) >= 1 || a.updatedAt != b.updatedAt
     }
 
     /// The copy a tap changes: the newest stored one (another process may have changed

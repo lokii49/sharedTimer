@@ -79,6 +79,7 @@ class MessagesViewController: MSMessagesAppViewController {
     /// compact): show that one — an explicit choice, so even one left earlier.
     override func didSelect(_ message: MSMessage, conversation: MSConversation) {
         leftMessageURL = nil
+        if let id = TimerPayload.from(url: message.url)?.id { deletedHere.remove(id) }
         presentView(for: conversation)
     }
 
@@ -359,7 +360,10 @@ class MessagesViewController: MSMessagesAppViewController {
     }
 
     private func deliver(payload: TimerPayload, mode: TimerShareMode, shareURL: URL?, conversation: MSConversation) {
-        let link = outgoingURL(for: payload, shareURL: shareURL)
+        let link = payload.url(liveShare: shareURL)
+        // A share sent: the person is done with the compose form, so a later tap on the
+        // bubble they left shows its timer again.
+        leftMessageURL = nil
 
         switch mode {
         case .link:
@@ -392,22 +396,6 @@ class MessagesViewController: MSMessagesAppViewController {
                 self?.dismiss()
             }
         }
-    }
-
-    /// `payload.url()`'s wire format is untouched — the CloudKit share URL rides along
-    /// as an extra query param that App Clip / docs/t.html already ignore silently.
-    private func outgoingURL(for payload: TimerPayload, shareURL: URL?) -> URL {
-        guard let shareURL,
-              var components = URLComponents(url: payload.url(), resolvingAgainstBaseURL: false) else {
-            return payload.url()
-        }
-        // Appended to the already-encoded query: re-setting `queryItems` re-encoded
-        // the whole query and undid `url()`'s `+` → `%2B`.
-        var allowed = CharacterSet.urlQueryAllowed
-        allowed.remove(charactersIn: "&=+?#")
-        guard let share = shareURL.absoluteString.addingPercentEncoding(withAllowedCharacters: allowed) else { return payload.url() }
-        components.percentEncodedQuery = (components.percentEncodedQuery.map { $0 + "&" } ?? "") + "ckshare=" + share
-        return components.url ?? payload.url()
     }
 
     /// The card's second line (English, like the rest of the card — see CLAUDE.md). A

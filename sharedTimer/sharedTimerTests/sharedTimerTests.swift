@@ -976,6 +976,21 @@ struct sharedTimerTests {
         #expect(TimerStore.finishMoved(from: nil, to: stopped))
     }
 
+    /// The live link Messages and the app's share sheet send: still a valid timer link,
+    /// the exact share URL back out of `ckshare` (fragment included), and `url()`'s `%2B`
+    /// kept — re-setting `queryItems` used to turn it back into `+`.
+    @Test func liveShareLinkKeepsTheShareAndTheEncoding() throws {
+        let payload = TimerPayload(label: "C++ & tea", duration: 300)
+        let share = try #require(URL(string: "https://www.icloud.com/share/0AbC_dEf#Timer+test"))
+        let live = payload.url(liveShare: share)
+        let decoded = try #require(TimerPayload.from(url: live))
+        #expect(decoded.id == payload.id && decoded.label == "C++ & tea")
+        let item = URLComponents(url: live, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "ckshare" }
+        #expect(item?.value == share.absoluteString)
+        #expect(live.absoluteString.contains("C%2B%2B"))
+        #expect(payload.url(liveShare: nil) == payload.url())
+    }
+
     @Test func backgroundRefreshKeepsAskingPastAPhaseBoundary() {
         let now = Date()
         // Phase 0 ended 30 s ago; the stored copy reads finished, the sequence isn't.
