@@ -126,6 +126,34 @@ struct sharedTimerWatch_Watch_AppTests {
 
     /// A +1:00's optimistic result equals the phone's applied one. Once a phone context
     /// arrived after the tap, a late reply error must not roll the extend back.
+    @Test func minusTakesAMinuteOffButNeverTheEndOrARepeat() throws {
+        let suite = "watch-sync-test.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let controller = WatchSyncController(defaults: defaults)
+        var repeating = timer("Pills", seconds: 600)
+        repeating.repeats = true
+        // Relative to now: the watch model's rule reads the clock.
+        let tea = TimerPayload(id: "Tea", label: "Tea", endDate: Date().addingTimeInterval(600), duration: 600)
+        let egg = TimerPayload(id: "Egg", label: "Egg", endDate: Date().addingTimeInterval(45), duration: 300)
+        repeating.endDate = Date().addingTimeInterval(600)
+        controller.apply(["timers": try JSONEncoder().encode([tea, egg, repeating])])
+        let off = try #require(controller.applyOptimistic(id: "Tea", op: "shorten"))
+        #expect(abs(off.optimistic.endDate.timeIntervalSince(off.before.endDate) + 60) < 0.001)
+        // 45 s left: a minute can't come off (the button is disabled too).
+        #expect(controller.applyOptimistic(id: "Egg", op: "shorten") == nil)
+        // A repeating countdown: no − at all.
+        #expect(controller.applyOptimistic(id: "Pills", op: "shorten") == nil)
+        #expect(!repeating.canShorten(by: 60))
+    }
+
+    @Test func repeatsDecodesAndDefaultsToFalse() throws {
+        let old = #"{"id":"a","label":"Tea","endDate":0,"duration":60}"#
+        #expect(try JSONDecoder().decode(TimerPayload.self, from: Data(old.utf8)).repeats == false)
+        let new = #"{"id":"a","label":"Tea","endDate":0,"duration":60,"repeats":true}"#
+        #expect(try JSONDecoder().decode(TimerPayload.self, from: Data(new.utf8)).repeats == true)
+    }
+
     @Test func lateErrorAfterPhoneContextDoesNotUndoAnAppliedExtend() throws {
         let suite = "watch-sync-test.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))

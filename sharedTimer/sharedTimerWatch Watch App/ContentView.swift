@@ -123,9 +123,20 @@ private struct TimerDetailView: View {
                 }
 
                 if !done {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         Button(payload.isPaused ? String(localized: "Resume") : String(localized: "Pause")) {
                             sync.send(id: payload.id, op: payload.isPaused ? "resume" : "pause")
+                        }
+                        // N3 (owner's pick A on the phone): a round "−" beside +1:00;
+                        // hidden for repeating countdowns, disabled with ≤ 1 min left.
+                        if !payload.repeats {
+                            Button {
+                                sync.send(id: payload.id, op: "shorten")
+                            } label: {
+                                Image(systemName: "minus")
+                            }
+                            .disabled(!payload.canShorten(by: 60, at: context.date))
+                            .accessibilityLabel(String(localized: "Remove 1 minute"))
                         }
                         Button("+1:00") {
                             sync.send(id: payload.id, op: "extend")

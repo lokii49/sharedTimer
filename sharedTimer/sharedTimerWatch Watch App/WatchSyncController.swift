@@ -103,6 +103,9 @@ final class WatchSyncController: NSObject, ObservableObject, WCSessionDelegate {
         case "pause": timers[index] = before.paused()
         case "resume": timers[index] = before.resumed()
         case "extend": timers[index] = before.extended(by: 60)
+        case "shorten":
+            guard let shorter = before.shortened(by: 60) else { return nil }
+            timers[index] = shorter
         default: return nil
         }
         persistSnapshot()

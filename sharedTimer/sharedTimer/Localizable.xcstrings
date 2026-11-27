@@ -25410,6 +25410,470 @@
           }
         }
       }
+    },
+    "Remove Time" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إزالة وقت"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "সময় কমান"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar tiempo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer du temps"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "समय घटाएँ"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kurangi waktu"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remover tempo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Убрать время"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "减少时间"
+          }
+        }
+      }
+    },
+    "Take time off a running or paused timer, countdown, or current sequence phase. Never all of it, and not a repeating countdown." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أزل وقتًا من مؤقت أو عد تنازلي يعمل أو متوقف مؤقتًا، أو من مرحلة التسلسل الحالية. لا يُزال كله أبدًا، ولا من عد تنازلي متكرر."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "চলমান বা থামানো টাইমার, কাউন্টডাউন বা বর্তমান সিকোয়েন্স পর্ব থেকে সময় কমান। কখনো পুরোটা নয়, আর পুনরাবৃত্ত কাউন্টডাউন থেকে নয়।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quita tiempo a un temporizador, cuenta atrás o fase de secuencia en curso o en pausa. Nunca todo, y no a una cuenta atrás que se repite."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirez du temps à un minuteur, un compte à rebours ou une phase de séquence en cours ou en pause. Jamais tout, et pas sur un compte à rebours récurrent."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "चल रहे या रुके टाइमर, काउंटडाउन या मौजूदा सीक्वेंस चरण से समय घटाएँ। कभी पूरा नहीं, और दोहराने वाले काउंटडाउन से नहीं।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kurangi waktu dari timer, hitung mundur, atau fase urutan yang berjalan atau dijeda. Tidak pernah semuanya, dan tidak untuk hitung mundur berulang."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remova tempo de um timer, contagem regressiva ou fase de sequência em andamento ou pausada. Nunca tudo, e não de uma contagem regressiva repetida."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Убирайте время у идущего или приостановленного таймера, отсчёта или текущей фазы последовательности. Никогда всё и не у повторяющегося отсчёта."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为正在运行或已暂停的计时器、倒计时或当前序列阶段减少时间。不会减完，也不适用于重复倒计时。"
+          }
+        }
+      }
+    },
+    "How many minutes would you like to remove?" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "كم دقيقة تريد إزالتها؟"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "কত মিনিট কমাতে চান?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cuántos minutos quieres quitar?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Combien de minutes voulez-vous retirer ?"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "आप कितने मिनट घटाना चाहते हैं?"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Berapa menit yang ingin dikurangi?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quantos minutos você quer remover?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сколько минут убрать?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你想减少几分钟？"
+          }
+        }
+      }
+    },
+    "Remove ${minutes} minutes from ${timer}" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "إزالة ${minutes} دقيقة من ${timer}"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${timer} থেকে ${minutes} মিনিট কমান"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar ${minutes} minutos a ${timer}"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer ${minutes} minutes de ${timer}"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "${timer} से ${minutes} मिनट घटाएँ"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kurangi ${minutes} menit dari ${timer}"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remover ${minutes} minutos de ${timer}"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Убрать ${minutes} мин у ${timer}"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从${timer}减少 ${minutes} 分钟"
+          }
+        }
+      }
+    },
+    "Removed %@ from %@. %@ left." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تمت إزالة %1$@ من %2$@. يتبقى %3$@."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ থেকে %1$@ কমানো হয়েছে। বাকি %3$@।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se quitaron %1$@ a %2$@. Quedan %3$@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ retirées de %2$@. Il reste %3$@."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ से %1$@ घटाया गया। %3$@ बाकी है।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ dikurangi dari %2$@. Tersisa %3$@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ removidos de %2$@. Restam %3$@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У %2$@ убрано %1$@. Осталось %3$@."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已从%2$@减少%1$@。剩余%3$@。"
+          }
+        }
+      }
+    },
+    "Removed %@ from %@. It is still paused with %@ left." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تمت إزالة %1$@ من %2$@. لا يزال متوقفًا مؤقتًا ويتبقى %3$@."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ থেকে %1$@ কমানো হয়েছে। এটি এখনও থামানো, বাকি %3$@।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se quitaron %1$@ a %2$@. Sigue en pausa y quedan %3$@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ retirées de %2$@. Toujours en pause, il reste %3$@."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ से %1$@ घटाया गया। यह अब भी रुका है, %3$@ बाकी है।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ dikurangi dari %2$@. Masih dijeda, tersisa %3$@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ removidos de %2$@. Continua pausado, restam %3$@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У %2$@ убрано %1$@. Он всё ещё на паузе, осталось %3$@."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已从%2$@减少%1$@。仍处于暂停，剩余%3$@。"
+          }
+        }
+      }
+    },
+    "That timer doesn't have that much time left. Pick fewer minutes." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا يتبقى لهذا المؤقت هذا القدر من الوقت. اختر دقائق أقل."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ওই টাইমারে এত সময় বাকি নেই। কম মিনিট বেছে নিন।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A ese temporizador no le queda tanto tiempo. Elige menos minutos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il ne reste pas autant de temps à ce minuteur. Choisissez moins de minutes."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "उस टाइमर में इतना समय बाकी नहीं है। कम मिनट चुनें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timer itu tidak punya sisa waktu sebanyak itu. Pilih menit yang lebih sedikit."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esse timer não tem tanto tempo restante. Escolha menos minutos."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У этого таймера не осталось столько времени. Выберите меньше минут."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该计时器剩余时间不足。请选择更少的分钟数。"
+          }
+        }
+      }
+    },
+    "Time can't be taken off a repeating countdown. Edit its date in the app instead." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا يمكن إزالة وقت من عد تنازلي متكرر. عدّل تاريخه في التطبيق بدلًا من ذلك."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "পুনরাবৃত্ত কাউন্টডাউন থেকে সময় কমানো যায় না। বরং অ্যাপে এর তারিখ সম্পাদনা করুন।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede quitar tiempo a una cuenta atrás que se repite. Edita su fecha en la app."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de retirer du temps à un compte à rebours récurrent. Modifiez plutôt sa date dans l'app."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "दोहराने वाले काउंटडाउन से समय नहीं घटाया जा सकता। इसके बजाय ऐप में इसकी तारीख बदलें।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waktu tidak bisa dikurangi dari hitung mundur berulang. Ubah tanggalnya di app."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não é possível remover tempo de uma contagem regressiva repetida. Edite a data no app."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У повторяющегося отсчёта нельзя убрать время. Измените его дату в приложении."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法从重复倒计时中减少时间。请在 App 中编辑其日期。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

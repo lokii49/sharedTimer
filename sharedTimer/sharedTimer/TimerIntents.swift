@@ -100,6 +100,8 @@ enum TimerIntentError: LocalizedError, Equatable {
     case timerScheduled
     case timerFinished
     case timerReadOnly
+    case notEnoughTimeLeft
+    case repeatingCountdown
 
     var errorDescription: String? {
         switch self {
@@ -109,6 +111,8 @@ enum TimerIntentError: LocalizedError, Equatable {
         case .timerScheduled: return String(localized: "That sequence has not started yet. You can change it after it starts.")
         case .timerFinished: return String(localized: "That timer has finished. Repeat it in the app to start it again.")
         case .timerReadOnly: return String(localized: "That timer was shared with you as view only. Only its owner can change it.")
+        case .notEnoughTimeLeft: return String(localized: "That timer doesn't have that much time left. Pick fewer minutes.")
+        case .repeatingCountdown: return String(localized: "Time can't be taken off a repeating countdown. Edit its date in the app instead.")
         }
     }
 }
@@ -153,6 +157,24 @@ struct ExtendTimerIntent: AppIntent {
             return .result(dialog: "Added \(TimerIntentActions.spokenTime(minutes * 60)) to \(payload.label). It is still paused with \(TimerIntentActions.spokenTime(payload.remaining)) left.")
         }
         return .result(dialog: "Added \(TimerIntentActions.spokenTime(minutes * 60)) to \(payload.label). \(TimerIntentActions.spokenTime(payload.remaining)) left.")
+    }
+}
+
+/// N3 for Siri and Shortcuts: take minutes off a running or paused timer.
+struct RemoveTimeIntent: AppIntent {
+    static let title: LocalizedStringResource = "Remove Time"
+    static let description = IntentDescription("Take time off a running or paused timer, countdown, or current sequence phase. Never all of it, and not a repeating countdown.")
+    @Parameter(title: "Timer") var timer: TimerChoice
+    @Parameter(title: "Minutes", requestValueDialog: "How many minutes would you like to remove?") var minutes: Double
+    static var parameterSummary: some ParameterSummary { Summary("Remove \(\.$minutes) minutes from \(\.$timer)") }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let payload = try await TimerIntentActions.perform(timerID: timer.id, mutation: .shorten(minutes: minutes))
+        if payload.isPaused {
+            return .result(dialog: "Removed \(TimerIntentActions.spokenTime(minutes * 60)) from \(payload.label). It is still paused with \(TimerIntentActions.spokenTime(payload.remaining)) left.")
+        }
+        return .result(dialog: "Removed \(TimerIntentActions.spokenTime(minutes * 60)) from \(payload.label). \(TimerIntentActions.spokenTime(payload.remaining)) left.")
     }
 }
 
@@ -215,6 +237,12 @@ struct TimerShortcuts: AppShortcutsProvider {
             phrases: ["Extend a timer in \(.applicationName)", "Extend \(\.$timer) in \(.applicationName)"],
             shortTitle: "Extend Timer",
             systemImageName: "plus.circle"
+        )
+        AppShortcut(
+            intent: RemoveTimeIntent(),
+            phrases: ["Remove time from a timer in \(.applicationName)", "Remove time from \(\.$timer) in \(.applicationName)"],
+            shortTitle: "Remove Time",
+            systemImageName: "minus.circle"
         )
         AppShortcut(
             intent: GetTimerRemainingIntent(),

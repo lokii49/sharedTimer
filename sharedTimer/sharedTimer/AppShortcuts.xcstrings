@@ -286,6 +286,101 @@
         }
       }
     },
+    "Remove time from a timer in ${applicationName}": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "أزل وقتًا من مؤقت في ${applicationName}",
+              "أزل وقتًا من ${timer} في ${applicationName}"
+            ]
+          }
+        },
+        "bn": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}-এ টাইমারের সময় কমাও",
+              "${applicationName}-এ ${timer}-এর সময় কমাও"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "new",
+            "values": [
+              "Remove time from a timer in ${applicationName}",
+              "Remove time from ${timer} in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Quita tiempo a un temporizador en ${applicationName}",
+              "Quita tiempo a ${timer} en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Retire du temps à un minuteur dans ${applicationName}",
+              "Retire du temps à ${timer} dans ${applicationName}"
+            ]
+          }
+        },
+        "hi": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} में टाइमर का समय घटाओ",
+              "${applicationName} में ${timer} का समय घटाओ"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Kurangi waktu timer di ${applicationName}",
+              "Kurangi waktu ${timer} di ${applicationName}"
+            ]
+          }
+        },
+        "pt-BR": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Remova tempo de um timer no ${applicationName}",
+              "Remova tempo de ${timer} no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Убери время у таймера в ${applicationName}",
+              "Убери время у ${timer} в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中减少计时器时间",
+              "在${applicationName}中减少${timer}的时间"
+            ]
+          }
+        }
+      }
+    },
     "Resume a timer in ${applicationName}": {
       "extractionState": "extracted_with_value",
       "localizations": {

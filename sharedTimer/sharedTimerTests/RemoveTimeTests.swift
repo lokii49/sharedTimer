@@ -89,3 +89,24 @@ struct DismissedAlarmTests {
         #expect(!AlarmController.wasDismissed(armed: true, intendedEnd: nil, alarmListed: false, at: now))
     }
 }
+
+/// N3 for Siri / Shortcuts: `TimerIntentActions` `.shorten(minutes:)`.
+struct RemoveTimeIntentTests {
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    @Test func siriTakesMinutesOffAndRefusesWhatItCannot() throws {
+        let running = TimerPayload(id: "s", label: "Tea", endDate: now.addingTimeInterval(600), duration: 600)
+        let shorter = try TimerIntentActions.updated(running, mutation: .shorten(minutes: 2), at: now)
+        #expect(shorter.endDate == now.addingTimeInterval(480))
+        #expect(shorter.updatedAt == now)
+        #expect(TimerIntentActions.Mutation.shorten(minutes: 1).action == "shortened")
+        // Too much: never to or past the end.
+        #expect(throws: TimerIntentError.notEnoughTimeLeft) { try TimerIntentActions.updated(running, mutation: .shorten(minutes: 10), at: now) }
+        // Not a positive, finite number.
+        #expect(throws: TimerIntentError.nonPositiveMinutes) { try TimerIntentActions.updated(running, mutation: .shorten(minutes: 0), at: now) }
+        #expect(throws: TimerIntentError.nonPositiveMinutes) { try TimerIntentActions.updated(running, mutation: .shorten(minutes: .infinity), at: now) }
+        // A repeating countdown: it would ring twice.
+        let daily = TimerPayload.composeAnnual(label: "Pills", targetDate: now.addingTimeInterval(3_600), timeZone: .gmt, frequency: .daily, at: now)
+        #expect(throws: TimerIntentError.repeatingCountdown) { try TimerIntentActions.updated(daily, mutation: .shorten(minutes: 1), at: now) }
+    }
+}

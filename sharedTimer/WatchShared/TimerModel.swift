@@ -27,6 +27,9 @@ struct TimerPayload: Codable, Identifiable {
     var extraTime: TimeInterval = 0
     /// Shared with the phone as view only (phone's `TimerStore.isReadOnly`).
     var readOnly: Bool = false
+    /// A repeating countdown (phone's `recurrence != nil`): no Remove time there — on
+    /// the phone it would bring the same occurrence back and ring twice.
+    var repeats: Bool = false
     let kind: TimerKind
     /// When false, finishing raises only a quiet notification (standard sound, no
     /// AlarmKit full-screen ring, no in-app alarm loop) — the compose-sheet "Alarm"
@@ -62,7 +65,7 @@ struct TimerPayload: Codable, Identifiable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, label, endDate, duration, pausedRemaining, extraTime, readOnly, kind, alarmEnabled, vibrationEnabled
+        case id, label, endDate, duration, pausedRemaining, extraTime, readOnly, repeats, kind, alarmEnabled, vibrationEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -74,6 +77,8 @@ struct TimerPayload: Codable, Identifiable {
         pausedRemaining = try container.decodeIfPresent(TimeInterval.self, forKey: .pausedRemaining)
         extraTime = max(0, try container.decodeIfPresent(TimeInterval.self, forKey: .extraTime) ?? 0)
         readOnly = try container.decodeIfPresent(Bool.self, forKey: .readOnly) ?? false
+        // Older phones don't send it: not repeating (the phone refuses a bad − anyway).
+        repeats = try container.decodeIfPresent(Bool.self, forKey: .repeats) ?? false
         // Older shared links/stored timers predate `kind`; treat them as plain timers.
         kind = try container.decodeIfPresent(TimerKind.self, forKey: .kind) ?? .timer
         // Predates the alarm toggle -> keep the old always-alarm behavior.
@@ -132,6 +137,16 @@ struct TimerPayload: Codable, Identifiable {
         copy.endDate = date.addingTimeInterval(pausedRemaining)
         copy.pausedRemaining = nil
         return copy
+    }
+
+    /// N3 on the Watch: like the phone's `shortened(by:at:)` — never to or past the end,
+    /// never a repeating countdown.
+    func canShorten(by interval: TimeInterval, at date: Date = Date()) -> Bool {
+        interval > 0 && !repeats && (pausedRemaining ?? endDate.timeIntervalSince(date)) > interval
+    }
+
+    func shortened(by interval: TimeInterval, at date: Date = Date()) -> TimerPayload? {
+        canShorten(by: interval, at: date) ? extended(by: -interval) : nil
     }
 
     func extended(by interval: TimeInterval) -> TimerPayload {

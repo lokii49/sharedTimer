@@ -78,6 +78,7 @@ enum WatchSyncController {
         let pausedRemaining: TimeInterval?
         let extraTime: TimeInterval
         let readOnly: Bool
+        let repeats: Bool
         let kind: TimerKind
         let alarmEnabled: Bool
         let vibrationEnabled: Bool
@@ -85,6 +86,7 @@ enum WatchSyncController {
         init(_ payload: TimerPayload) {
             id = payload.id; label = payload.label; endDate = payload.endDate
             duration = payload.duration; pausedRemaining = payload.pausedRemaining; extraTime = payload.extraTime; readOnly = TimerStore.isReadOnly(id: payload.id)
+            repeats = payload.recurrence != nil
             kind = payload.kind; alarmEnabled = payload.alarmEnabled; vibrationEnabled = payload.vibrationEnabled
         }
     }
@@ -146,6 +148,10 @@ enum WatchSyncController {
                 case "pause": updated = existing.paused(); action = "paused"
                 case "resume": updated = existing.resumed(); action = "resumed"
                 case "extend": updated = existing.extended(by: 60); action = "extended"
+                case "shorten":
+                    // The phone's rule decides (never to the end, never a repeat).
+                    guard let shorter = existing.shortened(by: 60) else { reject(); return }
+                    updated = shorter; action = "shortened"
                 default: reject(); return
                 }
                 // Pause on an already-paused timer (a stale watch view) is a no-op —

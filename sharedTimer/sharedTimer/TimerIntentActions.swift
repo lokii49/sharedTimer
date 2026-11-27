@@ -5,13 +5,14 @@ import Foundation
 /// scheduled starts and background sequence catch-up can be tested without alarms.
 enum TimerIntentActions {
     enum Mutation {
-        case pause, resume, extend(minutes: Double)
+        case pause, resume, extend(minutes: Double), shorten(minutes: Double)
 
         var action: String {
             switch self {
             case .pause: return "paused"
             case .resume: return "resumed"
             case .extend: return "extended"
+            case .shorten: return "shortened"
             }
         }
     }
@@ -37,10 +38,12 @@ enum TimerIntentActions {
     static func updated(_ stored: TimerPayload?, mutation: Mutation, at date: Date = Date()) throws -> TimerPayload {
         // Validate before doing arithmetic: infinity / NaN must never get saved or
         // passed to AlarmKit, and minutes * 60 can overflow even for a finite input.
-        if case .extend(let minutes) = mutation {
+        switch mutation {
+        case .extend(let minutes), .shorten(let minutes):
             guard minutes.isFinite, minutes > 0, (minutes * 60).isFinite else {
                 throw TimerIntentError.nonPositiveMinutes
             }
+        default: break
         }
         let current = try snapshot(stored, at: date)
         guard current.status != .scheduled else { throw TimerIntentError.timerScheduled }
@@ -53,6 +56,13 @@ enum TimerIntentActions {
             let end = (current.payload.pausedRemaining ?? current.payload.endDate.timeIntervalSinceReferenceDate) + interval
             guard end.isFinite else { throw TimerIntentError.nonPositiveMinutes }
             var updated = current.payload.extended(by: interval)
+            updated.updatedAt = date
+            return updated
+        case .shorten(let minutes):
+            // The phone's own rule (`canShorten`): never a repeating countdown (it would
+            // ring twice), never to or past the end.
+            guard current.payload.recurrence == nil else { throw TimerIntentError.repeatingCountdown }
+            guard var updated = current.payload.shortened(by: minutes * 60, at: date) else { throw TimerIntentError.notEnoughTimeLeft }
             updated.updatedAt = date
             return updated
         }
