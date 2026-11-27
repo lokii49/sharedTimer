@@ -229,6 +229,12 @@ struct TimerDetailView: View {
                 .scrollBounceBehavior(.basedOnSize)
                 }
             }
+            // Inside the tick, like `.onChange(of: done)` below. A sequence is done once
+            // exhausted (last phase over, or Cancel) — not at each phase boundary, where
+            // the stored copy reads finished for a moment before it advances. Before, it
+            // never counted as finished, so the screen stayed on with its button gone.
+            .keepsScreenAwake($keepAwake, finished: payload.recurrence == nil
+                              && (payload.sequence.map { $0.loopIndex >= $0.loopCount } ?? done))
             // TimelineView localizes invalidation to this closure — a modifier attached
             // outside it (below) only re-evaluates on @State changes, never on the tick
             // that actually crosses zero. `done` is recomputed fresh every tick, so
@@ -271,11 +277,6 @@ struct TimerDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        // A sequence is done once exhausted (last phase over, or Cancel) — not at each phase
-        // boundary, where it reads finished for a moment before advancing. Before, it never
-        // counted as finished, so the screen stayed on with its button already gone.
-        .keepsScreenAwake($keepAwake, finished: payload.recurrence == nil
-                          && (payload.sequence.map { $0.loopIndex >= $0.loopCount } ?? payload.isFinished))
         .toolbar {
             if !payload.isFinished && !payload.isPending() {
                 ToolbarItem(placement: .topBarTrailing) {

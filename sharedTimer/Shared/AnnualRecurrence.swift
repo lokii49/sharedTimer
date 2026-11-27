@@ -198,6 +198,22 @@ struct AnnualRecurrence: Codable, Equatable {
 }
 
 extension TimerPayload {
+    /// "Next Year" / "Next Month" / …: skip the occurrence ending at `occurrenceEnd` and
+    /// count down to the rule's next one, running, as a person's change (stamped). nil
+    /// when not a repeating countdown, when this copy already moved past that occurrence
+    /// (a second tap must not skip two), or when the rule has no next date. Shared by the
+    /// app (detail screen, alarm/widget buttons) and Messages.
+    func skippingOccurrence(endingAt occurrenceEnd: Date, at date: Date = Date()) -> TimerPayload? {
+        guard let recurrence, endDate.timeIntervalSince(occurrenceEnd) <= 1,
+              let next = recurrence.nextDate(after: max(date, occurrenceEnd)) else { return nil }
+        var copy = self
+        copy.endDate = next
+        copy.duration = max(1, next.timeIntervalSince(date))
+        copy.pausedRemaining = nil
+        copy.updatedAt = date
+        return copy
+    }
+
     /// Clock projection, never a person changing the shared countdown.
     func advancedRecurrence(at date: Date = Date()) -> TimerPayload {
         guard let recurrence, !isPaused, endDate <= date,

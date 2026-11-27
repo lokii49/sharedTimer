@@ -5230,6 +5230,64 @@
         }
       }
     },
+    "Sends a notification from here. Opening Timer makes it ring full-screen.": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يُرسل إشعارًا من هنا. فتح Timer يجعله يرنّ بملء الشاشة."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "এখান থেকে একটি নোটিফিকেশন পাঠায়। Timer খুললে এটি পূর্ণ স্ক্রিনে বাজবে।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desde aquí envía una notificación. Al abrir Timer sonará a pantalla completa."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "D’ici, une notification est envoyée. Ouvrir Timer la fait sonner en plein écran."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यहाँ से एक सूचना भेजी जाती है। Timer खोलने पर यह फ़ुल-स्क्रीन बजेगा।"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dari sini mengirim notifikasi. Membuka Timer membuatnya berbunyi layar penuh."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daqui, envia uma notificação. Abrir o Timer faz tocar em tela cheia."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отсюда отправляется уведомление. Если открыть Timer, будильник зазвонит на весь экран."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从这里只会发送通知。打开 Timer 后会全屏响铃。"
+          }
+        }
+      }
+    },
     "Sequence phase finished!": {
       "localizations": {
         "ar": {

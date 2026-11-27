@@ -124,26 +124,40 @@ struct sharedTimerWatch_Watch_AppTests {
         defer { defaults.removePersistentDomain(forName: suite) }
         let sync = WatchSyncController(defaults: defaults)
         let running = timer("tea", seconds: 100)
-        let paused = running.paused()
-        let resumed = paused.resumed().extended(by: 1)  // distinct end, like a later tap's
         sync.apply(["timers": try JSONEncoder().encode([running])])
-        sync.noteSent(id: "tea", before: running, optimistic: paused)
-        sync.noteSent(id: "tea", before: paused, optimistic: resumed)
-        sync.apply(["timers": try JSONEncoder().encode([resumed])])  // the watch shows tap 2
+        let tap1 = try #require(sync.applyOptimistic(id: "tea", op: "pause"))
+        let tap2 = try #require(sync.applyOptimistic(id: "tea", op: "resume"))
         let sentAt = sync.contextGeneration
-        sync.rollBack(id: "tea", to: running, ifStill: paused, sentAt: sentAt)
-        sync.rollBack(id: "tea", to: paused, ifStill: resumed, sentAt: sentAt)
+        sync.rollBack(id: "tea", to: tap1.before, ifStill: tap1.optimistic, sentAt: sentAt)
+        sync.rollBack(id: "tea", to: tap2.before, ifStill: tap2.optimistic, sentAt: sentAt)
         #expect(sync.timers.first?.pausedRemaining == nil)
         #expect(sync.timers.first?.endDate == running.endDate)
 
-        // The phone acknowledged the Pause, then the Resume failed: paused is right.
+        // The phone acknowledged the Pause, then the +1:00 failed: paused is right.
         sync.apply(["timers": try JSONEncoder().encode([running])])
-        sync.noteSent(id: "tea", before: running, optimistic: paused)
-        sync.noteSent(id: "tea", before: paused, optimistic: resumed)
-        sync.apply(["timers": try JSONEncoder().encode([resumed])])
-        sync.noteAcknowledged(id: "tea", optimistic: paused)
-        sync.rollBack(id: "tea", to: paused, ifStill: resumed, sentAt: sync.contextGeneration)
-        #expect(sync.timers.first?.pausedRemaining == paused.pausedRemaining)
+        let pause = try #require(sync.applyOptimistic(id: "tea", op: "pause"))
+        let extend = try #require(sync.applyOptimistic(id: "tea", op: "extend"))
+        sync.noteAcknowledged(id: "tea", optimistic: pause.optimistic)
+        sync.rollBack(id: "tea", to: extend.before, ifStill: extend.optimistic, sentAt: sync.contextGeneration)
+        #expect(sync.timers.first?.pausedRemaining == pause.optimistic.pausedRemaining)
+    }
+
+    /// Tap A still unanswered, a phone context already carrying A's result arrives, then
+    /// tap B fails: the watch falls back to that context, not to the state before A.
+    @Test func aContextResetsTheRollbackFallback() throws {
+        let suite = "watch-sync-test.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sync = WatchSyncController(defaults: defaults)
+        let running = timer("tea", seconds: 100)
+        sync.apply(["timers": try JSONEncoder().encode([running])])
+        _ = try #require(sync.applyOptimistic(id: "tea", op: "pause"))                    // tap A, unanswered
+        let pausedOnPhone = try #require(sync.timers.first)
+        sync.apply(["timers": try JSONEncoder().encode([pausedOnPhone])])                 // the phone applied A
+        let tapB = try #require(sync.applyOptimistic(id: "tea", op: "extend"))            // tap B
+        sync.rollBack(id: "tea", to: tapB.before, ifStill: tapB.optimistic, sentAt: sync.contextGeneration)
+        #expect(sync.timers.first?.pausedRemaining == pausedOnPhone.pausedRemaining, "back to the paused state the phone sent")
+        #expect(sync.timers.first?.pausedRemaining != nil, "not to the running state from before tap A")
     }
 
     @Test func linksRoundTripAndRejectPayloads() throws {

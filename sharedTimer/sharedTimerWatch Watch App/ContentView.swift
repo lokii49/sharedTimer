@@ -14,13 +14,18 @@ struct ContentView: View {
 
     @State private var path: [String] = []
 
-    private var active: [TimerPayload] {
-        sync.timers.filter { !$0.isExpired }.sorted { $0.endDate < $1.endDate }
+    /// Unfinished timers, soonest first (paused ones by their frozen time left, not
+    /// their stale end). Read at the tick's date, so a timer that finishes while the list
+    /// is open leaves it instead of sitting at 00:00 until the next phone update.
+    private func active(at date: Date) -> [TimerPayload] {
+        sync.timers.filter { $0.isPaused || $0.endDate > date }
+            .sorted { ($0.pausedRemaining ?? $0.endDate.timeIntervalSince(date)) < ($1.pausedRemaining ?? $1.endDate.timeIntervalSince(date)) }
     }
 
     var body: some View {
         NavigationStack(path: $path) {
-            Group {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let active = active(at: context.date)
                 if active.isEmpty {
                     emptyState
                 } else {
@@ -62,10 +67,14 @@ struct ContentView: View {
                 .font(.headline)
                 .lineLimit(1)
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                Text(payload.isPaused ? String(localized: "Paused") : TimeFormat.display(payload.remaining, at: context.date))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                // Paused shows its frozen time too, so +1:00 while paused visibly lands.
+                HStack(spacing: 4) {
+                    Text(TimeFormat.display(payload.remaining, at: context.date))
+                        .monospacedDigit()
+                    if payload.isPaused { Text("Paused") }
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -97,11 +106,14 @@ private struct TimerDetailView: View {
                     .font(.headline)
                     .lineLimit(1)
 
-                Text(payload.isPaused ? String(localized: "Paused") : TimeFormat.display(remaining, at: context.date))
+                Text(TimeFormat.display(remaining, at: context.date))
                     .font(.system(size: 34, weight: .semibold))
                     .monospacedDigit()
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)
+                if payload.isPaused {
+                    Text("Paused").font(.footnote).foregroundStyle(.secondary)
+                }
 
                 if !done {
                     HStack(spacing: 8) {

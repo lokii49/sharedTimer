@@ -14,6 +14,14 @@ class MessagesViewController: MSMessagesAppViewController {
     private var hasStagedAttribution = false
 
     private var revertObserver: NSObjectProtocol?
+    /// The bubble the person left (Delete, Remove, or New Timer from its view). Messages
+    /// keeps `selectedMessage` set, so every reactivation (switching apps and back)
+    /// rebuilt the running view from that bubble — saving and re-arming a timer just
+    /// deleted here, re-joining a share just left, or wiping a half-filled form.
+    private var leftMessageURL: URL?
+    /// Timers deleted or removed from here this session: a bubble of one, or an accept
+    /// that was still in flight, must not bring it back.
+    private var deletedHere: Set<String> = []
 
     deinit {
         if let revertObserver { NotificationCenter.default.removeObserver(revertObserver) }
@@ -60,12 +68,29 @@ class MessagesViewController: MSMessagesAppViewController {
         VibrationPlayer.shared.stop()
     }
 
+    /// An incoming message doesn't change what the person is looking at — it used to
+    /// rebuild the view from the selected bubble (losing a half-filled form). Just let an
+    /// open timer view pick up any stored change.
     override func didReceive(_ message: MSMessage, conversation: MSConversation) {
+        NotificationCenter.default.post(name: TimerRunningView.storeChange, object: nil)
+    }
+
+    /// The person tapped another bubble while the extension is open (expanded or
+    /// compact): show that one — an explicit choice, so even one left earlier.
+    override func didSelect(_ message: MSMessage, conversation: MSConversation) {
+        leftMessageURL = nil
         presentView(for: conversation)
     }
 
     private func presentView(for conversation: MSConversation) {
+        if let url = conversation.selectedMessage?.url, url == leftMessageURL {
+            return presentComposeView()
+        }
         if let payload = TimerPayload.from(url: conversation.selectedMessage?.url) {
+            // Deleted or removed here earlier this session: don't save it back.
+            if deletedHere.contains(payload.id) && !TimerStore.loadAll().contains(where: { $0.id == payload.id }) {
+                return presentComposeView()
+            }
             let existing = TimerStore.loadAll().first { $0.id == payload.id }
             // A newer re-shared plain link updates the copy we have (CloudKit-linked
             // timers stay with sync) — same rule as the main app's handleIncoming.
@@ -84,7 +109,10 @@ class MessagesViewController: MSMessagesAppViewController {
             if adoptLink || !TimerStore.isAlarmKitArmed(id: stored.id) {
                 NotificationScheduler.cancel(id: stored.id)
                 NotificationScheduler.scheduleAlert(for: stored)
-                LiveActivityController.start(for: stored)
+                // Paused: update an existing card, never request one (a paused card has
+                // no stale date and would stay forever) — as every other path here does.
+                if stored.isPaused { LiveActivityController.update(for: stored) }
+                else { LiveActivityController.start(for: stored) }
             }
             presentRunningView(payload: stored)
             acceptShareIfNeeded(from: conversation.selectedMessage?.url, localPayloadID: stored.id)
@@ -132,9 +160,16 @@ class MessagesViewController: MSMessagesAppViewController {
               let shareString = components.queryItems?.first(where: { $0.name == "ckshare" })?.value,
               let shareURL = URL(string: shareString) else { return }
 
-        CloudSyncController.acceptShare(from: shareURL) { authoritative in
+        CloudSyncController.acceptShare(from: shareURL) { [weak self] authoritative in
             guard let authoritative else { return }
             DispatchQueue.main.async {
+                // Removed here while the accept was in flight (there was no link yet, so
+                // the removal couldn't leave the share): leave it now instead of
+                // bringing the timer back.
+                if self?.deletedHere.contains(authoritative.id) == true {
+                    CloudSyncController.pushDelete(id: authoritative.id)
+                    return
+                }
                 // A pause/extend made while the accept was in flight couldn't push (no
                 // CloudLink yet) and is newer than the record — keep it and push it now.
                 if let local = TimerStore.loadAll().first(where: { $0.id == authoritative.id }),
@@ -168,12 +203,15 @@ class MessagesViewController: MSMessagesAppViewController {
         let root = AnyView(TimerRunningView(
             payload: payload,
             onNewTimer: { [weak self] in
+                self?.leftMessageURL = self?.activeConversation?.selectedMessage?.url
                 self?.presentComposeView()
             },
             onUpdate: { [weak self] updated, action in
                 self?.persist(updated, action: action)
             },
             onDelete: { [weak self] deleted in
+                self?.deletedHere.insert(deleted.id)
+                self?.leftMessageURL = self?.activeConversation?.selectedMessage?.url
                 TimerStore.delete(id: deleted.id)
                 NotificationScheduler.cancel(id: deleted.id)
                 NotificationScheduler.cancelReminders(id: deleted.id)
@@ -278,6 +316,8 @@ class MessagesViewController: MSMessagesAppViewController {
             payload = picked
             TimerStore.save(payload)
             NotificationScheduler.scheduleAlert(for: payload)
+            // The card used to appear only after reopening its bubble.
+            LiveActivityController.start(for: payload)
         }
 
         promptForDisplayNameIfNeeded {
@@ -332,7 +372,12 @@ class MessagesViewController: MSMessagesAppViewController {
             }
 
         case .appCard:
-            let message = MSMessage()
+            // Re-sharing from this timer's own bubble continues that bubble's session, so
+            // Messages collapses the older card to its summary instead of stacking two
+            // live-looking cards of one timer; a new card starts its own session.
+            let selected = conversation.selectedMessage
+            let sameTimer = selected.flatMap { TimerPayload.from(url: $0.url)?.id } == payload.id
+            let message = MSMessage(session: (sameTimer ? selected?.session : nil) ?? MSSession())
             let layout = MSMessageTemplateLayout()
             layout.caption = payload.label
             layout.subcaption = payload.isExpired ? "Timer done" : subcaption(for: payload)
@@ -356,24 +401,22 @@ class MessagesViewController: MSMessagesAppViewController {
               var components = URLComponents(url: payload.url(), resolvingAgainstBaseURL: false) else {
             return payload.url()
         }
-        var items = components.queryItems ?? []
-        items.append(URLQueryItem(name: "ckshare", value: shareURL.absoluteString))
-        components.queryItems = items
+        // Appended to the already-encoded query: re-setting `queryItems` re-encoded
+        // the whole query and undid `url()`'s `+` → `%2B`.
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: "&=+?#")
+        guard let share = shareURL.absoluteString.addingPercentEncoding(withAllowedCharacters: allowed) else { return payload.url() }
+        components.percentEncodedQuery = (components.percentEncodedQuery.map { $0 + "&" } ?? "") + "ckshare=" + share
         return components.url ?? payload.url()
     }
 
-    private func formattedTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-
+    /// The card's second line (English, like the rest of the card — see CLAUDE.md). A
+    /// clock time was formatted in the sender's zone and stale for a paused timer; the
+    /// timer's own length reads right anywhere.
     private func subcaption(for payload: TimerPayload) -> String {
-        switch payload.kind {
-        case .timer:
-            return "Ends at \(formattedTime(payload.endDate))"
-        case .countdown:
-            return "→ \(TimeFormat.targetDate(payload.endDate))"
-        }
+        if payload.isPending(), let start = payload.scheduledStartDate { return "Starts \(TimeFormat.targetDate(start))" }
+        if payload.isPaused { return "Paused · \(TimeFormat.display(payload.remaining)) left" }
+        if payload.sequence != nil || payload.kind == .timer { return payload.shareSummary }
+        return "→ \(TimeFormat.targetDate(payload.endDate))"
     }
 }

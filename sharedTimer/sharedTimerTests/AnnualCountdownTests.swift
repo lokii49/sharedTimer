@@ -315,4 +315,20 @@ struct RepeatingCountdownTests {
         #expect(plus?.recurrence?.timeZoneID == "GMT+0530")
         #expect(plus?.label == "C++")
     }
+
+    @Test func skippingAnOccurrenceCountsToTheNextOneOnce() {
+        let now = date("2026-11-27T10:00:00Z")
+        let weekly = TimerPayload.composeAnnual(label: "Gym", targetDate: date("2026-11-28T09:00:00Z"), timeZone: .gmt, frequency: .weekly, at: now)
+        let skipped = weekly.skippingOccurrence(endingAt: weekly.endDate, at: now)
+        #expect(skipped?.endDate == date("2026-12-05T09:00:00Z"))
+        #expect(skipped?.isPaused == false)
+        #expect(skipped?.updatedAt == now)
+        // A second tap for the same occurrence doesn't skip another week.
+        #expect(skipped?.skippingOccurrence(endingAt: weekly.endDate, at: now) == nil)
+        // Paused: resumes counting to the next one.
+        let paused = weekly.paused(at: now)
+        #expect(paused.skippingOccurrence(endingAt: weekly.endDate, at: now)?.isPaused == false)
+        // Not a repeating countdown.
+        #expect(TimerPayload(label: "Tea", duration: 60).skippingOccurrence(endingAt: Date(), at: now) == nil)
+    }
 }

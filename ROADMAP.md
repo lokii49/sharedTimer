@@ -9,7 +9,7 @@ or QR code.
 
 1.0.8 (build 12) is live (READY_FOR_SALE, checked via App Store Connect 2026-11-27). Four parallel read-only audit passes (model/wire/web, alert delivery, CloudKit/sharing/extensions, app UI/l10n/a11y) plus a `git diff 1.0.7 1.0.8` regression review, a full localization scan and competitor/API research. Every finding below was re-read in the code before fixing; tests were added first where the code allows it. Details of each fix live in CLAUDE.md "1.0.9 fixes".
 
-**Status:** Fixes F1–F22 (F7 and F17 withdrawn, F21 reverted, see below) and widget fixes W1–W15 done on branch `1.0.9`. Verified 2026-11-27 after the last change: simulator 200 unit tests (193 earlier under Thread Sanitizer, 0 race reports), 19 UI (18 + the iPad-only test, which passes on an iPad Air simulator), Watch 11, web 33 + Worker/status 23; iPhone 14 Pro (iOS 27.2, US/Pacific) 157 unit + 42 AlarmKit/Live Activity; real-iCloud clash test on the iPhone 13 (below). Fail-before confirmed by temporarily restoring the old logic: F3, F4 (real AlarmKit device test), F8, the web/Worker tests for F19/F20. Not automatable here (CloudKit two-device, UI presentation, widget rendering): F1, F2, F6, F11, F12, W3–W5, W7–W15; F9/F10 device behaviour beyond the existing suites unverified.
+**Status:** Fixes F1–F22 (F7 and F17 withdrawn, F21 reverted, see below) and widget fixes W1–W15 done on branch `1.0.9`. Verified 2026-11-27 after the last change: simulator 201 unit tests (193 earlier under Thread Sanitizer, 0 race reports), 19 UI (18 + the iPad-only test, which passes on an iPad Air simulator), Watch 12, web 33 + Worker/status 23; iPhone 14 Pro (iOS 27.2, US/Pacific) 159 unit + 42 AlarmKit/Live Activity; standalone Clip and Messages builds and a Release build pass; real-iCloud clash test on the iPhone 13 (below). Fail-before confirmed by temporarily restoring the old logic: F3, F4 (real AlarmKit device test), F8, the web/Worker tests for F19/F20. Not automatable here (CloudKit two-device, UI presentation, widget rendering): F1, F2, F6, F11, F12, W3–W5, W7–W15; F9/F10 device behaviour beyond the existing suites unverified.
 
 ### Fixed
 
@@ -35,6 +35,7 @@ or QR code.
 | F20 | Low | link-preview Worker | Same `+` handling; rewrote/counted sequence links the app rejects for a bad `start`. | 2 worker tests (failed before) |
 | F21 | Test | `testCalendarImportLoadsEventsWithFullAccess` | Tried resetting Calendar access at teardown so the device is left as found — **reverted**: every run then hits the first-grant system prompt, which this test can't answer on iOS 27 (it looks for "Allow Full Access" in SpringBoard; a screen recording showed the prompt up and unanswered, the import correctly waiting on "Loading events…" — also the likely cause of 1.0.7's "stuck on Loading events" note, not an app bug). The test still leaves access granted (open, low). | 18/18 UI after revert |
 | F22 | Low | `CalendarCountdownChoice` | All-day day taken with local `startOfDay` only → a UTC-midnight day became the previous day west of UTC. → day read from the matching midnight (local or UTC), then local midnight. | Unit (both representations) |
+| F23 | Low (owner report) | Keep Screen On (app + Clip) | The sun icon read as a dark/light switch that did nothing; outline→filled was the only feedback. → owner's pick: `lock.slash` icon, filled warm when on, 1.5 s "Screen stays on" / "Screen can sleep" capsule (both strings ×9 languages); What's New illustration updated. | Installed on both phones; manual look |
 
 Web test harnesses now encode links the way the app does (`%20`, `%2B`) instead of `URLSearchParams.toString()` (`+` for spaces, which the app never sends).
 
@@ -57,6 +58,33 @@ Web test harnesses now encode links the way the app does (`%20`, `%2B`) instead 
 - The Pomodoro card's cause (1.0.8).
 
 **Release gates for 1.0.9 (owner):** no new CloudKit fields. Bump to 1.0.9 / build 13. Re-copy `docs/t.html` to `mirrornotes-website/timer.html` (F19). Deploy the link-preview Worker (`npx wrangler@4 deploy` in `link-preview/`, F20). Release notes in 11 languages. What's New stays quiet (fix release; `contentVersion` unchanged).
+
+### App Clip, iMessage and Watch pass (2026-11-27, owner request)
+
+Two read-only audits (Messages; Clip + Watch app) plus a ripple check of every 1.0.9 change against these targets and a parity grep. Platform facts checked against Apple's pages, not memory: App Clip size limit 15 MB for physical invocations, 100 MB for digital-only on iOS 17+ ([App Store Connect](https://developer.apple.com/help/app-store-connect/reference/app-uploads/maximum-build-file-sizes/)) — the Clip is 3.9 MB (Release build, before thinning); ephemeral Clip notifications last 8 h per WWDC20, 24 h per WWDC21 (conflicting; the Clip doesn't use them — it asks normally); there is no API to edit a sent bubble, but a new message in the same `MSSession` collapses the older one ([forum](https://developer.apple.com/forums/thread/51570)).
+
+| # | Sev | Target | Defect → fix | Verified |
+|---|---|---|---|---|
+| M1 | Med | Messages | Every reactivation / incoming message rebuilt the view from the still-selected bubble: a timer deleted or a share left here came back (saved, re-armed, re-joined), a half-filled New Timer form was wiped. → `leftMessageURL` + `deletedHere`; `didReceive` only refreshes; new `didSelect` override for an explicit bubble tap. | Build; device check (needs Messages) |
+| M2 | Med | Messages | An open running view never saw changes made by other processes (Live Activity/Siri pause, Watch, the notification service saving a friend's pause): rang at the old end, and a tap pushed the stale copy over the change. → re-reads the store every 2 s; every tap mutates the newest stored copy and re-checks view-only first. | Build; device check |
+| M3 | Low/Med | Messages | Remove while the share accept was in flight brought the timer back and re-joined. → the accept callback leaves instead. | Build |
+| M4 | Low | Messages | Tapping another bubble while open kept the old timer. → `didSelect(_:conversation:)`. | Build |
+| M5 | Low | Messages | App-card subcaption: a stale end for paused timers, phase 0's end for scheduled sequences, a clock time in the sender's zone. → start / "Paused · 3:00 left" / the length summary. | Build |
+| M6 | Low | Messages | Opening a paused timer's bubble requested a Live Activity (no stale date — stays forever); a timer composed here got none. → update when paused; start on compose. | Build |
+| M7 | Low | Messages, Clip | Stop didn't acknowledge the finish and overtime ignored it (both ways vs the app). → `acknowledgeFinish` + acknowledged overtime. | Build |
+| M8 | Low | Messages | Compose footnote promised a full-screen ring; from Messages only a notification is scheduled until the app opens. → honest footnote (`notificationOnlyHere`, ×9 languages). | Build |
+| M9 | Low | Messages | "This matches what your friend sees" shown for unshared timers. → only for live shares. | Build |
+| M10 | Parity | Messages | No way to skip a repeating countdown's occurrence. → "Next Year/Week/…" button, via the new pure `TimerPayload.skippingOccurrence` (also used by the app now). | Unit |
+| M11 | Low | Messages | Re-sharing a timer from its own bubble stacked a second card. → same `MSSession`, so Messages collapses the old card; new cards get their own session. Also `ckshare` appended without re-encoding the query (kept `%2B`). | Build; device check |
+| C1 | Med | Clip | Launched without a link (tapped "time's up" notification, App Library): empty state although the timer was stored. → notification delegate (opens that timer) + fallback to the most relevant stored timer. | Build; device check |
+| C2 | Low/Med | Clip | "Get the full app" overlay could never appear (cold launch: no active scene yet, no retry) and covered Stop. → `.appStoreOverlay`, held back while ringing. | Build; device check |
+| C3 | Low | Clip, app detail | Keep Screen On's `finished` was evaluated outside the 1 s tick (Clip: stayed on after a quiet finish, button gone). → evaluated inside it. | Build |
+| C4 | Low | App (+ Clip/Messages data) | A fresh install after using the Clip or Messages showed the What's New tour (their App Group data looked like an update). → `TimerStore.wasCreatedOutsideApp`. | Build |
+| Wa1 | Low | Watch | Paused timers showed only "Paused", so +1:00 while paused did nothing visible. → frozen time + "Paused". | Watch build |
+| Wa2 | Low | Watch | A timer finishing with the list open sat at 00:00 until the next phone update; paused ones sorted by a stale end. → list read per tick, sorted by time left. | Watch build |
+| Wa3 | Low | Watch | Residual rollback race after F13 (a context carrying tap A's result, then tap B fails → rolled back to before A). → contexts reset the fallback; `applyOptimistic` extracted so tests drive real taps. | Watch unit (2 tests) |
+
+**Not done / left open:** Watch complication VoiceOver reads the time from when the timeline was built (A7 — how VoiceOver reads live timer text needs a device check before changing it); the Watch complication keeps `.privacySensitive()` on everything (owner call, see W5). Parity gaps that are product scope, not bugs, and need mockups first: Messages has no Edit, reminders, repeating countdowns or sequences in compose, no Undo for Remove; the Clip is a viewer by design; the Watch flattens sequences and repeats (no phase caption, no Next) by design. Messages/Clip have no automated tests — everything above in them is build-verified only; the device checklist covers them.
 
 ### Next release — making Timer more powerful (plan only; mockups before any UI work)
 

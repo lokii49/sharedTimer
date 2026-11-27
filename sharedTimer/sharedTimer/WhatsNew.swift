@@ -47,7 +47,9 @@ enum WhatsNew {
         let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
         let show = shouldShow(seenVersion: defaults.string(forKey: seenVersionKey),
                               currentVersion: current,
-                              isExistingInstall: TimerStore.hasStoredData)
+                              // Data the Clip or Messages wrote before the app was ever
+                              // installed isn't an update.
+                              isExistingInstall: TimerStore.hasStoredData && !TimerStore.wasCreatedOutsideApp)
         defaults.set(current, forKey: seenVersionKey)
         return show
     }
@@ -440,7 +442,8 @@ private struct ReadableScene: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             HStack(spacing: 10) {
-                Image(systemName: "sun.max.fill")
+                // Keep Screen On's icon (lock.slash since 1.0.9).
+                Image(systemName: "lock.slash.fill")
                     .font(.system(size: 22))
                     .foregroundStyle(Color(red: 1, green: 0.82, blue: 0.4))
                     .opacity(0.6 + 0.4 * glow)

@@ -36,6 +36,10 @@ struct TimerFieldsView: View {
     /// timer will only notify, with a way to Settings, instead of promising a full-screen
     /// alarm.
     var fullScreenAlarmsOff: Bool = false
+    /// Composing in Messages: an extension can't use AlarmKit, so until the app next
+    /// opens (and arms the alarm) only a notification is scheduled — don't promise a
+    /// full-screen ring.
+    var notificationOnlyHere: Bool = false
     /// Extra rows under the Alarm/Vibrate toggles — the main app's reminder chips
     /// (TimerReminders.swift is main-app only, so it comes in as a view).
     var whenItEndsExtra: AnyView? = nil
@@ -82,6 +86,8 @@ struct TimerFieldsView: View {
                             .fontWeight(.semibold)
                     }
                 }
+            } else if notificationOnlyHere && (alarmEnabled || vibrationEnabled) {
+                Text("Sends a notification from here. Opening Timer makes it ring full-screen.")
             } else {
                 Text(alarmFootnote)
             }

@@ -69,7 +69,8 @@ struct TimerComposeView: View {
                     targetDate: $targetDate,
                     alarmEnabled: $alarmEnabled,
                     vibrationEnabled: $vibrationEnabled,
-                    labelFocused: $labelFocused
+                    labelFocused: $labelFocused,
+                    notificationOnlyHere: true
                 )
             }
 

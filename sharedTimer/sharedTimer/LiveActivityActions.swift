@@ -128,15 +128,10 @@ enum LiveActivityActions {
     }
 
     static func advanceAnnual(timerID: String, occurrenceEnd: Double) async {
-        guard var payload = await stored(timerID, project: false), let recurrence = payload.recurrence,
+        guard let payload = await stored(timerID, project: false),
               occurrenceEnd.isFinite, abs(occurrenceEnd) <= 253_402_300_799,
-              payload.endDate.timeIntervalSince1970 <= occurrenceEnd + 1,
-              let next = recurrence.nextDate(after: max(Date(), Date(timeIntervalSince1970: occurrenceEnd))) else { return await refreshUI() }
-        payload.endDate = next
-        payload.duration = max(1, next.timeIntervalSinceNow)
-        payload.pausedRemaining = nil
-        payload.updatedAt = Date()
-        await commit(payload, action: "advanced")
+              let skipped = payload.skippingOccurrence(endingAt: Date(timeIntervalSince1970: occurrenceEnd)) else { return await refreshUI() }
+        await commit(skipped, action: "advanced")
     }
 
     /// Widget "Repeat" on a finished timer — same mutation as the app's Repeat.

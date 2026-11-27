@@ -20,7 +20,10 @@ struct KeepAwakeButton: View {
         Button {
             isOn.toggle()
         } label: {
-            Image(systemName: isOn ? "sun.max.fill" : "sun.max")
+            // A lock with a slash: auto-lock is off. The sun (1.0.7) read as a dark/light
+            // switch that did nothing (owner, 2026-11-27); on is filled and warm.
+            Image(systemName: isOn ? "lock.slash.fill" : "lock.slash")
+                .foregroundStyle(isOn ? KeepAwake.warm : Color.white)
         }
         .accessibilityLabel("Keep Screen On")
         .accessibilityValue(isOn ? Text("On") : Text("Off"))
@@ -36,16 +39,48 @@ extension View {
     }
 }
 
+enum KeepAwake {
+    /// The sky's warm horizon colour, for the "on" state.
+    static let warm = Color(red: 1.0, green: 0.82, blue: 0.45)
+}
+
 private struct KeepAwakeModifier: ViewModifier {
     @Binding var isOn: Bool
     let finished: Bool
     @Environment(\.scenePhase) private var scenePhase
+    /// The short confirmation under the toolbar ("Screen stays on" / "Screen can sleep").
+    @State private var confirmation: LocalizedStringKey?
+    @State private var confirmationTask: Task<Void, Never>?
 
     func body(content: Content) -> some View {
         content
+            .overlay(alignment: .top) {
+                if let confirmation {
+                    Text(confirmation)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .glassEffect(.regular, in: Capsule())
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        // VoiceOver already hears the announcement below.
+                        .accessibilityHidden(true)
+                        .allowsHitTesting(false)
+                }
+            }
+            .animation(.easeOut(duration: 0.2), value: confirmation)
             .onChange(of: isOn) { _, on in
                 UIApplication.shared.isIdleTimerDisabled = on
-                if on { UIAccessibility.post(notification: .announcement, argument: String(localized: "Screen stays on")) }
+                UIAccessibility.post(notification: .announcement,
+                                     argument: on ? String(localized: "Screen stays on") : String(localized: "Screen can sleep"))
+                confirmationTask?.cancel()
+                confirmation = on ? "Screen stays on" : "Screen can sleep"
+                confirmationTask = Task {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    guard !Task.isCancelled else { return }
+                    confirmation = nil
+                }
             }
             .onChange(of: finished) { _, done in if done { isOn = false } }
             .onChange(of: scenePhase) { _, phase in if phase != .active { isOn = false } }

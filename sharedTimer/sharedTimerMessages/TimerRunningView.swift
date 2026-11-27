@@ -61,7 +61,8 @@ struct TimerRunningView: View {
                             Text(pending ? Sky.pendingSequenceCaption(payload.sequence!) : caption)
                                 .font(.caption).foregroundStyle(.white.opacity(0.6))
                         }
-                        let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: false) : nil
+                        // Stop (here or in the app) ends the count, as everywhere else.
+                        let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: TimerStore.isFinishAcknowledged(id: payload.id)) : nil
                         Text(pending ? Sky.pendingStartText(for: payload.scheduledStartDate!, at: context.date) : overtime ?? TimeFormat.display(remaining))
                             .skyDigits(52, weight: .thin)
                             .foregroundStyle(overtime == nil ? Color.white : Sky.overtimeInk)
@@ -77,10 +78,13 @@ struct TimerRunningView: View {
                         Text(subtitle(done: done))
                             .font(.footnote)
                             .foregroundStyle(.white.opacity(0.75))
-                        Text(done ? "Timer finished" : "This matches what your friend sees")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.55))
-                            .padding(.top, 2)
+                        // Only a live share stays in step with the friend's copy.
+                        if done || isShared {
+                            Text(done ? "Timer finished" : "This matches what your friend sees")
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.55))
+                                .padding(.top, 2)
+                        }
                         if let participantCount, participantCount > 1 {
                             Text("\(participantCount) watching")
                                 .font(.caption2)
@@ -94,6 +98,9 @@ struct TimerRunningView: View {
                         Button("Stop") {
                             alarm.stop()
                             vibration.stop()
+                            // The same acknowledgment as the app's Stop, so neither keeps
+                            // counting overtime or alerting for this finish.
+                            TimerStore.acknowledgeFinish(id: payload.id)
                         }
                         .buttonStyle(.glassPill)
                     }
@@ -128,6 +135,16 @@ struct TimerRunningView: View {
                     // View only: shown but disabled, so it's clear why they don't work.
                     .disabled(readOnly)
                     .opacity(readOnly ? 0.45 : 1)
+
+                    // A repeating countdown: skip to its next occurrence, like the app's
+                    // detail screen ("Next Year", "Next Week", …).
+                    if let recurrence = payload.recurrence, !pending {
+                        Button(String(localized: recurrence.frequency.nextTitle)) { skipOccurrence() }
+                            .buttonStyle(.glassPill)
+                            .padding(.top, 10)
+                            .disabled(readOnly)
+                            .opacity(readOnly ? 0.45 : 1)
+                    }
 
                     HStack(spacing: 22) {
                         Button {
@@ -213,17 +230,21 @@ struct TimerRunningView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Self.storeChange).merge(with: NotificationCenter.default.publisher(for: CloudSyncController.revertedToServer))) { _ in
-            refreshPermissionState()
-            if let stored = TimerStore.loadAll().first(where: { $0.id == payload.id }) {
-                payload = stored.advancedSequence()
-                hasBuzzedFinish = payload.isExpired
-                if payload.isPaused { alarm.stop(); vibration.stop() }
-            } else if wasStored {
-                // Deleted meanwhile (a remote delete this view's pull applied): leave
-                // it, or its Pause/+1:00 saved the deleted timer back into the store.
-                alarm.stop()
-                vibration.stop()
-                onNewTimer()
+            reloadFromStore()
+        }
+        // Other processes change the store while this stays open — a Live Activity or
+        // Siri pause (run in the app), the Watch relay, the notification service saving a
+        // friend's pause — and nothing tells this extension. Before, it kept counting the
+        // old copy, rang at the old end, and a tap pushed that stale copy over the change.
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                if let stored = TimerStore.loadAll().first(where: { $0.id == payload.id }), Self.differs(stored.advancedSequence(), payload) {
+                    reloadFromStore()
+                } else if wasStored, !TimerStore.loadAll().contains(where: { $0.id == payload.id }) {
+                    reloadFromStore()
+                }
             }
         }
         .onAppear {
@@ -255,6 +276,46 @@ struct TimerRunningView: View {
         return String(localized: "ends at \(payload.endDate.formatted(date: .omitted, time: .shortened))")
     }
 
+    private func reloadFromStore() {
+        refreshPermissionState()
+        if let stored = TimerStore.loadAll().first(where: { $0.id == payload.id }) {
+            payload = stored.advancedSequence()
+            hasBuzzedFinish = payload.isExpired
+            if payload.isPaused || !payload.isExpired { alarm.stop(); vibration.stop() }
+        } else if wasStored {
+            // Deleted meanwhile (a remote delete, or elsewhere on this phone): leave it,
+            // or its Pause/+1:00 saved the deleted timer back into the store.
+            alarm.stop()
+            vibration.stop()
+            onNewTimer()
+        }
+    }
+
+    /// A change worth reloading for (CloudKit keeps milliseconds, so dates get 1 s).
+    static func differs(_ a: TimerPayload, _ b: TimerPayload) -> Bool {
+        abs(a.endDate.timeIntervalSince(b.endDate)) >= 1 || a.isPaused != b.isPaused || a.label != b.label
+            || abs((a.pausedRemaining ?? 0) - (b.pausedRemaining ?? 0)) >= 1 || a.updatedAt != b.updatedAt
+    }
+
+    /// The copy a tap changes: the newest stored one (another process may have changed
+    /// it since the last reload), and nil — with the controls disabled — if the share
+    /// turned view only meanwhile (the change would be refused after this view had
+    /// already shown it).
+    private func latestForChange() -> TimerPayload? {
+        refreshPermissionState()
+        guard !readOnly else { return nil }
+        return (TimerStore.loadAll().first(where: { $0.id == payload.id }) ?? payload).advancedSequence()
+    }
+
+    private func skipOccurrence() {
+        guard let base = latestForChange(), let skipped = base.skippingOccurrence(endingAt: base.endDate) else { return }
+        alarm.stop()
+        vibration.stop()
+        hasBuzzedFinish = false
+        payload = skipped
+        onUpdate(payload, "advanced")
+    }
+
     private func refreshPermissionState() {
         readOnly = TimerStore.isReadOnly(id: payload.id)
         let link = CloudLinkStore.get(timerID: payload.id)
@@ -263,25 +324,29 @@ struct TimerRunningView: View {
     }
 
     private func togglePause() {
-        payload = payload.isPaused ? payload.resumed() : payload.paused()
+        guard let base = latestForChange() else { return }
+        payload = base.isPaused ? base.resumed() : base.paused()
         onUpdate(payload, payload.isPaused ? "paused" : "resumed")
     }
 
     private func extend(by interval: TimeInterval) {
-        payload = payload.extended(by: interval)
+        guard let base = latestForChange(), !base.isFinished else { return }
+        payload = base.extended(by: interval)
         onUpdate(payload, "extended")
     }
 
     private func startEarly() {
-        payload = payload.repeated()
+        guard let base = latestForChange() else { return }
+        payload = base.repeated()
         onUpdate(payload, "startedEarly")
     }
 
     private func repeatTimer() {
+        guard let base = latestForChange() else { return }
         alarm.stop()
         vibration.stop()
         hasBuzzedFinish = false
-        payload = payload.repeated()
+        payload = base.repeated()
         onUpdate(payload, "repeated")
     }
 }

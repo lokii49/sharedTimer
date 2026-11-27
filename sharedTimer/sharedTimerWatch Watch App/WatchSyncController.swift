@@ -93,26 +93,33 @@ final class WatchSyncController: NSObject, ObservableObject, WCSessionDelegate {
     /// rolled back explicitly; otherwise the watch would silently show a state the phone
     /// never received until the next updateApplicationContext quietly overwrote it —
     /// the tap would visibly un-happen with no explanation in between.
-    func send(id: String, op: String) {
-        guard WCSession.default.activationState == .activated,
-              let index = timers.firstIndex(where: { $0.id == id }) else { return }
+    /// The tap's optimistic change, shown at once (and noted as in flight); nil for an
+    /// unknown timer or op. Separate from the WatchConnectivity send so tests can drive it.
+    @discardableResult
+    func applyOptimistic(id: String, op: String) -> (before: TimerPayload, optimistic: TimerPayload)? {
+        guard let index = timers.firstIndex(where: { $0.id == id }) else { return nil }
         let before = timers[index]
         switch op {
         case "pause": timers[index] = before.paused()
         case "resume": timers[index] = before.resumed()
         case "extend": timers[index] = before.extended(by: 60)
-        default: return
+        default: return nil
         }
         persistSnapshot()
+        noteSent(id: id, before: before, optimistic: timers[index])
+        return (before, timers[index])
+    }
+
+    func send(id: String, op: String) {
+        guard WCSession.default.activationState == .activated,
+              let (before, optimistic) = applyOptimistic(id: id, op: op) else { return }
         // replyHandler must be non-nil, even though we ignore the payload: WCSession
         // routes a nil replyHandler to the phone's no-reply didReceiveMessage(_:) delegate
         // method, which WatchSyncController.SessionDelegate (phone side) doesn't implement
         // (only the replyHandler-taking variant) — confirmed via WCErrorCodeDeliveryFailed
         // in the phone's WCD logs ("delegate does not implement delegate method") when this
         // was nil. A real closure here selects the matching selector.
-        let optimistic = timers[index]
         let generation = contextGeneration
-        noteSent(id: id, before: before, optimistic: optimistic)
         WCSession.default.sendMessage(["id": id, "op": op], replyHandler: { [weak self] reply in
             // The phone rejected it (finished, scheduled, gone): undo. It also pushes
             // its real state, which lands separately.
@@ -154,6 +161,11 @@ final class WatchSyncController: NSObject, ObservableObject, WCSessionDelegate {
               let decoded = try? JSONDecoder().decode([TimerPayload].self, from: data) else { return }
         contextGeneration += 1
         timers = decoded
+        // The phone's state is now known: a later failed tap falls back to it, not to
+        // a state from before a tap this context already reflects.
+        for id in inFlight.keys {
+            if let fresh = decoded.first(where: { $0.id == id }) { inFlight[id]?.fallback = fresh }
+        }
         persistSnapshot()
     }
 

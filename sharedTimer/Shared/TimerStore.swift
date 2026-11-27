@@ -32,6 +32,14 @@ enum TimerStore {
         defaults?.object(forKey: key) != nil
     }
 
+    private static let createdOutsideAppKey = "sharedTimersCreatedOutsideApp"
+    /// The store was first written by the App Clip or the Messages extension, not the app
+    /// (App Group data carries over when the full app is installed later). What's New
+    /// reads "there is stored data" as "this is an update"; for such a store it isn't.
+    static var wasCreatedOutsideApp: Bool {
+        defaults?.bool(forKey: createdOutsideAppKey) ?? false
+    }
+
     static func save(_ payload: TimerPayload) {
         save(contentsOf: [payload])
     }
@@ -256,6 +264,9 @@ enum TimerStore {
            let encoded = try? JSONSerialization.jsonObject(with: data) as? [Any],
            let merged = try? JSONSerialization.data(withJSONObject: encoded + undecodable) {
             data = merged
+        }
+        if defaults?.object(forKey: key) == nil, Bundle.main.bundleIdentifier != "com.lokesh.sharedTimer" {
+            defaults?.set(true, forKey: createdOutsideAppKey)
         }
         defaults?.set(data, forKey: key)
         // The home-screen widget only re-reads the App Group store when told to — otherwise
