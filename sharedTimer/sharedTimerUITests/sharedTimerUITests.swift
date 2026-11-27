@@ -378,6 +378,48 @@ final class sharedTimerUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Add to My Timers"].exists)
     }
 
+    /// N1: the voice button turns spoken cues on (and keeps the screen awake) for a
+    /// running sequence, and off again.
+    @MainActor
+    func testVoiceCuesTurnOnWithTheScreenAwake() throws {
+        let app = XCUIApplication()
+        let id = UUID().uuidString
+        let phases: [[String: Any]] = [
+            ["label": "Voice Work", "kind": "timer", "duration": 300, "alarmEnabled": false, "vibrationEnabled": false],
+            ["label": "Voice Rest", "kind": "timer", "duration": 60, "alarmEnabled": false, "vibrationEnabled": false]
+        ]
+        let envelope: [String: Any] = ["version": 1, "sequence": ["phases": phases, "loopCount": 2, "phaseIndex": 0, "loopIndex": 0]]
+        let json = try JSONSerialization.data(withJSONObject: envelope)
+        var share = URLComponents(string: "https://mirrornotes.org/timer")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id), URLQueryItem(name: "label", value: "Voice Work"),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(300).timeIntervalSince1970)), URLQueryItem(name: "dur", value: "300"),
+            URLQueryItem(name: "kind", value: "timer"), URLQueryItem(name: "alarm", value: "0"), URLQueryItem(name: "vib", value: "0"),
+            URLQueryItem(name: "seq", value: String(data: json, encoding: .utf8))
+        ]
+        widgetTestURL = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        app.open(try XCTUnwrap(share.url))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        app.open(try XCTUnwrap(widgetTestURL))
+        let voice = app.buttons["voiceCueButton"]
+        XCTAssertTrue(voice.waitForExistence(timeout: 10))
+        XCTAssertEqual(voice.value as? String, "Off")
+        voice.tap()
+        XCTAssertEqual(voice.value as? String, "On")
+        // The voice keeps the screen on.
+        XCTAssertEqual(app.buttons["Keep Screen On"].value as? String, "On")
+        sleep(3)   // a few ticks with the voice on
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Voice on"
+        shot.lifetime = .keepAlways
+        add(shot)
+        voice.tap()   // off again, so the pattern isn't left talking
+        XCTAssertEqual(voice.value as? String, "Off")
+    }
+
     @MainActor
     func testSharedScheduledSequenceCanStartPauseAndResume() throws {
         let app = XCUIApplication()

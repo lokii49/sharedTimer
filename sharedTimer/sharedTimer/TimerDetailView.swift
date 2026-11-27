@@ -22,6 +22,9 @@ struct TimerDetailView: View {
     /// This phone's display name, cached for `statusLine` (read every tick).
     @State private var myName = DisplayNameStore.name
     @State private var keepAwake = false
+    /// N1 spoken cues (sequences only; remembered per run and per sequence pattern).
+    @State private var voiceOn = false
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var sharePlay = SharePlayController.shared
     @State private var participantCount: Int?
     @State private var attribution: (name: String, action: String)?
@@ -233,6 +236,13 @@ struct TimerDetailView: View {
             // never counted as finished, so the screen stayed on with its button gone.
             .keepsScreenAwake($keepAwake, finished: payload.recurrence == nil
                               && (payload.sequence.map { $0.loopIndex >= $0.loopCount } ?? done))
+            // N1: the cues due since the last tick — only while this screen is in front.
+            .onChange(of: context.date) { previous, now in
+                guard voiceOn, scenePhase == .active else { return }
+                for cue in SpokenCuePlan.cues(for: payload, from: previous, to: now) {
+                    SpokenCuePlayer.shared.play(cue)
+                }
+            }
             // TimelineView localizes invalidation to this closure — a modifier attached
             // outside it (below) only re-evaluates on @State changes, never on the tick
             // that actually crosses zero. `done` is recomputed fresh every tick, so
@@ -276,6 +286,11 @@ struct TimerDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
+            if payload.sequence != nil && !payload.isFinished && !payload.isPending() {
+                ToolbarItem(placement: .topBarTrailing) {
+                    VoiceCueButton(isOn: $voiceOn)
+                }
+            }
             if !payload.isFinished && !payload.isPending() {
                 ToolbarItem(placement: .topBarTrailing) {
                     KeepAwakeButton(isOn: $keepAwake)
@@ -352,7 +367,25 @@ struct TimerDetailView: View {
         // Feedback for the taps that change the timer (pause/resume, extend, repeat).
         .sensoryFeedback(.selection, trigger: payload.isPaused)
         .sensoryFeedback(.increase, trigger: payload.extraTime)
+        .onChange(of: voiceOn) { _, on in
+            SpokenCuePreference.set(on, for: payload)
+            if on {
+                // Speaking needs the screen on, so the voice turns it on (and says so).
+                keepAwake = true
+                if let cue = SpokenCuePlan.announcement(for: payload, at: Date()) { SpokenCuePlayer.shared.play(cue) }
+            } else {
+                SpokenCuePlayer.shared.stop()
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Back in front (an alarm dismissed, another app left): say where we are.
+            guard voiceOn, phase == .active else { return }
+            keepAwake = true
+            if let cue = SpokenCuePlan.announcement(for: payload, at: Date()) { SpokenCuePlayer.shared.play(cue) }
+        }
+        .onDisappear { if voiceOn { SpokenCuePlayer.shared.stop() } }
         .onAppear {
+            if payload.sequence != nil, SpokenCuePreference.isOn(for: payload) { voiceOn = true }
             hasBuzzedFinish = payload.isExpired
             readOnly = TimerStore.isReadOnly(id: payload.id)
             refreshSharingState()
