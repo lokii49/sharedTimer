@@ -60,8 +60,10 @@ struct LiveActivityControls: View {
 
             switch secondary {
             case .stop:
+                // ✕ on a repeating countdown skips to its next occurrence and keeps
+                // the series (LiveActivityActions.stop) — say so, not "Stop".
                 Button(intent: StopTimerIntent(timerID: timerID)) { symbol("xmark") }
-                    .accessibilityLabel("Stop")
+                    .accessibilityLabel(repeats ? Text("Skip to next") : Text("Stop"))
             case .next(let phaseIndex):
                 Button(intent: AdvanceSequenceIntent(timerID: timerID, phaseIndex: phaseIndex)) { symbol("forward.end.fill") }
                     .accessibilityLabel("Next phase")
@@ -71,6 +73,10 @@ struct LiveActivityControls: View {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    private var repeats: Bool {
+        TimerStore.loadAll().first { $0.id == timerID }?.recurrence != nil
     }
 
     private func symbol(_ name: String) -> some View {
