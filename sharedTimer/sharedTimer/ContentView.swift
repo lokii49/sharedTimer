@@ -195,7 +195,7 @@ struct ContentView: View {
                 }
             }
             .sheet(item: $editingPayload) { payload in
-                EditTimerSheet(payload: payload) { edited in
+                EditTimerSheet(payload: payload, fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied) { edited in
                     applyEdit(edited)
                 }
             }

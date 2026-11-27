@@ -208,6 +208,7 @@
 				CloudLink.swift,
 				CloudSyncController.swift,
 				DisplayNameStore.swift,
+				EditTimerSheet.swift,
 				LiveActivityController.swift,
 				LiveActivityIntents.swift,
 				RecentTimersStore.swift,
@@ -217,6 +218,7 @@
 				TimerAlarmMetadata.swift,
 				TimerChoice.swift,
 				TimerFieldsView.swift,
+				TimerReminders.swift,
 				TimerWidgetSupport.swift,
 			);
 			target = 470A5022302896F0006EB758 /* sharedTimerClip */;
@@ -241,10 +243,12 @@
 				CloudLink.swift,
 				CloudSyncController.swift,
 				DisplayNameStore.swift,
+				EditTimerSheet.swift,
 				LiveActivityController.swift,
 				NotificationScheduler.swift,
 				SavedSequence.swift,
 				TimerFieldsView.swift,
+				TimerReminders.swift,
 			);
 			target = AB0000040000000000000000 /* sharedTimerWidget */;
 		};
@@ -266,6 +270,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				AlarmPlayer.swift,
+				EditTimerSheet.swift,
 				LiveActivityController.swift,
 				LiveActivityIntents.swift,
 				RecentTimersStore.swift,
@@ -276,6 +281,7 @@
 				TimerAlarmMetadata.swift,
 				TimerChoice.swift,
 				TimerFieldsView.swift,
+				TimerReminders.swift,
 				TimerWidgetSupport.swift,
 			);
 			target = 9245414F74508D055B69709F /* sharedTimerNotificationService */;

@@ -359,7 +359,7 @@ struct TimerDetailView: View {
             .ignoresSafeArea()
         }
         .sheet(isPresented: $showingEdit) {
-            EditTimerSheet(payload: payload) { edited in
+            EditTimerSheet(payload: payload, fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied) { edited in
                 applyEdit(edited)
             }
         }

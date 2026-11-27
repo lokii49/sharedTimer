@@ -1,6 +1,6 @@
 //
 //  EditTimerSheet.swift
-//  sharedTimer
+//  Shared (app + Messages, owner's pick 3A)
 //
 
 import SwiftUI
@@ -18,6 +18,10 @@ struct EditTimerSheet: View {
     /// "changed", and Save wrote the old values back over it.
     @State private var original: TimerPayload
     let onSave: (TimerPayload) -> Void
+    /// App: AlarmKit denied (`AlarmController.fullScreenAlarmsDenied`, app only).
+    var fullScreenAlarmsOff = false
+    /// Messages: an extension can't use AlarmKit, so the footnote says it notifies.
+    var notificationOnlyHere = false
 
     @State private var label: String
     @State private var kind: TimerKind
@@ -29,9 +33,12 @@ struct EditTimerSheet: View {
     @State private var originalReminders: Set<TimerReminder> = []
     @FocusState private var labelFocused: Bool
 
-    init(payload: TimerPayload, onSave: @escaping (TimerPayload) -> Void) {
+    init(payload: TimerPayload, fullScreenAlarmsOff: Bool = false, notificationOnlyHere: Bool = false,
+         onSave: @escaping (TimerPayload) -> Void) {
         _original = State(initialValue: payload)
         self.onSave = onSave
+        self.fullScreenAlarmsOff = fullScreenAlarmsOff
+        self.notificationOnlyHere = notificationOnlyHere
         _label = State(initialValue: payload.label)
         _kind = State(initialValue: payload.kind)
         _minutes = State(initialValue: payload.duration / 60)
@@ -110,7 +117,8 @@ struct EditTimerSheet: View {
                     repeatFrequency: original.recurrence?.frequency,
                     showsTimerLength: false,
                     targetDateDisabled: original.isPaused,
-                    fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied,
+                    fullScreenAlarmsOff: fullScreenAlarmsOff,
+                    notificationOnlyHere: notificationOnlyHere,
                     whenItEndsExtra: original.sequence == nil
                         ? AnyView(ReminderChips(kind: kind, span: kind == .timer ? original.span : max(0, targetDate.timeIntervalSince(original.endDate.addingTimeInterval(-original.duration))), selection: $reminders))
                         : nil

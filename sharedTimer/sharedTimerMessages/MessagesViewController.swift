@@ -254,10 +254,10 @@ class MessagesViewController: MSMessagesAppViewController {
     private func persist(_ payload: TimerPayload, action: String) {
         // View-only share: only the clock-driven phase advance may be stored.
         guard action == "sequenceAdvanced" || !TimerStore.isReadOnly(id: payload.id) else { return }
-        // Reminders were planned for the old finish; the main app re-plans them on its
-        // next foreground (it re-arms every changed timer).
-        if action != "sequenceAdvanced" { NotificationScheduler.cancelReminders(id: payload.id) }
         TimerStore.save(payload)
+        // Reminders were planned for the old finish: re-plan them for the new one (none
+        // while paused). The app re-plans them too when it next arms this timer.
+        if action != "sequenceAdvanced" { TimerReminders.sync(payload) }
         if action != "sequenceAdvanced" || !TimerStore.isAlarmKitArmed(id: payload.id) {
             NotificationScheduler.cancel(id: payload.id)
             if payload.isPaused {
@@ -344,6 +344,7 @@ class MessagesViewController: MSMessagesAppViewController {
             payload = picked
             TimerStore.save(payload)
             NotificationScheduler.scheduleAlert(for: payload)
+            TimerReminders.sync(payload)
             // The card used to appear only after reopening its bubble.
             LiveActivityController.start(for: payload)
         }

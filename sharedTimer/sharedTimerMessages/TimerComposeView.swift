@@ -14,6 +14,8 @@ struct TimerComposeView: View {
     @State private var repeatFrequency: AnnualRecurrence.Frequency?
     @State private var alarmEnabled = true
     @State private var vibrationEnabled = true
+    /// Heads-up reminders for this phone (owner's pick 5A), as in the app.
+    @State private var reminders: Set<TimerReminder> = []
     @State private var shareMode: TimerShareMode = .link
     @State private var activeTimers: [TimerPayload] = TimerStore.loadAll().map { $0.advancedSequence() }.filter { !$0.isExpired }
     @State private var pickedExisting: TimerPayload?
@@ -85,7 +87,8 @@ struct TimerComposeView: View {
                     labelFocused: $labelFocused,
                     yearlyCountdown: repeatFrequency != nil && kind == .countdown,
                     repeatFrequency: kind == .countdown ? repeatFrequency : nil,
-                    notificationOnlyHere: true
+                    notificationOnlyHere: true,
+                    whenItEndsExtra: AnyView(ReminderChips(kind: kind, span: kind == .timer ? minutes * 60 : max(0, targetDate.timeIntervalSinceNow), selection: $reminders))
                 )
 
                 if kind == .countdown {
@@ -126,6 +129,10 @@ struct TimerComposeView: View {
                     guard canStart(at: Date()) else { return }
                     labelFocused = false
                     let toShare = pickedExisting ?? composedPayload
+                    if pickedExisting == nil {
+                        // Set before onStart: its arm plans them. Never for a re-shared timer.
+                        TimerReminders.set(reminders.filter { $0.fits(span: toShare.span) && TimerReminder.choices(for: toShare.kind).contains($0) }, for: toShare.id)
+                    }
                     onStart(toShare, shareMode, pickedExisting != nil)
                 } label: {
                     Label(pickedExisting == nil ? "Start & Share" : "Share", systemImage: "paperplane.fill")

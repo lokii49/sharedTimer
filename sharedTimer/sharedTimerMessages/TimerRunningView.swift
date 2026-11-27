@@ -44,6 +44,7 @@ struct TimerRunningView: View {
     @State private var showingCustomExtend = false
     @State private var isShared = false
     @State private var confirmingDeleteForEveryone = false
+    @State private var showingEdit = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -54,6 +55,28 @@ struct TimerRunningView: View {
             ZStack {
                 Sky.gradient(for: payload, at: context.date)
                     .ignoresSafeArea()
+
+                // Edit (owner's pick 3A): the app's sheet, shown when the app's detail
+                // screen shows its pencil — not for sequences or view-only shares.
+                if payload.sequence == nil && !readOnly {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Button { showingEdit = true } label: {
+                                Image(systemName: "pencil")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 44, height: 44)
+                                    .glassEffect(.regular.interactive(), in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Edit")
+                            .padding(.trailing, 16)
+                            .padding(.top, 12)
+                        }
+                        Spacer()
+                    }
+                }
 
                 VStack {
                     Spacer()
@@ -221,6 +244,21 @@ struct TimerRunningView: View {
         .sheet(isPresented: $showingCustomExtend) {
             CustomExtendSheet { interval in
                 if !payload.isFinished { extend(by: interval) }
+            }
+        }
+        .sheet(isPresented: $showingEdit) {
+            EditTimerSheet(payload: payload, notificationOnlyHere: true) { edited in
+                // Same path as Pause and +1:00: the view-only re-check first.
+                guard latestForChange() != nil else { return }
+                // As the app's applyEdit: a finished countdown moved into the future
+                // stops ringing and can ring again at its new end.
+                if payload.isFinished && !edited.isFinished {
+                    alarm.stop()
+                    vibration.stop()
+                    hasBuzzedFinish = false
+                }
+                payload = edited
+                onUpdate(edited, "edited")
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.permissionsChanged)) { _ in
