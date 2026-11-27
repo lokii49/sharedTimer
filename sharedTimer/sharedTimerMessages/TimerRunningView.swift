@@ -245,6 +245,8 @@ struct TimerRunningView: View {
             CustomExtendSheet { interval in
                 if !payload.isFinished { extend(by: interval) }
             }
+            // A sheet doesn't inherit the controller's forced dark style.
+            .preferredColorScheme(.dark)
         }
         .sheet(isPresented: $showingEdit) {
             EditTimerSheet(payload: payload, notificationOnlyHere: true) { edited in
@@ -260,6 +262,7 @@ struct TimerRunningView: View {
                 payload = edited
                 onUpdate(edited, "edited")
             }
+            .preferredColorScheme(.dark)
         }
         .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.permissionsChanged)) { _ in
             refreshPermissionState()
