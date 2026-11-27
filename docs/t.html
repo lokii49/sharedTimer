@@ -202,6 +202,10 @@
     if (json === null) return null;
     if (new TextEncoder().encode(json).length > 2048) throw new Error('Invalid anniversary');
     const e = JSON.parse(json), r = e.recurrence;
+    // Like the app's decoder: hour/minute/second may be absent (or null) and mean 0;
+    // a weekday that isn't an integer fails its Int decode even where it's unused.
+    if (r && typeof r === 'object') for (const key of ['hour', 'minute', 'second']) if (r[key] === undefined || r[key] === null) r[key] = 0;
+    if (r && r.weekday !== undefined && r.weekday !== null && !Number.isInteger(r.weekday)) throw new Error('Invalid anniversary');
     if (e.version !== 1 || !r || !Number.isInteger(r.month) || r.month < 1 || r.month > 12 ||
         !Number.isInteger(r.day) || r.day < 1 || r.day > [31,29,31,30,31,30,31,31,30,31,30,31][r.month - 1] ||
         !Number.isInteger(r.hour) || r.hour < 0 || r.hour > 23 || !Number.isInteger(r.minute) || r.minute < 0 || r.minute > 59 ||
@@ -395,8 +399,12 @@
       }
       pushCorrections(lines, exclusions, additions, natural, end);
     } else if (recurrence) {
-      const year = zonedParts(end * 1000, recurrence.timeZoneID).year;
-      const original = annualDate(recurrence, year);
+      // The anniversary `end` belongs to: the latest rule date at or before it. An
+      // occurrence extended (or resumed) past New Year sits in the next year, and taking
+      // that year's rule date excluded the next real anniversary instead.
+      let year = zonedParts(end * 1000, recurrence.timeZoneID).year;
+      let original = annualDate(recurrence, year);
+      if (original - end >= 1) original = annualDate(recurrence, --year);
       const exactTime = ms => { const p = zonedParts(ms * 1000, recurrence.timeZoneID);
         return p.hour === recurrence.hour && p.minute === recurrence.minute && p.second === recurrence.second; };
       let seriesStart = original;
@@ -422,8 +430,10 @@
   const clockEl = document.getElementById("clock");
   const statusEl = document.getElementById("status");
 
-  const label = qs("label") || "Timer";
-  const kind = qs("kind") || "timer";
+  // rawParam, not qs: links from 1.0.4–1.0.6 carry `+` unescaped and the app reads it
+  // literally ("C++", a "GMT+0530" zone inside `annual`).
+  const label = rawParam("label") || "Timer";
+  const kind = rawParam("kind") || "timer";
   labelEl.textContent = label;
   document.title = label + " · Timer";
 
@@ -468,9 +478,9 @@
   let recurrence = null;
   let sequence = null;
   let invalidSequence = false;
-  try { sequence = decodeSequence(qs("seq")); recurrence = decodeAnnual(qs("annual"));
+  try { sequence = decodeSequence(rawParam("seq")); recurrence = decodeAnnual(rawParam("annual"));
     if (recurrence) recurrence.frequency = 'yearly';
-    const repeating = decodeRepeat(qs("repeat"));
+    const repeating = decodeRepeat(rawParam("repeat"));
     if (repeating) { if (recurrence) throw new Error("Invalid anniversary"); recurrence = repeating; }
     if (recurrence && (sequence || kind !== "countdown")) throw new Error("Invalid anniversary");
   } catch (_) { invalidSequence = true; }

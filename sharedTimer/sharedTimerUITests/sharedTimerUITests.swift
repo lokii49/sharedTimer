@@ -182,6 +182,20 @@ final class sharedTimerUITests: XCTestCase {
         shot.name = "History"
         shot.lifetime = .keepAlways
         add(shot)
+        // N4: Stats opens from History, shows the run's name and offers Export.
+        let stats = app.buttons["statsButton"]
+        XCTAssertTrue(stats.waitForExistence(timeout: 5))
+        stats.tap()
+        // Section titles are drawn upper-case (skyLabel).
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label ==[c] 'By name'")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[label].exists)
+        XCTAssertTrue(app.buttons["exportButton"].exists)
+        let statsShot = XCTAttachment(screenshot: app.screenshot())
+        statsShot.name = "Stats"
+        statsShot.lifetime = .keepAlways
+        add(statsShot)
+        app.navigationBars.buttons.element(boundBy: 0).tap()   // back to History
+        XCTAssertTrue(app.staticTexts[label].waitForExistence(timeout: 5))
         // Don't leave the fixture in the device's real History.
         app.staticTexts[label].firstMatch.swipeLeft()
         // (The label itself stays visible in the timer list behind the sheet.)
@@ -247,6 +261,40 @@ final class sharedTimerUITests: XCTestCase {
         if skipName.waitForExistence(timeout: 3) { skipName.tap() }
         XCTAssertTrue(app.buttons["Share Link"].waitForExistence(timeout: 10))
         app.buttons["Done"].tap()
+    }
+
+    /// A friend's link opened while a detail screen is pushed must still offer the timer:
+    /// the Add sheet hung off the list root inside the NavigationStack and never appeared
+    /// there (1.0.9 moved it outside the stack, like the share sheet).
+    @MainActor
+    func testIncomingLinkOffersTheTimerWhileADetailScreenIsOpen() throws {
+        let app = XCUIApplication()
+        func shareURL(_ id: String, _ label: String) throws -> URL {
+            var share = URLComponents(string: "https://mirrornotes.org/timer")!
+            share.queryItems = [
+                URLQueryItem(name: "id", value: id),
+                URLQueryItem(name: "label", value: label),
+                URLQueryItem(name: "end", value: String(Date().addingTimeInterval(300).timeIntervalSince1970)),
+                URLQueryItem(name: "dur", value: "300"),
+                URLQueryItem(name: "kind", value: "timer"),
+                URLQueryItem(name: "alarm", value: "0"),
+                URLQueryItem(name: "vib", value: "0")
+            ]
+            return try XCTUnwrap(share.url)
+        }
+        let id = UUID().uuidString
+        let link = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        widgetTestURL = link
+        app.open(try shareURL(id, "Pushed Detail Test"))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        app.open(link)
+        XCTAssertTrue(app.buttons["Share"].waitForExistence(timeout: 10))  // the detail screen is up
+        app.open(try shareURL(UUID().uuidString, "Second Link Test"))
+        XCTAssertTrue(app.buttons["Add to My Timers"].waitForExistence(timeout: 10), "the offer must appear over the detail screen")
+        app.buttons["Not Now"].firstMatch.tap()
     }
 
     /// iPad: the detail column sits beside the list and keeps its own copy. A Pause from
@@ -330,6 +378,48 @@ final class sharedTimerUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Add to My Timers"].exists)
     }
 
+    /// N1: the voice button turns spoken cues on (and keeps the screen awake) for a
+    /// running sequence, and off again.
+    @MainActor
+    func testVoiceCuesTurnOnWithTheScreenAwake() throws {
+        let app = XCUIApplication()
+        let id = UUID().uuidString
+        let phases: [[String: Any]] = [
+            ["label": "Voice Work", "kind": "timer", "duration": 300, "alarmEnabled": false, "vibrationEnabled": false],
+            ["label": "Voice Rest", "kind": "timer", "duration": 60, "alarmEnabled": false, "vibrationEnabled": false]
+        ]
+        let envelope: [String: Any] = ["version": 1, "sequence": ["phases": phases, "loopCount": 2, "phaseIndex": 0, "loopIndex": 0]]
+        let json = try JSONSerialization.data(withJSONObject: envelope)
+        var share = URLComponents(string: "https://mirrornotes.org/timer")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id), URLQueryItem(name: "label", value: "Voice Work"),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(300).timeIntervalSince1970)), URLQueryItem(name: "dur", value: "300"),
+            URLQueryItem(name: "kind", value: "timer"), URLQueryItem(name: "alarm", value: "0"), URLQueryItem(name: "vib", value: "0"),
+            URLQueryItem(name: "seq", value: String(data: json, encoding: .utf8))
+        ]
+        widgetTestURL = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        app.open(try XCTUnwrap(share.url))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        app.open(try XCTUnwrap(widgetTestURL))
+        let voice = app.buttons["voiceCueButton"]
+        XCTAssertTrue(voice.waitForExistence(timeout: 10))
+        XCTAssertEqual(voice.value as? String, "Off")
+        voice.tap()
+        XCTAssertEqual(voice.value as? String, "On")
+        // The voice keeps the screen on.
+        XCTAssertEqual(app.buttons["Keep Screen On"].value as? String, "On")
+        sleep(3)   // a few ticks with the voice on
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Voice on"
+        shot.lifetime = .keepAlways
+        add(shot)
+        voice.tap()   // off again, so the pattern isn't left talking
+        XCTAssertEqual(voice.value as? String, "Off")
+    }
+
     @MainActor
     func testSharedScheduledSequenceCanStartPauseAndResume() throws {
         let app = XCUIApplication()
@@ -378,20 +468,85 @@ final class sharedTimerUITests: XCTestCase {
     }
 
     @MainActor
+    /// N3: the round "−" beside +1:00 takes a minute off (the end time moves back).
+    func testRemoveMinuteShortensATimer() throws {
+        let app = XCUIApplication()
+        let id = UUID().uuidString
+        var share = URLComponents(string: "https://mirrornotes.org/timer")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id), URLQueryItem(name: "label", value: "Remove minute test"),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(600).timeIntervalSince1970)),
+            URLQueryItem(name: "dur", value: "600"), URLQueryItem(name: "kind", value: "timer"),
+            URLQueryItem(name: "alarm", value: "0"), URLQueryItem(name: "vib", value: "0")
+        ]
+        widgetTestURL = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        app.open(try XCTUnwrap(share.url))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        app.open(try XCTUnwrap(widgetTestURL))
+        let minus = app.buttons["-1:00"]
+        XCTAssertTrue(minus.waitForExistence(timeout: 10))
+        let endsBefore = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'ends at'")).firstMatch.label
+        minus.tap()
+        let endsAfter = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'ends at'")).firstMatch
+        XCTAssertTrue(endsAfter.waitForExistence(timeout: 5))
+        XCTAssertNotEqual(endsAfter.label, endsBefore, "the end time moves back a minute")
+    }
+
+    /// History redesign + Stats, on realistic seeded runs (simulator only — the seed
+    /// doesn't exist in device builds): screenshots of each screen for review.
+    @MainActor
+    func testHistoryAndStatsScreens() throws {
+        #if targetEnvironment(simulator)
+        let app = XCUIApplication()
+        app.launchArguments += ["-SeedHistory"] + (ProcessInfo.processInfo.environment["HISTORY_SHOT_ARGS"]?.components(separatedBy: " ") ?? [])
+        app.launch()
+        func shot(_ name: String) {
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        let history = app.buttons["historyButton"]
+        XCTAssertTrue(history.waitForExistence(timeout: 10))
+        history.tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Pomodoro'")).firstMatch.waitForExistence(timeout: 5))
+        shot("History")
+        app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Pomodoro'")).firstMatch.tap()
+        sleep(1)
+        shot("History group")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.buttons["statsButton"].tap()
+        XCTAssertTrue(app.buttons["exportButton"].waitForExistence(timeout: 5))
+        shot("Stats week")
+        // By position, so the test runs in any language.
+        app.segmentedControls.buttons.element(boundBy: 1).tap(); sleep(1); shot("Stats month")
+        app.segmentedControls.buttons.element(boundBy: 2).tap(); sleep(1); shot("Stats all")
+        #endif
+    }
+
+    @MainActor
     func testWhatsNewTourPagesThroughToStart() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-ShowWhatsNew"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["Made for iPad"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Widgets that keep up"].waitForExistence(timeout: 10))
+        sleep(4)  // the widget scene reaches "Time's up"
         let firstPage = XCTAttachment(screenshot: app.screenshot())
         firstPage.name = "What's New page 1"
         firstPage.lifetime = .keepAlways
         add(firstPage)
         let continueButton = app.buttons["Continue"]
-        for title in ["Countdowns that come back", "Everything you've timed", "Know before it ends",
-                      "On every screen you use", "Just ask", "Easier on the eyes"] {
+        for (index, title) in ["More in Messages", "Keep the screen on", "Alarms that listen"].enumerated() {
             continueButton.tap()
             XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 5), title)
+            sleep(2)  // let the page's scene play to a telling frame
+            let page = XCTAttachment(screenshot: app.screenshot())
+            page.name = "What's New page \(index + 2)"
+            page.lifetime = .keepAlways
+            add(page)
         }
         let lastPage = XCTAttachment(screenshot: app.screenshot())
         lastPage.name = "What's New last page"
@@ -399,7 +554,7 @@ final class sharedTimerUITests: XCTestCase {
         add(lastPage)
         app.buttons["Start"].tap()
         XCTAssertTrue(app.navigationBars["Timers"].waitForExistence(timeout: 5) || app.buttons["New"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["Easier on the eyes"].exists)
+        XCTAssertFalse(app.staticTexts["Alarms that listen"].exists)
     }
 
     @MainActor

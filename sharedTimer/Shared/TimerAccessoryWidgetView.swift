@@ -8,13 +8,30 @@ struct TimerAccessoryWidgetView: View {
 
     var body: some View {
         Group {
-            if family == .accessoryRectangular {
+            if family == .accessoryInline {
+                // One line above the clock (text and an image only): label and time
+                // when it fits, else the time alone.
+                ViewThatFits {
+                    HStack(spacing: 4) {
+                        Image(systemName: symbol)
+                        Text(snapshot.payload?.label ?? String(localized: "No Timers")).privacySensitive()
+                        timeText
+                    }
+                    HStack(spacing: 4) {
+                        Image(systemName: symbol)
+                        timeText
+                    }
+                }
+            } else if family == .accessoryRectangular {
                 HStack(spacing: 8) {
                     ring(showTime: false).frame(width: 38, height: 38)
                     VStack(alignment: .leading, spacing: 1) {
+                        // Only the name is private — the time stays readable when the
+                        // system redacts a locked Lock Screen.
                         Text(snapshot.payload?.label ?? String(localized: "No Timers"))
                             .font(.caption.weight(.semibold))
                             .lineLimit(1)
+                            .privacySensitive()
                         HStack(spacing: 4) {
                             if snapshot.status == .scheduled {
                                 Text("Starts").font(.caption2)
@@ -37,7 +54,6 @@ struct TimerAccessoryWidgetView: View {
         .foregroundStyle(.primary)
         .containerBackground(.clear, for: .widget)
         .widgetURL(snapshot.payload.map { TimerAppLink.url(for: $0.id) })
-        .privacySensitive()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(snapshot.payload?.label ?? String(localized: "No timers"))
         .accessibilityValue(accessibilityValue)

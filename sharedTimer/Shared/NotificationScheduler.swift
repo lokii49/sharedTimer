@@ -30,9 +30,12 @@ enum NotificationScheduler {
     private static let schedulingLock = NSLock()
     private static var generations: [String: UUID] = [:]
 
-    static func scheduleAlert(for payload: TimerPayload, excludingSequenceIndices: Set<Int> = [], excludingAnnualDates: Set<Date> = []) {
+    /// `completion` runs once the requests were handed to the notification center (or
+    /// nothing was scheduled) — on any thread.
+    static func scheduleAlert(for payload: TimerPayload, excludingSequenceIndices: Set<Int> = [], excludingAnnualDates: Set<Date> = [],
+                              completion: @escaping @Sendable () -> Void = {}) {
         cancel(id: payload.id)
-        guard !payload.isPaused, !requests(for: payload, excludingSequenceIndices: excludingSequenceIndices, excludingAnnualDates: excludingAnnualDates).isEmpty else { return }
+        guard !payload.isPaused, !requests(for: payload, excludingSequenceIndices: excludingSequenceIndices, excludingAnnualDates: excludingAnnualDates).isEmpty else { return completion() }
         let generation = UUID()
         schedulingLock.lock()
         generations[payload.id] = generation
@@ -45,11 +48,32 @@ enum NotificationScheduler {
         center.getNotificationSettings { settings in
             if settings.authorizationStatus == .denied {
                 reportDenialOnce()
-                return
+                return completion()
             }
+            // Not asked yet: the callback waits for the person's answer to the prompt, so
+            // an awaiting caller (an intent, the push handler, background refresh, the
+            // timer's serializer) must not wait on it — complete now, schedule on Allow.
+            var finish: @Sendable () -> Void = completion
+            if settings.authorizationStatus == .notDetermined {
+                completion()
+                finish = {}
+            }
+            let done = finish
             center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
-                guard granted else { return }
-                schedule(payload, generation: generation, excludingSequenceIndices: excludingSequenceIndices, excludingAnnualDates: excludingAnnualDates, center: center)
+                guard granted else { return done() }
+                schedule(payload, generation: generation, excludingSequenceIndices: excludingSequenceIndices, excludingAnnualDates: excludingAnnualDates,
+                         center: center, completion: done)
+            }
+        }
+    }
+
+    /// For the `*Awaiting` arming paths (intents, the push handler, background refresh):
+    /// the old request is cancelled synchronously, so returning before the new one is
+    /// added could let the process be suspended with neither scheduled.
+    static func scheduleAlertAwaiting(for payload: TimerPayload, excludingSequenceIndices: Set<Int> = [], excludingAnnualDates: Set<Date> = []) async {
+        await withCheckedContinuation { continuation in
+            scheduleAlert(for: payload, excludingSequenceIndices: excludingSequenceIndices, excludingAnnualDates: excludingAnnualDates) {
+                continuation.resume()
             }
         }
     }
@@ -133,11 +157,20 @@ enum NotificationScheduler {
         }
     }
 
-    private static func schedule(_ payload: TimerPayload, generation: UUID, excludingSequenceIndices: Set<Int>, excludingAnnualDates: Set<Date>, center: UNUserNotificationCenter) {
+    private static func schedule(_ payload: TimerPayload, generation: UUID, excludingSequenceIndices: Set<Int>, excludingAnnualDates: Set<Date>,
+                                 center: UNUserNotificationCenter, completion: @escaping @Sendable () -> Void) {
         let pending = requests(for: payload, excludingSequenceIndices: excludingSequenceIndices, excludingAnnualDates: excludingAnnualDates)
         schedulingLock.lock()
-        defer { schedulingLock.unlock() }
-        guard generations[payload.id] == generation else { return }
-        for request in pending { center.add(request) }
+        guard generations[payload.id] == generation else {
+            schedulingLock.unlock()
+            return completion()
+        }
+        let group = DispatchGroup()
+        for request in pending {
+            group.enter()
+            center.add(request) { _ in group.leave() }
+        }
+        schedulingLock.unlock()
+        group.notify(queue: .global(qos: .userInitiated), execute: completion)
     }
 }

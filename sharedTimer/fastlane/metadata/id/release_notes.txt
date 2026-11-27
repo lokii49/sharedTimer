@@ -1,7 +1,7 @@
-• Diperbaiki: kartu alarm yang dijeda bisa tetap ada di Layar Terkunci meski timernya sudah tidak ada. Sekarang kartu itu hilang saat Timer dibuka, dan tombolnya berfungsi lagi.
-• Diperbaiki: saat seseorang menghentikan timer bersama, timer itu bisa mulai lagi untuk semua orang ketika app dibuka.
-• Perubahan di Pesan kini selalu sampai ke alarm Anda, termasuk menghapus atau menjeda urutan.
-• Hitung mundur harian dan mingguan tidak lagi berbunyi dua kali pada malam jam dimundurkan.
-• Di iPad, timer di sebelah kanan langsung diperbarui saat Anda menjeda atau mengeditnya dari daftar.
-• Pengingat tidak lagi berbunyi setelah timer dihentikan atau dihapus.
-• Widget dan Aktivitas Langsung lebih akurat untuk timer panjang, label Harian/Mingguan/Bulanan di Riwayat, dan banyak perbaikan kecil lainnya.
+• Diperbaiki: Riwayat bisa tertutup tiba-tiba saat menampilkan urutan atau hitung mundur berulang.
+• Berikutnya, Minggu Berikutnya, dan tombol lain di alarm layar penuh kini langsung menutupnya.
+• Widget lebih tepat waktu: waktu habis dan fase baru tampil tepat waktu, mengetuk widget atau Aktivitas Langsung membuka timernya, ada widget satu baris untuk Layar Kunci, dan tampilan lebih jelas di Layar Utama berwarna, StandBy malam hari, serta ukuran ekstra besar di iPad.
+• Menghentikan hitung mundur berulang dari widget atau Aktivitas Langsung kini melompat ke yang berikutnya, tidak mengakhiri serinya.
+• Pesan: timer yang terbuka mengikuti setiap perubahan, dan hitung mundur berulang punya Minggu Berikutnya.
+• Tombol gembok baru menjaga layar tetap menyala saat Anda melihat.
+• Plus banyak perbaikan kecil.

@@ -36,6 +36,10 @@ struct TimerFieldsView: View {
     /// timer will only notify, with a way to Settings, instead of promising a full-screen
     /// alarm.
     var fullScreenAlarmsOff: Bool = false
+    /// Composing in Messages: an extension can't use AlarmKit, so until the app next
+    /// opens (and arms the alarm) only a notification is scheduled — don't promise a
+    /// full-screen ring.
+    var notificationOnlyHere: Bool = false
     /// Extra rows under the Alarm/Vibrate toggles — the main app's reminder chips
     /// (TimerReminders.swift is main-app only, so it comes in as a view).
     var whenItEndsExtra: AnyView? = nil
@@ -82,6 +86,8 @@ struct TimerFieldsView: View {
                             .fontWeight(.semibold)
                     }
                 }
+            } else if notificationOnlyHere && (alarmEnabled || vibrationEnabled) {
+                Text("Sends a notification from here. Opening Timer makes it ring full-screen.")
             } else {
                 Text(alarmFootnote)
             }
@@ -240,10 +246,37 @@ struct ExtendTimeMenu: View {
     /// Opens the Custom… sheet, which the caller presents from outside the timer's
     /// running-state branch — attached here it vanished mid-pick when the timer ended.
     let onCustom: () -> Void
+    /// N3: the round "−" (1 minute) before the pill and a "Remove time" section in the
+    /// menu, each disabled when that much isn't left (`TimerPayload.canShorten`).
+    var canRemove: (TimeInterval) -> Bool = { _ in false }
+    var onRemove: ((TimeInterval) -> Void)? = nil
 
     var body: some View {
+        HStack(spacing: 12) {
+            if let onRemove {
+                Button { onRemove(60) } label: {
+                    Image(systemName: "minus")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: Circle())
+                .disabled(!canRemove(60))
+                .opacity(canRemove(60) ? 1 : 0.45)
+                .accessibilityLabel(String(localized: "Remove 1 minute"))
+                .accessibilityIdentifier("-1:00")
+            }
+            splitPill
+        }
+    }
+
+    private var splitPill: some View {
         HStack(spacing: 0) {
             Button("+1:00") { onExtend(60) }
+                .lineLimit(1)
+                .fixedSize()   // never "+1:\n00"; the caller moves Pause instead
                 .buttonStyle(SplitPillSegmentStyle(leading: 22, trailing: 14))
                 .accessibilityLabel(String(localized: "Add 1 minute"))
                 // Stable hook for UI tests/automation, whatever the spoken label says.
@@ -259,6 +292,14 @@ struct ExtendTimeMenu: View {
                     Button(String(localized: "+\(minutes) min")) { onExtend(TimeInterval(minutes * 60)) }
                 }
                 Button(String(localized: "Custom…")) { onCustom() }
+                if let onRemove {
+                    Section(String(localized: "Remove time")) {
+                        ForEach([5, 10], id: \.self) { minutes in
+                            Button(String(localized: "−\(minutes) min")) { onRemove(TimeInterval(minutes * 60)) }
+                                .disabled(!canRemove(TimeInterval(minutes * 60)))
+                        }
+                    }
+                }
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 13, weight: .bold))

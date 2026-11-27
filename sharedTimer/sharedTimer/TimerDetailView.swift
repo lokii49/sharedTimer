@@ -22,6 +22,9 @@ struct TimerDetailView: View {
     /// This phone's display name, cached for `statusLine` (read every tick).
     @State private var myName = DisplayNameStore.name
     @State private var keepAwake = false
+    /// N1 spoken cues (sequences only; remembered per run and per sequence pattern).
+    @State private var voiceOn = false
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var sharePlay = SharePlayController.shared
     @State private var participantCount: Int?
     @State private var attribution: (name: String, action: String)?
@@ -157,13 +160,11 @@ struct TimerDetailView: View {
                     } else if !done {
                         // One merged glass shape for the pair (C8 · A).
                         GlassEffectContainer(spacing: 16) {
-                            HStack(spacing: 12) {
-                                ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
-
-                                Button(payload.isPaused ? "Resume" : "Pause") {
-                                    togglePause()
-                                }
-                                .buttonStyle(.glassPill)
+                            // One row while it fits; at the largest text sizes Pause moves
+                            // under the time controls rather than squeezing "+1:00".
+                            ViewThatFits(in: .horizontal) {
+                                HStack(spacing: 12) { timeControls; pauseButton }
+                                VStack(spacing: 12) { timeControls; pauseButton }
                             }
                         }
                         .disabled(readOnly)
@@ -229,6 +230,19 @@ struct TimerDetailView: View {
                 .scrollBounceBehavior(.basedOnSize)
                 }
             }
+            // Inside the tick, like `.onChange(of: done)` below. A sequence is done once
+            // exhausted (last phase over, or Cancel) — not at each phase boundary, where
+            // the stored copy reads finished for a moment before it advances. Before, it
+            // never counted as finished, so the screen stayed on with its button gone.
+            .keepsScreenAwake($keepAwake, finished: payload.recurrence == nil
+                              && (payload.sequence.map { $0.loopIndex >= $0.loopCount } ?? done))
+            // N1: the cues due since the last tick — only while this screen is in front.
+            .onChange(of: context.date) { previous, now in
+                guard voiceOn, scenePhase == .active else { return }
+                for cue in SpokenCuePlan.cues(for: payload, from: previous, to: now) {
+                    SpokenCuePlayer.shared.play(cue)
+                }
+            }
             // TimelineView localizes invalidation to this closure — a modifier attached
             // outside it (below) only re-evaluates on @State changes, never on the tick
             // that actually crosses zero. `done` is recomputed fresh every tick, so
@@ -271,8 +285,12 @@ struct TimerDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .keepsScreenAwake($keepAwake, finished: payload.isFinished && payload.sequence == nil && payload.recurrence == nil)
         .toolbar {
+            if payload.sequence != nil && !payload.isFinished && !payload.isPending() {
+                ToolbarItem(placement: .topBarTrailing) {
+                    VoiceCueButton(isOn: $voiceOn)
+                }
+            }
             if !payload.isFinished && !payload.isPending() {
                 ToolbarItem(placement: .topBarTrailing) {
                     KeepAwakeButton(isOn: $keepAwake)
@@ -349,7 +367,25 @@ struct TimerDetailView: View {
         // Feedback for the taps that change the timer (pause/resume, extend, repeat).
         .sensoryFeedback(.selection, trigger: payload.isPaused)
         .sensoryFeedback(.increase, trigger: payload.extraTime)
+        .onChange(of: voiceOn) { _, on in
+            SpokenCuePreference.set(on, for: payload)
+            if on {
+                // Speaking needs the screen on, so the voice turns it on (and says so).
+                keepAwake = true
+                if let cue = SpokenCuePlan.announcement(for: payload, at: Date()) { SpokenCuePlayer.shared.play(cue) }
+            } else {
+                SpokenCuePlayer.shared.stop()
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Back in front (an alarm dismissed, another app left): say where we are.
+            guard voiceOn, phase == .active else { return }
+            keepAwake = true
+            if let cue = SpokenCuePlan.announcement(for: payload, at: Date()) { SpokenCuePlayer.shared.play(cue) }
+        }
+        .onDisappear { if voiceOn { SpokenCuePlayer.shared.stop() } }
         .onAppear {
+            if payload.sequence != nil, SpokenCuePreference.isOn(for: payload) { voiceOn = true }
             hasBuzzedFinish = payload.isExpired
             readOnly = TimerStore.isReadOnly(id: payload.id)
             refreshSharingState()
@@ -485,6 +521,24 @@ struct TimerDetailView: View {
         guard canChange() else { return }
         payload = payload.extended(by: interval)
         onUpdate(payload, "extended")
+    }
+
+    private var timeControls: some View {
+        ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true },
+                       canRemove: { payload.canShorten(by: $0) },
+                       // Hidden, not just disabled, on a repeating countdown (see canShorten).
+                       onRemove: payload.recurrence == nil ? { remove($0) } : nil)
+    }
+
+    private var pauseButton: some View {
+        Button(payload.isPaused ? "Resume" : "Pause") { togglePause() }
+            .buttonStyle(.glassPill)
+    }
+
+    private func remove(_ interval: TimeInterval) {
+        guard canChange(), let shorter = payload.shortened(by: interval) else { return }
+        payload = shorter
+        onUpdate(payload, "shortened")
     }
 
     /// A countdown moved to a future date is running again: silence the finished

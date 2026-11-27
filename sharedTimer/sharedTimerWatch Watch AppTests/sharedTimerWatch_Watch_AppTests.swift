@@ -81,6 +81,33 @@ struct sharedTimerWatch_Watch_AppTests {
         }
     }
 
+    @Test func voiceOverSaysTheStateNotAStaleTimeLeft() {
+        let running = WatchTimerSnapshot(date: now, timer: timer("Tea", seconds: 200))
+        #expect(running.accessibilityName == "Tea")
+        // A running entry's value must stay true for the whole entry: when it ends, not
+        // "3:20 remaining" (the old label, frozen at the entry's date).
+        #expect(running.accessibilityValue.hasPrefix("Running, ends "))
+        #expect(!running.accessibilityValue.contains("3:20"))
+        #expect(WatchTimerSnapshot(date: now, timer: timer("Tea", seconds: 200, paused: 80)).accessibilityValue == "Paused, 01:20 remaining")
+        #expect(WatchTimerSnapshot(date: now, timer: timer("Tea", seconds: -1)).accessibilityValue == "Done")
+        #expect(WatchTimerSnapshot(date: now, timer: nil).accessibilityValue == "Sync timers from iPhone")
+    }
+
+    @Test func privacyRedactionHidesOnlyTheName() throws {
+        // Rendered redacted for a look: the name is hidden, the time and ring stay.
+        let view = WatchTimerWidgetView(snapshot: WatchTimerSnapshot(date: now, timer: timer("Secret name", seconds: 100, paused: 80)), family: .accessoryRectangular)
+            .redacted(reason: .privacy)
+            .frame(width: 170, height: 64).background(Color.black).foregroundStyle(.white)
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 2
+        let image = try #require(renderer.cgImage)
+        let data = NSMutableData()
+        let destination = try #require(CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, image, nil)
+        #expect(CGImageDestinationFinalize(destination))
+        Attachment.record(data as Data, named: "watch-rectangular-redacted.png")
+    }
+
     @Test func receivedSnapshotsPersistRestoreAndDelete() throws {
         let suite = "watch-sync-test.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -99,6 +126,34 @@ struct sharedTimerWatch_Watch_AppTests {
 
     /// A +1:00's optimistic result equals the phone's applied one. Once a phone context
     /// arrived after the tap, a late reply error must not roll the extend back.
+    @Test func minusTakesAMinuteOffButNeverTheEndOrARepeat() throws {
+        let suite = "watch-sync-test.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let controller = WatchSyncController(defaults: defaults)
+        var repeating = timer("Pills", seconds: 600)
+        repeating.repeats = true
+        // Relative to now: the watch model's rule reads the clock.
+        let tea = TimerPayload(id: "Tea", label: "Tea", endDate: Date().addingTimeInterval(600), duration: 600)
+        let egg = TimerPayload(id: "Egg", label: "Egg", endDate: Date().addingTimeInterval(45), duration: 300)
+        repeating.endDate = Date().addingTimeInterval(600)
+        controller.apply(["timers": try JSONEncoder().encode([tea, egg, repeating])])
+        let off = try #require(controller.applyOptimistic(id: "Tea", op: "shorten"))
+        #expect(abs(off.optimistic.endDate.timeIntervalSince(off.before.endDate) + 60) < 0.001)
+        // 45 s left: a minute can't come off (the button is disabled too).
+        #expect(controller.applyOptimistic(id: "Egg", op: "shorten") == nil)
+        // A repeating countdown: no − at all.
+        #expect(controller.applyOptimistic(id: "Pills", op: "shorten") == nil)
+        #expect(!repeating.canShorten(by: 60))
+    }
+
+    @Test func repeatsDecodesAndDefaultsToFalse() throws {
+        let old = #"{"id":"a","label":"Tea","endDate":0,"duration":60}"#
+        #expect(try JSONDecoder().decode(TimerPayload.self, from: Data(old.utf8)).repeats == false)
+        let new = #"{"id":"a","label":"Tea","endDate":0,"duration":60,"repeats":true}"#
+        #expect(try JSONDecoder().decode(TimerPayload.self, from: Data(new.utf8)).repeats == true)
+    }
+
     @Test func lateErrorAfterPhoneContextDoesNotUndoAnAppliedExtend() throws {
         let suite = "watch-sync-test.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -114,6 +169,50 @@ struct sharedTimerWatch_Watch_AppTests {
         // No context since the tap: a failed send still rolls back.
         sync.rollBack(id: "tea", to: before, ifStill: extended, sentAt: sync.contextGeneration)
         #expect(sync.timers.first?.endDate == before.endDate)
+    }
+
+    /// Pause then Resume while the phone is unreachable: both fail, and the watch must end
+    /// on the state the phone actually has (running), not the first tap's "paused".
+    @Test func twoFailedTapsRollBackToThePhonesState() throws {
+        let suite = "watch-sync-test.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sync = WatchSyncController(defaults: defaults)
+        let running = timer("tea", seconds: 100)
+        sync.apply(["timers": try JSONEncoder().encode([running])])
+        let tap1 = try #require(sync.applyOptimistic(id: "tea", op: "pause"))
+        let tap2 = try #require(sync.applyOptimistic(id: "tea", op: "resume"))
+        let sentAt = sync.contextGeneration
+        sync.rollBack(id: "tea", to: tap1.before, ifStill: tap1.optimistic, sentAt: sentAt)
+        sync.rollBack(id: "tea", to: tap2.before, ifStill: tap2.optimistic, sentAt: sentAt)
+        #expect(sync.timers.first?.pausedRemaining == nil)
+        #expect(sync.timers.first?.endDate == running.endDate)
+
+        // The phone acknowledged the Pause, then the +1:00 failed: paused is right.
+        sync.apply(["timers": try JSONEncoder().encode([running])])
+        let pause = try #require(sync.applyOptimistic(id: "tea", op: "pause"))
+        let extend = try #require(sync.applyOptimistic(id: "tea", op: "extend"))
+        sync.noteAcknowledged(id: "tea", optimistic: pause.optimistic)
+        sync.rollBack(id: "tea", to: extend.before, ifStill: extend.optimistic, sentAt: sync.contextGeneration)
+        #expect(sync.timers.first?.pausedRemaining == pause.optimistic.pausedRemaining)
+    }
+
+    /// Tap A still unanswered, a phone context already carrying A's result arrives, then
+    /// tap B fails: the watch falls back to that context, not to the state before A.
+    @Test func aContextResetsTheRollbackFallback() throws {
+        let suite = "watch-sync-test.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let sync = WatchSyncController(defaults: defaults)
+        let running = timer("tea", seconds: 100)
+        sync.apply(["timers": try JSONEncoder().encode([running])])
+        _ = try #require(sync.applyOptimistic(id: "tea", op: "pause"))                    // tap A, unanswered
+        let pausedOnPhone = try #require(sync.timers.first)
+        sync.apply(["timers": try JSONEncoder().encode([pausedOnPhone])])                 // the phone applied A
+        let tapB = try #require(sync.applyOptimistic(id: "tea", op: "extend"))            // tap B
+        sync.rollBack(id: "tea", to: tapB.before, ifStill: tapB.optimistic, sentAt: sync.contextGeneration)
+        #expect(sync.timers.first?.pausedRemaining == pausedOnPhone.pausedRemaining, "back to the paused state the phone sent")
+        #expect(sync.timers.first?.pausedRemaining != nil, "not to the running state from before tap A")
     }
 
     @Test func linksRoundTripAndRejectPayloads() throws {

@@ -26,6 +26,11 @@ import Foundation
 /// `.invalidatableContent()` on the widgets' time display instead.
 struct SetTimerPausedIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Pause or Resume Timer"
+    /// Button-only (Live Activity, widget, alarm alert): hidden from Shortcuts and
+    /// Spotlight, where it showed as a duplicate of the Siri intents with a raw
+    /// "Timer ID" field. Buttons still run it, like the snippet's "Add a Minute"
+    /// (also non-discoverable); AlarmKit's alert button is a device check (1.0.9).
+    static let isDiscoverable = false
 
     @Parameter(title: "Timer ID") var timerID: String
     @Parameter(title: "Paused") var paused: Bool
@@ -50,6 +55,11 @@ struct SetTimerPausedIntent: LiveActivityIntent {
 /// Repeat available, it is NOT deleted.
 struct StopTimerIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Stop Timer"
+    /// Button-only (Live Activity, widget, alarm alert): hidden from Shortcuts and
+    /// Spotlight, where it showed as a duplicate of the Siri intents with a raw
+    /// "Timer ID" field. Buttons still run it, like the snippet's "Add a Minute"
+    /// (also non-discoverable); AlarmKit's alert button is a device check (1.0.9).
+    static let isDiscoverable = false
 
     @Parameter(title: "Timer ID") var timerID: String
 
@@ -66,6 +76,11 @@ struct StopTimerIntent: LiveActivityIntent {
 /// original length; a sequence restarts at phase 0), like the app's own Repeat.
 struct RepeatTimerIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Repeat Timer"
+    /// Button-only (Live Activity, widget, alarm alert): hidden from Shortcuts and
+    /// Spotlight, where it showed as a duplicate of the Siri intents with a raw
+    /// "Timer ID" field. Buttons still run it, like the snippet's "Add a Minute"
+    /// (also non-discoverable); AlarmKit's alert button is a device check (1.0.9).
+    static let isDiscoverable = false
 
     @Parameter(title: "Timer ID") var timerID: String
 
@@ -134,6 +149,11 @@ struct StartRecentTimerIntent: LiveActivityIntent {
 /// refreshing the UI.
 struct AdvanceSequenceIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Advance Sequence"
+    /// Button-only (Live Activity, widget, alarm alert): hidden from Shortcuts and
+    /// Spotlight, where it showed as a duplicate of the Siri intents with a raw
+    /// "Timer ID" field. Buttons still run it, like the snippet's "Add a Minute"
+    /// (also non-discoverable); AlarmKit's alert button is a device check (1.0.9).
+    static let isDiscoverable = false
 
     @Parameter(title: "Timer ID") var timerID: String
     @Parameter(title: "Phase Index", default: -1) var phaseIndex: Int
@@ -155,6 +175,11 @@ struct AdvanceSequenceIntent: LiveActivityIntent {
 
 struct EndSequenceIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "End Sequence"
+    /// Button-only (Live Activity, widget, alarm alert): hidden from Shortcuts and
+    /// Spotlight, where it showed as a duplicate of the Siri intents with a raw
+    /// "Timer ID" field. Buttons still run it, like the snippet's "Add a Minute"
+    /// (also non-discoverable); AlarmKit's alert button is a device check (1.0.9).
+    static let isDiscoverable = false
 
     @Parameter(title: "Timer ID") var timerID: String
 
@@ -170,6 +195,11 @@ struct EndSequenceIntent: LiveActivityIntent {
 /// Explicitly skip this anniversary, leaving the yearly series enabled.
 struct AdvanceAnnualCountdownIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Next Anniversary"
+    /// Button-only (Live Activity, widget, alarm alert): hidden from Shortcuts and
+    /// Spotlight, where it showed as a duplicate of the Siri intents with a raw
+    /// "Timer ID" field. Buttons still run it, like the snippet's "Add a Minute"
+    /// (also non-discoverable); AlarmKit's alert button is a device check (1.0.9).
+    static let isDiscoverable = false
     @Parameter(title: "Timer ID") var timerID: String
     @Parameter(title: "Occurrence End") var occurrenceEnd: Double
     init() { timerID = ""; occurrenceEnd = 0 }
@@ -186,6 +216,21 @@ struct AdvanceAnnualCountdownIntent: LiveActivityIntent {
 /// opens the app (harmless if the system doesn't open it).
 struct OpenTimerAppIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Open Timer"
+    /// Button-only (Live Activity, widget, alarm alert): hidden from Shortcuts and
+    /// Spotlight, where it showed as a duplicate of the Siri intents with a raw
+    /// "Timer ID" field. Buttons still run it, like the snippet's "Add a Minute"
+    /// (also non-discoverable); AlarmKit's alert button is a device check (1.0.9).
+    static let isDiscoverable = false
     static var openAppWhenRun = true
-    func perform() async throws -> some IntentResult { .result() }
+
+    /// Empty for alarms armed before 1.0.9 (then the alert is left to its Stop).
+    @Parameter(title: "Timer ID", default: "") var timerID: String
+
+    init() { timerID = "" }
+    init(timerID: String) { self.timerID = timerID }
+
+    func perform() async throws -> some IntentResult {
+        await LiveActivityActions.dismissAlert(timerID: timerID)
+        return .result()
+    }
 }

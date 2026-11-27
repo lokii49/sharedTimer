@@ -4,7 +4,9 @@ import worker, { describe, classify, serveStatus } from "./src/index.js";
 
 const now = 1_800_000_000;
 // describe() takes the raw query string, as the Worker passes url.search.
-const p = (q) => "?id=t1&" + (typeof q === "string" ? q : new URLSearchParams(q).toString());
+// Objects are encoded like the app's url(): spaces %20, "+" %2B.
+const p = (q) => "?id=t1&" + (typeof q === "string" ? q
+  : Object.entries(q).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&"));
 const rule = (r = {}) => encodeURIComponent(JSON.stringify({ version: 1, recurrence: { month: 3, day: 1, hour: 9, minute: 0, second: 0, timeZoneID: "GMT", ...r } }));
 
 test("plain timer", () => {
@@ -39,6 +41,25 @@ test("sequence", () => {
   const seq = JSON.stringify({ version: 1, sequence: { phases: [{ label: "Focus" }, { label: "Break" }], loopCount: 4, phaseIndex: 0, loopIndex: 0 } });
   assert.equal(describe(p({ label: "Focus", end: "1", dur: "1500", kind: "timer", seq }), now).description, "2 phases · 4 loops");
   assert.equal(describe(p({ label: "Focus", end: "1", dur: "1500", kind: "timer", seq: "{" }), now), null);
+});
+
+test("a sequence start is checked like the app checks it", () => {
+  const seq = (o = {}) => JSON.stringify({ version: 1, sequence: { phases: [{ label: "Focus" }, { label: "Break" }], loopCount: 2, phaseIndex: 0, loopIndex: 0, ...o } });
+  const base = { label: "Focus", end: String(now + 60), dur: "60", kind: "timer" };
+  assert.ok(describe(p({ ...base, seq: seq(), start: String(now + 3600) }), now));
+  assert.ok(describe(p({ ...base, seq: seq({ phaseIndex: 1 }), start: String(now - 60) }), now));
+  for (const start of ["abc", "inf", "1e300", ""]) assert.equal(describe(p({ ...base, seq: seq(), start }), now), null, start);
+  // A future start only for a running sequence still at phase 0, loop 0.
+  assert.equal(describe(p({ ...base, seq: seq({ phaseIndex: 1 }), start: String(now + 3600) }), now), null);
+  assert.equal(describe(p({ ...base, seq: seq(), start: String(now + 3600), paused: "30" }), now), null);
+  // Without a sequence the app ignores `start`.
+  assert.ok(describe(p({ ...base, start: "abc" }), now));
+});
+
+test("a literal + from an older link stays a +, as in the app and the page", () => {
+  assert.equal(describe("?id=t1&label=C++&end=1&dur=60", now).title, "C++");
+  const annual = rule({ timeZoneID: "GMT+0530" }).replace(/%2B/g, "+");
+  assert.equal(describe(`?id=t1&label=Mum&end=${now + 86400 * 3}&dur=1&kind=countdown&annual=${annual}`, now).description, "3 days to go · every year");
 });
 
 test("no label or bad end leaves the page alone", () => {

@@ -59,6 +59,13 @@ enum LiveActivityActions {
         if payload.sequence != nil {
             return await endSequence(timerID: timerID)
         }
+        // A repeating countdown's ✕ skips this occurrence and keeps the series (owner's
+        // call, 2026-11-27): it used to end the whole series for everyone, with no undo,
+        // from one tap on a widget or card. Ending the series stays an in-app choice
+        // (Edit → Repeat → Never, or Delete).
+        if let skipped = payload.skippingOccurrence(endingAt: payload.endDate) {
+            return await commit(skipped, action: "advanced")
+        }
         var updated = payload
         updated.recurrence = nil
         updated.endDate = Date()
@@ -85,7 +92,17 @@ enum LiveActivityActions {
     /// also what 1.0.3-scheduled alarms decode to). Uses `materializingPhase`, never
     /// `advancedSequence` — see AdvanceSequenceIntent's doc comment.
     static func advanceSequence(timerID: String, phaseIndex: Int) async {
+        // The alert this was tapped on goes away first, whatever happens next — the
+        // stored copy may already be past that phase (the app's clock got there first),
+        // or gone. A card/widget Next (nothing ringing) finds nothing to end.
+        if phaseIndex >= 0 {
+            await AlarmController.dismissRinging(timerID: timerID, ids: AlarmController.phaseAlarmIDs(timerID: timerID, globalIndex: phaseIndex), reason: "next")
+        }
         guard let payload = await stored(timerID, project: false), let storedIndex = payload.sequenceGlobalIndex else { return await refreshUI() }
+        if phaseIndex < 0 {
+            // Alarms from 1.0.3 carry no index: the stored phase's alarm.
+            await AlarmController.dismissRinging(timerID: timerID, ids: AlarmController.phaseAlarmIDs(timerID: timerID, globalIndex: storedIndex), reason: "next-legacy")
+        }
         let tappedIndex = phaseIndex >= 0 ? phaseIndex : storedIndex
         guard tappedIndex >= storedIndex else { return await refreshUI() }
         var advanced = payload.materializingPhase(globalIndex: tappedIndex + 1, startingAt: Date())
@@ -104,6 +121,8 @@ enum LiveActivityActions {
     /// loopCount`, the convention `advancedSequence` uses when one runs out on its
     /// own) and tears down every phase alarm, including the one ringing now.
     static func endSequence(timerID: String) async {
+        // Cancel on the final phase's alert: end it even if the timer is gone meanwhile.
+        await AlarmController.dismissRinging(timerID: timerID, reason: "cancel")
         guard var payload = await stored(timerID), var sequence = payload.sequence else { return await refreshUI() }
         sequence.phaseIndex = 0  // same exhausted shape as advancedSequence
         sequence.loopIndex = sequence.loopCount
@@ -128,15 +147,23 @@ enum LiveActivityActions {
     }
 
     static func advanceAnnual(timerID: String, occurrenceEnd: Double) async {
-        guard var payload = await stored(timerID, project: false), let recurrence = payload.recurrence,
+        // "Next Year"/"Next Week"… on the ringing alert (or the detail screen while it
+        // rings): end that occurrence's alert first — the rollover keeps a ringing slot,
+        // and a second tap (already skipped) used to leave it ringing.
+        if occurrenceEnd.isFinite, abs(occurrenceEnd) <= 253_402_300_799 {
+            await AlarmController.dismissRinging(timerID: timerID, ids: AlarmController.annualAlarmIDs(timerID: timerID, around: Date(timeIntervalSince1970: occurrenceEnd)), reason: "next-occurrence")
+        }
+        guard let payload = await stored(timerID, project: false),
               occurrenceEnd.isFinite, abs(occurrenceEnd) <= 253_402_300_799,
-              payload.endDate.timeIntervalSince1970 <= occurrenceEnd + 1,
-              let next = recurrence.nextDate(after: max(Date(), Date(timeIntervalSince1970: occurrenceEnd))) else { return await refreshUI() }
-        payload.endDate = next
-        payload.duration = max(1, next.timeIntervalSinceNow)
-        payload.pausedRemaining = nil
-        payload.updatedAt = Date()
-        await commit(payload, action: "advanced")
+              let skipped = payload.skippingOccurrence(endingAt: Date(timeIntervalSince1970: occurrenceEnd)) else { return await refreshUI() }
+        await commit(skipped, action: "advanced")
+    }
+
+    /// "Open" on a view-only timer's alert: the app opens, and the alert ends — it can't
+    /// change the timer, but leaving it ringing over the app made no sense.
+    static func dismissAlert(timerID: String) async {
+        guard !timerID.isEmpty else { return }  // alarms armed before 1.0.9 carry no id
+        await AlarmController.dismissRinging(timerID: timerID, reason: "open")
     }
 
     /// Widget "Repeat" on a finished timer — same mutation as the app's Repeat.
@@ -159,6 +186,8 @@ enum LiveActivityActions {
         WatchSyncController.pushCurrentState()
         announceStarted(payload)
         await refreshUI()
+        // Uploaded only with "Sync with iCloud" on, like a timer started in the app.
+        await CloudSyncController.pushUpAwaiting(payload, action: "started")
     }
 
     /// A Control Center / Action button tap has no visible result of its own — the
@@ -208,6 +237,8 @@ enum LiveActivityActions {
 
     private static func commit(_ updated: TimerPayload, action: String) async {
         TimerStore.save(updated)
+        // A button tap is a person's change: end an earlier occurrence still ringing.
+        await AlarmController.dismissRinging(timerID: updated.id, reason: "change")
         await TimerArming.armAwaiting(updated)
         await CloudSyncController.pushUpAwaiting(updated, action: action)
         WatchSyncController.pushCurrentState()

@@ -12,6 +12,22 @@
 
 import AppIntents
 import SwiftUI
+import WidgetKit
+
+/// Glyph colour for the round controls. White on the skies (custom Live Activity, home
+/// widgets, Dynamic Island); the AlarmKit card sits on the system's Lock Screen
+/// background, light in Light Mode, so it uses `Color.primary` — white glyphs on a
+/// white 18% circle were near-invisible there.
+private struct LiveControlInkKey: EnvironmentKey {
+    static let defaultValue: Color = .white
+}
+
+extension EnvironmentValues {
+    var liveControlInk: Color {
+        get { self[LiveControlInkKey.self] }
+        set { self[LiveControlInkKey.self] = newValue }
+    }
+}
 
 /// What the second button does.
 enum LiveActivitySecondaryAction {
@@ -24,6 +40,7 @@ enum LiveActivitySecondaryAction {
 }
 
 struct LiveActivityControls: View {
+    @Environment(\.liveControlInk) private var ink
     let timerID: String
     let isPaused: Bool
     let secondary: LiveActivitySecondaryAction
@@ -44,8 +61,10 @@ struct LiveActivityControls: View {
 
             switch secondary {
             case .stop:
+                // ✕ on a repeating countdown skips to its next occurrence and keeps
+                // the series (LiveActivityActions.stop) — say so, not "Stop".
                 Button(intent: StopTimerIntent(timerID: timerID)) { symbol("xmark") }
-                    .accessibilityLabel("Stop")
+                    .accessibilityLabel(repeats ? Text("Skip to next") : Text("Stop"))
             case .next(let phaseIndex):
                 Button(intent: AdvanceSequenceIntent(timerID: timerID, phaseIndex: phaseIndex)) { symbol("forward.end.fill") }
                     .accessibilityLabel("Next phase")
@@ -57,12 +76,16 @@ struct LiveActivityControls: View {
         .buttonStyle(.plain)
     }
 
+    private var repeats: Bool {
+        TimerStore.loadAll().first { $0.id == timerID }?.recurrence != nil
+    }
+
     private func symbol(_ name: String) -> some View {
         Image(systemName: name)
             .font(.system(size: size * 0.38, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(ink)
             .frame(width: size, height: size)
-            .background(.white.opacity(0.18), in: Circle())
+            .background(ink.opacity(0.18), in: Circle())
     }
 }
 
@@ -71,12 +94,15 @@ struct LiveActivityControls: View {
 /// Pause/Resume + Stop / Next / Cancel pair as the Live Activities.
 struct WidgetTimerControls: View {
     let payload: TimerPayload
+    /// The timeline entry's date (a precomputed finish entry shows Repeat).
+    var date: Date = .now
     var size: CGFloat = 36
 
     var body: some View {
-        if payload.isPending() || TimerStore.isReadOnly(id: payload.id) {
+        let status = TimerWidgetSnapshot(payload: payload, at: date).status
+        if status == .scheduled || TimerStore.isReadOnly(id: payload.id) {
             EmptyView()
-        } else if payload.isFinished {
+        } else if status == .finished {
             Button(intent: RepeatTimerIntent(timerID: payload.id)) {
                 Label("Repeat", systemImage: "arrow.clockwise")
                     .font(.system(size: size * 0.36, weight: .semibold))
@@ -105,6 +131,7 @@ struct WidgetTimerControls: View {
 /// Pause ⇄ Resume button — see SetTimerPausedIntent for why a plain button and not
 /// a toggle.
 struct PauseToggle: View {
+    @Environment(\.liveControlInk) private var ink
     let timerID: String
     let isPaused: Bool
     var size: CGFloat = 44
@@ -113,11 +140,70 @@ struct PauseToggle: View {
         Button(intent: SetTimerPausedIntent(timerID: timerID, paused: !isPaused)) {
             Image(systemName: isPaused ? "play.fill" : "pause.fill")
                 .font(.system(size: size * 0.38, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(ink)
                 .frame(width: size, height: size)
-                .background(.white.opacity(0.18), in: Circle())
+                .background(ink.opacity(0.18), in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isPaused ? "Resume" : "Pause")
     }
 }
+
+// MARK: - Narrow Dynamic Island (iOS 27)
+
+/// The compact trailing slot: `wide` normally, `narrow` when iOS 27 reports the island
+/// is limited in width (landscape) — `EnvironmentValues.isDynamicIslandLimitedInWidth`,
+/// iOS 27 only, so it is read behind `#available` (deployment target is 26.1).
+struct NarrowIslandAware<Wide: View, Narrow: View>: View {
+    @ViewBuilder let wide: () -> Wide
+    @ViewBuilder let narrow: () -> Narrow
+
+    var body: some View {
+        // The iOS 27 SDK (Xcode 27, Swift 6.4) has the API; CI's Xcode 26 doesn't, so
+        // older toolchains build the wide (digits) layout, as iOS 26 shows anyway.
+        #if compiler(>=6.4)
+        if #available(iOS 27.0, *) {
+            LimitedWidthReader(wide: wide, narrow: narrow)
+        } else {
+            wide()
+        }
+        #else
+        wide()
+        #endif
+    }
+}
+
+#if compiler(>=6.4)
+@available(iOS 27.0, *)
+private struct LimitedWidthReader<Wide: View, Narrow: View>: View {
+    @Environment(\.isDynamicIslandLimitedInWidth) private var limited
+    let wide: () -> Wide
+    let narrow: () -> Narrow
+
+    var body: some View {
+        if limited { narrow() } else { wide() }
+    }
+}
+#endif
+
+/// A draining ring for the narrow compact slot (owner's pick, 2026-11-27): live while
+/// running (`interval`), frozen at `fraction` left when paused or finished.
+struct CompactRing: View {
+    var interval: ClosedRange<Date>? = nil
+    var fraction: Double? = nil
+    let tint: Color
+
+    var body: some View {
+        Group {
+            if let fraction {
+                ProgressView(value: min(1, max(0, fraction)))
+            } else if let interval {
+                ProgressView(timerInterval: interval, countsDown: true, label: { EmptyView() }, currentValueLabel: { EmptyView() })
+            }
+        }
+        .progressViewStyle(.circular)
+        .tint(tint)
+        .frame(width: 22, height: 22)
+    }
+}
+

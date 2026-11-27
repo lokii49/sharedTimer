@@ -22,6 +22,12 @@ struct TimerActivityAttributes: ActivityAttributes {
         /// after a phase or occurrence ended with the app closed. nil (older builds) =
         /// plain timer behavior.
         var noOvertime: Bool? = nil
+        /// Length of the current run (duration + extends), so the narrow Dynamic Island
+        /// can draw a draining ring (`ringStart`). nil from older builds: digits instead.
+        var span: TimeInterval? = nil
+
+        /// When the current run started, for the ring: `endDate - span`.
+        var ringStart: Date? { span.map { endDate.addingTimeInterval(-$0) } }
     }
 
     /// A later sequence phase the card can switch to on its own when the current one
@@ -46,6 +52,8 @@ extension TimerActivityAttributes.ContentState {
         guard pausedRemaining == nil, endDate <= date, let upcoming,
               let index = upcoming.firstIndex(where: { $0.endDate > date }) else { return self }
         var copy = self
+        // The phase that now runs started when the one before it ended.
+        copy.span = upcoming[index].endDate.timeIntervalSince(index == 0 ? endDate : upcoming[index - 1].endDate)
         copy.endDate = upcoming[index].endDate
         copy.label = upcoming[index].label
         copy.kind = upcoming[index].kind

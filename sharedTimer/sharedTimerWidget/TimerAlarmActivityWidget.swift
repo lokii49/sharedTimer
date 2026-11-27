@@ -42,10 +42,13 @@ struct TimerAlarmActivityWidget: Widget {
                         .monospacedDigit()
                     Spacer(minLength: 8)
                     alarmControls(context)
+                        .environment(\.liveControlInk, .primary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
+            // Tapping the card opens that timer's details.
+            .widgetURL(context.attributes.metadata.map { TimerAppLink.url(for: $0.timerID) })
             } small: {
                 SmallActivityTile(label: context.attributes.metadata?.label ?? String(localized: "Timer"),
                                   symbol: kind.symbolName, sky: alarmSky(context.state)) {
@@ -83,20 +86,44 @@ struct TimerAlarmActivityWidget: Widget {
                 Image(systemName: kind.symbolName)
                     .foregroundStyle(kind.accentColor)
             } compactTrailing: {
-                alarmCountdownText(context.state)
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                    .frame(maxWidth: 70)
+                NarrowIslandAware {
+                    alarmCountdownText(context.state)
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .minimumScaleFactor(0.6)
+                        .lineLimit(1)
+                        .frame(maxWidth: 70)
+                } narrow: {
+                    alarmRing(context.state, span: context.attributes.metadata?.span, tint: kind.accentColor)
+                }
             } minimal: {
                 Image(systemName: kind.symbolName)
                     .foregroundStyle(kind.accentColor)
             }
             .keylineTint(kind.accentColor)
+            .widgetURL(context.attributes.metadata.map { TimerAppLink.url(for: $0.timerID) })
         }
         // Apple Watch Smart Stack and CarPlay (SmallActivityTile).
         .supplementalActivityFamilies([.small])
+    }
+}
+
+/// The narrow island's ring from AlarmKit's own state: draining toward the fire date
+/// over the whole run (`span` from the metadata — AlarmKit's `totalCountdownDuration`
+/// is only what was left when the alarm was last armed, so a resumed or extended timer
+/// would restart full), frozen while paused, empty once it rings.
+private func alarmRing(_ state: AlarmPresentationState, span: TimeInterval?, tint: Color) -> CompactRing {
+    switch state.mode {
+    case .countdown(let countdown):
+        let run = max(span ?? 0, countdown.totalCountdownDuration - countdown.previouslyElapsedDuration)
+        let start = countdown.fireDate.addingTimeInterval(-run)
+        return CompactRing(interval: start...max(start, countdown.fireDate), tint: tint)
+    case .paused(let paused):
+        let left = paused.totalCountdownDuration - paused.previouslyElapsedDuration
+        let run = max(span ?? 0, paused.totalCountdownDuration)
+        return CompactRing(fraction: run > 0 ? left / run : 0, tint: tint)
+    default:
+        return CompactRing(fraction: 0, tint: tint)
     }
 }
 

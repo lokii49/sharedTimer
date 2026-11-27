@@ -9,13 +9,16 @@ struct AccessoryTimerProvider: AppIntentTimelineProvider {
 
     func snapshot(for configuration: SelectTimerIntent, in context: Context) async -> TimerEntry {
         let date = Date()
-        return TimerEntry(date: date, payload: resolve(configuration, at: date))
+        let payload = resolve(configuration, at: date)
+        if context.isPreview && payload == nil { return .sample }
+        return TimerEntry(date: date, payload: payload)
     }
 
     func timeline(for configuration: SelectTimerIntent, in context: Context) async -> Timeline<TimerEntry> {
         let date = Date()
-        let snapshots = TimerWidgetSnapshot.timeline(payload: resolve(configuration, at: date), at: date)
-        return Timeline(entries: snapshots.map { TimerEntry(date: $0.date, payload: $0.payload) }, policy: .after(TimerWidgetSnapshot.refreshDate(for: snapshots)))
+        let snapshots = TimerWidgetSnapshot.homeTimeline(payload: resolve(configuration, at: date), at: date)
+        return Timeline(entries: snapshots.map { TimerEntry(date: $0.date, payload: $0.payload) },
+                        policy: TimerWidgetSnapshot.reloadPolicy(for: snapshots))
     }
 
     private func resolve(_ configuration: SelectTimerIntent, at date: Date) -> TimerPayload? {
@@ -39,7 +42,7 @@ struct LockScreenTimerWidget: Widget {
         }
         .configurationDisplayName("Lock Screen Timer")
         .description("A timer or countdown with a remaining-time ring. Tap to open its details.")
-        .supportedFamilies([.accessoryCircular, .accessoryRectangular])
+        .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }
 
@@ -55,4 +58,10 @@ struct LockScreenTimerWidget: Widget {
 } timeline: {
     TimerEntry(date: .now, payload: TimerPayload(label: "Pasta", duration: 300))
     TimerEntry(date: .now, payload: TimerPayload(label: "Paused", duration: 300).paused())
+}
+
+#Preview(as: .accessoryInline) {
+    LockScreenTimerWidget()
+} timeline: {
+    TimerEntry(date: .now, payload: TimerPayload(label: "Pasta", duration: 300))
 }

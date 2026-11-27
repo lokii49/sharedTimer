@@ -69,7 +69,6 @@ export async function serveStatus(env) {
 // shape here; docs/t.html validates it fully.
 export function describe(search, now) {
   const raw = queryItems(search);
-  const params = new URLSearchParams(search);
   const id = raw.get("id");
   const end = swiftDouble(raw.get("end"));
   const duration = swiftDouble(raw.get("dur"));
@@ -80,26 +79,35 @@ export function describe(search, now) {
       (paused !== null && !(Number.isFinite(paused) && paused >= 0 && paused <= 1e12))) {
     return null;
   }
-  // The title follows what the page shows (URLSearchParams: "+" is a space).
-  const label = (params.get("label") || "").trim().slice(0, 80) || "Timer";
-  const kind = params.get("kind") === "countdown" ? "countdown" : "timer";
+  // Every item read like the app (and, since 1.0.9, docs/t.html): "+" stays literal —
+  // 1.0.4–1.0.6 links carry it unescaped ("C++", a "GMT+0530" zone in `annual`).
+  const label = (raw.get("label") || "").trim().slice(0, 80) || "Timer";
+  const kind = raw.get("kind") === "countdown" ? "countdown" : "timer";
   const isPaused = paused !== null;
 
   let sequence = null;
-  if (params.has("seq")) {
-    sequence = parseSequence(params.get("seq"));
+  if (raw.has("seq")) {
+    sequence = parseSequence(raw.get("seq"));
     if (!sequence) return null;
+    // `start` as TimerPayload.from(url:) checks it: parses, in range, and a scheduled
+    // (future) start only for a running sequence still at its first phase.
+    const startText = raw.get("start");
+    if (startText !== null) {
+      const start = swiftDouble(startText);
+      if (start === null || !Number.isFinite(start) || Math.abs(start) > 253402300799) return null;
+      if (start > now && ((sequence.phaseIndex ?? 0) !== 0 || (sequence.loopIndex ?? 0) !== 0 || isPaused)) return null;
+    }
   }
   // Yearly rides in `annual`, daily/weekly/monthly in `repeat` (never both, countdowns
   // only, never with a sequence). The page rolls a past end on to the next occurrence,
   // so a repeating countdown is never "finished"; the date math stays in the page.
   let frequency = null;
-  if (params.has("annual") || params.has("repeat")) {
-    if (kind !== "countdown" || sequence || (params.has("annual") && params.has("repeat"))) return null;
-    const rule = parseRecurrence(params.get(params.has("annual") ? "annual" : "repeat"));
+  if (raw.has("annual") || raw.has("repeat")) {
+    if (kind !== "countdown" || sequence || (raw.has("annual") && raw.has("repeat"))) return null;
+    const rule = parseRecurrence(raw.get(raw.has("annual") ? "annual" : "repeat"));
     if (!rule) return null;
-    frequency = params.has("annual") ? "yearly" : rule.frequency;
-    if (!EVERY[frequency] || frequency === "yearly" && params.has("repeat")) return null;
+    frequency = raw.has("annual") ? "yearly" : rule.frequency;
+    if (!EVERY[frequency] || frequency === "yearly" && raw.has("repeat")) return null;
   }
 
   let description;
@@ -140,7 +148,10 @@ export function queryItems(search) {
     const eq = piece.indexOf("=");
     items.push([decode(eq < 0 ? piece : piece.slice(0, eq)), eq < 0 ? null : decode(piece.slice(eq + 1))]);
   }
-  return { get: (name) => items.find(([key]) => key === name)?.[1] ?? null };
+  return {
+    get: (name) => items.find(([key]) => key === name)?.[1] ?? null,
+    has: (name) => items.some(([key]) => key === name),
+  };
 }
 
 // Swift's Double(_:): null when it can't parse (no surrounding whitespace, no "0b" or

@@ -18,9 +18,19 @@ struct CalendarCountdownChoice: Identifiable {
         timeZone = event.timeZone ?? .current
         allDay = event.isAllDay
         if allDay {
-            var calendar = Calendar(identifier: .gregorian)
-            calendar.timeZone = timeZone
-            date = calendar.startOfDay(for: event.startDate)
+            // An all-day event is a floating day. EventKit hands it over as midnight in
+            // this device's zone (events from the store) or as UTC midnight (one whose
+            // day was set in GMT, `timeZone` then nil) — take the day from whichever
+            // midnight it is, then use local midnight. Plain `startOfDay` in the local
+            // zone turned a UTC-midnight Jan 5 into Jan 4 anywhere west of UTC (the
+            // device test failed in US/Pacific, passed in IST).
+            var local = Calendar(identifier: .gregorian)
+            local.timeZone = timeZone
+            var utc = Calendar(identifier: .gregorian)
+            utc.timeZone = .gmt
+            let start: Date = event.startDate
+            let source = local.startOfDay(for: start) == start || utc.startOfDay(for: start) != start ? local : utc
+            date = local.date(from: source.dateComponents([.year, .month, .day], from: start)) ?? local.startOfDay(for: start)
         } else { date = event.startDate }
         repeatsYearly = event.calendar?.type == .birthday || (event.recurrenceRules ?? []).contains {
             $0.frequency == .yearly && $0.interval == 1 && $0.recurrenceEnd == nil &&

@@ -113,6 +113,31 @@ struct EditTimerTests {
         #expect(renamed.endDate == clamped.endDate)
     }
 
+    @Test func changingOnlyTheTimeOfAClampedOccurrenceKeepsItsDay() throws {
+        // Leap birthday shown as 2029-02-28 09:00; the person moves it to 10:00 the same day.
+        let now = date("2028-03-01T00:00:00Z")
+        let leap = TimerPayload.composeAnnual(label: "Leap", targetDate: date("2028-02-29T09:00:00Z"), timeZone: .gmt, at: date("2026-10-07T12:00:00Z"))
+        let clamped = leap.advancedSequence(at: now)
+        #expect(clamped.endDate == date("2029-02-28T09:00:00Z"))
+        let retimed = clamped.edited(label: "Leap", alarmEnabled: true, vibrationEnabled: true, targetDate: date("2029-02-28T10:00:00Z"), at: now)
+        #expect(retimed.recurrence?.month == 2 && retimed.recurrence?.day == 29 && retimed.recurrence?.hour == 10)
+        #expect(retimed.endDate == date("2029-02-28T10:00:00Z"))
+        // The next leap year rings on the 29th again.
+        #expect(retimed.recurrence?.date(in: 2032) == date("2032-02-29T10:00:00Z"))
+
+        // Monthly on the 31st, shown as Nov 30: a time-only edit keeps the 31st.
+        let monthly = TimerPayload.composeAnnual(label: "Rent", targetDate: date("2026-10-31T09:00:00Z"), timeZone: .gmt, frequency: .monthly, at: date("2026-10-01T00:00:00Z"))
+        let november = monthly.advancedSequence(at: date("2026-11-01T00:00:00Z"))
+        #expect(november.endDate == date("2026-11-30T09:00:00Z"))
+        let moved = november.edited(label: "Rent", alarmEnabled: true, vibrationEnabled: true, targetDate: date("2026-11-30T08:00:00Z"), at: date("2026-11-01T00:00:00Z"))
+        #expect(moved.recurrence?.day == 31 && moved.recurrence?.hour == 8)
+        #expect(moved.recurrence?.nextDate(after: date("2026-12-01T00:00:00Z")) == date("2026-12-31T08:00:00Z"))
+
+        // A real date change still re-anchors the day (and keeps the unchanged time).
+        let redated = november.edited(label: "Rent", alarmEnabled: true, vibrationEnabled: true, targetDate: date("2026-11-15T09:00:00Z"), at: date("2026-11-01T00:00:00Z"))
+        #expect(redated.recurrence?.day == 15 && redated.recurrence?.hour == 9)
+    }
+
     @Test func editRoundTripsThroughLinkAndWinsOverOlderCopy() throws {
         let now = Date()
         let original = TimerPayload(id: "c", label: "Party", endDate: now.addingTimeInterval(3_600), duration: 3_600, kind: .countdown, updatedAt: now.addingTimeInterval(-10))

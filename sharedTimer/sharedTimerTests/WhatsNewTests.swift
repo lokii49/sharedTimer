@@ -17,22 +17,23 @@ struct WhatsNewTests {
 
     @Test func updatingIntoTheTourShowsItOnce() {
         // A pre-1.0.4 install never stored a seen version; existing timer data marks it an update.
-        #expect(WhatsNew.shouldShow(seenVersion: nil, currentVersion: "1.0.7", isExistingInstall: true))
-        #expect(!WhatsNew.shouldShow(seenVersion: "1.0.7", currentVersion: "1.0.7", isExistingInstall: true))
-        // Saw the 1.0.5 tour: the 1.0.7 one is new.
-        #expect(WhatsNew.shouldShow(seenVersion: "1.0.5", currentVersion: "1.0.7", isExistingInstall: true))
+        #expect(WhatsNew.shouldShow(seenVersion: nil, currentVersion: "1.0.9", isExistingInstall: true))
+        #expect(!WhatsNew.shouldShow(seenVersion: "1.0.9", currentVersion: "1.0.9", isExistingInstall: true))
+        // Saw the 1.0.7 tour (1.0.8 had none): the 1.0.9 one is new.
+        #expect(WhatsNew.shouldShow(seenVersion: "1.0.7", currentVersion: "1.0.9", isExistingInstall: true))
+        #expect(WhatsNew.shouldShow(seenVersion: "1.0.8", currentVersion: "1.0.9", isExistingInstall: true))
     }
 
     @Test func freshInstallNeverShows() {
-        #expect(!WhatsNew.shouldShow(seenVersion: nil, currentVersion: "1.0.7", isExistingInstall: false))
+        #expect(!WhatsNew.shouldShow(seenVersion: nil, currentVersion: "1.0.9", isExistingInstall: false))
     }
 
     @Test func laterVersionWithoutItsOwnTourStaysQuiet() {
-        #expect(!WhatsNew.shouldShow(seenVersion: "1.0.7", currentVersion: "1.0.8", isExistingInstall: true))
-        // Skipped 1.0.7 entirely (updated 1.0.6 → 1.0.8): still sees the 1.0.7 tour.
-        #expect(WhatsNew.shouldShow(seenVersion: "1.0.6", currentVersion: "1.0.8", isExistingInstall: true))
-        // An older build than the tour's version never shows it.
-        #expect(!WhatsNew.shouldShow(seenVersion: nil, currentVersion: "1.0.6", isExistingInstall: true))
+        #expect(!WhatsNew.shouldShow(seenVersion: "1.0.9", currentVersion: "1.0.10", isExistingInstall: true))
+        // Skipped 1.0.9 entirely (updated 1.0.8 → 1.0.10): still sees the 1.0.9 tour.
+        #expect(WhatsNew.shouldShow(seenVersion: "1.0.8", currentVersion: "1.0.10", isExistingInstall: true))
+        // An older build than the tour's version never shows it (1.0.8 with this tour's code).
+        #expect(!WhatsNew.shouldShow(seenVersion: nil, currentVersion: "1.0.8", isExistingInstall: true))
     }
 
     @Test func consumingMarksTheVersionSeen() throws {
@@ -45,8 +46,8 @@ struct WhatsNewTests {
     }
 
     @Test func everyPageHasCopy() {
-        #expect(WhatsNew.features.count == 7)
+        #expect(WhatsNew.features.count == 4)
         #expect(WhatsNew.features.allSatisfy { !$0.title.isEmpty && !$0.body.isEmpty })
-        #expect(WhatsNew.features.map(\.id) == Array(0..<7))
+        #expect(WhatsNew.features.map(\.id) == Array(0..<4))
     }
 }

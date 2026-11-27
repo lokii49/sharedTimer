@@ -18,9 +18,12 @@ function page(extra = {}, env = {}) {
   const document = { title: '', getElementById: id => elements[id], body: { dataset: {}, style: {}, classList: {
     toggle(name, value) { value ? classes.add(name) : classes.delete(name); }
   } } };
-  const params = new URLSearchParams({ id: 'test-id', label: 'Sequence', end: String(epoch + 60), dur: '60', kind: 'timer', ...extra });
+  const params = { id: 'test-id', label: 'Sequence', end: String(epoch + 60), dur: '60', kind: 'timer', ...extra };
+  // Encoded the way the app's url() does (spaces %20, `+` %2B) — URLSearchParams'
+  // toString writes spaces as `+`, which the app never sends and reads literally.
   // env.search: a raw query string, as the app's URLComponents would see it.
-  const search = env.search !== undefined ? env.search : '?' + params;
+  const search = env.search !== undefined ? env.search
+    : '?' + Object.entries(params).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
   class TestDate extends Date { static now() { return now * 1000; } }
   const context = vm.createContext({ document, window: { location: { search, host: env.host || 'mirrornotes.org' } }, Date: TestDate,
     ...(env.navigator ? { navigator: env.navigator } : {}),
@@ -392,4 +395,31 @@ test('a link carrying both annual and repeat, or repeat on a timer, is invalid',
   assert.equal(page({ kind: 'countdown', annual: annualRule(), repeat: weekly }).elements.clock.textContent, '--:--');
   assert.equal(page({ kind: 'timer', repeat: weekly }).elements.clock.textContent, '--:--');
   assert.equal(page({ kind: 'countdown', repeat: annualRule({ frequency: 'yearly' }) }).elements.clock.textContent, '--:--');
+});
+test('a yearly occurrence moved into the next year keeps that year\'s anniversary in the export', () => {
+  const p = page();
+  p.context.rule = JSON.parse(annualRule({ month: 12, day: 31, hour: 9, minute: 0, timeZoneID: 'America/New_York' })).recurrence;
+  // Dec 31 2026 09:00 extended by two days, into 2027.
+  const ics = evaluate(p, 'calendarICS("NYE", annualDate(rule, 2026) + 2 * 86400, rule)');
+  assert(ics.includes('DTSTART;TZID=America/New_York:20261231T090000\r\n'));
+  assert(ics.includes('EXDATE:20261231T140000Z\r\n'));
+  assert(ics.includes('RDATE:20270102T140000Z\r\n'));
+  assert(!ics.includes('20271231'), 'Dec 31 2027 must stay in the series');
+});
+test('old links with a literal + in the recurrence time zone stay valid, like in the app', () => {
+  // 1.0.4–1.0.6 sent `+` unescaped; the app reads it literally (URLComponents).
+  const annual = encodeURIComponent(annualRule({ timeZoneID: 'GMT+0530' })).replace(/%2B/g, '+');
+  const p = page({}, { search: `?id=a&label=C++&end=${epoch + 3600}&dur=3600&kind=countdown&annual=${annual}` });
+  assert(!p.elements.status.textContent.includes('invalid'));
+  assert.equal(p.elements.label.textContent, 'C++');
+});
+test('recurrence envelopes are judged like the app decodes them', () => {
+  // Missing hour/minute/second default to 0 in the app (decodeIfPresent).
+  const bare = JSON.stringify({ version: 1, recurrence: { month: 3, day: 1, timeZoneID: 'GMT' } });
+  assert(!page({ kind: 'countdown', annual: bare }).elements.status.textContent.includes('invalid'));
+  // A non-integer weekday fails the app's Int decode, whatever the frequency.
+  assert(page({ kind: 'countdown', annual: annualRule({ weekday: 'x' }) }).elements.status.textContent.includes('invalid'));
+  assert(page({ kind: 'countdown', annual: annualRule({ weekday: 2.5 }) }).elements.status.textContent.includes('invalid'));
+  // null is absent to decodeIfPresent.
+  assert(!page({ kind: 'countdown', annual: annualRule({ weekday: null, hour: null }) }).elements.status.textContent.includes('invalid'));
 });

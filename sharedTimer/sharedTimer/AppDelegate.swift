@@ -20,6 +20,18 @@ import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        #if DEBUG && targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("-SeedHistory") { TimerHistory.seedForScreenshots() }
+        #endif
+        // N15: a push whose change lost to a newer one elsewhere put the server's copy in
+        // the store — arm to it before that push (and any intent awaiting it) returns.
+        CloudSyncController.rearmAdopted = { payload in
+            await TimerArming.armAwaiting(payload)
+            await MainActor.run {
+                NotificationCenter.default.post(name: .externalTimerStoreChange, object: nil)
+                WatchSyncController.pushCurrentState()
+            }
+        }
         application.registerForRemoteNotifications()
         CloudSyncController.registerSubscriptionsIfNeeded()
         WatchSyncController.activate()

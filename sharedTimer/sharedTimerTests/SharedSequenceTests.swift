@@ -142,4 +142,20 @@ struct SharedSequenceTests {
         #expect(requests.first?.content.userInfo["sequenceGlobalIndex"] as? Int == 4)
         #expect(NotificationScheduler.requests(for: source, at: now.addingTimeInterval(1000)).isEmpty)
     }
+
+    /// Messages' poll must not mistake its own copy's phase boundary for an outside
+    /// change (a reload then swallowed that phase's alert).
+    @Test func aPhaseBoundaryIsNotAnOutsideChange() {
+        let start = Date(timeIntervalSince1970: 1_900_000_000)
+        let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)]
+        let onScreen = TimerPayload(id: "s", label: "Work", endDate: start.addingTimeInterval(60), duration: 60,
+                                    sequence: SequenceInfo(phases: phases, loopCount: 2, phaseIndex: 0, loopIndex: 0), updatedAt: start)
+        let stored = onScreen  // nobody changed it
+        // One second past the boundary, before the view's own tick advanced.
+        #expect(!onScreen.hasOutsideChange(stored, at: start.addingTimeInterval(61)))
+        // A real change still counts: someone paused it.
+        #expect(onScreen.hasOutsideChange(stored.paused(at: start.addingTimeInterval(10)), at: start.addingTimeInterval(11)))
+        // …or extended it.
+        #expect(onScreen.hasOutsideChange(stored.extended(by: 60), at: start.addingTimeInterval(11)))
+    }
 }

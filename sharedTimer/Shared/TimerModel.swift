@@ -298,6 +298,23 @@ struct TimerPayload: Codable, Identifiable {
         return copy
     }
 
+    /// N3 Remove time (owner's pick A, 2026-11-27): takes `interval` off the current run
+    /// (a sequence's current phase; never a repeating countdown — see `canShorten`), never to
+    /// or past its end — nil then, and the button is disabled, so a tap can't finish the
+    /// timer by accident. Not for a pending sequence (it hasn't started). Extends are
+    /// eaten first (`extraTime` floors at 0 in `extended`).
+    func shortened(by interval: TimeInterval, at date: Date = Date()) -> TimerPayload? {
+        guard canShorten(by: interval, at: date) else { return nil }
+        return extended(by: -interval)
+    }
+
+    func canShorten(by interval: TimeInterval, at date: Date = Date()) -> Bool {
+        // Not a repeating countdown: an occurrence ended before its rule time comes back
+        // as the next rule date and rings twice (test aRepeatingCountdownOffersNoRemoveTime).
+        guard interval > 0, !isPending(at: date), recurrence == nil else { return false }
+        return (pausedRemaining ?? endDate.timeIntervalSince(date)) > interval
+    }
+
     func extended(by interval: TimeInterval) -> TimerPayload {
         var copy = self
         if let pausedRemaining = copy.pausedRemaining {
@@ -331,7 +348,7 @@ struct TimerPayload: Codable, Identifiable {
             let start = min(endDate.addingTimeInterval(-span), date)
             var end = max(targetDate, date)
             if let recurrence {
-                let anchor = recurrence.with(frequency: recurrence.frequency, anchoredOn: targetDate)
+                let anchor = recurrence.reanchored(from: endDate, to: targetDate)
                 copy.recurrence = anchor
                 end = targetDate > date ? targetDate : (anchor.nextDate(after: date) ?? end)
             }
@@ -687,6 +704,40 @@ struct TimerPayload: Codable, Identifiable {
         let updatedAt = items.first(where: { $0.name == "upd" })?.value.flatMap(Double.init).flatMap { $0.isFinite && abs($0) <= 253_402_300_799 ? Date(timeIntervalSince1970: $0) : nil }
         return TimerPayload(id: id, label: label, endDate: endDate, duration: duration, pausedRemaining: pausedRemaining, kind: kind, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled, sequence: sequence, scheduledStartDate: start, updatedAt: updatedAt, recurrence: recurrence)
             .withExtraTime(extraTime).alignedToCurrentPhase().advancedSequence()
+    }
+}
+
+// MARK: - Live share links
+
+extension TimerPayload {
+    /// `url()` plus the CloudKit share as a `ckshare` item, which the App Clip, the web
+    /// page and older apps ignore. Appended to the already-encoded query: re-setting
+    /// `queryItems` re-encodes the whole query and undid `url()`'s `+` → `%2B` (a "C++"
+    /// label read "C  " on the web).
+    func url(liveShare shareURL: URL?) -> URL {
+        let base = url()
+        guard let shareURL, var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else { return base }
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: "&=+?#")
+        guard let share = shareURL.absoluteString.addingPercentEncoding(withAllowedCharacters: allowed) else { return base }
+        components.percentEncodedQuery = (components.percentEncodedQuery.map { $0 + "&" } ?? "") + "ckshare=" + share
+        return components.url ?? base
+    }
+}
+
+// MARK: - Outside changes
+
+extension TimerPayload {
+    /// Whether `stored` carries a change this on-screen copy doesn't — compared with both
+    /// projected to the same moment. Projecting only the stored side made a phase or
+    /// occurrence boundary look like an outside change in the second before the view's
+    /// own tick advanced, so a reload swallowed that phase's alert (Messages, 1.0.9).
+    /// CloudKit keeps milliseconds, so times get 1 s.
+    func hasOutsideChange(_ stored: TimerPayload, at date: Date = Date()) -> Bool {
+        let a = stored.advancedSequence(at: date), b = advancedSequence(at: date)
+        return abs(a.endDate.timeIntervalSince(b.endDate)) >= 1 || a.isPaused != b.isPaused || a.label != b.label
+            || abs((a.pausedRemaining ?? 0) - (b.pausedRemaining ?? 0)) >= 1 || a.updatedAt != b.updatedAt
+            || a.sequence?.phaseIndex != b.sequence?.phaseIndex || a.sequence?.loopIndex != b.sequence?.loopIndex
     }
 }
 

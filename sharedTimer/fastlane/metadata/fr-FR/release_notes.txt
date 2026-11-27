@@ -1,7 +1,7 @@
-• Corrigé : une carte d’alarme en pause pouvait rester sur l’écran verrouillé alors que son minuteur n’existait plus. Ouvrir Timer l’efface désormais, et ses boutons fonctionnent de nouveau.
-• Corrigé : quand quelqu’un arrêtait un minuteur partagé, il pouvait redémarrer pour tout le monde à l’ouverture de l’app.
-• Les modifications faites dans Messages atteignent toujours vos alarmes, y compris la suppression ou la pause d’une séquence.
-• Les comptes à rebours quotidiens et hebdomadaires ne sonnent plus deux fois la nuit du passage à l’heure d’hiver.
-• Sur iPad, le minuteur de droite se met à jour aussitôt quand vous le mettez en pause ou le modifiez depuis la liste.
-• Les rappels ne se déclenchent plus après l’arrêt ou la suppression d’un minuteur.
-• Widgets et activités en direct plus précis pour les longs minuteurs, étiquettes Quotidien/Hebdomadaire/Mensuel dans l’historique et de nombreuses autres corrections.
+• Corrigé : l’Historique pouvait se fermer brusquement lorsqu’il affichait une séquence ou un compte à rebours récurrent.
+• Suivant, Semaine suivante et les autres boutons d’une alarme en plein écran la ferment désormais aussitôt.
+• Des widgets à l’heure : les fins et les nouvelles phases s’affichent pile à temps, toucher un widget ou une activité en direct ouvre son minuteur, un widget d’une ligne arrive sur l’écran verrouillé, avec un style plus lisible sur les écrans d’accueil teintés, en mode En veille la nuit et en très grande taille sur iPad.
+• Arrêter un compte à rebours récurrent depuis son widget ou son Activité en direct passe désormais au suivant au lieu de terminer la série.
+• Messages : un minuteur ouvert suit chaque changement, et les comptes à rebours récurrents ont Semaine suivante.
+• Un nouveau bouton cadenas garde l’écran allumé pendant que vous regardez.
+• Et de nombreuses autres corrections.

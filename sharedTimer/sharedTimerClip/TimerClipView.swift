@@ -46,7 +46,8 @@ struct TimerClipView: View {
                             Text(pending ? Sky.pendingSequenceCaption(payload.sequence!) : caption)
                                 .font(.caption).foregroundStyle(.white.opacity(0.6))
                         }
-                        let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: false) : nil
+                        // Stop (here or in the app) ends the count, as everywhere else.
+                        let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: TimerStore.isFinishAcknowledged(id: payload.id)) : nil
                         Text(pending ? Sky.pendingStartText(for: payload.scheduledStartDate!, at: context.date) : overtime ?? TimeFormat.display(remaining))
                             .skyDigits(64, weight: .thin)
                             .foregroundStyle(overtime == nil ? Color.white : Sky.overtimeInk)
@@ -84,6 +85,7 @@ struct TimerClipView: View {
                         Button("Stop") {
                             alarm.stop()
                             vibration.stop()
+                            TimerStore.acknowledgeFinish(id: payload.id)
                         }
                         .buttonStyle(.glassPill)
                         .padding(.top, 10)
@@ -92,6 +94,11 @@ struct TimerClipView: View {
                     Spacer().frame(height: 20)
                 }
             }
+            // Evaluated on every tick: outside the TimelineView it only re-ran when some
+            // state the body reads changed, so with both toggles off (no loop publishing)
+            // the screen stayed on after the finish, its button already gone.
+            .keepsScreenAwake($keepAwake, finished: payload.recurrence == nil
+                              && (payload.sequence.map { $0.loopIndex >= $0.loopCount } ?? done))
             // TimelineView localizes invalidation to this closure (see ContentView's
             // TimerDetailView for the same pattern) — `done` is recomputed fresh every
             // tick, so the zero-crossing has to be caught in here.
@@ -126,7 +133,6 @@ struct TimerClipView: View {
             }
         }
         .onReceive(SwayingSkyGradient.lowPowerPublisher) { lowPower = $0 }
-        .keepsScreenAwake($keepAwake, finished: (current ?? payload).advancedSequence().isFinished)
         .onAppear {
             current = payload.advancedSequence()
             hasAlarmed = current!.isExpired

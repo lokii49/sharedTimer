@@ -32,8 +32,12 @@ struct ShareTimerSheet: View {
                     SkyCard(payload: payload, date: Date())
                         .padding(.horizontal, 20)
 
-                    // D11 · B: only during a FaceTime call, never for a view-only share.
-                    if sharePlay.isEligible && !TimerStore.isReadOnly(id: payload.id) {
+                    // D11 · B: only during a FaceTime call, never for a view-only share —
+                    // nor one already shared live through iCloud: its owner's device
+                    // ignores changes arriving from the call (CloudKit is authoritative
+                    // there), so a call member's Pause would only pause their own copy.
+                    if sharePlay.isEligible && !TimerStore.isReadOnly(id: payload.id)
+                        && CloudLinkStore.get(timerID: payload.id)?.isShared != true {
                         Button {
                             Task { await sharePlay.start(payload) }
                         } label: {
@@ -144,13 +148,11 @@ struct ShareTimerSheet: View {
         let shareURL: URL? = live ? await withCheckedContinuation { continuation in
             CloudSyncController.createShare(for: current) { continuation.resume(returning: $0) }
         } : nil
-        var components = URLComponents(url: current.url(), resolvingAgainstBaseURL: false)!
-        if let shareURL {
-            components.queryItems = (components.queryItems ?? []) + [URLQueryItem(name: "ckshare", value: shareURL.absoluteString)]
-        }
         isLive = shareURL != nil
         snapshotURL = current.url()
-        preparedURL = components.url ?? current.url()
+        // `url(liveShare:)` keeps `url()`'s encoding (re-setting `queryItems` turned a
+        // label's `%2B` back into `+`, a space on the web page).
+        preparedURL = current.url(liveShare: shareURL)
     }
 
     private func manageSharing() {

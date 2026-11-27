@@ -59,9 +59,19 @@ struct WatchTimerProvider: AppIntentTimelineProvider {
         let now = Date()
         let entries = WatchTimerSnapshot.timeline(WatchTimerCache.load(), id: configuration.timer?.id, at: now)
             .map { WatchTimerEntry(snapshot: $0) }
-        let nextReload = entries.first?.snapshot.isRunning == true
-            ? min(now.addingTimeInterval(900), entries.last!.date.addingTimeInterval(60))
-            : now.addingTimeInterval(900)
+        // Paused, finished or empty: nothing changes until the phone sends a new context,
+        // and every received context reloads (WatchTimerCache) — polling every 15 min
+        // only spent the reload budget; 6 h is a safety net. Running: the live text ticks by itself, so a
+        // reload just after the finish (the next timer takes over), or when a coarse
+        // "3d 4h" crosses the hour.
+        guard let first = entries.first?.snapshot, first.isRunning, let timer = first.timer else {
+            // A slow safety net, as on iOS (`TimerWidgetSnapshot.idleReloadInterval`).
+            return Timeline(entries: entries, policy: .after(now.addingTimeInterval(6 * 3600)))
+        }
+        let left = timer.endDate.timeIntervalSince(now)
+        let nextReload = left < 86400
+            ? entries.last!.date.addingTimeInterval(60)
+            : now.addingTimeInterval(max(60, left.truncatingRemainder(dividingBy: 3600) + 1))
         return Timeline(entries: entries, policy: .after(nextReload))
     }
 }

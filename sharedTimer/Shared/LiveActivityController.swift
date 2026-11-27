@@ -133,13 +133,42 @@ enum LiveActivityController {
             state: TimerActivityAttributes.ContentState(
                 endDate: payload.endDate, pausedRemaining: payload.pausedRemaining,
                 label: TimerPayload.clampedLabel(payload.label, maxBytes: 256), kind: payload.kind, upcoming: upcomingQuietPhases(of: payload),
-                noOvertime: payload.sequence != nil || payload.recurrence != nil ? true : nil),
+                noOvertime: payload.sequence != nil || payload.recurrence != nil ? true : nil,
+                span: payload.span),
             // Stale at the finish moment: when the app isn't running to end it, the
             // system still re-renders the card as stale, and TimerLiveActivityWidget
             // shows "Finished" (no buttons) instead of a frozen 0:00 for hours. For a
             // sequence that same re-render switches to the next phase in `upcoming`.
-            staleDate: payload.isPaused ? nil : payload.endDate
+            staleDate: payload.isPaused ? nil : payload.endDate,
+            relevanceScore: relevanceScore(for: payload)
         )
+    }
+
+    /// Which of this app's cards the Dynamic Island shows and how the Lock Screen
+    /// orders them when several run at once: the running timer that finishes soonest
+    /// first, then any other running timer, then paused ones (least time left first),
+    /// then a lingering Finished card. Derived from the finish *time*, not the time
+    /// left, so cards updated at different moments still compare correctly without
+    /// re-scoring every card. Bands, in whole minutes (ActivityKit documents no range;
+    /// only the order matters, and it stores the value as a Double — read back exact on
+    /// device): running = 2e9 − minutes since 1970 of the finish (always above 1e9 until
+    /// the year 3870), paused = 1e9 − minutes left (1…1e9−1), Finished 0. Only this app's
+    /// custom card — AlarmKit's own Live Activity takes no score.
+    /// Every custom card scores below zero. AlarmKit's own card (an alarm timer) takes
+    /// no score of ours — it sits at the default — and a positive quiet score put the quiet
+    /// timer in the island over a ringing-soon alarm timer (seen on the 14 Pro,
+    /// 2026-11-27: 10-minute quiet card shown, 2-minute alarm card hidden). Shifted down,
+    /// alarm cards lead and quiet cards keep their order among themselves.
+    static let belowAlarmKit: Double = 3_000_000_000
+
+    static func relevanceScore(for payload: TimerPayload, at date: Date = Date()) -> Double {
+        let current = payload.advancedSequence(at: date)
+        if let remaining = current.pausedRemaining {
+            return 1_000_000_000 - min(max(1, (remaining / 60).rounded(.up)), 999_999_999) - Self.belowAlarmKit
+        }
+        guard current.endDate > date else { return -Self.belowAlarmKit }
+        let finishMinute = (current.endDate.timeIntervalSince1970 / 60).rounded(.up)
+        return 2_000_000_000 - min(max(0, finishMinute), 999_999_999) - Self.belowAlarmKit
     }
 
     /// The run of quiet phases right after the current one — the only ones this card

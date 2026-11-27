@@ -107,6 +107,16 @@ struct TimerHistoryTests {
         let entries = try JSONDecoder().decode([TimerHistoryEntry].self, from: json)
         #expect(entries.first?.kind == .timer && entries.first?.sequence == nil)
     }
+    /// A sequence run's row shows a "Sequence" pill. Its helper was named `tag`, which
+    /// resolved to SwiftUI's `View.tag(_:)`: the row nested itself without end and History
+    /// crashed with a stack overflow on the iPhone (1.0.9). Rendering it must finish.
+    @MainActor @Test func aSequenceRunsRowRenders() throws {
+        let sequence = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 30), SequencePhase(label: "Rest", duration: 30)], loopCount: 2)
+        let entry = TimerHistoryEntry(sequence, endedAt: Date())
+        #expect(entry.sequence != nil)
+        let renderer = ImageRenderer(content: HistoryRow(entry: entry, action: nil).frame(width: 360))
+        #expect(renderer.uiImage != nil)
+    }
 }
 
 struct SequenceDescriberTests {
@@ -134,4 +144,5 @@ struct OwnTimerSyncTests {
         #expect(owned.isShared)
         #expect(joined.isShared)
     }
+
 }

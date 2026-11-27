@@ -295,6 +295,32 @@ platform :ios do
     UI.success("#{version.version_string} submitted for review 🚀")
   end
 
+  # Apple added age-rating questions in late 2026 (dating & relationships, shared location).
+  # Timer has neither; both are booleans and only editable on a version being prepared, so
+  # answer them here when still unanswered (nil). Never overwrites an existing answer.
+  # Never aborts a release: on any problem it says what to answer by hand in App Store
+  # Connect (App Information → Age Rating) and carries on — Apple's submit check reports a
+  # missing answer anyway.
+  private_lane :ensure_age_rating_answers do
+    begin
+      client = Spaceship::ConnectAPI.tunes_request_client
+      app = Spaceship::ConnectAPI::App.find("com.lokesh.sharedTimer")
+      info = app.fetch_edit_app_info
+      next UI.important("Age rating: no editable app info yet; answer Dating and Shared location = No in App Store Connect") unless info
+      decl = client.get("v1/appInfos/#{info.id}/ageRatingDeclaration").body["data"]
+      missing = %w[datingAndRelationships sharedLocation].select { |key| decl["attributes"][key].nil? }
+      if missing.empty?
+        UI.message("Age rating: new questions already answered")
+      else
+        client.patch("v1/ageRatingDeclarations/#{decl['id']}",
+                     { data: { type: "ageRatingDeclarations", id: decl["id"], attributes: missing.to_h { |key| [key, false] } } })
+        UI.success("Age rating: answered #{missing.join(', ')} = No")
+      end
+    rescue => e
+      UI.important("Age rating: couldn't set the new answers (#{e.message}); answer them = No in App Store Connect")
+    end
+  end
+
   desc "Submit the already-uploaded build for review. Binary + metadata must already be up " \
        "(via `release`); use this after setting the App Clip Default Experience in App Store " \
        "Connect (required by hand every version). Idempotent — no-ops if already in review."
@@ -302,6 +328,7 @@ platform :ios do
     auth
     ensure_testflight_group
     ensure_app_clip_default_experience
+    ensure_age_rating_answers
     attach_processed_build
     set_testflight_notes
     submit_editable_version
@@ -357,6 +384,7 @@ platform :ios do
     begin
       ensure_testflight_group
       ensure_app_clip_default_experience
+      ensure_age_rating_answers
       attach_processed_build
       set_testflight_notes
       submit_editable_version

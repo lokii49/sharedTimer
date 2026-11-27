@@ -126,6 +126,15 @@ struct AnnualCountdownTests {
         #expect(Calendar.current.component(.day, from: choice.date) == 5)
         #expect(choice.timeZone == .current) // EventKit all-day events have no time zone.
         #expect(!choice.repeatsYearly)
+
+        // An all-day day from the store arrives as local midnight: same local day.
+        let stored = EKEvent(eventStore: EKEventStore())
+        stored.title = "Holiday"; stored.isAllDay = true
+        stored.startDate = Calendar.current.date(from: DateComponents(year: 2027, month: 1, day: 5))!
+        stored.endDate = stored.startDate.addingTimeInterval(86400)
+        let local = CalendarCountdownChoice(event: stored)
+        #expect(Calendar.current.component(.day, from: local.date) == 5)
+        #expect(Calendar.current.component(.hour, from: local.date) == 0)
     }
     @Test func recurringCalendarOccurrencesHaveDistinctIDsAndRelativeYearlyRulesStayOneOff() {
         let store = EKEventStore()
@@ -260,5 +269,66 @@ struct RepeatingCountdownTests {
         let json = Data(#"{"month":2,"day":29,"hour":9,"minute":0,"second":0,"timeZoneID":"GMT"}"#.utf8)
         let decoded = try JSONDecoder().decode(AnnualRecurrence.self, from: json)
         #expect(decoded.frequency == .yearly && decoded.weekday == nil)
+    }
+
+    @Test func extendingADailyRepeatKeepsTomorrowsAlarmSlot() {
+        // Day 2 is current in slot 1, day 3 already armed in slot 0 (slots alternate).
+        // Extending day 2 must take slot 1 again, never day 3's slot 0.
+        let s0 = UUID(), s1 = UUID()
+        let d2 = date("2026-11-28T09:00:00Z"), d3 = date("2026-11-29T09:00:00Z")
+        let extended = d2.addingTimeInterval(300)
+        let existing: [UUID: AlarmController.AnnualSlot] = [s0: .init(keptDate: d3, isAlerting: false),
+                                                             s1: .init(keptDate: d2, isAlerting: false)]
+        let plan = AlarmController.planAnnualSlots(dates: [extended, d3], existing: existing) { _ in [s0, s1] }
+        #expect(plan.count == 2)
+        #expect(plan.first(where: { $0.0 == d3 })?.1 == s0)
+        #expect(plan.first(where: { $0.0 == extended })?.1 == s1)
+        #expect(Set(plan.map(\.1)).count == 2)
+
+        // A ringing slot is never taken; with no free slot the date goes unplanned.
+        let ringing: [UUID: AlarmController.AnnualSlot] = [s0: .init(keptDate: d3, isAlerting: false),
+                                                            s1: .init(keptDate: nil, isAlerting: true)]
+        let full = AlarmController.planAnnualSlots(dates: [extended, d3], existing: ringing) { _ in [s0, s1] }
+        #expect(full.count == 1 && full[0].0 == d3 && full[0].1 == s0)
+    }
+
+    /// The verdicts docs/tests pins for hand-made recurrence envelopes, from the real
+    /// decoder (the page must accept exactly what the app accepts).
+    @Test func handMadeRecurrenceEnvelopesDecodeAsThePageExpects() {
+        let end = Int(Date().timeIntervalSince1970) + 86400
+        func link(_ annualJSON: String, keepPlus: Bool = false) -> URL {
+            var allowed = CharacterSet.urlQueryAllowed
+            allowed.remove(charactersIn: "&=+")
+            if keepPlus { allowed.insert("+") }
+            let value = annualJSON.addingPercentEncoding(withAllowedCharacters: allowed)!
+            return URL(string: "https://mirrornotes.org/timer?id=a&label=C++&end=\(end)&dur=86400&kind=countdown&annual=\(value)")!
+        }
+        // Missing hour/minute/second mean 0.
+        #expect(TimerPayload.from(url: link(#"{"version":1,"recurrence":{"month":3,"day":1,"timeZoneID":"GMT"}}"#)) != nil)
+        // A non-integer weekday fails, even for a yearly rule that ignores it.
+        #expect(TimerPayload.from(url: link(#"{"version":1,"recurrence":{"month":2,"day":29,"hour":9,"minute":30,"second":0,"timeZoneID":"GMT","weekday":"x"}}"#)) == nil)
+        #expect(TimerPayload.from(url: link(#"{"version":1,"recurrence":{"month":2,"day":29,"hour":9,"minute":30,"second":0,"timeZoneID":"GMT","weekday":2.5}}"#)) == nil)
+        // null is absent.
+        #expect(TimerPayload.from(url: link(#"{"version":1,"recurrence":{"month":2,"day":29,"hour":null,"minute":30,"second":0,"timeZoneID":"GMT","weekday":null}}"#)) != nil)
+        // A literal + (1.0.4–1.0.6 links) stays a +: "GMT+0530" and the label "C++".
+        let plus = TimerPayload.from(url: link(#"{"version":1,"recurrence":{"month":2,"day":29,"hour":9,"minute":30,"second":0,"timeZoneID":"GMT+0530"}}"#, keepPlus: true))
+        #expect(plus?.recurrence?.timeZoneID == "GMT+0530")
+        #expect(plus?.label == "C++")
+    }
+
+    @Test func skippingAnOccurrenceCountsToTheNextOneOnce() {
+        let now = date("2026-11-27T10:00:00Z")
+        let weekly = TimerPayload.composeAnnual(label: "Gym", targetDate: date("2026-11-28T09:00:00Z"), timeZone: .gmt, frequency: .weekly, at: now)
+        let skipped = weekly.skippingOccurrence(endingAt: weekly.endDate, at: now)
+        #expect(skipped?.endDate == date("2026-12-05T09:00:00Z"))
+        #expect(skipped?.isPaused == false)
+        #expect(skipped?.updatedAt == now)
+        // A second tap for the same occurrence doesn't skip another week.
+        #expect(skipped?.skippingOccurrence(endingAt: weekly.endDate, at: now) == nil)
+        // Paused: resumes counting to the next one.
+        let paused = weekly.paused(at: now)
+        #expect(paused.skippingOccurrence(endingAt: weekly.endDate, at: now)?.isPaused == false)
+        // Not a repeating countdown.
+        #expect(TimerPayload(label: "Tea", duration: 60).skippingOccurrence(endingAt: Date(), at: now) == nil)
     }
 }

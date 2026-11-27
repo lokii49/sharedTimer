@@ -21,6 +21,8 @@ struct TimerLiveActivityWidget: Widget {
                             SkyCornerScrim(widthFraction: 0.6, heightFraction: 1.2, anchorY: 0.7)
                         }
                     }
+                    // Tapping the card opens that timer's details.
+                    .widgetURL(TimerAppLink.url(for: context.attributes.timerID))
             } small: {
                 SmallActivityTile(label: liveLabel(context), symbol: liveKind(context).symbolName,
                                   sky: Sky.gradient(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining)) {
@@ -62,14 +64,22 @@ struct TimerLiveActivityWidget: Widget {
                 Image(systemName: liveKind(context).symbolName)
                     .foregroundStyle(liveKind(context).accentColor)
             } compactTrailing: {
-                compactCountdownText(state: liveState(context))
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .frame(width: 44)
+                NarrowIslandAware {
+                    // Scales instead of truncating: "1:23:45" didn't fit a fixed 44 pt.
+                    compactCountdownText(state: liveState(context))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .minimumScaleFactor(0.6)
+                        .lineLimit(1)
+                        .frame(maxWidth: 70)
+                } narrow: {
+                    compactRing(context)
+                }
             } minimal: {
                 Image(systemName: liveKind(context).symbolName)
                     .foregroundStyle(liveKind(context).accentColor)
             }
+            .widgetURL(TimerAppLink.url(for: context.attributes.timerID))
         }
         // Apple Watch Smart Stack and CarPlay (SmallActivityTile).
         .supplementalActivityFamilies([.small])
@@ -175,6 +185,30 @@ private func liveActivityRemainingText(_ state: TimerActivityAttributes.ContentS
         .foregroundStyle(Sky.overtimeInk)
     } else {
         remainingText(endDate: state.endDate, pausedRemaining: state.pausedRemaining)
+    }
+}
+
+/// The narrow island's ring for the custom card; digits when the activity came from a
+/// build without `span`.
+@ViewBuilder
+private func compactRing(_ context: ActivityViewContext<TimerActivityAttributes>) -> some View {
+    let state = liveState(context)
+    let tint = liveKind(context).accentColor
+    if let span = state.span, span > 0, let start = state.ringStart {
+        if let paused = state.pausedRemaining {
+            CompactRing(fraction: paused / span, tint: tint)
+        } else if isFinished(context) {
+            CompactRing(fraction: 0, tint: tint)
+        } else {
+            CompactRing(interval: start...max(start, state.endDate), tint: tint)
+        }
+    } else {
+        compactCountdownText(state: state)
+            .monospacedDigit()
+            .foregroundStyle(.white)
+            .minimumScaleFactor(0.5)
+            .lineLimit(1)
+            .frame(maxWidth: 44)
     }
 }
 

@@ -189,7 +189,7 @@ enum AlarmController {
 
         guard ownsAlert(for: payload) else {
             // Both toggles off: a quiet notification, never AlarmKit.
-            NotificationScheduler.scheduleAlert(for: payload)
+            await NotificationScheduler.scheduleAlertAwaiting(for: payload)
             return
         }
         if await scheduleAlarm(for: payload, id: alarmID(for: payload.id)) == .scheduled {
@@ -199,7 +199,7 @@ enum AlarmController {
             // a weaker alarm (one-shot, obeys the silent switch) but beats
             // finishing a timer in silence — same philosophy as
             // NotificationScheduler's own denial fallback.
-            NotificationScheduler.scheduleAlert(for: payload)
+            await NotificationScheduler.scheduleAlertAwaiting(for: payload)
         }
     }
 
@@ -217,6 +217,35 @@ enum AlarmController {
         return ids
     }
     private static let annualIDCache = OSAllocatedUnfairLock<[String: Set<UUID>]>(initialState: [:])
+
+    /// What planning needs to know about an existing annual-slot alarm: the fixed date it
+    /// can be kept for (nil when it can't be kept: no fixed date, a countdown, a stale
+    /// presentation), and whether it is ringing.
+    struct AnnualSlot { var keptDate: Date?; var isAlerting: Bool }
+
+    /// Which slot each upcoming date goes in. Dates already armed keep their slot first;
+    /// only then do the rest take a free one. Deciding date by date gave a moved date the
+    /// slot still holding the *next* date's alarm — then both dates claimed it, the next
+    /// one counted as covered from the stale snapshot, and an extended daily repeat lost
+    /// tomorrow's alarm and its notification. Pure, so it's unit-tested without AlarmKit.
+    static func planAnnualSlots(dates: [Date], existing: [UUID: AnnualSlot], slots: (Date) -> [UUID]) -> [(Date, UUID)] {
+        var planned: [(Date, UUID)] = []
+        var unmatched: [Date] = []
+        func taken(_ id: UUID) -> Bool { planned.contains(where: { $0.1 == id }) }
+        for end in dates {
+            let kept = slots(end).first { id in
+                guard !taken(id), let date = existing[id]?.keptDate else { return false }
+                return abs(date.timeIntervalSince(end)) < 1
+            }
+            if let kept { planned.append((end, kept)) } else { unmatched.append(end) }
+        }
+        for end in unmatched {
+            if let free = slots(end).first(where: { !taken($0) && existing[$0]?.isAlerting != true }) {
+                planned.append((end, free))
+            }
+        }
+        return planned
+    }
     private static func performAnnualReschedule(for payload: TimerPayload) async {
         guard let recurrence = payload.recurrence else { return }
         let current = payload.advancedRecurrence()
@@ -224,15 +253,13 @@ enum AlarmController {
         // before the edit — otherwise it kept ringing next to the quiet notification.
         let dates = ownsAlert(for: current) ? current.upcomingAnnualDates(limit: annualWindow) : []
         let existing = Dictionary(((try? AlarmManager.shared.alarms) ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        var planned: [(Date, UUID)] = []
-        for end in dates {
-            let ids = (0...1).map { annualAlarmID(timerID: current.id, year: recurrence.year(of: end), slot: $0) }
-            let matching = ids.first { id in
-                guard let alarm = existing[id], case .fixed(let fixed)? = alarm.schedule else { return false }
-                return abs(fixed.timeIntervalSince(end)) < 1 && alarm.countdownDuration == nil && signatureMatches(current, for: id)
-            }
-            let available = ids.first { id in !planned.contains(where: { $0.1 == id }) && existing[id]?.state != .alerting }
-            if let id = matching ?? available { planned.append((end, id)) }
+        let slots = existing.mapValues { alarm -> AnnualSlot in
+            var fixed: Date?
+            if case .fixed(let date)? = alarm.schedule, alarm.countdownDuration == nil, signatureMatches(current, for: alarm.id) { fixed = date }
+            return AnnualSlot(keptDate: fixed, isAlerting: alarm.state == .alerting)
+        }
+        let planned = planAnnualSlots(dates: dates, existing: slots) { end in
+            (0...1).map { annualAlarmID(timerID: current.id, year: recurrence.year(of: end), slot: $0) }
         }
         let wanted = Set(planned.map { $0.1 })
         var candidates = annualIDs(timerID: current.id)
@@ -255,7 +282,7 @@ enum AlarmController {
             if await scheduleAlarm(for: occurrence, id: id, fixedAt: end) == .scheduled { covered.insert(end) }
         }
         TimerStore.setAlarmKitArmed(id: current.id, !covered.isEmpty)
-        NotificationScheduler.scheduleAlert(for: current, excludingAnnualDates: covered)
+        await NotificationScheduler.scheduleAlertAwaiting(for: current, excludingAnnualDates: covered)
     }
 
     // MARK: - Sequence pre-armed window
@@ -362,7 +389,7 @@ enum AlarmController {
         if !window.isEmpty {
             // Pre-arm notifications only for phases AlarmKit did not cover. This
             // includes quiet phases and scheduling failures, without double alerts.
-            NotificationScheduler.scheduleAlert(for: payload, excludingSequenceIndices: covered)
+            await NotificationScheduler.scheduleAlertAwaiting(for: payload, excludingSequenceIndices: covered)
         }
     }
 
@@ -468,6 +495,35 @@ enum AlarmController {
     /// remaining time for a plain countdown, so this is the only way to tell whether a
     /// running alarm still matches the payload (keep it, don't re-create) and how much
     /// time it really has left when it's paused late.
+    // MARK: - Overtime after a dismissed alarm (owner's call, 2026-11-27)
+
+    /// A finished timer counts "+10:00" until Stop acknowledges it. With AlarmKit the
+    /// Stop is the system's button, which the app is never told about, so the count used
+    /// to run on for the full hour. An alarm that was armed here, whose fire time has
+    /// passed and which is no longer in AlarmKit's list was dismissed — a ringing one is
+    /// still listed (`.alerting`), and a Repeat from the alert lists it again counting
+    /// down. Never-armed / re-armed timers (the flag is cleared on every reschedule) keep
+    /// the old behaviour.
+    static func wasDismissed(armed: Bool, intendedEnd: Date?, alarmListed: Bool, at date: Date) -> Bool {
+        guard armed, !alarmListed, let intendedEnd else { return false }
+        return intendedEnd <= date
+    }
+
+    /// Ids of finished plain timers/countdowns still counting overtime whose full-screen
+    /// alarm was dismissed. Reads AlarmKit only when there is such a timer.
+    static func dismissedFinishes(_ payloads: [TimerPayload], at date: Date = Date()) -> [String] {
+        let candidates = payloads.filter {
+            $0.overtime(at: date) != nil && !TimerStore.isFinishAcknowledged(id: $0.id) && TimerStore.isAlarmKitArmed(id: $0.id)
+        }
+        guard !candidates.isEmpty, AlarmManager.shared.authorizationState == .authorized,
+              let alarms = try? AlarmManager.shared.alarms else { return [] }
+        let listed = Set(alarms.map(\.id))
+        return candidates.filter { payload in
+            let id = alarmID(for: payload.id)
+            return wasDismissed(armed: true, intendedEnd: intendedEnd(for: id), alarmListed: listed.contains(id), at: date)
+        }.map(\.id)
+    }
+
     private static func intendedEnd(for id: UUID) -> Date? {
         ((UserDefaults(suiteName: "group.com.lokesh.sharedTimer")?.dictionary(forKey: intendedEndKey) as? [String: Double])?[id.uuidString])
             .map(Date.init(timeIntervalSince1970:))
@@ -491,8 +547,10 @@ enum AlarmController {
     }
 
     /// True when `alarm` is already the pre-armed `.fixed` alarm for this occurrence.
+    /// Never a paused one: this only runs for a running sequence, and a phase paused in
+    /// place then resumed within 1 s kept its paused alarm — the phase never rang.
     private static func matchesPrearmed(_ alarm: Alarm, endDate: Date, duration: TimeInterval) -> Bool {
-        guard case .fixed(let date)? = alarm.schedule,
+        guard alarm.state != .paused, case .fixed(let date)? = alarm.schedule,
               abs(date.timeIntervalSince(endDate)) < 1,
               let preAlert = alarm.countdownDuration?.preAlert,
               abs(preAlert - duration) < 1 else { return false }
@@ -531,6 +589,74 @@ enum AlarmController {
         candidates.formUnion((0..<TimerSequenceWire.maximumOccurrences).map { phaseAlarmID(timerID: id, globalIndex: $0) })
         for alarmID in candidates.intersection(existing) { try? AlarmManager.shared.cancel(id: alarmID) }
     }
+
+    // MARK: - A person's tap on the ringing alert
+
+    /// Ends a ringing alarm of this timer because a person tapped a button on its alert
+    /// (Next, Next Year/…, Cancel, Open) — before any check of the stored copy. Without
+    /// it the alert stayed on screen: AlarmKit doesn't dismiss after a `.custom` button,
+    /// and the reschedule deliberately keeps an earlier occurrence that is ringing. In
+    /// the reported case the app was in front, its clock had already stored the next
+    /// phase, and Next returned at the "already past it" guard without touching AlarmKit.
+    /// Only explicit actions call this: clock-driven paths (tick, foreground, background
+    /// refresh, the stray sweep, pulls) must never end a ringing occurrence (the "alert
+    /// flashes and disappears" bug). `ids` nil = every alarm id this timer can own.
+    static func dismissRinging(timerID: String, ids: [UUID]? = nil, reason: String) async {
+        await Serializer.shared.runAndWait(timerID) { endRingingNow(timerID: timerID, ids: ids, reason: reason) }
+    }
+
+    /// A person changed this timer in the app (pause, extend, resume, start now, edit,
+    /// repeat — owner's call, 2026-11-27): an earlier occurrence still ringing is over.
+    /// Queued on the timer's serializer, so it runs before the reschedule the same change
+    /// enqueues next. Never from clock-driven paths.
+    static func endRingingForChange(timerID: String) {
+        enqueue(timerID) { endRingingNow(timerID: timerID, ids: nil, reason: "change") }
+    }
+
+    private static func endRingingNow(timerID: String, ids: [UUID]?, reason: String) {
+        let candidates = Set(ids ?? Array(everyDerivedID(timerID: timerID)))
+        let ringing = ((try? AlarmManager.shared.alarms) ?? []).filter { candidates.contains($0.id) && $0.state == .alerting }
+        for alarm in ringing {
+            do { try AlarmManager.shared.stop(id: alarm.id) } catch { try? AlarmManager.shared.cancel(id: alarm.id) }
+        }
+        #if DEBUG
+        guard !ringing.isEmpty || reason != "change" else { return }
+        let after = ((try? AlarmManager.shared.alarms) ?? []).filter { candidates.contains($0.id) && $0.state == .alerting }.count
+        logAlertButton("\(reason) timer=\(timerID.prefix(8)) ringing=\(ringing.count) stillRinging=\(after)")
+        #endif
+    }
+
+    /// The tapped phase occurrence's alarm (and the single id 1.0.3 used for every phase).
+    static func phaseAlarmIDs(timerID: String, globalIndex: Int) -> [UUID] {
+        [phaseAlarmID(timerID: timerID, globalIndex: max(0, globalIndex)), alarmID(for: timerID)]
+    }
+
+    /// The annual slots that can hold the occurrence ending at `occurrenceEnd` (two per
+    /// year; the year is read in UTC, so neighbouring years are included for the edges).
+    static func annualAlarmIDs(timerID: String, around occurrenceEnd: Date) -> [UUID] {
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = .gmt
+        let year = utc.component(.year, from: occurrenceEnd)
+        return (year - 1...year + 1).flatMap { y in (0...1).map { annualAlarmID(timerID: timerID, year: y, slot: $0) } } + [alarmID(for: timerID)]
+    }
+
+    private static func everyDerivedID(timerID: String) -> Set<UUID> {
+        var ids: Set<UUID> = [alarmID(for: timerID)]
+        ids.formUnion(annualIDs(timerID: timerID))
+        ids.formUnion((0..<TimerSequenceWire.maximumOccurrences).map { phaseAlarmID(timerID: timerID, globalIndex: $0) })
+        return ids
+    }
+
+    #if DEBUG
+    /// Device-check marker: what each alert-button action did (App Group, last 30).
+    static let alertButtonLogKey = "debugAlertButtonLog"
+    static func logAlertButton(_ line: String) {
+        let defaults = UserDefaults(suiteName: "group.com.lokesh.sharedTimer")
+        var log = defaults?.stringArray(forKey: alertButtonLogKey) ?? []
+        log.append("\(Date().formatted(date: .omitted, time: .standard)) \(line)")
+        defaults?.set(Array(log.suffix(30)), forKey: alertButtonLogKey)
+    }
+    #endif
 
     /// Full teardown including every phase of a local sequence, whose draft can be
     /// larger than the shared wire format's limits.
@@ -635,6 +761,8 @@ enum AlarmController {
         private var annualTimerIDs: [String] = []
 
         init(_ stored: [TimerPayload]) {
+            // Settings' test alarm belongs to no stored timer but must still ring.
+            direct[AlarmController.alarmID(for: AlarmController.testAlarmTimerID)] = AlarmController.testAlarmTimerID
             for payload in stored {
                 direct[AlarmController.alarmID(for: payload.id)] = payload.id
                 if let sequence = payload.sequence {
@@ -703,6 +831,29 @@ enum AlarmController {
     // MARK: - AlarmKit plumbing
 
     private enum ScheduleResult { case scheduled, limitReached, failed }
+
+    // MARK: - Test my alarm (N2)
+
+    /// The fixed id of Settings' test alarm. Never a stored timer, so it never shows in
+    /// the list; the stray sweep treats it as owned (`AlarmOwners`) so it isn't cancelled
+    /// before it rings.
+    static let testAlarmTimerID = "sharedtimer.test-alarm"
+    static var testAlarmID: UUID { alarmID(for: testAlarmTimerID) }
+
+    /// Rings a real AlarmKit alarm in `seconds`, with the chosen tone, through the same
+    /// `scheduleAlarm` every timer uses — so a person can see that a timer will actually
+    /// ring before one matters. `.notAllowed` when full-screen alarms are off (asks
+    /// first if never asked); `.failed` when AlarmKit refused it anyway.
+    enum TestAlarmResult { case scheduled, notAllowed, failed }
+
+    static func ringTestAlarm(in seconds: TimeInterval = 5) async -> TestAlarmResult {
+        guard await ensureAuthorized() else { return .notAllowed }
+        let id = alarmID(for: testAlarmTimerID)
+        try? AlarmManager.shared.cancel(id: id)
+        let test = TimerPayload(id: testAlarmTimerID, label: String(localized: "Test alarm"), duration: seconds,
+                                alarmEnabled: true, vibrationEnabled: true)
+        return await scheduleAlarm(for: test, id: id) == .scheduled ? .scheduled : .failed
+    }
 
     /// `fixedAt` non-nil pins the alert to that date with a `duration`-long countdown
     /// before it (`schedule: .fixed`) — used for a pending sequence's first phase and
@@ -784,7 +935,8 @@ enum AlarmController {
                 timerID: payload.id, label: payload.label, kind: payload.kind,
                 sequenceCaption: payload.sequenceCaption,
                 phaseIndex: payload.sequenceGlobalIndex,
-                isFinalPhase: payload.sequence == nil ? nil : isFinalSequencePhase
+                isFinalPhase: payload.sequence == nil ? nil : isFinalSequencePhase,
+                span: payload.span
             ),
             tintColor: payload.kind.accentColor
         )
@@ -833,7 +985,7 @@ enum AlarmController {
         // app foreground (the `advancedSequence` re-derivation guarantee).
         var secondaryIntent: (any LiveActivityIntent)?
         if readOnly {
-            secondaryIntent = OpenTimerAppIntent()
+            secondaryIntent = OpenTimerAppIntent(timerID: payload.id)
         } else if payload.recurrence != nil {
             secondaryIntent = AdvanceAnnualCountdownIntent(timerID: payload.id, occurrenceEnd: payload.endDate.timeIntervalSince1970)
         } else if payload.sequence != nil {

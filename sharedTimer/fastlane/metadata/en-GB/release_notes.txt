@@ -1,7 +1,7 @@
-• Fixed: a paused alarm card could stay on the Lock Screen after its timer was gone. Opening Timer now clears it, and its buttons work again.
-• Fixed: when someone stopped a shared timer, it could start again for everyone the next time you opened the app.
-• Changes made in Messages now always reach your alarms, including deleting or pausing a sequence.
-• Daily and weekly countdowns no longer ring twice on the night the clocks go back.
-• On iPad, the timer on the right updates straight away when you pause or edit it from the list.
-• Heads-up reminders no longer go off after a timer is stopped or deleted.
-• More accurate widgets and Live Activities for long timers, Daily/Weekly/Monthly tags in History, and many smaller fixes.
+• Fixed: History could close unexpectedly when it listed a sequence or a repeating countdown.
+• Next, Next Week and the other buttons on a full-screen alarm now dismiss it straight away.
+• Widgets keep up: finishes and new phases show right on time, tapping a widget or Live Activity opens its timer, there's a one-line Lock Screen widget, and a clearer look on tinted Home Screens, in StandBy at night and in the iPad's extra-large size.
+• Stopping a repeating countdown from its widget or Live Activity now skips to the next one instead of ending the series.
+• Messages: an open timer follows every change, and repeating countdowns get Next Week.
+• A new lock button keeps the screen on while you watch.
+• Plus many smaller fixes.
