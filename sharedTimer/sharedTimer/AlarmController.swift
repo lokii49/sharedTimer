@@ -732,6 +732,8 @@ enum AlarmController {
         private var annualTimerIDs: [String] = []
 
         init(_ stored: [TimerPayload]) {
+            // Settings' test alarm belongs to no stored timer but must still ring.
+            direct[AlarmController.alarmID(for: AlarmController.testAlarmTimerID)] = AlarmController.testAlarmTimerID
             for payload in stored {
                 direct[AlarmController.alarmID(for: payload.id)] = payload.id
                 if let sequence = payload.sequence {
@@ -800,6 +802,27 @@ enum AlarmController {
     // MARK: - AlarmKit plumbing
 
     private enum ScheduleResult { case scheduled, limitReached, failed }
+
+    // MARK: - Test my alarm (N2)
+
+    /// The fixed id of Settings' test alarm. Never a stored timer, so it never shows in
+    /// the list; the stray sweep treats it as owned (`AlarmOwners`) so it isn't cancelled
+    /// before it rings.
+    static let testAlarmTimerID = "sharedtimer.test-alarm"
+    static var testAlarmID: UUID { alarmID(for: testAlarmTimerID) }
+
+    /// Rings a real AlarmKit alarm in `seconds`, with the chosen tone, through the same
+    /// `scheduleAlarm` every timer uses — so a person can see that a timer will actually
+    /// ring before one matters. False when full-screen alarms aren't allowed (asks first
+    /// if never asked) or AlarmKit refused it.
+    static func ringTestAlarm(in seconds: TimeInterval = 5) async -> Bool {
+        guard await ensureAuthorized() else { return false }
+        let id = alarmID(for: testAlarmTimerID)
+        try? AlarmManager.shared.cancel(id: id)
+        let test = TimerPayload(id: testAlarmTimerID, label: String(localized: "Test alarm"), duration: seconds,
+                                alarmEnabled: true, vibrationEnabled: true)
+        return await scheduleAlarm(for: test, id: id) == .scheduled
+    }
 
     /// `fixedAt` non-nil pins the alert to that date with a `duration`-long countdown
     /// before it (`schedule: .fixed`) — used for a pending sequence's first phase and

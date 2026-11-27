@@ -16,6 +16,10 @@ struct TimerRunningView: View {
     let onNewTimer: () -> Void
     let onUpdate: (TimerPayload, String) -> Void
     let onDelete: (TimerPayload) -> Void
+    /// M11 (owner's pick A): sends this timer's current state as a new App Card from
+    /// its own bubble, so it continues that card's session and Messages collapses the
+    /// older card (the collapse needs the card selected — seen in the simulator).
+    let onSendUpdate: (TimerPayload) -> Void
     @State private var participantCount: Int?
     @State private var hasBuzzedFinish = false
     @ObservedObject private var alarm = AlarmPlayer.shared
@@ -24,11 +28,13 @@ struct TimerRunningView: View {
     init(payload: TimerPayload,
          onNewTimer: @escaping () -> Void,
          onUpdate: @escaping (TimerPayload, String) -> Void,
-         onDelete: @escaping (TimerPayload) -> Void) {
+         onDelete: @escaping (TimerPayload) -> Void,
+         onSendUpdate: @escaping (TimerPayload) -> Void) {
         self._payload = State(initialValue: payload)
         self.onNewTimer = onNewTimer
         self.onUpdate = onUpdate
         self.onDelete = onDelete
+        self.onSendUpdate = onSendUpdate
     }
 
     /// Shared with this phone as view only, and whether it was shared by someone else
@@ -119,7 +125,8 @@ struct TimerRunningView: View {
                         } else if !done {
                             GlassEffectContainer(spacing: 16) {
                                 HStack(spacing: 12) {
-                                    ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
+                                    ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true },
+                                                   canRemove: { payload.canShorten(by: $0) }, onRemove: { remove($0) })
 
                                     Button(payload.isPaused ? "Resume" : "Pause") {
                                         togglePause()
@@ -145,6 +152,13 @@ struct TimerRunningView: View {
                             .disabled(readOnly)
                             .opacity(readOnly ? 0.45 : 1)
                     }
+
+                    Button(String(localized: "Send update")) {
+                        // The newest stored copy, like every other tap here.
+                        onSendUpdate(TimerStore.loadAll().first { $0.id == payload.id }?.advancedSequence() ?? payload)
+                    }
+                    .buttonStyle(.glassPill)
+                    .padding(.top, 10)
 
                     HStack(spacing: 22) {
                         Button {
@@ -327,6 +341,12 @@ struct TimerRunningView: View {
         guard let base = latestForChange(), !base.isFinished else { return }
         payload = base.extended(by: interval)
         onUpdate(payload, "extended")
+    }
+
+    private func remove(_ interval: TimeInterval) {
+        guard let base = latestForChange(), let shorter = base.shortened(by: interval) else { return }
+        payload = shorter
+        onUpdate(payload, "shortened")
     }
 
     private func startEarly() {

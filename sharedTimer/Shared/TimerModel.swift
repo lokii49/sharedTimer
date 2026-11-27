@@ -298,6 +298,21 @@ struct TimerPayload: Codable, Identifiable {
         return copy
     }
 
+    /// N3 Remove time (owner's pick A, 2026-11-27): takes `interval` off the current run
+    /// (a sequence's current phase, a repeating countdown's current occurrence), never to
+    /// or past its end — nil then, and the button is disabled, so a tap can't finish the
+    /// timer by accident. Not for a pending sequence (it hasn't started). Extends are
+    /// eaten first (`extraTime` floors at 0 in `extended`).
+    func shortened(by interval: TimeInterval, at date: Date = Date()) -> TimerPayload? {
+        guard canShorten(by: interval, at: date) else { return nil }
+        return extended(by: -interval)
+    }
+
+    func canShorten(by interval: TimeInterval, at date: Date = Date()) -> Bool {
+        guard interval > 0, !isPending(at: date) else { return false }
+        return (pausedRemaining ?? endDate.timeIntervalSince(date)) > interval
+    }
+
     func extended(by interval: TimeInterval) -> TimerPayload {
         var copy = self
         if let pausedRemaining = copy.pausedRemaining {

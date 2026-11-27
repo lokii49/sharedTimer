@@ -70,6 +70,16 @@ struct TimerHistoryView: View {
                     ToolbarItem(placement: .primaryAction) {
                         Button("Clear") { confirmingClear = true }
                     }
+                    // N4 · B: totals, streaks and Export.
+                    ToolbarItem(placement: .primaryAction) {
+                        NavigationLink {
+                            TimerStatsView()
+                        } label: {
+                            Image(systemName: "chart.bar")
+                        }
+                        .accessibilityLabel(String(localized: "Stats"))
+                        .accessibilityIdentifier("statsButton")
+                    }
                 }
             }
             .confirmationDialog("Clear all history?", isPresented: $confirmingClear, titleVisibility: .visible) {

@@ -1498,6 +1498,7 @@ enum CloudSyncController {
         case "paused": return String(localized: "\(name) paused")
         case "resumed": return String(localized: "\(name) resumed")
         case "extended": return String(localized: "\(name) extended")
+        case "shortened": return String(localized: "\(name) took time off")
         case "repeated": return String(localized: "\(name) repeated")
         case "edited": return String(localized: "\(name) edited")
         case "advanced": return String(localized: "\(name) skipped ahead")

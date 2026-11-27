@@ -243,6 +243,9 @@ class MessagesViewController: MSMessagesAppViewController {
                 LiveActivityController.end(id: deleted.id)
                 CloudSyncController.pushDelete(id: deleted.id)
                 self?.presentComposeView()
+            },
+            onSendUpdate: { [weak self] current in
+                self?.send(payload: current, mode: .appCard, isExisting: true)
             }
         ).id(payload.url().absoluteString))
         presentRoot(root)

@@ -182,6 +182,20 @@ final class sharedTimerUITests: XCTestCase {
         shot.name = "History"
         shot.lifetime = .keepAlways
         add(shot)
+        // N4: Stats opens from History, shows the run's name and offers Export.
+        let stats = app.buttons["statsButton"]
+        XCTAssertTrue(stats.waitForExistence(timeout: 5))
+        stats.tap()
+        // Section titles are drawn upper-case (skyLabel).
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label ==[c] 'Time by name'")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[label].exists)
+        XCTAssertTrue(app.buttons["Export"].exists)
+        let statsShot = XCTAttachment(screenshot: app.screenshot())
+        statsShot.name = "Stats"
+        statsShot.lifetime = .keepAlways
+        add(statsShot)
+        app.navigationBars.buttons.element(boundBy: 0).tap()   // back to History
+        XCTAssertTrue(app.staticTexts[label].waitForExistence(timeout: 5))
         // Don't leave the fixture in the device's real History.
         app.staticTexts[label].firstMatch.swipeLeft()
         // (The label itself stays visible in the timer list behind the sheet.)
@@ -409,6 +423,34 @@ final class sharedTimerUITests: XCTestCase {
         add(attachment)
         app.buttons["Delete"].tap()
         widgetTestURL = nil
+    }
+
+    @MainActor
+    /// N3: the round "−" beside +1:00 takes a minute off (the end time moves back).
+    func testRemoveMinuteShortensATimer() throws {
+        let app = XCUIApplication()
+        let id = UUID().uuidString
+        var share = URLComponents(string: "https://mirrornotes.org/timer")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id), URLQueryItem(name: "label", value: "Remove minute test"),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(600).timeIntervalSince1970)),
+            URLQueryItem(name: "dur", value: "600"), URLQueryItem(name: "kind", value: "timer"),
+            URLQueryItem(name: "alarm", value: "0"), URLQueryItem(name: "vib", value: "0")
+        ]
+        widgetTestURL = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        app.open(try XCTUnwrap(share.url))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        app.open(try XCTUnwrap(widgetTestURL))
+        let minus = app.buttons["-1:00"]
+        XCTAssertTrue(minus.waitForExistence(timeout: 10))
+        let endsBefore = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'ends at'")).firstMatch.label
+        minus.tap()
+        let endsAfter = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'ends at'")).firstMatch
+        XCTAssertTrue(endsAfter.waitForExistence(timeout: 5))
+        XCTAssertNotEqual(endsAfter.label, endsBefore, "the end time moves back a minute")
     }
 
     @MainActor

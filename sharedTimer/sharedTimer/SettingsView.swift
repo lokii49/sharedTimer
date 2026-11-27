@@ -24,6 +24,9 @@ struct SettingsView: View {
     @State private var alarmsAllowed = AlarmManager.shared.authorizationState != .denied
     @State private var notificationsAllowed = true
     @State private var syncOwnTimers = CloudSyncController.syncOwnTimers
+    /// N2 "Test my alarm" (owner's pick B): count down, ring, then ask.
+    private enum AlarmTest: Equatable { case idle, counting(until: Date), asking, passed, help, refused }
+    @State private var alarmTest = AlarmTest.idle
     @Environment(\.scenePhase) private var scenePhase
 
     private static let privacyURL = URL(string: "https://mirrornotes.org/timer/privacy")!
@@ -135,6 +138,7 @@ struct SettingsView: View {
                 Divider().overlay(.white.opacity(0.15))
                 aboutRow { Text("Notifications") } trailing: { Text(notificationsAllowed ? "On" : "Off") }
             }
+            alarmTestControls
             if !alarmsAllowed || !notificationsAllowed {
                 Text(alarmsAllowed
                      ? "Quiet timers and timers shared with you can't alert you while notifications are off."
@@ -150,6 +154,76 @@ struct SettingsView: View {
             }
         }
         .task(id: scenePhase) { await refreshAlertStatus() }
+    }
+
+    @ViewBuilder
+    private var alarmTestControls: some View {
+        switch alarmTest {
+        case .idle, .refused:
+            Button(String(localized: "Test my alarm")) { startAlarmTest() }
+                .buttonStyle(.glassPill)
+            Text(alarmTest == .refused
+                 ? String(localized: "Full-screen alarms are off, so the test can't ring.")
+                 : String(localized: "Rings full-screen in 5 seconds, even with the phone locked."))
+                .font(.footnote)
+                .opacity(0.8)
+        case .counting(let until):
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let left = Int(max(0, until.timeIntervalSince(context.date)).rounded(.up))
+                Text(left > 0 ? String(localized: "Ringing in \(left)…") : String(localized: "Ringing…"))
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .glassEffect(.regular, in: Capsule())
+                    .accessibilityAddTraits(.updatesFrequently)
+            }
+        case .asking:
+            Text("Did it ring and show full-screen?")
+                .font(.subheadline.weight(.semibold))
+            HStack(spacing: 10) {
+                Button(String(localized: "Yes")) { alarmTest = .passed }
+                    .buttonStyle(.glassPill)
+                Button(String(localized: "No, help me")) {
+                    alarmTest = .help
+                    Task { await refreshAlertStatus() }
+                }
+                .buttonStyle(.glassPill)
+            }
+        case .passed:
+            Text("Your alarms ring. You're set.")
+                .font(.footnote)
+                .opacity(0.8)
+        case .help:
+            Text(alarmsAllowed && notificationsAllowed
+                 ? String(localized: "Both are on. Check that Focus isn't set to silence Timer, then try again.")
+                 : String(localized: "Turn on what's off below, then try again."))
+                .font(.footnote)
+                .opacity(0.8)
+            HStack(spacing: 10) {
+                Button(String(localized: "Try again")) { startAlarmTest() }
+                    .buttonStyle(.glassPill)
+                if alarmsAllowed && notificationsAllowed, let settings = URL(string: UIApplication.openSettingsURLString) {
+                    Link(destination: settings) { Text("Open Settings") }
+                        .buttonStyle(.glassPill)
+                }
+            }
+        }
+    }
+
+    private func startAlarmTest() {
+        let seconds: TimeInterval = 5
+        Task {
+            guard await AlarmController.ringTestAlarm(in: seconds) else {
+                await refreshAlertStatus()
+                alarmTest = .refused
+                return
+            }
+            await refreshAlertStatus()
+            alarmTest = .counting(until: Date().addingTimeInterval(seconds))
+            // Ask once the alarm has had its moment (the person may still be looking at
+            // the full-screen alert; the question waits for them here).
+            try? await Task.sleep(for: .seconds(seconds + 3))
+            if case .counting = alarmTest { alarmTest = .asking }
+        }
     }
 
     /// D12 · A: "Sync with iCloud" — every timer, not only shared ones, follows the

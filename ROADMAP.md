@@ -102,9 +102,9 @@ Ranked by value ÷ effort, from competitor listings/reviews and Apple docs (rese
 | # | Feature | Effort | Flags | Notes |
 |---|---|---|---|---|
 | N1 | **Spoken cues for sequences** — phase name, "next: Rest", 3-2-1 beeps, optional ducking | M | L10n, S/? | The most-requested interval-app feature (Timer+, Seconds). Foreground / Keep Screen On only — AlarmKit alerts can't speak. AVSpeechSynthesizer + `.duckOthers`. Local preference, no wire. |
-| N2 | **"Test my alarm"** in Settings → Alerts | S | L10n | Fires a real 5 s AlarmKit alarm; positions Timer as the reliable one (Clock-app timer complaints on iOS 26; an AlarmKit 26.2 regression was reported, FB21273655). |
-| N3 | **Remove time** (−1:00 / −5) beside Extend | S | — | Timer+ has it. `extended(by:)` with a negative interval clamped at "now"; no wire change (endDate only). Watch + Siri intent parity. |
-| N4 | **History stats + CSV export** | S–M | L10n | Totals per label/sequence, fasting streaks; export via ShareLink. On device only. |
+| N2 | **"Test my alarm"** in Settings → Alerts — **built (pick B), branch `1.0.10`** | S | L10n | Fires a real 5 s AlarmKit alarm; positions Timer as the reliable one (Clock-app timer complaints on iOS 26; an AlarmKit 26.2 regression was reported, FB21273655). |
+| N3 | **Remove time** (−1:00 / −5) beside Extend — **built (pick A) for the detail screen and Messages; Watch + Siri still open** | S | — | Timer+ has it. `extended(by:)` with a negative interval clamped at "now"; no wire change (endDate only). Watch + Siri intent parity. |
+| N4 | **History stats + CSV export** — **built (pick B, Stats page)** | S–M | L10n | Totals per label/sequence, fasting streaks; export via ShareLink. On device only. |
 | N5 | **Folders/tags + a note per timer** | M | L10n (local) / W+CK if shared | Start local-only; sharing the note later needs W+CK. |
 | N6 | **"Days since" count-up** from a past date | M | W, CK | Needs a new kind or flag. Older apps reject an unknown `kind` (whole timer dropped) — ship as a new optional param/field with a countdown-compatible fallback, like `repeat`/`repeatRuleData`. |
 | N7 | **Stopwatch with laps** | M–L | W, CK, L10n | Same compat issue as N6; probably local-only first. |

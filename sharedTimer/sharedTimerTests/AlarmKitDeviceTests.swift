@@ -446,6 +446,21 @@ final class AlarmKitDeviceTests {
     /// reach AlarmKit) never fires or expires, so its Lock Screen card stays up. The
     /// launch sweep cancels it, and swaps a paused alarm whose stored timer is running
     /// for a counting-down one, while leaving every alarm a stored timer explains alone.
+    /// N2: Settings' "Test my alarm" arms a real AlarmKit alarm that belongs to no
+    /// stored timer — and the stray sweep must leave it to ring. 60 s here and cancelled
+    /// at once, so nothing rings during the run.
+    @Test func testAlarmIsArmedAndSurvivesTheStraySweep() async {
+        #expect(await AlarmController.ringTestAlarm(in: 60))
+        let id = AlarmController.testAlarmID
+        #expect(alarmsByID()[id]?.state == .countdown)
+        let cancelled = await AlarmController.cancelStrayAlarms()
+        #expect(!cancelled.contains(id))
+        #expect(alarmsByID()[id] != nil)
+        #expect(!TimerStore.loadAll().contains { $0.id == AlarmController.testAlarmTimerID })
+        try? AlarmManager.shared.cancel(id: id)
+        #expect(alarmsByID()[id] == nil)
+    }
+
     @Test func straySweepCancelsOrphanedAndStalePausedAlarms() async {
         let orphan = sequence(loops: 4, end: Date().addingTimeInterval(1500)).paused()
         created.append(orphan)

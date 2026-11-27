@@ -158,7 +158,8 @@ struct TimerDetailView: View {
                         // One merged glass shape for the pair (C8 · A).
                         GlassEffectContainer(spacing: 16) {
                             HStack(spacing: 12) {
-                                ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true })
+                                ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true },
+                                               canRemove: { payload.canShorten(by: $0) }, onRemove: { remove($0) })
 
                                 Button(payload.isPaused ? "Resume" : "Pause") {
                                     togglePause()
@@ -490,6 +491,12 @@ struct TimerDetailView: View {
         guard canChange() else { return }
         payload = payload.extended(by: interval)
         onUpdate(payload, "extended")
+    }
+
+    private func remove(_ interval: TimeInterval) {
+        guard canChange(), let shorter = payload.shortened(by: interval) else { return }
+        payload = shorter
+        onUpdate(payload, "shortened")
     }
 
     /// A countdown moved to a future date is running again: silence the finished
