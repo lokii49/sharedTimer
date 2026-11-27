@@ -676,6 +676,43 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
+    /// N3 through Siri: Remove Time moves the stored timer and re-arms the real alarm
+    /// (paused and running), and refuses what it can't take.
+    @Test @MainActor func siriRemoveTimeMovesTheRealAlarm() async {
+        let payload = TimerPayload(label: "Siri remove", duration: 600)
+        created.append(payload)
+        do {
+            let id = try #require(UUID(uuidString: payload.id))
+            TimerStore.save(payload)
+            await TimerArming.armAwaiting(payload)
+            let selection = TimerChoice(id: payload.id, label: payload.label)
+            var remove = RemoveTimeIntent()
+            remove.timer = selection
+            remove.minutes = 2
+            _ = try await remove.perform()
+            let shorter = try #require(TimerStore.loadAll().first { $0.id == payload.id })
+            #expect(abs(shorter.endDate.timeIntervalSince(payload.endDate) + 120) < 1)
+            #expect(alarmsByID()[id]?.state == .countdown)
+            #expect(abs((alarmsByID()[id]?.countdownDuration?.preAlert ?? 0) - shorter.remaining) < 3)
+
+            var pause = PauseTimerIntent()
+            pause.timer = selection
+            _ = try await pause.perform()
+            let frozen = try #require(TimerStore.loadAll().first { $0.id == payload.id }?.pausedRemaining)
+            remove.minutes = 1
+            _ = try await remove.perform()
+            let pausedShorter = try #require(TimerStore.loadAll().first { $0.id == payload.id })
+            #expect(abs((pausedShorter.pausedRemaining ?? 0) - (frozen - 60)) < 1)
+            #expect(alarmsByID()[id]?.state == .paused)
+
+            remove.minutes = 60
+            await #expect(throws: TimerIntentError.notEnoughTimeLeft) { _ = try await remove.perform() }
+        } catch {
+            Issue.record(error)
+        }
+        await tearDown()
+    }
+
     @Test @MainActor func siriIntentCatchesUpSequenceAndRearmsFuturePhases() async {
         let phases = [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 300)]
         let payload = TimerPayload(id: UUID().uuidString, label: "Work", endDate: Date().addingTimeInterval(-10), duration: 60, sequence: SequenceInfo(phases: phases, loopCount: 2, phaseIndex: 0, loopIndex: 0))
