@@ -36,6 +36,7 @@ struct SelectWatchTimerIntent: WidgetConfigurationIntent {
 struct WatchTimerEntry: TimelineEntry {
     let snapshot: WatchTimerSnapshot
     var date: Date { snapshot.date }
+    var relevance: TimelineEntryRelevance? { snapshot.relevance }
 }
 
 struct WatchTimerProvider: AppIntentTimelineProvider {

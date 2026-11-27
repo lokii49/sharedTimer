@@ -30,6 +30,16 @@ struct sharedTimerWatch_Watch_AppTests {
         #expect(entries[1].status == "Done")
         #expect(!entries[1].isRunning)
     }
+    @Test func smartStackRelevanceRanksTheLastHourFirst() {
+        let long = WatchTimerSnapshot.timeline([timer("roast", seconds: 7200)], id: nil, at: now)
+        #expect(long.map(\.date) == [now, now.addingTimeInterval(3600), now.addingTimeInterval(7200)])
+        #expect(long.map(\.relevance.score) == [50, 100, 0])
+        #expect(long[0].relevance.duration == 7200)
+        #expect(long[1].relevance.duration == 3600)
+        #expect(WatchTimerSnapshot.timeline([timer("tea", seconds: 100)], id: nil, at: now).map(\.relevance.score) == [100, 0])
+        #expect(WatchTimerSnapshot.select([timer("p", seconds: -1, paused: 60)], at: now).relevance.score == 10)
+        #expect(WatchTimerSnapshot.select([], at: now).relevance.score == 0)
+    }
     @Test func pausedCountdownIsFrozen() {
         let paused = timer("tea", seconds: -100, paused: 80)
         let entries = WatchTimerSnapshot.timeline([paused], id: "tea", at: now.addingTimeInterval(1000))
