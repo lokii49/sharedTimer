@@ -93,7 +93,7 @@ struct TimerFieldsView: View {
     /// full-screen ring.
     var notificationOnlyHere: Bool = false
     /// Extra rows under the Alarm/Vibrate toggles — the main app's reminder chips
-    /// (TimerReminders.swift is main-app only, so it comes in as a view).
+    /// (passed in, so each host decides when they apply — none for a sequence).
     var whenItEndsExtra: AnyView? = nil
 
     private let presets: [Double] = [1, 3, 5, 10, 15, 30, 60]
