@@ -267,5 +267,29 @@ struct SyncBaseTests {
         let before = try #require(CloudSyncController.plannedPush(local: plusOne, action: "extended", server: first, base: first).record)
         #expect(before["label"] as? String == "Pasta")
     }
+
+    @Test func aPushThatAdoptedTheServerCopyReturnsOnlyAfterTheReArm() async {
+        let log = OSAllocatedUnfairLock<[String]>(initialState: [])
+        let previous = CloudSyncController.rearmAdopted
+        CloudSyncController.rearmAdopted = { payload in
+            try? await Task.sleep(for: .milliseconds(50))
+            log.withLock { $0.append("armed \(payload.label)") }
+        }
+        await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+            CloudSyncController.finish(adopted: running()) {
+                log.withLock { $0.append("completed") }
+                done.resume()
+            }
+        }
+        // Nothing adopted: completes at once, no re-arm.
+        await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+            CloudSyncController.finish(adopted: nil) {
+                log.withLock { $0.append("completed plain") }
+                done.resume()
+            }
+        }
+        CloudSyncController.rearmAdopted = previous
+        #expect(log.withLock { $0 } == ["armed Pasta", "completed", "completed plain"])
+    }
 }
 

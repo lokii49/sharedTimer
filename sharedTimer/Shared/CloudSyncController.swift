@@ -778,7 +778,7 @@ enum CloudSyncController {
     /// `revertedToServer`; the notification service doesn't push.
     nonisolated(unsafe) static var rearmAdopted: (@Sendable (TimerPayload) async -> Void)?
 
-    private static func finish(adopted: TimerPayload?, _ completion: @escaping () -> Void) {
+    static func finish(adopted: TimerPayload?, _ completion: @escaping () -> Void) {
         guard let adopted, let rearm = rearmAdopted else { return completion() }
         Task {
             await rearm(adopted)
