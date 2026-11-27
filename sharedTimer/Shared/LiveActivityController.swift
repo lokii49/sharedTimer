@@ -138,9 +138,32 @@ enum LiveActivityController {
             // system still re-renders the card as stale, and TimerLiveActivityWidget
             // shows "Finished" (no buttons) instead of a frozen 0:00 for hours. For a
             // sequence that same re-render switches to the next phase in `upcoming`.
-            staleDate: payload.isPaused ? nil : payload.endDate
+            staleDate: payload.isPaused ? nil : payload.endDate,
+            relevanceScore: relevanceScore(for: payload)
         )
     }
+
+    /// Which of this app's cards the Dynamic Island shows and how the Lock Screen
+    /// orders them when several run at once: the running timer that finishes soonest
+    /// first, then any other running timer, then paused ones (least time left first),
+    /// then a lingering Finished card. Derived from the finish *time*, not the time
+    /// left, so cards updated at different moments still compare correctly without
+    /// re-scoring every card. Minute resolution keeps the values small (ActivityKit
+    /// documents no range; only the order matters). Only this app's custom card —
+    /// AlarmKit's own Live Activity takes no score.
+    static func relevanceScore(for payload: TimerPayload, at date: Date = Date()) -> Double {
+        let current = payload.advancedSequence(at: date)
+        if let remaining = current.pausedRemaining {
+            return 1_000_000 - min(max(0, (remaining / 60).rounded(.up)), 999_999)
+        }
+        guard current.endDate > date else { return 0 }
+        let minutesFromReference = (current.endDate.timeIntervalSince(relevanceReference) / 60).rounded(.up)
+        return 3_000_000 - min(max(0, minutesFromReference), 1_999_999)
+    }
+
+    /// 2026-01-01 UTC: finish times are counted in minutes from here (about 3.8 years
+    /// of range before far-off countdowns tie at the bottom of the running band).
+    private static let relevanceReference = Date(timeIntervalSince1970: 1_767_225_600)
 
     /// The run of quiet phases right after the current one — the only ones this card
     /// shows. A phase with either toggle on gets AlarmKit's own Live Activity, so the
