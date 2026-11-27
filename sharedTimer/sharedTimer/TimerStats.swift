@@ -83,6 +83,37 @@ enum TimerStats {
         return Array(totals.prefix(limit)) + [LabelTotal(label: otherLabel, time: rest.reduce(0) { $0 + $1.time }, runs: rest.reduce(0) { $0 + $1.runs })]
     }
 
+    /// Set-for time per bar for the day chart: one bar per day for Week (7) and Month
+    /// (30), one per week for All. Oldest first, empty days included (zero).
+    static func bars(_ entries: [TimerHistoryEntry], in period: StatsPeriod, now: Date, calendar: Calendar = .current) -> [(start: Date, time: TimeInterval)] {
+        let timed = entries.filter(isTimed)
+        let today = calendar.startOfDay(for: now)
+        let starts: [Date]
+        let unit: Calendar.Component
+        switch period {
+        case .week, .month:
+            let count = period == .week ? 7 : 30
+            starts = (0..<count).reversed().map { calendar.date(byAdding: .day, value: -$0, to: today)! }
+            unit = .day
+        case .all:
+            let thisWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? today
+            let oldest = timed.map(\.endedAt).min() ?? now
+            let firstWeek = calendar.dateInterval(of: .weekOfYear, for: oldest)?.start ?? thisWeek
+            var week = firstWeek
+            var list: [Date] = []
+            while week <= thisWeek && list.count < 60 {
+                list.append(week)
+                week = calendar.date(byAdding: .weekOfYear, value: 1, to: week)!
+            }
+            starts = list
+            unit = .weekOfYear
+        }
+        return starts.map { start in
+            let end = calendar.date(byAdding: unit, value: 1, to: start)!
+            return (start, timed.filter { $0.endedAt >= start && $0.endedAt < end && $0.endedAt <= now }.reduce(0) { $0 + $1.length })
+        }
+    }
+
     static func totalTime(_ entries: [TimerHistoryEntry]) -> TimeInterval {
         entries.filter(isTimed).reduce(0) { $0 + $1.length }
     }

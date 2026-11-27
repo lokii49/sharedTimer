@@ -187,9 +187,9 @@ final class sharedTimerUITests: XCTestCase {
         XCTAssertTrue(stats.waitForExistence(timeout: 5))
         stats.tap()
         // Section titles are drawn upper-case (skyLabel).
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label ==[c] 'Time by name'")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label ==[c] 'By name'")).firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts[label].exists)
-        XCTAssertTrue(app.buttons["Export"].exists)
+        XCTAssertTrue(app.buttons["exportButton"].exists)
         let statsShot = XCTAttachment(screenshot: app.screenshot())
         statsShot.name = "Stats"
         statsShot.lifetime = .keepAlways
@@ -451,6 +451,38 @@ final class sharedTimerUITests: XCTestCase {
         let endsAfter = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'ends at'")).firstMatch
         XCTAssertTrue(endsAfter.waitForExistence(timeout: 5))
         XCTAssertNotEqual(endsAfter.label, endsBefore, "the end time moves back a minute")
+    }
+
+    /// History redesign + Stats, on realistic seeded runs (simulator only — the seed
+    /// doesn't exist in device builds): screenshots of each screen for review.
+    @MainActor
+    func testHistoryAndStatsScreens() throws {
+        #if targetEnvironment(simulator)
+        let app = XCUIApplication()
+        app.launchArguments += ["-SeedHistory"] + (ProcessInfo.processInfo.environment["HISTORY_SHOT_ARGS"]?.components(separatedBy: " ") ?? [])
+        app.launch()
+        func shot(_ name: String) {
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        let history = app.buttons["historyButton"]
+        XCTAssertTrue(history.waitForExistence(timeout: 10))
+        history.tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Pomodoro'")).firstMatch.waitForExistence(timeout: 5))
+        shot("History")
+        app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Pomodoro'")).firstMatch.tap()
+        sleep(1)
+        shot("History group")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.buttons["statsButton"].tap()
+        XCTAssertTrue(app.buttons["exportButton"].waitForExistence(timeout: 5))
+        shot("Stats week")
+        // By position, so the test runs in any language.
+        app.segmentedControls.buttons.element(boundBy: 1).tap(); sleep(1); shot("Stats month")
+        app.segmentedControls.buttons.element(boundBy: 2).tap(); sleep(1); shot("Stats all")
+        #endif
     }
 
     @MainActor

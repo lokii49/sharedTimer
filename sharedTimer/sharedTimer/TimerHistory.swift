@@ -206,6 +206,86 @@ enum TimerHistory {
         NotificationCenter.default.post(name: changed, object: nil)
     }
 
+    /// Forget several runs at once (a grouped row).
+    static func remove(ids: Set<String>) {
+        lock.withLock { save(all().filter { !ids.contains($0.id) }) }
+        NotificationCenter.default.post(name: changed, object: nil)
+    }
+
+    /// Undo of a Forget: puts the runs back (the usual 90-day / 200-run rules apply).
+    static func restore(_ entries: [TimerHistoryEntry], now: Date = Date()) {
+        lock.withLock { save(merged(all(), adding: entries, now: now)) }
+        NotificationCenter.default.post(name: changed, object: nil)
+    }
+
+    // MARK: Grouping (History redesign, owner's pick A, 2026-11-27,
+    // https://claude.ai/artifact/UACWYmfb7fzjSVR77LZUim)
+
+    /// Runs of one timer on one day: the same name (ignoring case and surrounding
+    /// spaces), kind, length to the second and repeat — so an 8-minute and a 10-minute
+    /// Pasta stay apart. Newest run first.
+    struct Group: Identifiable, Hashable {
+        let day: Date
+        let entries: [TimerHistoryEntry]
+        var latest: TimerHistoryEntry { entries[0] }
+        var id: String { "\(Int(day.timeIntervalSince1970))|\(TimerHistory.groupKey(latest))" }
+    }
+
+    static func groupKey(_ entry: TimerHistoryEntry) -> String {
+        let name = entry.label.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let shape = entry.sequence.map { "seq\($0.phases.count)x\($0.loopCount)" } ?? entry.kind.rawValue
+        let repeats = entry.frequency?.rawValue ?? (entry.yearly ? "yearly" : "")
+        return "\(name)|\(shape)|\(Int(entry.length.rounded()))|\(repeats)"
+    }
+
+    /// Days newest first; within a day, groups by their newest run.
+    static func grouped(_ entries: [TimerHistoryEntry], calendar: Calendar = .current) -> [(day: Date, groups: [Group])] {
+        var days: [Date: [String: [TimerHistoryEntry]]] = [:]
+        for entry in entries {
+            days[calendar.startOfDay(for: entry.endedAt), default: [:]][groupKey(entry), default: []].append(entry)
+        }
+        return days.keys.sorted(by: >).map { day in
+            let groups = days[day]!.values
+                .map { Group(day: day, entries: $0.sorted { $0.endedAt > $1.endedAt }) }
+                .sorted { $0.latest.endedAt > $1.latest.endedAt }
+            return (day, groups)
+        }
+    }
+
+    /// When History is full (200 runs), the oldest run's end: earlier days aren't
+    /// empty, they just aren't kept. nil while everything from the last 90 days is here.
+    static func dataStart(_ entries: [TimerHistoryEntry]) -> Date? {
+        guard entries.count >= limit else { return nil }
+        return entries.map(\.endedAt).min()
+    }
+
+    #if DEBUG && targetEnvironment(simulator)
+    /// `-SeedHistory` (simulator screenshots only — never compiled for a phone, so a
+    /// UI test can't overwrite someone's real History): replaces History with realistic runs
+    /// — a busy Pomodoro day, two Pasta lengths, a fasting streak, a countdown.
+    static func seedForScreenshots(now: Date = Date()) {
+        func entry(_ label: String, minutes: Double, hoursAgo: Double, kind: TimerKind = .timer, phases: Int = 0) -> TimerHistoryEntry {
+            var payload: TimerPayload
+            if phases > 0 {
+                payload = .composeSequence(phases: (0..<phases).map { SequencePhase(label: $0 % 2 == 0 ? label : "Break", duration: $0 % 2 == 0 ? 1500 : 300) }, loopCount: 1)
+                payload.label = label
+            } else {
+                payload = TimerPayload(label: label, duration: minutes * 60, kind: kind)
+            }
+            return TimerHistoryEntry(payload, endedAt: now.addingTimeInterval(-hoursAgo * 3600))
+        }
+        var runs: [TimerHistoryEntry] = []
+        runs += (0..<12).map { entry("Pomodoro", minutes: 0, hoursAgo: 0.5 + Double($0) * 0.6, phases: 4) }
+        runs += [entry("Pasta", minutes: 8, hoursAgo: 5), entry("Pasta", minutes: 8, hoursAgo: 6), entry("Pasta", minutes: 8, hoursAgo: 7.5),
+                 entry("Pasta", minutes: 10, hoursAgo: 8), entry("Tea", minutes: 4, hoursAgo: 26),
+                 entry("Grandma's 90th birthday dinner at the lake house", minutes: 60 * 24 * 20, hoursAgo: 29, kind: .countdown)]
+        runs += (1...5).map { entry("16:8 fast", minutes: 960, hoursAgo: Double($0) * 24 - 6) }
+        runs += (2...9).map { entry("Run", minutes: 30, hoursAgo: Double($0) * 24 + 3) }
+        lock.withLock { save(merged([], adding: runs, now: now)) }
+        NotificationCenter.default.post(name: changed, object: nil)
+    }
+    #endif
+
     /// Posted on the main thread after the log changes.
     static let changed = Notification.Name("TimerHistory.changed")
 
