@@ -251,7 +251,8 @@ struct TimerRunningView: View {
             .preferredColorScheme(.dark)
         }
         .sheet(isPresented: $showingEdit) {
-            EditTimerSheet(payload: payload, notificationOnlyHere: true) { edited in
+            EditTimerSheet(payload: payload, notificationOnlyHere: true,
+                           alarmChangeWaitsForApp: TimerStore.isAlarmKitArmed(id: payload.id)) { edited in
                 // Same path as Pause and +1:00: the view-only re-check first.
                 guard latestForChange() != nil else { return }
                 // As the app's applyEdit: a finished countdown moved into the future

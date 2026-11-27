@@ -13890,6 +13890,64 @@
         }
       }
     },
+    "Open Timer to apply. Until then, its alarm rings as it was set." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 Timer 后才会生效。在此之前，闹钟仍按原来的设置响铃。"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "लागू करने के लिए Timer खोलें। तब तक अलार्म पहले जैसा ही बजेगा।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre Timer para aplicarlo. Hasta entonces, la alarma sonará como estaba configurada."
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "افتح Timer لتطبيق التغيير. حتى ذلك الحين، يرنّ المنبّه كما كان مضبوطًا."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrez Timer pour l’appliquer. D’ici là, l’alarme sonne comme elle était réglée."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "প্রয়োগ করতে Timer খুলুন। ততক্ষণ অ্যালার্ম আগের মতোই বাজবে।"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abra o Timer para aplicar. Até lá, o alarme toca como estava configurado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Откройте Timer, чтобы применить. До тех пор будильник зазвонит, как был настроен."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buka Timer untuk menerapkan. Sampai saat itu, alarm berbunyi seperti yang diatur."
+          }
+        }
+      }
+    },
     "Open timer details" : {
       "localizations" : {
         "ar" : {

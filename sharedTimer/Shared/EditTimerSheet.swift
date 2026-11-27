@@ -22,6 +22,9 @@ struct EditTimerSheet: View {
     var fullScreenAlarmsOff = false
     /// Messages: an extension can't use AlarmKit, so the footnote says it notifies.
     var notificationOnlyHere = false
+    /// Messages, for a timer the app arms through AlarmKit: an Alarm/Vibrate change made
+    /// here only reaches that full-screen alarm once Timer opens (owner's call).
+    var alarmChangeWaitsForApp = false
 
     @State private var label: String
     @State private var kind: TimerKind
@@ -34,11 +37,12 @@ struct EditTimerSheet: View {
     @FocusState private var labelFocused: Bool
 
     init(payload: TimerPayload, fullScreenAlarmsOff: Bool = false, notificationOnlyHere: Bool = false,
-         onSave: @escaping (TimerPayload) -> Void) {
+         alarmChangeWaitsForApp: Bool = false, onSave: @escaping (TimerPayload) -> Void) {
         _original = State(initialValue: payload)
         self.onSave = onSave
         self.fullScreenAlarmsOff = fullScreenAlarmsOff
         self.notificationOnlyHere = notificationOnlyHere
+        self.alarmChangeWaitsForApp = alarmChangeWaitsForApp
         _label = State(initialValue: payload.label)
         _kind = State(initialValue: payload.kind)
         _minutes = State(initialValue: payload.duration / 60)
@@ -119,6 +123,9 @@ struct EditTimerSheet: View {
                     targetDateDisabled: original.isPaused,
                     fullScreenAlarmsOff: fullScreenAlarmsOff,
                     notificationOnlyHere: notificationOnlyHere,
+                    whenItEndsNote: alarmChangeWaitsForApp
+                        && (alarmEnabled != original.alarmEnabled || vibrationEnabled != original.vibrationEnabled)
+                        ? Text("Open Timer to apply. Until then, its alarm rings as it was set.") : nil,
                     whenItEndsExtra: original.sequence == nil
                         ? AnyView(ReminderChips(kind: kind, span: kind == .timer ? original.span : max(0, targetDate.timeIntervalSince(original.endDate.addingTimeInterval(-original.duration))), selection: $reminders))
                         : nil

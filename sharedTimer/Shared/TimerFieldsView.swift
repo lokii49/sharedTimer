@@ -92,6 +92,9 @@ struct TimerFieldsView: View {
     /// opens (and arms the alarm) only a notification is scheduled — don't promise a
     /// full-screen ring.
     var notificationOnlyHere: Bool = false
+    /// Replaces the "When it ends" footnote — Messages' Edit sheet says an alarm change
+    /// waits for the app (it can't move an alarm the app set through AlarmKit).
+    var whenItEndsNote: Text? = nil
     /// Extra rows under the Alarm/Vibrate toggles — the main app's reminder chips
     /// (passed in, so each host decides when they apply — none for a sequence).
     var whenItEndsExtra: AnyView? = nil
@@ -130,7 +133,9 @@ struct TimerFieldsView: View {
         } header: {
             Text("When it ends")
         } footer: {
-            if fullScreenAlarmsOff && (alarmEnabled || vibrationEnabled) {
+            if let whenItEndsNote {
+                whenItEndsNote
+            } else if fullScreenAlarmsOff && (alarmEnabled || vibrationEnabled) {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Full-screen alarms are off for Timer, so this will only send a notification, which follows the silent switch.", systemImage: "exclamationmark.triangle.fill")
                     if let settings = URL(string: UIApplication.openSettingsURLString) {
