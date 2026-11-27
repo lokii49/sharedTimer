@@ -39,6 +39,8 @@ class MessagesViewController: MSMessagesAppViewController {
         // Activity to it too, as `persist` would.
         revertObserver = NotificationCenter.default.addObserver(forName: CloudSyncController.revertedToServer, object: nil, queue: .main) { note in
             guard let payload = note.object as? TimerPayload else { return }
+            // Reminders were re-planned for the refused change.
+            TimerReminders.sync(payload)
             NotificationScheduler.cancel(id: payload.id)
             guard !TimerStore.isAlarmKitArmed(id: payload.id) else { return }
             if payload.isPaused || payload.isExpired {
@@ -330,11 +332,17 @@ class MessagesViewController: MSMessagesAppViewController {
     private func persist(_ payload: TimerPayload, action: String) {
         // View-only share: only the clock-driven phase advance may be stored.
         guard action == "sequenceAdvanced" || !TimerStore.isReadOnly(id: payload.id) else { return }
+        // An edit that leaves the finish where it was (a rename, a toggle) on a timer the
+        // app arms through AlarmKit: that alarm still rings at the right time, so a
+        // notification and card from here would only double it until the app re-arms.
+        let prior = TimerStore.loadAll().first { $0.id == payload.id }
+        let appAlarmStillRight = action == "edited" && TimerStore.isAlarmKitArmed(id: payload.id)
+            && !TimerStore.finishMoved(from: prior, to: payload)
         TimerStore.save(payload)
         // Reminders were planned for the old finish: re-plan them for the new one (none
         // while paused). The app re-plans them too when it next arms this timer.
         if action != "sequenceAdvanced" { TimerReminders.sync(payload) }
-        if action != "sequenceAdvanced" || !TimerStore.isAlarmKitArmed(id: payload.id) {
+        if !appAlarmStillRight && (action != "sequenceAdvanced" || !TimerStore.isAlarmKitArmed(id: payload.id)) {
             NotificationScheduler.cancel(id: payload.id)
             if payload.isPaused {
                 LiveActivityController.update(for: payload)

@@ -56,9 +56,9 @@ struct TimerRunningView: View {
                 Sky.gradient(for: payload, at: context.date)
                     .ignoresSafeArea()
 
-                // Edit (owner's pick 3A): the app's sheet, shown when the app's detail
-                // screen shows its pencil — not for sequences or view-only shares.
-                if payload.sequence == nil && !readOnly {
+                // Edit (owner's pick 3A): the app's sheet; not for sequences. On a view-only
+                // share it's shown but disabled, like Pause (the mockup's rule).
+                if payload.sequence == nil {
                     VStack {
                         HStack {
                             Spacer()
@@ -70,6 +70,8 @@ struct TimerRunningView: View {
                                     .glassEffect(.regular.interactive(), in: Circle())
                             }
                             .buttonStyle(.plain)
+                            .disabled(readOnly)
+                            .opacity(readOnly ? 0.45 : 1)
                             .accessibilityLabel("Edit")
                             .padding(.trailing, 16)
                             .padding(.top, 12)

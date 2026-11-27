@@ -954,6 +954,60 @@
             "state": "new",
             "value": "%1$@ · ends %2$@"
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@结束"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@ पर समाप्त"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · termina %@"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · ينتهي %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · se termine %@"
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@ শেষ হবে"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · termina %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · закончится %@"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · berakhir %@"
+          }
         }
       }
     },
@@ -3959,6 +4013,60 @@
             "state": "new",
             "value": "Every %1$@ at %2$@ in %3$@."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每个%1$@ %2$@（%3$@）。"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हर %1$@ को %2$@ बजे, %3$@ में।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada %1$@ a las %2$@ en %3$@."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "كل %1$@ الساعة %2$@ في %3$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque %1$@ à %2$@ (%3$@)."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "প্রতি %1$@ %2$@-এ, %3$@ সময়ে।"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toda %1$@ às %2$@ em %3$@."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый %1$@ в %2$@ (%3$@)."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Setiap %1$@ pukul %2$@ di %3$@."
+          }
         }
       }
     },
@@ -3968,6 +4076,60 @@
           "stringUnit": {
             "state": "new",
             "value": "Every day at %1$@ in %2$@."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每天 %1$@（%2$@）。"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हर दिन %1$@ बजे, %2$@ में।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada día a las %1$@ en %2$@."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "كل يوم الساعة %1$@ في %2$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les jours à %1$@ (%2$@)."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "প্রতিদিন %1$@-এ, %2$@ সময়ে।"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo dia às %1$@ em %2$@."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый день в %1$@ (%2$@)."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Setiap hari pukul %1$@ di %2$@."
           }
         }
       }
@@ -3979,6 +4141,60 @@
             "state": "new",
             "value": "Every month on day %1$lld at %2$@ in %3$@."
           }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每月 %1$lld 日 %2$@（%3$@）。"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हर महीने %1$lld तारीख को %2$@ बजे, %3$@ में।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada mes el día %1$lld a las %2$@ en %3$@."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "كل شهر في اليوم %1$lld الساعة %2$@ في %3$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque mois le %1$lld à %2$@ (%3$@)."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "প্রতি মাসের %1$lld তারিখে %2$@-এ, %3$@ সময়ে।"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo mês no dia %1$lld às %2$@ em %3$@."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый месяц %1$lld-го числа в %2$@ (%3$@)."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Setiap bulan tanggal %1$lld pukul %2$@ di %3$@."
+          }
         }
       }
     },
@@ -3988,6 +4204,60 @@
           "stringUnit": {
             "state": "new",
             "value": "Every month on day %1$lld at %2$@ in %3$@. Shorter months use their last day."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每月 %1$lld 日 %2$@（%3$@）。天数较少的月份使用最后一天。"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हर महीने %1$lld तारीख को %2$@ बजे, %3$@ में। छोटे महीनों में आखिरी दिन।"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada mes el día %1$lld a las %2$@ en %3$@. Los meses más cortos usan su último día."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "كل شهر في اليوم %1$lld الساعة %2$@ في %3$@. تستخدم الأشهر الأقصر آخر يوم فيها."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque mois le %1$lld à %2$@ (%3$@). Les mois plus courts utilisent leur dernier jour."
+          }
+        },
+        "bn": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "প্রতি মাসের %1$lld তারিখে %2$@-এ, %3$@ সময়ে। ছোট মাসে শেষ দিন।"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo mês no dia %1$lld às %2$@ em %3$@. Meses mais curtos usam o último dia."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый месяц %1$lld-го числа в %2$@ (%3$@). В коротких месяцах — в последний день."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Setiap bulan tanggal %1$lld pukul %2$@ di %3$@. Bulan yang lebih pendek memakai hari terakhirnya."
           }
         }
       }
