@@ -14,6 +14,10 @@ enum NotificationScheduler {
     /// it in every target that compiles this is harmless — an unregistered category just renders with
     /// no action buttons, so Messages/Clip notifications degrade silently.
     static let vibrationFinishCategoryID = "SHAREDTIMER_VIBRATION_FINISH"
+    /// N10 Focus filter: `filterCriteria` on the notifications a Focus may mute
+    /// (`TimerFocusFilter`). Untagged ones — finish alerts — always come through.
+    static let headsUpCriteria = "headsUp"
+    static let sharedUpdateCriteria = "sharedUpdate"
 
     /// Posted (main queue) whenever a schedule attempt finds notification permission
     /// denied, so a foreground surface can tell the person their backgrounded timers

@@ -5146,6 +5146,64 @@
         }
       }
     },
+    "All Timer notifications" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有 Timer 通知"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timer की सभी सूचनाएँ"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todas las notificaciones de Timer"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "كل إشعارات Timer"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toutes les notifications de Timer"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timer-এর সব নোটিফিকেশন"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todas as notificações do Timer"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Все уведомления Timer"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Semua notifikasi Timer"
+          }
+        }
+      }
+    },
     "Allow Calendar access in Settings to choose an event. You can also enter a date yourself." : {
       "localizations" : {
         "ar" : {
@@ -6071,6 +6129,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择未来一年内的一个日程。它的标题和开始时间将成为你的倒计时；日历保持不变。"
+          }
+        }
+      }
+    },
+    "Choose which Timer notifications stay quiet during this Focus. Alarms and “Time’s up” always come through." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择在此专注模式下哪些 Timer 通知保持安静。闹钟和“时间到”始终会提醒。"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "चुनें कि इस फ़ोकस के दौरान Timer की कौन-सी सूचनाएँ शांत रहें। अलार्म और “समय पूरा” हमेशा आते हैं।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige qué notificaciones de Timer se silencian durante este modo de concentración. Las alarmas y “Se acabó el tiempo” siempre llegan."
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "اختر إشعارات Timer التي تبقى صامتة أثناء وضع التركيز هذا. تصل المنبّهات و«انتهى الوقت» دائمًا."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez les notifications de Timer qui restent silencieuses pendant ce mode de concentration. Les alarmes et « Temps écoulé » passent toujours."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই ফোকাসে Timer-এর কোন নোটিফিকেশন চুপ থাকবে তা বেছে নিন। অ্যালার্ম ও “সময় শেষ” সবসময় আসবে।"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escolha quais notificações do Timer ficam em silêncio durante este Foco. Alarmes e “Tempo esgotado” sempre chegam."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выберите, какие уведомления Timer будут беззвучными в этом режиме фокусирования. Будильники и «Время вышло» приходят всегда."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilih notifikasi Timer mana yang tetap senyap selama Fokus ini. Alarm dan “Waktu habis” selalu masuk."
           }
         }
       }
@@ -8168,16 +8284,16 @@
     },
     "Ends" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "结束时间"
+            "value" : "ينتهي"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "समाप्ति"
+            "value" : "শেষ হয়"
           }
         },
         "es" : {
@@ -8186,22 +8302,22 @@
             "value" : "Termina"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ينتهي"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fin"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "শেষ হয়"
+            "value" : "समाप्ति"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Berakhir"
           }
         },
         "pt-BR" : {
@@ -8216,10 +8332,10 @@
             "value" : "Окончание"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Berakhir"
+            "value" : "结束时间"
           }
         }
       }
@@ -10226,6 +10342,122 @@
         }
       }
     },
+    "Heads-up reminders" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前提醒"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "पहले से रिमाइंडर"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avisos previos"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تذكيرات مسبقة"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rappels anticipés"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "আগাম রিমাইন্ডার"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lembretes antecipados"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Предварительные напоминания"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pengingat awal"
+          }
+        }
+      }
+    },
+    "Heads-up reminders, no shared-timer updates" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前提醒，不含共享计时器更新"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "पहले से रिमाइंडर, साझा टाइमर अपडेट नहीं"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avisos previos, sin novedades de temporizadores compartidos"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تذكيرات مسبقة، دون تحديثات المؤقتات المشتركة"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rappels anticipés, sans les nouvelles des minuteurs partagés"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "আগাম রিমাইন্ডার, শেয়ার করা টাইমারের আপডেট নয়"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lembretes antecipados, sem novidades de timers compartilhados"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Предварительные напоминания, без новостей общих таймеров"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pengingat awal, tanpa kabar timer bersama"
+          }
+        }
+      }
+    },
     "Hide QR Code" : {
       "localizations" : {
         "ar" : {
@@ -11041,16 +11273,16 @@
     },
     "Kind" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "类型"
+            "value" : "النوع"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "प्रकार"
+            "value" : "ধরন"
           }
         },
         "es" : {
@@ -11059,22 +11291,22 @@
             "value" : "Tipo"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "النوع"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Type"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ধরন"
+            "value" : "प्रकार"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jenis"
           }
         },
         "pt-BR" : {
@@ -11089,10 +11321,10 @@
             "value" : "Тип"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Jenis"
+            "value" : "类型"
           }
         }
       }
@@ -13828,6 +14060,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "只有所有者可以暂停或更改此计时器。"
+          }
+        }
+      }
+    },
+    "Only when a timer ends" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅在计时结束时"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "सिर्फ़ टाइमर खत्म होने पर"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo cuando termina un temporizador"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "فقط عند انتهاء مؤقت"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seulement quand un minuteur se termine"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "শুধু টাইমার শেষ হলে"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Só quando um timer termina"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Только когда таймер заканчивается"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hanya saat timer selesai"
           }
         }
       }
@@ -17977,16 +18267,16 @@
     },
     "Running" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "运行中"
+            "value" : "قيد التشغيل"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "चल रहा है"
+            "value" : "চলছে"
           }
         },
         "es" : {
@@ -17995,22 +18285,22 @@
             "value" : "En marcha"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "قيد التشغيل"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "En cours"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "চলছে"
+            "value" : "चल रहा है"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Berjalan"
           }
         },
         "pt-BR" : {
@@ -18025,10 +18315,10 @@
             "value" : "Идёт"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Berjalan"
+            "value" : "运行中"
           }
         }
       }
@@ -19889,6 +20179,122 @@
         }
       }
     },
+    "Shared-timer updates" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享计时器更新"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "साझा टाइमर अपडेट"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Novedades de temporizadores compartidos"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحديثات المؤقتات المشتركة"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouvelles des minuteurs partagés"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "শেয়ার করা টাইমারের আপডেট"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Novidades de timers compartilhados"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новости общих таймеров"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kabar timer bersama"
+          }
+        }
+      }
+    },
+    "Shared-timer updates, no heads-up reminders" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享计时器更新，不含提前提醒"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "साझा टाइमर अपडेट, पहले से रिमाइंडर नहीं"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Novedades de temporizadores compartidos, sin avisos previos"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تحديثات المؤقتات المشتركة، دون تذكيرات مسبقة"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouvelles des minuteurs partagés, sans rappels anticipés"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "শেয়ার করা টাইমারের আপডেট, আগাম রিমাইন্ডার নয়"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Novidades de timers compartilhados, sem lembretes antecipados"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новости общих таймеров, без предварительных напоминаний"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kabar timer bersama, tanpa pengingat awal"
+          }
+        }
+      }
+    },
     "Share…" : {
       "localizations" : {
         "ar" : {
@@ -21463,16 +21869,16 @@
     },
     "State" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "状态"
+            "value" : "الحالة"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "स्थिति"
+            "value" : "অবস্থা"
           }
         },
         "es" : {
@@ -21481,22 +21887,22 @@
             "value" : "Estado"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الحالة"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "État"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "অবস্থা"
+            "value" : "स्थिति"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
           }
         },
         "pt-BR" : {
@@ -21511,10 +21917,10 @@
             "value" : "Состояние"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Status"
+            "value" : "状态"
           }
         }
       }

@@ -126,6 +126,7 @@ enum TimerReminders {
                 content.body = String(localized: "\(reminder.body) · ends \(end.formatted(date: .omitted, time: .shortened))")
                 content.sound = .default
                 content.userInfo["timerID"] = id
+                content.filterCriteria = NotificationScheduler.headsUpCriteria
                 let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, wait), repeats: false)
                 center.add(UNNotificationRequest(identifier: identifier(id, reminder), content: content, trigger: trigger))
             }
