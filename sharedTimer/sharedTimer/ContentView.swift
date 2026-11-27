@@ -685,6 +685,13 @@ struct ContentView: View {
             LiveActivityController.start(for: payload)
         }
 
+        // The full-screen alarm was dismissed (its Stop never reaches the app): end the
+        // "+10:00" count as the in-app Stop would. Lists, detail, Messages and the Clip
+        // all read the same acknowledgment.
+        for id in AlarmController.dismissedFinishes(timers, at: date) {
+            TimerStore.acknowledgeFinish(id: id)
+        }
+
         let stillRunning = Set(timers.filter { !$0.isExpired }.map(\.id))
         let justFinished = armedIDs.subtracting(stillRunning)
         if stillRunning != armedIDs { armedIDs = stillRunning }

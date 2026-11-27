@@ -72,3 +72,20 @@ extension RemoveTimeTests {
         }
     }
 }
+
+/// Overtime ends once the full-screen alarm was dismissed (`AlarmController.wasDismissed`).
+struct DismissedAlarmTests {
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    @Test func onlyAnArmedFiredAndGoneAlarmCountsAsDismissed() {
+        let fired = now.addingTimeInterval(-90)
+        #expect(AlarmController.wasDismissed(armed: true, intendedEnd: fired, alarmListed: false, at: now))
+        // Still ringing (listed as alerting) or restarted by Repeat (listed again).
+        #expect(!AlarmController.wasDismissed(armed: true, intendedEnd: fired, alarmListed: true, at: now))
+        // Never armed here, or the flag was cleared by a re-arm.
+        #expect(!AlarmController.wasDismissed(armed: false, intendedEnd: fired, alarmListed: false, at: now))
+        // Not due yet (cancelled early), or no record of when it was due.
+        #expect(!AlarmController.wasDismissed(armed: true, intendedEnd: now.addingTimeInterval(30), alarmListed: false, at: now))
+        #expect(!AlarmController.wasDismissed(armed: true, intendedEnd: nil, alarmListed: false, at: now))
+    }
+}

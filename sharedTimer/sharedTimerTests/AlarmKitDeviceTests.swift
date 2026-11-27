@@ -446,6 +446,30 @@ final class AlarmKitDeviceTests {
     /// reach AlarmKit) never fires or expires, so its Lock Screen card stays up. The
     /// launch sweep cancels it, and swaps a paused alarm whose stored timer is running
     /// for a counting-down one, while leaving every alarm a stored timer explains alone.
+    /// Overtime ends after the full-screen alarm is dismissed (owner's call 2026-11-27):
+    /// while it rings it isn't "dismissed"; after the system Stop (`AlarmManager.stop`,
+    /// what the alert's Stop button does) it is.
+    @Test func aStoppedFullScreenAlarmEndsTheOvertimeCount() async {
+        let payload = TimerPayload(label: "Overtime stop test", duration: 3, alarmEnabled: true, vibrationEnabled: false)
+        created.append(payload)
+        TimerStore.save(payload)
+        await AlarmController.rescheduleAwaiting(for: payload)
+        let id = UUID(uuidString: payload.id)!
+        #expect(TimerStore.isAlarmKitArmed(id: payload.id))
+        guard await waitForRinging([id], seconds: 15) else {
+            Issue.record("the alarm never rang")
+            await tearDown()
+            return
+        }
+        #expect(AlarmController.dismissedFinishes([payload]).isEmpty, "ringing is not dismissed")
+        try? AlarmManager.shared.stop(id: id)
+        await waitUntil { alarmsByID()[id] == nil }
+        #expect(AlarmController.dismissedFinishes([payload]) == [payload.id])
+        TimerStore.acknowledgeFinish(id: payload.id)
+        #expect(AlarmController.dismissedFinishes([payload]).isEmpty, "acknowledged once")
+        await tearDown()
+    }
+
     /// N2: Settings' "Test my alarm" arms a real AlarmKit alarm that belongs to no
     /// stored timer — and the stray sweep must leave it to ring. 60 s here and cancelled
     /// at once, so nothing rings during the run.

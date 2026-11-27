@@ -495,6 +495,35 @@ enum AlarmController {
     /// remaining time for a plain countdown, so this is the only way to tell whether a
     /// running alarm still matches the payload (keep it, don't re-create) and how much
     /// time it really has left when it's paused late.
+    // MARK: - Overtime after a dismissed alarm (owner's call, 2026-11-27)
+
+    /// A finished timer counts "+10:00" until Stop acknowledges it. With AlarmKit the
+    /// Stop is the system's button, which the app is never told about, so the count used
+    /// to run on for the full hour. An alarm that was armed here, whose fire time has
+    /// passed and which is no longer in AlarmKit's list was dismissed — a ringing one is
+    /// still listed (`.alerting`), and a Repeat from the alert lists it again counting
+    /// down. Never-armed / re-armed timers (the flag is cleared on every reschedule) keep
+    /// the old behaviour.
+    static func wasDismissed(armed: Bool, intendedEnd: Date?, alarmListed: Bool, at date: Date) -> Bool {
+        guard armed, !alarmListed, let intendedEnd else { return false }
+        return intendedEnd <= date
+    }
+
+    /// Ids of finished plain timers/countdowns still counting overtime whose full-screen
+    /// alarm was dismissed. Reads AlarmKit only when there is such a timer.
+    static func dismissedFinishes(_ payloads: [TimerPayload], at date: Date = Date()) -> [String] {
+        let candidates = payloads.filter {
+            $0.overtime(at: date) != nil && !TimerStore.isFinishAcknowledged(id: $0.id) && TimerStore.isAlarmKitArmed(id: $0.id)
+        }
+        guard !candidates.isEmpty, AlarmManager.shared.authorizationState == .authorized,
+              let alarms = try? AlarmManager.shared.alarms else { return [] }
+        let listed = Set(alarms.map(\.id))
+        return candidates.filter { payload in
+            let id = alarmID(for: payload.id)
+            return wasDismissed(armed: true, intendedEnd: intendedEnd(for: id), alarmListed: listed.contains(id), at: date)
+        }.map(\.id)
+    }
+
     private static func intendedEnd(for id: UUID) -> Date? {
         ((UserDefaults(suiteName: "group.com.lokesh.sharedTimer")?.dictionary(forKey: intendedEndKey) as? [String: Double])?[id.uuidString])
             .map(Date.init(timeIntervalSince1970:))
