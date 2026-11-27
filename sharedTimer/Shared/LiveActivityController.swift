@@ -133,7 +133,8 @@ enum LiveActivityController {
             state: TimerActivityAttributes.ContentState(
                 endDate: payload.endDate, pausedRemaining: payload.pausedRemaining,
                 label: TimerPayload.clampedLabel(payload.label, maxBytes: 256), kind: payload.kind, upcoming: upcomingQuietPhases(of: payload),
-                noOvertime: payload.sequence != nil || payload.recurrence != nil ? true : nil),
+                noOvertime: payload.sequence != nil || payload.recurrence != nil ? true : nil,
+                span: payload.span),
             // Stale at the finish moment: when the app isn't running to end it, the
             // system still re-renders the card as stale, and TimerLiveActivityWidget
             // shows "Finished" (no buttons) instead of a frozen 0:00 for hours. For a

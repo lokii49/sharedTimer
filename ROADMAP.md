@@ -115,7 +115,7 @@ Ranked by value ÷ effort, from competitor listings/reviews and Apple docs (rese
 | N12 | **More tones** (+4, IMA4 ≈ 75 KB × 4 targets) | S | L10n | Imported sounds unverified with AlarmKit `.named` (Library/Sounds). |
 | N13 | **Photo background per countdown** | M | P? (local only = none) | Keep on device; CKAsset only if shared. |
 | N15 | **Stale pushes can't overwrite newer changes** | M | — (no new field if the base lives on device) | Keep per timer the record change tag + timing fields this device last synced; `pushUp` writes only what changed since that base and keeps a newer server change. Found by the real-iCloud clash test above. |
-| N14 | **iOS 27 checks**: landscape Dynamic Island (`isDynamicIslandLimitedInWidth`), StandBy tint, Mac menu-bar Live Activity, Watch Control Center showing `StartRecentTimerControl` | S | — | Build is on the iOS 27.2 SDK; verify WWDC26 APIs before adopting. |
+| N14 | **iOS 27 checks**: landscape Dynamic Island (`isDynamicIslandLimitedInWidth`) — **done on branch `di-narrow` (ring when limited, simulator-verified)**, StandBy tint, Mac menu-bar Live Activity, Watch Control Center showing `StartRecentTimerControl` | S | — | Build is on the iOS 27.2 SDK; verify WWDC26 APIs before adopting. |
 
 **Do not pursue (privacy label "Data Not Collected"):** widget/Live Activity push updates (needs our server + push tokens), anything server-synced. HealthKit workouts (L) stay on device and likely keep the label, but confirm Apple's definition first.
 

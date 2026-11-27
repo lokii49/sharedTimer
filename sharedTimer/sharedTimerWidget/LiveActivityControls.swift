@@ -12,6 +12,7 @@
 
 import AppIntents
 import SwiftUI
+import WidgetKit
 
 /// Glyph colour for the round controls. White on the skies (custom Live Activity, home
 /// widgets, Dynamic Island); the AlarmKit card sits on the system's Lock Screen
@@ -147,3 +148,54 @@ struct PauseToggle: View {
         .accessibilityLabel(isPaused ? "Resume" : "Pause")
     }
 }
+
+// MARK: - Narrow Dynamic Island (iOS 27)
+
+/// The compact trailing slot: `wide` normally, `narrow` when iOS 27 reports the island
+/// is limited in width (landscape) — `EnvironmentValues.isDynamicIslandLimitedInWidth`,
+/// iOS 27 only, so it is read behind `#available` (deployment target is 26.1).
+struct NarrowIslandAware<Wide: View, Narrow: View>: View {
+    @ViewBuilder let wide: () -> Wide
+    @ViewBuilder let narrow: () -> Narrow
+
+    var body: some View {
+        if #available(iOS 27.0, *) {
+            LimitedWidthReader(wide: wide, narrow: narrow)
+        } else {
+            wide()
+        }
+    }
+}
+
+@available(iOS 27.0, *)
+private struct LimitedWidthReader<Wide: View, Narrow: View>: View {
+    @Environment(\.isDynamicIslandLimitedInWidth) private var limited
+    let wide: () -> Wide
+    let narrow: () -> Narrow
+
+    var body: some View {
+        if limited { narrow() } else { wide() }
+    }
+}
+
+/// A draining ring for the narrow compact slot (owner's pick, 2026-11-27): live while
+/// running (`interval`), frozen at `fraction` left when paused or finished.
+struct CompactRing: View {
+    var interval: ClosedRange<Date>? = nil
+    var fraction: Double? = nil
+    let tint: Color
+
+    var body: some View {
+        Group {
+            if let fraction {
+                ProgressView(value: min(1, max(0, fraction)))
+            } else if let interval {
+                ProgressView(timerInterval: interval, countsDown: true, label: { EmptyView() }, currentValueLabel: { EmptyView() })
+            }
+        }
+        .progressViewStyle(.circular)
+        .tint(tint)
+        .frame(width: 22, height: 22)
+    }
+}
+
