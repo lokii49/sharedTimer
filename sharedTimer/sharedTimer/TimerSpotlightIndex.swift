@@ -1,3 +1,4 @@
+import AppIntents
 import CoreSpotlight
 import Foundation
 import UniformTypeIdentifiers
@@ -10,9 +11,12 @@ struct TimerSpotlightEntry: Equatable {
     let keywords: [String]
     let expirationDate: Date
     let modifiedAt: Date?
+    /// N9: the Siri/Shortcuts entity this result is — linked, not indexed a second time.
+    var entity: TimerChoice? = nil
 
     func searchableItem(domain: String) -> CSSearchableItem {
         let attributes = CSSearchableItemAttributeSet(contentType: .text)
+        if let entity { attributes.associateAppEntity(entity) }
         attributes.title = title
         attributes.contentDescription = description
         attributes.keywords = keywords
@@ -148,7 +152,8 @@ final class TimerSpotlightIndex: NSObject, CSSearchableIndexDelegate {
             }
             guard expiry > date else { return nil }
             let keywords = ["timer", type.lowercased()] + (payload.sequence?.phases.map(\.label) ?? [])
-            return TimerSpotlightEntry(timerID: payload.id, title: payload.label, description: description, keywords: keywords, expirationDate: expiry, modifiedAt: payload.updatedAt)
+            return TimerSpotlightEntry(timerID: payload.id, title: payload.label, description: description, keywords: keywords, expirationDate: expiry, modifiedAt: payload.updatedAt,
+                                       entity: TimerChoice(payload: payload, at: date))
         }
     }
 

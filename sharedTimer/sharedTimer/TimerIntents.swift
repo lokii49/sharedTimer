@@ -117,7 +117,7 @@ enum TimerIntentError: LocalizedError, Equatable {
     }
 }
 
-struct PauseTimerIntent: AppIntent {
+struct PauseTimerIntent: AppIntent, UndoableIntent {
     static let title: LocalizedStringResource = "Pause Timer"
     static let description = IntentDescription("Pause a timer, countdown, or the current sequence phase.")
     @Parameter(title: "Timer") var timer: TimerChoice
@@ -126,11 +126,12 @@ struct PauseTimerIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let payload = try await TimerIntentActions.perform(timerID: timer.id, mutation: .pause)
+        IntentUndo.register(undoManager, timerID: timer.id, did: .pause)
         return .result(dialog: "\(payload.label) is paused with \(TimerIntentActions.spokenTime(payload.remaining)) left.")
     }
 }
 
-struct ResumeTimerIntent: AppIntent {
+struct ResumeTimerIntent: AppIntent, UndoableIntent {
     static let title: LocalizedStringResource = "Resume Timer"
     static let description = IntentDescription("Resume a paused timer, countdown, or sequence phase.")
     @Parameter(title: "Timer") var timer: TimerChoice
@@ -139,11 +140,12 @@ struct ResumeTimerIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let payload = try await TimerIntentActions.perform(timerID: timer.id, mutation: .resume)
+        IntentUndo.register(undoManager, timerID: timer.id, did: .resume)
         return .result(dialog: "\(payload.label) is running with \(TimerIntentActions.spokenTime(payload.remaining)) left.")
     }
 }
 
-struct ExtendTimerIntent: AppIntent {
+struct ExtendTimerIntent: AppIntent, UndoableIntent {
     static let title: LocalizedStringResource = "Extend Timer"
     static let description = IntentDescription("Add time to a running or paused timer, countdown, or current sequence phase.")
     @Parameter(title: "Timer") var timer: TimerChoice
@@ -153,6 +155,7 @@ struct ExtendTimerIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let payload = try await TimerIntentActions.perform(timerID: timer.id, mutation: .extend(minutes: minutes))
+        IntentUndo.register(undoManager, timerID: timer.id, did: .extend(minutes: minutes))
         if payload.isPaused {
             return .result(dialog: "Added \(TimerIntentActions.spokenTime(minutes * 60)) to \(payload.label). It is still paused with \(TimerIntentActions.spokenTime(payload.remaining)) left.")
         }
@@ -161,7 +164,7 @@ struct ExtendTimerIntent: AppIntent {
 }
 
 /// N3 for Siri and Shortcuts: take minutes off a running or paused timer.
-struct RemoveTimeIntent: AppIntent {
+struct RemoveTimeIntent: AppIntent, UndoableIntent {
     static let title: LocalizedStringResource = "Remove Time"
     static let description = IntentDescription("Take time off a running or paused timer, countdown, or current sequence phase. Never all of it, and not a repeating countdown.")
     @Parameter(title: "Timer") var timer: TimerChoice
@@ -171,6 +174,7 @@ struct RemoveTimeIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let payload = try await TimerIntentActions.perform(timerID: timer.id, mutation: .shorten(minutes: minutes))
+        IntentUndo.register(undoManager, timerID: timer.id, did: .shorten(minutes: minutes))
         if payload.isPaused {
             return .result(dialog: "Removed \(TimerIntentActions.spokenTime(minutes * 60)) from \(payload.label). It is still paused with \(TimerIntentActions.spokenTime(payload.remaining)) left.")
         }
@@ -250,5 +254,37 @@ struct TimerShortcuts: AppShortcutsProvider {
             shortTitle: "Time Remaining",
             systemImageName: "clock"
         )
+    }
+}
+
+/// N9: Pause, Resume, Add Time and Remove Time register their opposite with the undo
+/// manager the system hands an `UndoableIntent` (nil when there is none — then nothing
+/// is registered). The undo runs later, from the app's own undo (shake), through the
+/// same checked path, so it's refused if the timer moved on (finished, deleted, view only).
+@MainActor
+enum IntentUndo {
+    private final class Target: NSObject {}
+    private static let target = Target()
+
+    /// The change that undoes `mutation`, and the name the undo menu shows for it.
+    static func inverse(of mutation: TimerIntentActions.Mutation) -> (TimerIntentActions.Mutation, String) {
+        switch mutation {
+        case .pause: (.resume, String(localized: "Pause"))
+        case .resume: (.pause, String(localized: "Resume"))
+        case .extend(let minutes): (.shorten(minutes: minutes), String(localized: "Add Time"))
+        case .shorten(let minutes): (.extend(minutes: minutes), String(localized: "Remove time"))
+        }
+    }
+
+    static func register(_ undoManager: UndoManager?, timerID: String, did mutation: TimerIntentActions.Mutation,
+                         perform: @escaping @MainActor (String, TimerIntentActions.Mutation) async -> Void = { id, change in
+                             _ = try? await TimerIntentActions.perform(timerID: id, mutation: change)
+                         }) {
+        guard let undoManager else { return }
+        let (inverse, name) = inverse(of: mutation)
+        undoManager.registerUndo(withTarget: target) { _ in
+            Task { @MainActor in await perform(timerID, inverse) }
+        }
+        undoManager.setActionName(name)
     }
 }
