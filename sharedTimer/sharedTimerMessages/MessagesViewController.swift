@@ -54,6 +54,9 @@ class MessagesViewController: MSMessagesAppViewController {
     }
 
     override func willBecomeActive(with conversation: MSConversation) {
+        #if DEBUG
+        Self.debugLog("willBecomeActive selected=\(conversation.selectedMessage.flatMap { TimerPayload.from(url: $0.url)?.id.prefix(8) } ?? "nil") session=\(conversation.selectedMessage?.session.map { "\($0.hash)|\($0)" } ?? "nil")")
+        #endif
         presentView(for: conversation)
         if presentationStyle == .compact {
             requestPresentationStyle(.expanded)
@@ -77,7 +80,25 @@ class MessagesViewController: MSMessagesAppViewController {
 
     /// The person tapped another bubble while the extension is open (expanded or
     /// compact): show that one — an explicit choice, so even one left earlier.
+    #if DEBUG
+    /// M11: whether a re-share continued the bubble's MSSession. Read from the App Group
+    /// (`debugMessagesLog`) with `devicectl … copy from --domain-type appGroupDataContainer`.
+    static func debugLog(_ line: String) {
+        let defaults = UserDefaults(suiteName: "group.com.lokesh.sharedTimer")
+        var log = defaults?.stringArray(forKey: "debugMessagesLog") ?? []
+        log.append("\(Date().formatted(date: .omitted, time: .standard)) \(line)")
+        defaults?.set(Array(log.suffix(40)), forKey: "debugMessagesLog")
+    }
+
+    override func didStartSending(_ message: MSMessage, conversation: MSConversation) {
+        Self.debugLog("didStartSending session=\(message.session.map { "\($0.hash)|\($0)" } ?? "nil") timer=\(TimerPayload.from(url: message.url)?.id.prefix(8) ?? "nil")")
+    }
+    #endif
+
     override func didSelect(_ message: MSMessage, conversation: MSConversation) {
+        #if DEBUG
+        Self.debugLog("didSelect message=\(TimerPayload.from(url: message.url)?.id.prefix(8) ?? "nil") conversationSelected=\(conversation.selectedMessage.flatMap { TimerPayload.from(url: $0.url)?.id.prefix(8) } ?? "nil")")
+        #endif
         leftMessageURL = nil
         if let id = TimerPayload.from(url: message.url)?.id { deletedHere.remove(id) }
         presentView(for: conversation)
@@ -204,6 +225,9 @@ class MessagesViewController: MSMessagesAppViewController {
         let root = AnyView(TimerRunningView(
             payload: payload,
             onNewTimer: { [weak self] in
+                #if DEBUG
+                Self.debugLog("newTimer selected=\(self?.activeConversation?.selectedMessage.flatMap { TimerPayload.from(url: $0.url)?.id.prefix(8) } ?? "nil")")
+                #endif
                 self?.leftMessageURL = self?.activeConversation?.selectedMessage?.url
                 self?.presentComposeView()
             },
@@ -376,14 +400,18 @@ class MessagesViewController: MSMessagesAppViewController {
             }
 
         case .appCard:
-            // Re-sharing from this timer's own bubble continues that bubble's session; a
-            // new card starts its own. A forum thread says a newer message in a session
-            // collapses the older one; on iOS 27 (iPhone 13, iMessage, 2026-11-27) both
-            // cards stayed full, cause unconfirmed (whether this path reused the session
-            // wasn't logged — ROADMAP M11). Don't promise the collapse anywhere.
+            // Re-sharing while this timer's own card is the selected message continues its
+            // session, and Messages collapses the older card to its summary (seen in the
+            // simulator, iOS 27.2, 2026-11-27). Only then: reusing the same session (even
+            // the same session id, archived) without the card selected leaves both cards
+            // full — checked both ways (M11). A new card starts its own session.
             let selected = conversation.selectedMessage
-            let sameTimer = selected.flatMap { TimerPayload.from(url: $0.url)?.id } == payload.id
-            let message = MSMessage(session: (sameTimer ? selected?.session : nil) ?? MSSession())
+            let selectedSession = selected.flatMap { TimerPayload.from(url: $0.url)?.id } == payload.id ? selected?.session : nil
+            let session = selectedSession ?? MSSession()
+            let message = MSMessage(session: session)
+            #if DEBUG
+            Self.debugLog("deliver selected=\(selected != nil) selectedSession=\(selectedSession.map { "\($0)" } ?? "nil") using=\(session) payload=\(payload.id.prefix(8))")
+            #endif
             let layout = MSMessageTemplateLayout()
             layout.caption = payload.label
             layout.subcaption = payload.isExpired ? "Timer done" : subcaption(for: payload)
