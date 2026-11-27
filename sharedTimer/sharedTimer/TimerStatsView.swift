@@ -28,7 +28,8 @@ struct TimerStatsView: View {
                 HStack(spacing: 10) {
                     // Numbers stand alone with a caption — no "1 runs"/"2 days" built in code
                     // (plurals belong to each language).
-                    summaryTile(value: "\(shown.count)", caption: String(localized: "Runs"))
+                    // Timers and sequences only, like the bars (a countdown's "length" is a wait).
+                    summaryTile(value: "\(shown.filter(TimerStats.isTimed).count)", caption: String(localized: "Runs"))
                     summaryTile(value: durationText(TimerStats.totalTime(shown)), caption: String(localized: "Timed"))
                     summaryTile(value: streaks.first.map { "\($0.days)" } ?? "—",
                                 caption: String(localized: "Days in a row"))
@@ -41,7 +42,8 @@ struct TimerStatsView: View {
                 } else {
                     Text("Time by name").skyLabel().foregroundStyle(Sky.roomInk)
                     VStack(spacing: 10) {
-                        ForEach(totals.prefix(8)) { total in
+                        // Eight names, then the rest together, so the bars add up to the total.
+                        ForEach(TimerStats.topWithOther(totals, limit: 8, otherLabel: String(localized: "Other"))) { total in
                             barRow(total, longest: totals.first?.time ?? 1)
                         }
                     }
@@ -76,9 +78,10 @@ struct TimerStatsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbar {
-            if !shown.isEmpty {
+            if !entries.isEmpty {
                 ToolbarItem(placement: .primaryAction) {
-                    ShareLink(item: HistoryCSV(text: TimerStats.csv(shown)),
+                    // All of History, whatever period is showing.
+                    ShareLink(item: HistoryCSV(text: TimerStats.csv(entries)),
                               preview: SharePreview(String(localized: "Timer history"))) {
                         Text("Export")
                     }

@@ -57,6 +57,14 @@ struct TimerStatsTests {
         #expect(lines[2].contains(",\"Tea, green\",timer,4.0,"))
     }
 
+    @Test func barsBeyondEightAddUpAsOther() {
+        let totals = (1...10).map { TimerStats.LabelTotal(label: "T\($0)", time: TimeInterval(100 - $0), runs: 1) }
+        let shown = TimerStats.topWithOther(totals, limit: 8, otherLabel: "Other")
+        #expect(shown.count == 9 && shown.last?.label == "Other")
+        #expect(shown.reduce(0) { $0 + $1.time } == totals.reduce(0) { $0 + $1.time })
+        #expect(TimerStats.topWithOther(Array(totals.prefix(8)), limit: 8, otherLabel: "Other").count == 8)
+    }
+
     @Test func csvNeverStartsAFieldWithAFormula() {
         let csv = TimerStats.csv([run("=HYPERLINK(\"x\")", minutes: 1, daysAgo: 1), run("+1", minutes: 1, daysAgo: 2), run("@a", minutes: 1, daysAgo: 3)])
         #expect(csv.contains(",\"'=HYPERLINK(\"\"x\"\")\",timer,"))

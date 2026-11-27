@@ -76,6 +76,13 @@ enum TimerStats {
             .sorted { $0.time != $1.time ? $0.time > $1.time : $0.label < $1.label }
     }
 
+    /// The first `limit` totals, then everything else as one "Other" row.
+    static func topWithOther(_ totals: [LabelTotal], limit: Int, otherLabel: String) -> [LabelTotal] {
+        guard totals.count > limit else { return totals }
+        let rest = totals.dropFirst(limit)
+        return Array(totals.prefix(limit)) + [LabelTotal(label: otherLabel, time: rest.reduce(0) { $0 + $1.time }, runs: rest.reduce(0) { $0 + $1.runs })]
+    }
+
     static func totalTime(_ entries: [TimerHistoryEntry]) -> TimeInterval {
         entries.filter(isTimed).reduce(0) { $0 + $1.length }
     }

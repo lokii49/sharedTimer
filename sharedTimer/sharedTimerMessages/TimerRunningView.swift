@@ -126,7 +126,8 @@ struct TimerRunningView: View {
                             GlassEffectContainer(spacing: 16) {
                                 HStack(spacing: 12) {
                                     ExtendTimeMenu(onExtend: { extend(by: $0) }, onCustom: { showingCustomExtend = true },
-                                                   canRemove: { payload.canShorten(by: $0) }, onRemove: { remove($0) })
+                                                   canRemove: { payload.canShorten(by: $0) },
+                                                   onRemove: payload.recurrence == nil ? { remove($0) } : nil)
 
                                     Button(payload.isPaused ? "Resume" : "Pause") {
                                         togglePause()
