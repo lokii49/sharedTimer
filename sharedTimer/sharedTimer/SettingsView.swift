@@ -331,10 +331,15 @@ struct SettingsView: View {
         preview?.stop()
         guard let url = tone.url, let player = try? AVAudioPlayer(contentsOf: url) else { return }
         // .playback so the preview is heard with the silent switch on, like the real alarm.
-        try? AVAudioSession.sharedInstance().setCategory(.playback)
-        try? AVAudioSession.sharedInstance().setActive(true)
-        player.play()
+        // The session comes up off the main thread (it can block — see AlarmPlayer).
         preview = player
+        AlarmPlayer.sessionQueue.async {
+            try? AVAudioSession.sharedInstance().setCategory(.playback)
+            try? AVAudioSession.sharedInstance().setActive(true)
+            DispatchQueue.main.async {
+                if preview === player { player.play() }
+            }
+        }
         // Hand the audio back (music resumes) once this preview has finished, unless a
         // newer preview took over meanwhile.
         DispatchQueue.main.asyncAfter(deadline: .now() + player.duration + 0.2) {
@@ -347,7 +352,9 @@ struct SettingsView: View {
         preview = nil
         // Leave the session alone while the in-app alarm loop owns it.
         guard !AlarmPlayer.shared.isPlaying else { return }
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        AlarmPlayer.sessionQueue.async {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
     }
 }
 

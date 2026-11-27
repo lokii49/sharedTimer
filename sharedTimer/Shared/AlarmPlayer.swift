@@ -19,37 +19,59 @@ final class AlarmPlayer: ObservableObject {
 
     @Published private(set) var isPlaying = false
     private var player: AVAudioPlayer?
+    /// Bumped by every start/stop (main thread), so a start whose session came up after
+    /// a Stop doesn't begin playing.
+    private var generation = 0
+
+    /// Activating/deactivating the audio session can block for a while; on the main
+    /// thread Xcode flags it ("AVAudioSession Hang Risk"). The async activate/deactivate
+    /// API is iOS 27-only (deployment target 26.1), so it runs on this queue instead,
+    /// in call order. Shared with Settings' tone preview.
+    static let sessionQueue = DispatchQueue(label: "com.lokesh.sharedTimer.audioSession", qos: .userInitiated)
 
     private init() {}
 
     func start() {
         guard !isPlaying else { return }
         guard let url = AlarmTone.selected.url ?? Bundle.main.url(forResource: "alarm", withExtension: "caf") else { return }
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, options: [])
-            try AVAudioSession.sharedInstance().setActive(true)
-            let player = try AVAudioPlayer(contentsOf: url)
-            player.numberOfLoops = -1
-            player.play()
-            self.player = player
-            isPlaying = true
-        } catch {
-            print("SharedTimer alarm playback failed: \(error)")
-            player = nil
-            isPlaying = false
-            // No sound is worse than the wrong sound: if the .playback session never
-            // activates, fall back to a system alert tone + vibration rather than
-            // finishing a timer in total silence.
-            AudioServicesPlaySystemSound(Self.fallbackSystemSoundID)
-            AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+        isPlaying = true
+        generation += 1
+        let token = generation
+        Self.sessionQueue.async {
+            var activated = true
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.playback, options: [])
+                try AVAudioSession.sharedInstance().setActive(true)
+            } catch {
+                print("SharedTimer alarm session failed: \(error)")
+                activated = false
+            }
+            DispatchQueue.main.async { [self] in
+                guard token == generation, isPlaying else { return }   // stopped meanwhile
+                if activated, let player = try? AVAudioPlayer(contentsOf: url) {
+                    player.numberOfLoops = -1
+                    player.play()
+                    self.player = player
+                    return
+                }
+                isPlaying = false
+                // No sound is worse than the wrong sound: if the .playback session never
+                // activates, fall back to a system alert tone + vibration rather than
+                // finishing a timer in total silence.
+                AudioServicesPlaySystemSound(Self.fallbackSystemSoundID)
+                AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+            }
         }
     }
 
     func stop() {
+        generation += 1
         player?.stop()
         player = nil
         isPlaying = false
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        Self.sessionQueue.async {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
     }
 }
 
