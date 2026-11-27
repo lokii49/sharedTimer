@@ -86,12 +86,16 @@ struct TimerAlarmActivityWidget: Widget {
                 Image(systemName: kind.symbolName)
                     .foregroundStyle(kind.accentColor)
             } compactTrailing: {
-                alarmCountdownText(context.state)
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                    .frame(maxWidth: 70)
+                NarrowIslandAware {
+                    alarmCountdownText(context.state)
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .minimumScaleFactor(0.6)
+                        .lineLimit(1)
+                        .frame(maxWidth: 70)
+                } narrow: {
+                    alarmRing(context.state, tint: kind.accentColor)
+                }
             } minimal: {
                 Image(systemName: kind.symbolName)
                     .foregroundStyle(kind.accentColor)
@@ -101,6 +105,22 @@ struct TimerAlarmActivityWidget: Widget {
         }
         // Apple Watch Smart Stack and CarPlay (SmallActivityTile).
         .supplementalActivityFamilies([.small])
+    }
+}
+
+/// The narrow island's ring from AlarmKit's own state: draining toward the fire date
+/// (its virtual start is `fireDate - totalCountdownDuration`, which also holds after a
+/// resume), frozen while paused, empty once it rings.
+private func alarmRing(_ state: AlarmPresentationState, tint: Color) -> CompactRing {
+    switch state.mode {
+    case .countdown(let countdown):
+        let start = countdown.fireDate.addingTimeInterval(-countdown.totalCountdownDuration)
+        return CompactRing(interval: start...max(start, countdown.fireDate), tint: tint)
+    case .paused(let paused):
+        let total = paused.totalCountdownDuration
+        return CompactRing(fraction: total > 0 ? (total - paused.previouslyElapsedDuration) / total : 0, tint: tint)
+    default:
+        return CompactRing(fraction: 0, tint: tint)
     }
 }
 
