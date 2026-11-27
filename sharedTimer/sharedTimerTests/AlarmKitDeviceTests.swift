@@ -470,6 +470,19 @@ final class AlarmKitDeviceTests {
         await tearDown()
     }
 
+    /// N2 end to end: the test alarm really rings (then is stopped like the alert's
+    /// Stop), and leaves no alarm and no stored timer behind.
+    @Test func testAlarmRingsAndLeavesNothingBehind() async {
+        #expect(await AlarmController.ringTestAlarm(in: 2) == .scheduled)
+        let id = AlarmController.testAlarmID
+        let rang = await waitForRinging([id], seconds: 15)
+        #expect(rang, "the test alarm rang")
+        try? AlarmManager.shared.stop(id: id)
+        await waitUntil { alarmsByID()[id] == nil }
+        #expect(alarmsByID()[id] == nil)
+        #expect(!TimerStore.loadAll().contains { $0.id == AlarmController.testAlarmTimerID })
+    }
+
     /// N2: Settings' "Test my alarm" arms a real AlarmKit alarm that belongs to no
     /// stored timer — and the stray sweep must leave it to ring. 60 s here and cancelled
     /// at once, so nothing rings during the run.
