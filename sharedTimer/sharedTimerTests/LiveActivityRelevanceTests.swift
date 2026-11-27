@@ -42,13 +42,15 @@ struct LiveActivityRelevanceTests {
         #expect(score(farOff) > score(pausedSoon))
         #expect(score(pausedSoon) > score(pausedLong))
         #expect(score(pausedLong) > score(finished))
-        #expect(score(finished) == 0)
+        #expect(score(finished) == -LiveActivityController.belowAlarmKit)
+        // Every custom card sits below AlarmKit's (default) card.
+        #expect([farOff, pausedSoon, pausedLong, finished].allSatisfy { score($0) < 0 })
     }
 
     @Test func aSequenceIsScoredByItsCurrentPhase() {
         var sequence = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 600)], loopCount: 1)
         sequence.endDate = now.addingTimeInterval(-10)   // phase 0 over; "Rest" runs until +590 s
-        #expect(score(sequence) > 0)
+        #expect(score(sequence) > -LiveActivityController.belowAlarmKit)
         #expect(score(sequence) == score(running(endingIn: 590)))
     }
 
@@ -64,7 +66,7 @@ struct LiveActivityRelevanceTests {
         let paused = LiveActivityController.relevanceScore(for: endingIn(60).paused(at: later), at: later)
         #expect(soon > after)
         #expect(after > paused)
-        #expect(paused > 0)
+        #expect(paused > -LiveActivityController.belowAlarmKit)
         // A countdown decades out still outranks a paused timer.
         #expect(LiveActivityController.relevanceScore(for: endingIn(86_400 * 365 * 60), at: later) > paused)
     }

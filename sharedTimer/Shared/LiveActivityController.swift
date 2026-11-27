@@ -154,14 +154,21 @@ enum LiveActivityController {
     /// device): running = 2e9 − minutes since 1970 of the finish (always above 1e9 until
     /// the year 3870), paused = 1e9 − minutes left (1…1e9−1), Finished 0. Only this app's
     /// custom card — AlarmKit's own Live Activity takes no score.
+    /// Every custom card scores below zero. AlarmKit's own card (an alarm timer) takes
+    /// no score of ours — it sits at the default — and a positive quiet score put the quiet
+    /// timer in the island over a ringing-soon alarm timer (seen on the 14 Pro,
+    /// 2026-11-27: 10-minute quiet card shown, 2-minute alarm card hidden). Shifted down,
+    /// alarm cards lead and quiet cards keep their order among themselves.
+    static let belowAlarmKit: Double = 3_000_000_000
+
     static func relevanceScore(for payload: TimerPayload, at date: Date = Date()) -> Double {
         let current = payload.advancedSequence(at: date)
         if let remaining = current.pausedRemaining {
-            return 1_000_000_000 - min(max(1, (remaining / 60).rounded(.up)), 999_999_999)
+            return 1_000_000_000 - min(max(1, (remaining / 60).rounded(.up)), 999_999_999) - Self.belowAlarmKit
         }
-        guard current.endDate > date else { return 0 }
+        guard current.endDate > date else { return -Self.belowAlarmKit }
         let finishMinute = (current.endDate.timeIntervalSince1970 / 60).rounded(.up)
-        return 2_000_000_000 - min(max(0, finishMinute), 999_999_999)
+        return 2_000_000_000 - min(max(0, finishMinute), 999_999_999) - Self.belowAlarmKit
     }
 
     /// The run of quiet phases right after the current one — the only ones this card
