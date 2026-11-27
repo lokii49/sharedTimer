@@ -31,7 +31,14 @@ struct LiveActivityDeviceTests {
 
         await LiveActivityController.startAwaiting(for: quiet.repeated())
         #expect(cards(quiet.id).count == 1)
-        #expect(cards(quiet.id).first?.activityState == .active)
+        // The update's new stale date brings the card back to `.active`, but ActivityKit
+        // reports that a moment later (a CI simulator read `.stale` right after it).
+        var state = cards(quiet.id).first?.activityState
+        for _ in 0..<30 where state != .active {
+            try? await Task.sleep(for: .milliseconds(100))
+            state = cards(quiet.id).first?.activityState
+        }
+        #expect(state == .active)
 
         await LiveActivityController.endAwaiting(id: quiet.id)
     }
