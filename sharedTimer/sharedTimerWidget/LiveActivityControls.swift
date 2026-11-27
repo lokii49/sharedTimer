@@ -159,14 +159,21 @@ struct NarrowIslandAware<Wide: View, Narrow: View>: View {
     @ViewBuilder let narrow: () -> Narrow
 
     var body: some View {
+        // The iOS 27 SDK (Xcode 27, Swift 6.4) has the API; CI's Xcode 26 doesn't, so
+        // older toolchains build the wide (digits) layout, as iOS 26 shows anyway.
+        #if compiler(>=6.4)
         if #available(iOS 27.0, *) {
             LimitedWidthReader(wide: wide, narrow: narrow)
         } else {
             wide()
         }
+        #else
+        wide()
+        #endif
     }
 }
 
+#if compiler(>=6.4)
 @available(iOS 27.0, *)
 private struct LimitedWidthReader<Wide: View, Narrow: View>: View {
     @Environment(\.isDynamicIslandLimitedInWidth) private var limited
@@ -177,6 +184,7 @@ private struct LimitedWidthReader<Wide: View, Narrow: View>: View {
         if limited { narrow() } else { wide() }
     }
 }
+#endif
 
 /// A draining ring for the narrow compact slot (owner's pick, 2026-11-27): live while
 /// running (`interval`), frozen at `fraction` left when paused or finished.
