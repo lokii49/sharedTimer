@@ -358,15 +358,33 @@ enum CloudSyncController {
     /// only what this device changed goes up, and a newer server change survives
     /// (`plannedPush`).
     static func pushUp(_ payload: TimerPayload, action: String, completion: @escaping () -> Void = {}) {
+        // The base goes with the snapshot: read now, not after the fetch. A pull landing
+        // in between moves the stored base to another phone's change, and planning
+        // against that would hide it — the stale push would overwrite it.
+        let calledAt = Date()
+        let callBase = SyncBase.load(timerID: payload.id)
         pushQueue.run(payload.id) { done in
-            performPush(payload, action: action) {
+            let base = pushBase(callTimeBase: callBase, ownSave: ownSaves.withLock { $0[payload.id] }, calledAt: calledAt)
+            performPush(payload, action: action, base: base) {
                 done()
                 completion()
             }
         }
     }
 
-    private static func performPush(_ payload: TimerPayload, action: String, completion: @escaping () -> Void) {
+    /// The last record this process's own push saved, per timer, and when. A push queued
+    /// behind it was built on the stored copy that already held that change, so that
+    /// record — not the base read at call time — is its ancestor.
+    private static let ownSaves = OSAllocatedUnfairLock<[String: (record: CKRecord, at: Date)]>(initialState: [:])
+
+    /// The ancestor for a push called at `calledAt`: this process's own save if it
+    /// landed after the call (an earlier queued push), else the base read at call time.
+    static func pushBase(callTimeBase: CKRecord?, ownSave: (record: CKRecord, at: Date)?, calledAt: Date) -> CKRecord? {
+        if let ownSave, ownSave.at >= calledAt { return ownSave.record }
+        return callTimeBase
+    }
+
+    private static func performPush(_ payload: TimerPayload, action: String, base: CKRecord?, completion: @escaping () -> Void) {
         guard let link = CloudLinkStore.get(timerID: payload.id) else {
             // Not in iCloud yet: with "Sync with iCloud" on, upload it as this person's own.
             return adoptOwnTimer(payload, completion: completion)
@@ -384,7 +402,7 @@ enum CloudSyncController {
                 completion()
                 return
             }
-            push(payload, action: action, server: record, base: SyncBase.load(timerID: payload.id),
+            push(payload, action: action, server: record, base: base,
                  to: database, retryOnConflict: true, completion: completion)
         }
     }
@@ -547,7 +565,7 @@ enum CloudSyncController {
         guard let outgoing = plan.record else {
             // Nothing this device changed since its base survives against the server's
             // newer copy: send nothing, and take that copy (store, base, alerts).
-            adoptServerCopy(server, timerID: payload.id)
+            settle(pushed: payload, serverNow: server)
             return completion()
         }
         let operation = CKModifyRecordsOperation(recordsToSave: [outgoing], recordIDsToDelete: nil)
@@ -562,10 +580,8 @@ enum CloudSyncController {
         operation.modifyRecordsResultBlock = { result in
             guard case .failure(let error) = result else {
                 if let saved {
-                    // The server now holds `saved`. If it kept some of its own newer state,
-                    // the local copy (and its alarm) must follow; either way it's the base.
-                    if plan.adoptsServer { adoptServerCopy(saved, timerID: payload.id) }
-                    else { SyncBase.store(saved, timerID: payload.id) }
+                    ownSaves.withLock { $0[payload.id] = (saved, Date()) }
+                    settle(pushed: payload, serverNow: saved)
                 }
                 return completion()
             }
@@ -594,13 +610,13 @@ enum CloudSyncController {
                 // No base yet (a timer linked before N15): the fetched copy this push was
                 // built on is the ancestor, as before.
                 let merged = merged(client: outgoing, ancestor: conflict.ancestorRecord, server: serverRecord)
-                saveMerged(merged, timerID: payload.id, to: database, completion: completion)
+                saveMerged(merged, pushed: payload, to: database, completion: completion)
             }
         }
         database.add(operation)
     }
 
-    private static func saveMerged(_ record: CKRecord, timerID: String, to database: CKDatabase, completion: @escaping () -> Void) {
+    private static func saveMerged(_ record: CKRecord, pushed: TimerPayload, to database: CKDatabase, completion: @escaping () -> Void) {
         let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
         operation.savePolicy = .ifServerRecordUnchanged
         var saved: CKRecord?
@@ -612,7 +628,8 @@ enum CloudSyncController {
                 log("pushUp merged save(\(record.recordID.recordName)) failed: \(error)")
             } else if let saved {
                 // The merge may have kept the server's timing: follow it.
-                adoptServerCopy(saved, timerID: timerID)
+                ownSaves.withLock { $0[pushed.id] = (saved, Date()) }
+                settle(pushed: pushed, serverNow: saved)
             }
             completion()
         }
@@ -622,12 +639,10 @@ enum CloudSyncController {
     // MARK: - Sync base (N15)
 
     /// What a push should send, given the server's current record and the copy this
-    /// device last synced (`base`). `record` nil = send nothing. `adoptsServer` = the
-    /// saved record will hold server state the local copy lacks, so the device must take
-    /// it afterwards.
+    /// device last synced (`base`). `record` nil = send nothing; `settlement` then
+    /// decides what this device takes from the server.
     struct PushPlan {
         let record: CKRecord?
-        let adoptsServer: Bool
     }
 
     /// The parts of a timer a person changes independently. `timing` is one state (end,
@@ -679,22 +694,24 @@ enum CloudSyncController {
     /// N15. Without a usable base (none yet, or one for another record — a stop and
     /// re-share makes a new record under the same timer id), every local field goes up,
     /// as before. Otherwise only the fields this device changed since its base are
-    /// written onto the server's record; when both sides changed timing, the newer
-    /// `updatedAt` wins — the only place two phones' clocks are compared, and only for a
-    /// true conflict. A push that would change nothing sends nothing (and no "Sam
+    /// written onto the server's record; a field both sides changed goes to the newer
+    /// `updatedAt` — the only place two phones' clocks are compared, and only for a true
+    /// conflict. A push that would change nothing sends nothing (and no "Sam
     /// paused" for a pause that lost).
     static func plannedPush(local: TimerPayload, action: String, server: CKRecord, base: CKRecord?, at date: Date = Date()) -> PushPlan {
         guard let base, base.recordID == server.recordID,
               let before = makePayload(from: base), let theirsNow = makePayload(from: server) else {
             applyFields(from: local, to: server)
             applyAttribution(action: action, to: server)
-            return PushPlan(record: server, adoptsServer: false)
+            return PushPlan(record: server)
         }
         let mine = changedFields(from: before, to: local, at: date)
         let theirs = changedFields(from: before, to: theirsNow, at: date)
         let localIsNewer = (local.updatedAt ?? .distantPast) > (theirsNow.updatedAt ?? .distantPast)
-        let take = mine.filter { $0 != .timing || !theirs.contains(.timing) || localIsNewer }
-        guard !take.isEmpty else { return PushPlan(record: nil, adoptsServer: true) }
+        // A field both sides changed since the base goes to the newer stamp (timing
+        // included, as one group); a field only one side changed is that side's.
+        let take = mine.filter { !theirs.contains($0) || localIsNewer }
+        guard !take.isEmpty else { return PushPlan(record: nil) }
 
         let scratch = server.copy() as! CKRecord
         applyFields(from: local, to: scratch)
@@ -710,16 +727,35 @@ enum CloudSyncController {
         }
         // "Who did what" names this change only when all of it went up.
         if take == mine { applyAttribution(action: action, to: server) }
-        return PushPlan(record: server, adoptsServer: !theirs.isEmpty || take != mine)
+        return PushPlan(record: server)
     }
 
-    /// The server's copy is now this device's: store it as the base and the local copy,
-    /// and tell open screens (they reload and re-arm, as for a refused write).
-    private static func adoptServerCopy(_ record: CKRecord, timerID: String) {
-        SyncBase.store(record, timerID: timerID)
-        guard let payload = makePayload(from: record) else { return }
-        TimerStore.save(payload)
-        DispatchQueue.main.async { NotificationCenter.default.post(name: revertedToServer, object: payload) }
+    /// What to do locally once the server holds `serverNow` after pushing `pushed`.
+    /// The stored copy moved on since the snapshot was taken (a later tap, already
+    /// queued to push): touch nothing — taking the server copy would erase that tap, and
+    /// a base ahead of the stored copy makes old values look like edits. Otherwise the
+    /// server copy becomes the base, and replaces the stored copy only if it differs.
+    struct Settlement: Equatable {
+        let storeBase: Bool
+        let replaceStored: Bool
+    }
+
+    static func settlement(pushed: TimerPayload, stored: TimerPayload?, serverNow: TimerPayload?, at date: Date = Date()) -> Settlement {
+        guard let stored, !pushed.hasOutsideChange(stored, at: date) else { return Settlement(storeBase: false, replaceStored: false) }
+        guard let serverNow else { return Settlement(storeBase: true, replaceStored: false) }
+        return Settlement(storeBase: true, replaceStored: !changedFields(from: stored, to: serverNow, at: date).isEmpty)
+    }
+
+    /// Applies `settlement`: the base, the stored copy, and — when the server's change
+    /// won — open screens (they reload and re-arm, as for a refused write).
+    private static func settle(pushed: TimerPayload, serverNow record: CKRecord) {
+        let stored = TimerStore.loadAll().first { $0.id == pushed.id }
+        let server = makePayload(from: record)
+        let plan = settlement(pushed: pushed, stored: stored, serverNow: server)
+        if plan.storeBase { SyncBase.store(record, timerID: pushed.id) }
+        guard plan.replaceStored, let server else { return }
+        TimerStore.save(server)
+        DispatchQueue.main.async { NotificationCenter.default.post(name: revertedToServer, object: server) }
     }
 
     /// The server record this device last synced for each timer (pulled, pushed,

@@ -36,7 +36,10 @@ struct SyncBaseTests {
         var sequence = TimerPayload.composeSequence(phases: [SequencePhase(label: "Work", duration: 60), SequencePhase(label: "Rest", duration: 30)], loopCount: 3)
         sequence.endDate = t0.addingTimeInterval(60.123456)
         let annual = TimerPayload.composeAnnual(label: "Birthday", targetDate: t0.addingTimeInterval(86_400 * 40), timeZone: .gmt, at: t0)
-        for payload in [running(), running().paused(at: t0.addingTimeInterval(30)), sequence, annual] {
+        let daily = TimerPayload.composeAnnual(label: "Pills", targetDate: t0.addingTimeInterval(3_600), timeZone: .gmt, frequency: .daily, at: t0)
+        let weekly = TimerPayload.composeAnnual(label: "Gym", targetDate: t0.addingTimeInterval(86_400 * 3), timeZone: TimeZone(identifier: "Asia/Kolkata")!, frequency: .weekly, at: t0)
+        let pausedSequence = sequence.paused(at: t0.addingTimeInterval(20))
+        for payload in [running(), running().paused(at: t0.addingTimeInterval(30)), sequence, pausedSequence, annual, daily, weekly] {
             // What the store keeps…
             let stored = try JSONDecoder().decode(TimerPayload.self, from: JSONEncoder().encode(payload))
             // …and what the base keeps: an archived record, its dates cut to milliseconds
@@ -74,9 +77,10 @@ struct SyncBaseTests {
         extended.updatedAt = t0.addingTimeInterval(60)
         let server = record(extended, actor: "Sam", action: "extended")
         let plan = CloudSyncController.plannedPush(local: stalePause, action: "paused", server: server, base: record(base))
-        // Nothing of ours survives: send nothing, take the server's copy.
+        // Nothing of ours survives: send nothing; this phone takes the server's copy.
         #expect(plan.record == nil)
-        #expect(plan.adoptsServer)
+        let settled = CloudSyncController.settlement(pushed: stalePause, stored: stalePause, serverNow: extended, at: t0.addingTimeInterval(61))
+        #expect(settled == .init(storeBase: true, replaceStored: true))
     }
 
     @Test func aNewerPauseWinsOverAnOlderExtend() throws {
@@ -91,9 +95,6 @@ struct SyncBaseTests {
         #expect(result.endDate == pause.endDate)
         #expect(sent["lastAction"] as? String == "paused")
         #expect(sent["updatedAt"] as? Date == pause.updatedAt)
-        // The server had a change we lack (now overwritten whole, timing is one state),
-        // so the local copy still re-reads the saved record.
-        #expect(plan.adoptsServer)
     }
 
     @Test func aRenameElsewhereSurvivesAPauseHere() throws {
@@ -111,7 +112,8 @@ struct SyncBaseTests {
         #expect(result.label == "Tea")
         #expect(sent["updatedAt"] as? Date == renamed.updatedAt)
         #expect(sent["lastAction"] as? String == "paused" && sent["lastActorName"] as? String != "Sam")
-        #expect(plan.adoptsServer)
+        // This phone takes the rename.
+        #expect(CloudSyncController.settlement(pushed: pause, stored: pause, serverNow: result, at: t0.addingTimeInterval(61)).replaceStored)
     }
 
     @Test func aRenameHereKeepsTheirNewerExtendAndTheirAttribution() throws {
@@ -140,7 +142,6 @@ struct SyncBaseTests {
             let plan = CloudSyncController.plannedPush(local: stalePause, action: "paused", server: record(extended), base: missing)
             let result = try #require(plan.record.flatMap(CloudSyncController.makePayload))
             #expect(result.isPaused)
-            #expect(!plan.adoptsServer)
         }
     }
 
@@ -154,5 +155,62 @@ struct SyncBaseTests {
         #expect(CloudSyncController.makePayload(from: loaded)?.label == "Pasta")
         CloudSyncController.SyncBase.remove(timerID: id)
         #expect(CloudSyncController.SyncBase.load(timerID: id) == nil)
+    }
+
+    @Test func aLaterTapIsNotUndoneWhenAnEarlierPushSettles() {
+        let base = running()
+        let pause = base.paused(at: t0.addingTimeInterval(30))
+        // +1:00 tapped and stored before the pause's push came back.
+        var later = pause.extended(by: 60)
+        later.updatedAt = t0.addingTimeInterval(31)
+        var serverNow = base.extended(by: 300)
+        serverNow.updatedAt = t0.addingTimeInterval(60)
+        let settled = CloudSyncController.settlement(pushed: pause, stored: later, serverNow: serverNow, at: t0.addingTimeInterval(61))
+        #expect(settled == .init(storeBase: false, replaceStored: false))
+        // Deleted meanwhile: nothing either.
+        #expect(CloudSyncController.settlement(pushed: pause, stored: nil, serverNow: serverNow) == .init(storeBase: false, replaceStored: false))
+        // The server holds exactly what was pushed: base only, no save or re-arm.
+        #expect(CloudSyncController.settlement(pushed: pause, stored: pause, serverNow: pause, at: t0.addingTimeInterval(61)) == .init(storeBase: true, replaceStored: false))
+    }
+
+    @Test func thePushBaseIsReadWithTheSnapshot() {
+        let callBase = record(running())
+        var other = running()
+        other.label = "Own save"
+        let own = record(other)
+        let called = t0.addingTimeInterval(10)
+        // An earlier push of this process saved after this one was called: that's the ancestor.
+        #expect(CloudSyncController.pushBase(callTimeBase: callBase, ownSave: (own, called.addingTimeInterval(1)), calledAt: called) === own)
+        // Saved before the call: the call-time base already reflects it.
+        #expect(CloudSyncController.pushBase(callTimeBase: callBase, ownSave: (own, called.addingTimeInterval(-1)), calledAt: called) === callBase)
+        #expect(CloudSyncController.pushBase(callTimeBase: callBase, ownSave: nil, calledAt: called) === callBase)
+    }
+
+    @Test func twoQuickPushesFromThisPhoneLandInOrder() throws {
+        let base = running()
+        let pause = base.paused(at: t0.addingTimeInterval(30))
+        var plusOne = pause.extended(by: 60)
+        plusOne.updatedAt = t0.addingTimeInterval(31)
+        // The pause's push saved; the +1:00 push plans against that own save.
+        let savedPause = record(pause, actor: "Me", action: "paused")
+        let plan = CloudSyncController.plannedPush(local: plusOne, action: "extended", server: savedPause, base: savedPause)
+        let result = try #require(plan.record.flatMap(CloudSyncController.makePayload))
+        #expect(result.isPaused)
+        #expect(abs((result.pausedRemaining ?? 0) - (plusOne.pausedRemaining ?? 0)) < 0.001)
+    }
+
+    @Test func aStaleRenameDoesNotOverwriteANewerRename() throws {
+        let base = running()
+        var theirs = base
+        theirs.label = "Tea"
+        theirs.updatedAt = t0.addingTimeInterval(60)
+        var mine = base
+        mine.label = "Soup"
+        mine.updatedAt = t0.addingTimeInterval(30)
+        #expect(CloudSyncController.plannedPush(local: mine, action: "edited", server: record(theirs), base: record(base)).record == nil)
+        // Renamed after theirs: ours wins.
+        mine.updatedAt = t0.addingTimeInterval(90)
+        let sent = try #require(CloudSyncController.plannedPush(local: mine, action: "edited", server: record(theirs), base: record(base)).record)
+        #expect(sent["label"] as? String == "Soup")
     }
 }

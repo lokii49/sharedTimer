@@ -236,6 +236,7 @@ struct TwoDeviceClashTests {
         let stalePause = base1.paused(at: Date())
         try await Task.sleep(for: .seconds(1))
         try await otherPhone({ record in (record["endDate"] as? Date).map { record["endDate"] = $0.addingTimeInterval(300) as CKRecordValue } }, action: "extended")
+        TimerStore.save(stalePause)  // as the app does: stored first, then pushed
         await CloudSyncController.pushUpAwaiting(stalePause, action: "paused")
         let (after1, actor1) = try #require(await serverState(link))
         print("CLASH_STALE 1 paused=\(after1.isPaused) endOffset=\(Int(after1.endDate.timeIntervalSince(base1.endDate).rounded()))s last=\(actor1?.action ?? "nil")")
@@ -250,6 +251,7 @@ struct TwoDeviceClashTests {
         try await otherPhone({ record in (record["endDate"] as? Date).map { record["endDate"] = $0.addingTimeInterval(300) as CKRecordValue } }, action: "extended")
         try await Task.sleep(for: .seconds(1))
         let newerPause = base2.paused(at: Date())
+        TimerStore.save(newerPause)  // as the app does: stored first, then pushed
         await CloudSyncController.pushUpAwaiting(newerPause, action: "paused")
         let (after2, actor2) = try #require(await serverState(link))
         print("CLASH_STALE 2 paused=\(after2.isPaused) last=\(actor2?.action ?? "nil")")
@@ -261,6 +263,7 @@ struct TwoDeviceClashTests {
         let pause3 = base3.paused(at: Date())
         try await Task.sleep(for: .seconds(1))
         try await otherPhone({ $0["vibrationEnabled"] = true as CKRecordValue }, action: "edited")
+        TimerStore.save(pause3)  // as the app does: stored first, then pushed
         await CloudSyncController.pushUpAwaiting(pause3, action: "paused")
         let (after3, _) = try #require(await serverState(link))
         print("CLASH_STALE 3 paused=\(after3.isPaused) vibration=\(after3.vibrationEnabled)")
