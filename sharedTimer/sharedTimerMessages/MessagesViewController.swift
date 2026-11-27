@@ -22,6 +22,11 @@ class MessagesViewController: MSMessagesAppViewController {
     /// Timers deleted or removed from here this session: a bubble of one, or an accept
     /// that was still in flight, must not bring it back.
     private var deletedHere: Set<String> = []
+    /// A Delete / Remove from My Timers that can still be undone (owner's pick 4A, 5 s,
+    /// like the app). The timer is already gone from this phone; for a share, the
+    /// participant `pushDelete` waits until the window ends (`finishPendingRemoval`).
+    private var pendingRemoval: RemovalSnapshot?
+    private var removalWork: DispatchWorkItem?
 
     deinit {
         if let revertObserver { NotificationCenter.default.removeObserver(revertObserver) }
@@ -67,6 +72,8 @@ class MessagesViewController: MSMessagesAppViewController {
     /// so stop them rather than leave `isPlaying` and the Stop button stale.
     override func willResignActive(with conversation: MSConversation) {
         super.willResignActive(with: conversation)
+        // The extension may not live to the end of the Undo window.
+        finishPendingRemoval()
         AlarmPlayer.shared.stop()
         VibrationPlayer.shared.stop()
     }
@@ -99,6 +106,7 @@ class MessagesViewController: MSMessagesAppViewController {
         #if DEBUG
         Self.debugLog("didSelect message=\(TimerPayload.from(url: message.url)?.id.prefix(8) ?? "nil") conversationSelected=\(conversation.selectedMessage.flatMap { TimerPayload.from(url: $0.url)?.id.prefix(8) } ?? "nil")")
         #endif
+        finishPendingRemoval()
         leftMessageURL = nil
         if let id = TimerPayload.from(url: message.url)?.id { deletedHere.remove(id) }
         presentView(for: conversation)
@@ -214,10 +222,85 @@ class MessagesViewController: MSMessagesAppViewController {
     }
 
     private func presentComposeView() {
-        let root = AnyView(TimerComposeView { [weak self] payload, mode, isExisting in
+        let root = AnyView(TimerComposeView(removed: pendingRemoval?.payload, onUndo: { [weak self] in
+            self?.undoRemoval()
+        }) { [weak self] payload, mode, isExisting in
             self?.send(payload: payload, mode: mode, isExisting: isExisting)
         })
         presentRoot(root)
+    }
+
+    /// Delete / Remove from My Timers: everything on this phone goes now; Delete for
+    /// Everyone (already confirmed) also reaches everyone now and has no Undo.
+    private func remove(_ deleted: TimerPayload) {
+        finishPendingRemoval()
+        let link = CloudLinkStore.get(timerID: deleted.id)
+        let snapshot = RemovalSnapshot(payload: TimerStore.loadAll().first { $0.id == deleted.id } ?? deleted,
+                                       readOnly: TimerStore.isReadOnly(id: deleted.id),
+                                       alarmKitArmed: TimerStore.isAlarmKitArmed(id: deleted.id),
+                                       reminders: TimerReminders.get(deleted.id))
+        deletedHere.insert(deleted.id)
+        leftMessageURL = activeConversation?.selectedMessage?.url
+        TimerStore.delete(id: deleted.id)
+        NotificationScheduler.cancel(id: deleted.id)
+        NotificationScheduler.cancelReminders(id: deleted.id)
+        LiveActivityController.end(id: deleted.id)
+        if let link, link.isOwner, link.isShared {
+            CloudSyncController.pushDelete(id: deleted.id)
+        } else {
+            // A share stays joined while Undo is offered, marked left so a pull in the
+            // meantime doesn't bring it back (as in the app).
+            if link != nil { CloudLinkStore.markLeft(timerID: deleted.id) }
+            pendingRemoval = snapshot
+            let work = DispatchWorkItem { [weak self] in self?.finishPendingRemoval() }
+            removalWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: work)
+        }
+        presentComposeView()
+    }
+
+    /// The Undo window ended (or something else needs a settled state): a participant
+    /// leaves the share for good (`pushDelete` drops the link, never the record); a
+    /// local timer has nothing left to do.
+    private func finishPendingRemoval() {
+        removalWork?.cancel()
+        removalWork = nil
+        guard let removed = pendingRemoval else { return }
+        pendingRemoval = nil
+        CloudSyncController.pushDelete(id: removed.payload.id)
+    }
+
+    private func undoRemoval() {
+        removalWork?.cancel()
+        removalWork = nil
+        guard let removed = pendingRemoval else { return }
+        pendingRemoval = nil
+        let restored = removed.payload.advancedSequence()
+        CloudLinkStore.clearLeft(timerID: restored.id)
+        TimerStore.save(restored)
+        // `TimerStore.delete` cleared both flags: a view-only share must stay view only,
+        // and a timer the app arms through AlarmKit (an alarm Messages never cancelled)
+        // must not get a second alert from here.
+        if removed.readOnly { TimerStore.setReadOnly(id: restored.id, true) }
+        if removed.alarmKitArmed {
+            TimerStore.setAlarmKitArmed(id: restored.id, true)
+        } else if restored.isPaused || restored.isExpired {
+            LiveActivityController.update(for: restored)
+        } else {
+            NotificationScheduler.scheduleAlert(for: restored)
+            LiveActivityController.start(for: restored)
+        }
+        TimerReminders.set(removed.reminders, for: restored.id)
+        TimerReminders.sync(restored)
+        deletedHere.remove(restored.id)
+        leftMessageURL = nil
+        if CloudLinkStore.get(timerID: restored.id) != nil {
+            CloudSyncController.refreshPermissions(for: [restored.id]) {
+                // On main: the open view's observer writes SwiftUI state.
+                DispatchQueue.main.async { NotificationCenter.default.post(name: TimerRunningView.storeChange, object: nil) }
+            }
+        }
+        presentRunningView(payload: restored)
     }
 
     private func presentRunningView(payload: TimerPayload) {
@@ -235,14 +318,7 @@ class MessagesViewController: MSMessagesAppViewController {
                 self?.persist(updated, action: action)
             },
             onDelete: { [weak self] deleted in
-                self?.deletedHere.insert(deleted.id)
-                self?.leftMessageURL = self?.activeConversation?.selectedMessage?.url
-                TimerStore.delete(id: deleted.id)
-                NotificationScheduler.cancel(id: deleted.id)
-                NotificationScheduler.cancelReminders(id: deleted.id)
-                LiveActivityController.end(id: deleted.id)
-                CloudSyncController.pushDelete(id: deleted.id)
-                self?.presentComposeView()
+                self?.remove(deleted)
             },
             onSendUpdate: { [weak self] current in
                 self?.send(payload: current, mode: .appCard, isExisting: true)
@@ -327,6 +403,7 @@ class MessagesViewController: MSMessagesAppViewController {
         // A second tap while the share is being prepared (up to ~4s) created a second
         // timer, share and bubble.
         guard let conversation = activeConversation, !isSending else { return }
+        finishPendingRemoval()
         isSending = true
 
         let payload: TimerPayload
@@ -441,4 +518,12 @@ class MessagesViewController: MSMessagesAppViewController {
         if payload.sequence != nil || payload.kind == .timer { return payload.shareSummary }
         return "→ \(TimeFormat.targetDate(payload.endDate))"
     }
+}
+
+/// What a removal took away, for Undo.
+private struct RemovalSnapshot {
+    let payload: TimerPayload
+    let readOnly: Bool
+    let alarmKitArmed: Bool
+    let reminders: Set<TimerReminder>
 }

@@ -24,6 +24,12 @@ struct TimerComposeView: View {
     @State private var savedSequences: [SavedSequence] = SavedSequenceStore.loadAll()
     @FocusState private var labelFocused: Bool
 
+    /// Just removed from its bubble's view (owner's pick 4A): an Undo shows for 5 s.
+    /// The controller keeps the real window and finishes it on its own.
+    var removed: TimerPayload? = nil
+    var onUndo: () -> Void = {}
+    @State private var undoVisible = true
+
     /// (payload, mode, isExisting) — `isExisting` when re-sharing a picked timer.
     let onStart: (TimerPayload, TimerShareMode, Bool) -> Void
 
@@ -124,6 +130,30 @@ struct TimerComposeView: View {
         .safeAreaInset(edge: .bottom) {
             // Re-checked every second, like the app's New Timer sheet: a 0:00:00 timer or a
             // target that passed while the sheet was open would ring at once.
+            VStack(spacing: 10) {
+            if let removed, undoVisible {
+                HStack {
+                    Text("Removed “\(removed.label)”")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Spacer()
+                    Button("Undo") {
+                        undoVisible = false
+                        onUndo()
+                    }
+                    .buttonStyle(.glassPill)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .glassEffect(.regular, in: Capsule())
+                .accessibilityElement(children: .contain)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .task {
+                    try? await Task.sleep(for: .seconds(5))
+                    withAnimation(.easeOut(duration: 0.2)) { undoVisible = false }
+                }
+            }
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 Button {
                     guard canStart(at: Date()) else { return }
@@ -140,6 +170,7 @@ struct TimerComposeView: View {
                 }
                 .buttonStyle(.glassPill)
                 .disabled(!canStart(at: context.date))
+            }
             }
             .padding()
             .background(Sky.room.opacity(0.92))
