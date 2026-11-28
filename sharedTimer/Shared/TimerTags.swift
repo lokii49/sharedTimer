@@ -114,17 +114,20 @@ struct TimerOrganizer: Codable, Equatable {
     /// A timer just started or recorded as the recent `key`: if it has tags or a note of
     /// its own (set in New Timer), the recent takes them; otherwise it gets the recent's
     /// (started again from a chip, Quick Action, Control Center or Siri).
+    /// Merges: the new timer keeps what it was given (a tag preselected by the list
+    /// filter, a note typed in New Timer) and fills the rest from what this name +
+    /// length had — its tags join the given ones, its note fills an empty one. The
+    /// result is then remembered.
     mutating func adopt(timerID: String, recentKey key: String, at date: Date = Date()) {
         recentOf[timerID] = key
-        if tagsByTimer[timerID] != nil || notes[timerID] != nil {
-            remember(timerID, at: date)
-        } else if let carried = recentExtras[key] {
+        if let carried = recentExtras[key] {
             let known = Set(tags.map(\.id))
-            let ids = carried.tagIDs.filter { known.contains($0) }
+            var ids = tagsByTimer[timerID] ?? []
+            for id in carried.tagIDs where known.contains(id) && !ids.contains(id) { ids.append(id) }
             tagsByTimer[timerID] = ids.isEmpty ? nil : ids
-            notes[timerID] = carried.note
-            recentExtras[key]?.usedAt = date
+            if notes[timerID] == nil { notes[timerID] = carried.note }
         }
+        remember(timerID, at: date)
     }
 
     /// Keeps the timer's recent in step with the timer's latest tags and note.

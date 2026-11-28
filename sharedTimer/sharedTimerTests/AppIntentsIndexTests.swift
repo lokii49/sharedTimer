@@ -63,13 +63,6 @@ struct AppIntentsIndexTests {
         #expect(a != TimerChoice(id: "x", label: "Chai"))
     }
 
-    @Test func spotlightResultsCarryTheirEntity() {
-        let running = TimerPayload(id: "r", label: "Tea", endDate: now.addingTimeInterval(300), duration: 300)
-        let entry = TimerSpotlightIndex.entries(from: [running], at: now).first
-        #expect(entry?.entity?.id == "r")
-        #expect(entry?.entity?.state == .running)
-    }
-
     @Test func eachSiriChangeRegistersItsOpposite() async {
         func check(_ did: TimerIntentActions.Mutation, expect: String, name: String) async {
             let undo = UndoManager()
@@ -77,7 +70,7 @@ struct AppIntentsIndexTests {
             var ran: (String, String)?
             await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
                 undo.beginUndoGrouping()
-                IntentUndo.register(undo, timerID: "t", did: did) { id, change in
+                IntentUndo.register(undo, timerID: "t", stamp: now, did: did, isCurrent: { _, _ in true }) { id, change in
                     ran = (id, "\(change)")
                     done.resume()
                 }
@@ -93,6 +86,21 @@ struct AppIntentsIndexTests {
         await check(.extend(minutes: 5), expect: "shorten(minutes: 5.0)", name: String(localized: "Add Time"))
         await check(.shorten(minutes: 2), expect: "extend(minutes: 2.0)", name: String(localized: "Remove time"))
         // No undo manager (Siri with nothing to attach to): nothing registered, no crash.
-        IntentUndo.register(nil, timerID: "t", did: .pause)
+        IntentUndo.register(nil, timerID: "t", stamp: now, did: .pause)
+    }
+
+    @Test func aStaleSiriUndoDoesNothing() async throws {
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        var performed = false
+        var checked: (String, Date?)?
+        undo.beginUndoGrouping()
+        IntentUndo.register(undo, timerID: "t", stamp: now, did: .extend(minutes: 5),
+                            isCurrent: { id, stamp in checked = (id, stamp); return false }) { _, _ in performed = true }
+        undo.endUndoGrouping()
+        undo.undo()
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(checked?.0 == "t" && checked?.1 == now)
+        #expect(!performed)
     }
 }

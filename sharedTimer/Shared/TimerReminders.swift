@@ -133,6 +133,30 @@ enum TimerReminders {
         }
     }
 
+    /// For an intent's `perform()` or background refresh, which may be torn down the
+    /// moment they return: the adds are awaited. While permission hasn't been asked yet
+    /// it doesn't wait for the person's answer — it falls back to `sync`.
+    static func syncAwaiting(_ payload: TimerPayload, at date: Date = Date()) async {
+        let center = UNUserNotificationCenter.current()
+        let status = await center.notificationSettings().authorizationStatus
+        guard status != .notDetermined else { return sync(payload, at: date) }
+        cancel(id: payload.id)
+        guard status == .authorized || status == .provisional || status == .ephemeral else { return }
+        for reminder in get(payload.id) {
+            guard let fire = reminder.fireDate(for: payload, at: date) else { continue }
+            let wait = fire.timeIntervalSinceNow
+            guard wait > 0 else { continue }
+            let content = UNMutableNotificationContent()
+            content.title = payload.label
+            content.body = String(localized: "\(reminder.body) · ends \(payload.endDate.formatted(date: .omitted, time: .shortened))")
+            content.sound = .default
+            content.userInfo["timerID"] = payload.id
+            content.filterCriteria = NotificationScheduler.headsUpCriteria
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, wait), repeats: false)
+            try? await center.add(UNNotificationRequest(identifier: identifier(payload.id, reminder), content: content, trigger: trigger))
+        }
+    }
+
     static func cancel(id: String) {
         lock.lock(); generations[id] = nil; lock.unlock()
         UNUserNotificationCenter.current().removePendingNotificationRequests(

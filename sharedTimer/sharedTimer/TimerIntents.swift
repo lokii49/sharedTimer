@@ -128,7 +128,7 @@ struct PauseTimerIntent: AppIntent, UndoableIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let payload = try await TimerIntentActions.perform(timerID: timer.id, mutation: .pause)
-        IntentUndo.register(undoManager, timerID: timer.id, did: .pause)
+        IntentUndo.register(undoManager, timerID: timer.id, stamp: payload.updatedAt, did: .pause)
         return .result(dialog: "\(payload.label) is paused with \(TimerIntentActions.spokenTime(payload.remaining)) left.")
     }
 }
@@ -142,7 +142,7 @@ struct ResumeTimerIntent: AppIntent, UndoableIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let payload = try await TimerIntentActions.perform(timerID: timer.id, mutation: .resume)
-        IntentUndo.register(undoManager, timerID: timer.id, did: .resume)
+        IntentUndo.register(undoManager, timerID: timer.id, stamp: payload.updatedAt, did: .resume)
         return .result(dialog: "\(payload.label) is running with \(TimerIntentActions.spokenTime(payload.remaining)) left.")
     }
 }
@@ -157,7 +157,7 @@ struct ExtendTimerIntent: AppIntent, UndoableIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let payload = try await TimerIntentActions.perform(timerID: timer.id, mutation: .extend(minutes: minutes))
-        IntentUndo.register(undoManager, timerID: timer.id, did: .extend(minutes: minutes))
+        IntentUndo.register(undoManager, timerID: timer.id, stamp: payload.updatedAt, did: .extend(minutes: minutes))
         if payload.isPaused {
             return .result(dialog: "Added \(TimerIntentActions.spokenTime(minutes * 60)) to \(payload.label). It is still paused with \(TimerIntentActions.spokenTime(payload.remaining)) left.")
         }
@@ -176,7 +176,7 @@ struct RemoveTimeIntent: AppIntent, UndoableIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let payload = try await TimerIntentActions.perform(timerID: timer.id, mutation: .shorten(minutes: minutes))
-        IntentUndo.register(undoManager, timerID: timer.id, did: .shorten(minutes: minutes))
+        IntentUndo.register(undoManager, timerID: timer.id, stamp: payload.updatedAt, did: .shorten(minutes: minutes))
         if payload.isPaused {
             return .result(dialog: "Removed \(TimerIntentActions.spokenTime(minutes * 60)) from \(payload.label). It is still paused with \(TimerIntentActions.spokenTime(payload.remaining)) left.")
         }
@@ -278,14 +278,23 @@ enum IntentUndo {
         }
     }
 
-    static func register(_ undoManager: UndoManager?, timerID: String, did mutation: TimerIntentActions.Mutation,
+    /// `stamp` is the `updatedAt` the change wrote: the undo runs only while the stored
+    /// timer still carries it — once anything else changed the timer (a later pause, a
+    /// friend's extend), undoing would act on a state nobody asked to reverse.
+    static func register(_ undoManager: UndoManager?, timerID: String, stamp: Date?, did mutation: TimerIntentActions.Mutation,
+                         isCurrent: @escaping @MainActor (String, Date?) -> Bool = { id, stamp in
+                             stamp != nil && TimerStore.loadAll().first { $0.id == id }?.updatedAt == stamp
+                         },
                          perform: @escaping @MainActor (String, TimerIntentActions.Mutation) async -> Void = { id, change in
                              _ = try? await TimerIntentActions.perform(timerID: id, mutation: change)
                          }) {
         guard let undoManager else { return }
         let (inverse, name) = inverse(of: mutation)
         undoManager.registerUndo(withTarget: target) { _ in
-            Task { @MainActor in await perform(timerID, inverse) }
+            Task { @MainActor in
+                guard isCurrent(timerID, stamp) else { return }
+                await perform(timerID, inverse)
+            }
         }
         undoManager.setActionName(name)
     }

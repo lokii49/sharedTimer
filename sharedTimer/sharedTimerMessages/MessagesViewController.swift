@@ -165,7 +165,7 @@ class MessagesViewController: MSMessagesAppViewController {
                     for id in deletedIDs {
                         TimerStore.delete(id: id)
                         NotificationScheduler.cancel(id: id)
-                        NotificationScheduler.cancelReminders(id: id)
+                        TimerReminders.cancel(id: id)
                         LiveActivityController.end(id: id)
                     }
                     NotificationCenter.default.post(name: TimerRunningView.storeChange, object: nil)
@@ -245,7 +245,7 @@ class MessagesViewController: MSMessagesAppViewController {
         leftMessageURL = activeConversation?.selectedMessage?.url
         TimerStore.delete(id: deleted.id)
         NotificationScheduler.cancel(id: deleted.id)
-        NotificationScheduler.cancelReminders(id: deleted.id)
+        TimerReminders.cancel(id: deleted.id)
         LiveActivityController.end(id: deleted.id)
         if let link, link.isOwner, link.isShared {
             CloudSyncController.pushDelete(id: deleted.id)

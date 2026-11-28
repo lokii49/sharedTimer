@@ -124,6 +124,20 @@ struct TimerTagsTests {
         // A later change on the timer follows to the recent.
         o.setNote("Salt the water", for: "run1")
         #expect(o.recentExtras["Pasta|480"]?.note == "Salt the water")
+        // New Timer with the list filtered by another tag: that tag stays, the
+        // remembered tag and note are added — never replaced by "nothing".
+        let workMade = o.addTag(named: "Work")
+        let work = workMade!.id
+        o.setTags([work], for: "fresh")
+        o.adopt(timerID: "fresh", recentKey: "Pasta|480")
+        #expect(o.tags(for: "fresh").map(\.id) == [work, kitchen])
+        #expect(o.note(for: "fresh") == "Salt the water")
+        #expect(o.recentExtras["Pasta|480"]?.note == "Salt the water")
+        // A note typed for this run wins over the remembered one.
+        o.setNote("Less salt", for: "typed")
+        o.adopt(timerID: "typed", recentKey: "Pasta|480")
+        #expect(o.note(for: "typed") == "Less salt")
+        o.setTags([kitchen], for: "fresh"); o.setNote("Salt the water", for: "fresh")
         // Started again from the chip: a new timer gets them.
         o.adopt(timerID: "run2", recentKey: "Pasta|480")
         #expect(o.tags(for: "run2").map(\.id) == [kitchen])
