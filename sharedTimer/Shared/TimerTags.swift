@@ -218,6 +218,7 @@ struct TagChipsPicker: View {
                     } label: {
                         Text(tag.name)
                             .font(.subheadline.weight(.medium))
+                            .lineLimit(1)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
                             .background(on ? Color.white.opacity(0.9) : .white.opacity(0.14), in: Capsule())
@@ -231,7 +232,10 @@ struct TagChipsPicker: View {
                     naming = true
                 } label: {
                     Label("New Tag", systemImage: "plus")
+                        .labelStyle(.titleAndIcon)
                         .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+                        .fixedSize()
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
                         .overlay(Capsule().strokeBorder(.white.opacity(0.35)))
