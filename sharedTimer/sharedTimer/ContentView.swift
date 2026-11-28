@@ -183,6 +183,7 @@ struct ContentView: View {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
               TimerStore.hasStoredData, let stored = TimerStore.loadAllIfComplete() else { return }
         TimerTagStore.update { $0.prune(keeping: Set(stored.map(\.id))) }
+        TimerPhotos.prune(keeping: Set(stored.map(\.id)))
     }
 
     /// N6 / N7 at the top of the list (not under a tag filter — they have no tags): the
@@ -1529,7 +1530,7 @@ private struct LiveSkyCard: View {
     var body: some View {
         // Overtime (a finished timer's "+2:13") still ticks every second for its hour.
         TimelineView(.periodic(from: .now, by: payload.isPaused || (payload.isFinished && payload.overtime() == nil) ? 60 : 1)) { context in
-            SkyCard(payload: payload, date: context.date, tags: tags)
+            SkyCard(payload: payload, date: context.date, tags: tags, photo: TimerPhotos.image(for: payload.id))
         }
     }
 }

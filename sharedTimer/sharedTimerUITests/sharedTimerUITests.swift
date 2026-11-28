@@ -621,6 +621,38 @@ final class sharedTimerUITests: XCTestCase {
         app.buttons["Close"].tap()
     }
 
+    /// N13: a timer with a bright photo (seeded — the system picker can't be driven):
+    /// its card and its screen keep white text readable. Screenshots for review.
+    @MainActor
+    func testPhotoBackgroundScreens() throws {
+        #if targetEnvironment(simulator)
+        let app = XCUIApplication()
+        let id = UUID().uuidString
+        var share = URLComponents(string: "https://mirrornotes.org/timer")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id), URLQueryItem(name: "label", value: "Photo test"),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(86_400 * 29).timeIntervalSince1970)),
+            URLQueryItem(name: "dur", value: String(86_400 * 30)), URLQueryItem(name: "kind", value: "countdown"),
+            URLQueryItem(name: "alarm", value: "0"), URLQueryItem(name: "vib", value: "0")
+        ]
+        widgetTestURL = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        app.open(try XCTUnwrap(share.url))
+        let add = app.buttons["Add to My Timers"]
+        XCTAssertTrue(add.waitForExistence(timeout: 10))
+        add.tap()
+        if app.alerts.buttons["Not Now"].waitForExistence(timeout: 2) { app.alerts.buttons["Not Now"].tap() }
+        app.terminate()
+        app.launchArguments = ["-SeedPhoto", id]
+        app.launch()
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Photo test'")).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        let list = XCTAttachment(screenshot: app.screenshot()); list.name = "Photo card"; list.lifetime = .keepAlways; self.add(list)
+        app.open(try XCTUnwrap(widgetTestURL))
+        XCTAssertTrue(app.buttons["Delete"].waitForExistence(timeout: 10))
+        let detail = XCTAttachment(screenshot: app.screenshot()); detail.name = "Photo detail"; detail.lifetime = .keepAlways; self.add(detail)
+        #endif
+    }
+
     /// History redesign + Stats, on realistic seeded runs (simulator only — the seed
     /// doesn't exist in device builds): screenshots of each screen for review.
     @MainActor

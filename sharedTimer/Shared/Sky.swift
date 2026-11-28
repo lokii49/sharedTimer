@@ -233,6 +233,11 @@ struct SkyCard: View {
     /// N5: this phone's tag names, shown as small pills by the label. Only the app's
     /// list passes them — share previews, Messages and the Edit sheet never do.
     var tags: [String] = []
+    #if canImport(UIKit)
+    /// N13: this phone's photo for the timer, in place of the sky. Like `tags`, only the
+    /// app's list passes it — share previews and Messages never do.
+    var photo: UIImage? = nil
+    #endif
     @Environment(\.dynamicTypeSize) private var typeSize
     /// Digits grow with Dynamic Type on the large layout (C9 · A), capped so a long
     /// countdown still fits one line.
@@ -315,6 +320,10 @@ struct SkyCard: View {
         .padding(14)
         .frame(minHeight: 104, maxHeight: large ? nil : 104)
         .background(
+            ZStack { cardPhoto }
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        )
+        .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(Sky.gradient(for: payload, at: date))
                 // Reads as "not live yet" at a glance, not just via the "Scheduled"
@@ -330,6 +339,19 @@ struct SkyCard: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityTitle)
         .accessibilityValue(accessibilityStatus(remaining: remaining, pending: pending))
+    }
+
+    /// The photo, darkened so the white text reads on a bright picture; empty without one.
+    @ViewBuilder private var cardPhoto: some View {
+        #if canImport(UIKit)
+        if let photo {
+            GeometryReader { geo in
+                Image(uiImage: photo).resizable().scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height).clipped()
+            }
+            .overlay(LinearGradient(colors: [.black.opacity(0.45), .black.opacity(0.15), .black.opacity(0.55)], startPoint: .top, endPoint: .bottom))
+        }
+        #endif
     }
 
     private var accessibilityTitle: String {

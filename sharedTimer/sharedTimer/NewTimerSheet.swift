@@ -22,6 +22,9 @@ struct NewTimerSheet: View {
     /// N5: this phone's tags (the list's current filter preselected) and a note.
     @State private var tagIDs: [String] = []
     @State private var note = ""
+    /// N13: a picked photo's data (nil = the sky), saved for the new timer on Start.
+    @State private var photoData: Data?
+    @State private var photoPreview: UIImage?
     @FocusState private var labelFocused: Bool
     @State private var recents: [RecentTimer] = RecentTimersStore.all()
 
@@ -148,6 +151,14 @@ struct NewTimerSheet: View {
                         .lineLimit(2...6)
                         .accessibilityIdentifier("noteField")
                 }
+                Section {
+                    PhotoBackgroundRow(preview: photoPreview,
+                                       onPick: { data in
+                                           photoData = data
+                                           photoPreview = TimerPhotos.downscaledJPEG(data).flatMap(UIImage.init(data:))
+                                       },
+                                       onRemove: { photoData = nil; photoPreview = nil })
+                }
             }
             .sheet(isPresented: $showingCalendarImport) {
                 CalendarImportSheet { choice in
@@ -179,6 +190,7 @@ struct NewTimerSheet: View {
                                 organizer.setTags(tags, for: payload.id)
                                 organizer.setNote(text, for: payload.id)
                             }
+                            if let photoData { TimerPhotos.save(photoData, for: payload.id) }
                             onCreate(payload)
                             dismiss()
                         }

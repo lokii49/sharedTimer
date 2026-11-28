@@ -31,6 +31,9 @@ struct EditTimerSheet: View {
     @State private var originalTagIDs: [String] = []
     @State private var note = ""
     @State private var originalNote = ""
+    /// N13: nil = unchanged, .some(nil) = back to the sky, .some(data) = a new photo.
+    @State private var photoChange: Data?? = nil
+    @State private var pickedPreview: UIImage?
 
     @State private var label: String
     @State private var kind: TimerKind
@@ -102,7 +105,7 @@ struct EditTimerSheet: View {
 
     /// Tags and note: this phone only, never an "edited" change for everyone.
     private var localExtrasChanged: Bool {
-        showsTagsAndNote && (tagIDs != originalTagIDs || note != originalNote)
+        showsTagsAndNote && (tagIDs != originalTagIDs || note != originalNote || photoChange != nil)
     }
 
     private var timerFieldsChanged: Bool {
@@ -111,6 +114,14 @@ struct EditTimerSheet: View {
             || next.alarmEnabled != original.alarmEnabled
             || next.vibrationEnabled != original.vibrationEnabled
             || next.endDate != original.endDate
+    }
+
+    private var photoPreview: UIImage? {
+        switch photoChange {
+        case .some(.some): return pickedPreview
+        case .some(.none): return nil
+        case .none: return TimerPhotos.image(for: original.id)
+        }
     }
 
     private var timeZone: TimeZone {
@@ -159,6 +170,14 @@ struct EditTimerSheet: View {
                             .lineLimit(2...6)
                             .accessibilityIdentifier("noteField")
                     }
+                    Section {
+                        PhotoBackgroundRow(preview: photoPreview,
+                                           onPick: { data in
+                                               photoChange = .some(data)
+                                               pickedPreview = TimerPhotos.downscaledJPEG(data).flatMap(UIImage.init(data:))
+                                           },
+                                           onRemove: { photoChange = .some(nil); pickedPreview = nil })
+                    }
                 }
             }
             .scrollContentBackground(.hidden)
@@ -179,6 +198,11 @@ struct EditTimerSheet: View {
                                 TimerTagStore.update { organizer in
                                     organizer.setTags(tagIDs, for: original.id)
                                     organizer.setNote(note, for: original.id)
+                                }
+                                switch photoChange {
+                                case .some(.some(let data)): TimerPhotos.save(data, for: original.id)
+                                case .some(.none): TimerPhotos.remove(original.id)
+                                case .none: break
                                 }
                             }
                             if timerFieldsChanged, let edited = editedLatest() {

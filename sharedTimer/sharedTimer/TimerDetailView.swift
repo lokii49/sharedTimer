@@ -67,7 +67,14 @@ struct TimerDetailView: View {
             let colors = Sky.colors(for: payload, at: context.date)
 
             ZStack {
-                SwayingSkyGradient(colors: colors, swaying: !reduceMotion && !lowPower)
+                Group {
+                    // N13: the timer's own photo (this phone only) in place of the sky.
+                    if let photo = TimerPhotos.image(for: payload.id) {
+                        PhotoBackdrop(image: photo)
+                    } else {
+                        SwayingSkyGradient(colors: colors, swaying: !reduceMotion && !lowPower)
+                    }
+                }
                 .ignoresSafeArea()
                 // Same "not live yet" muting as SkyCard's row treatment.
                 .saturation(pending ? 0.35 : 1)
