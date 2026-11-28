@@ -1,7 +1,11 @@
-• Diperbaiki: Riwayat bisa tertutup tiba-tiba saat menampilkan urutan atau hitung mundur berulang.
-• Berikutnya, Minggu Berikutnya, dan tombol lain di alarm layar penuh kini langsung menutupnya.
-• Widget lebih tepat waktu: waktu habis dan fase baru tampil tepat waktu, mengetuk widget atau Aktivitas Langsung membuka timernya, ada widget satu baris untuk Layar Kunci, dan tampilan lebih jelas di Layar Utama berwarna, StandBy malam hari, serta ukuran ekstra besar di iPad.
-• Menghentikan hitung mundur berulang dari widget atau Aktivitas Langsung kini melompat ke yang berikutnya, tidak mengakhiri serinya.
-• Pesan: timer yang terbuka mengikuti setiap perubahan, dan hitung mundur berulang punya Minggu Berikutnya.
-• Tombol gembok baru menjaga layar tetap menyala saat Anda melihat.
+• Tag dan catatan: beri tag pada timer seperti Dapur atau Kerja, saring daftarnya, dan tambahkan catatan yang kembali saat Anda memulai timer itu lagi.
+• Statistik: Riwayat mengelompokkan putaran berulang, dan halaman Statistik baru menampilkan minggu, bulan, dan rentetan hari Anda, dengan ekspor ke spreadsheet.
+• Uji alarm saya, di Pengaturan, membunyikan alarm sungguhan dalam lima detik dan menunjukkan apa yang perlu diubah jika tidak sampai.
+• Tombol − baru mengurangi waktu timer, juga di Pesan, Apple Watch, dan dengan Siri.
+• Pesan: edit timer, mulai urutan tersimpan, buat hitung mundur berulang, tambahkan pengingat awal, dan batalkan penghapusan.
+• Isyarat suara untuk urutan: nama fase, peringatan satu menit, dan bunyi bip selama Timer terbuka.
+• Filter Fokus: buat pengingat dan kabar timer bersama tetap senyap selama Fokus.
+• Apple Watch: komplikasi sudut dengan sisa waktu dan busur yang menyusut.
+• Pintasan dapat menemukan timer berdasarkan nama, jenis, atau status, dan jeda atau tambahan waktu yang diminta ke Siri bisa dibatalkan.
+• Hitungan waktu lebih kini berhenti saat Anda menutup alarm layar penuh.
 • Plus banyak perbaikan kecil.

@@ -1,7 +1,11 @@
-• Corrigé : l’Historique pouvait se fermer brusquement lorsqu’il affichait une séquence ou un compte à rebours récurrent.
-• Suivant, Semaine suivante et les autres boutons d’une alarme en plein écran la ferment désormais aussitôt.
-• Des widgets à l’heure : les fins et les nouvelles phases s’affichent pile à temps, toucher un widget ou une activité en direct ouvre son minuteur, un widget d’une ligne arrive sur l’écran verrouillé, avec un style plus lisible sur les écrans d’accueil teintés, en mode En veille la nuit et en très grande taille sur iPad.
-• Arrêter un compte à rebours récurrent depuis son widget ou son Activité en direct passe désormais au suivant au lieu de terminer la série.
-• Messages : un minuteur ouvert suit chaque changement, et les comptes à rebours récurrents ont Semaine suivante.
-• Un nouveau bouton cadenas garde l’écran allumé pendant que vous regardez.
-• Et de nombreuses autres corrections.
+• Tags et notes : ajoutez des tags comme Cuisine ou Travail, filtrez la liste et ajoutez une note qui revient la prochaine fois que vous lancez ce minuteur.
+• Statistiques : l’historique regroupe les répétitions, et une nouvelle page Statistiques montre votre semaine, votre mois et vos séries, avec export en tableur.
+• Tester mon alarme, dans Réglages, fait sonner une vraie alarme dans cinq secondes et indique quoi changer si elle ne passe pas.
+• Un nouveau bouton − retire du temps à un minuteur, aussi dans Messages, sur l’Apple Watch et avec Siri.
+• Messages : modifiez un minuteur, lancez une séquence enregistrée, faites répéter un compte à rebours, ajoutez des rappels anticipés et annulez une suppression.
+• Annonces vocales pour les séquences : nom des phases, alerte à une minute et bips pendant que Timer est ouvert.
+• Filtres de concentration : gardez silencieux les rappels et les nouvelles des minuteurs partagés pendant un mode de concentration.
+• Apple Watch : une complication d’angle avec le temps restant et un arc qui se vide.
+• Raccourcis trouve les minuteurs par nom, type ou état, et une pause ou un ajout demandé à Siri peut être annulé.
+• Le décompte du dépassement s’arrête quand vous fermez l’alarme plein écran.
+• Et de nombreuses petites corrections.
