@@ -44,6 +44,9 @@ struct TimerDetailView: View {
     @State private var templateName = ""
     /// Flipped on save so the bookmark redraws as filled.
     @State private var templateSaved = false
+    /// The finish "Done" was tapped for here, so the orange count and the pill go at
+    /// once instead of on the next tick (the stored acknowledgment isn't observed).
+    @State private var acknowledgedEnd: Date?
     @ObservedObject private var alarm = AlarmPlayer.shared
     @ObservedObject private var vibration = VibrationPlayer.shared
 
@@ -65,6 +68,8 @@ struct TimerDetailView: View {
             let done = payload.isExpired
             let pending = payload.isPending(at: context.date)
             let colors = Sky.colors(for: payload, at: context.date)
+            let acknowledged = acknowledgedEnd == payload.endDate || TimerStore.isFinishAcknowledged(id: payload.id)
+            let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: acknowledged) : nil
 
             ZStack {
                 Group {
@@ -102,7 +107,6 @@ struct TimerDetailView: View {
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(Sky.captionOpacity(contrast)))
                         }
-                        let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: TimerStore.isFinishAcknowledged(id: payload.id)) : nil
                         Text(pending ? (payload.scheduledStartDate.map { Sky.pendingStartText(for: $0, at: context.date) } ?? "") : overtime ?? TimeFormat.display(remaining))
                             .skyDigits(72, weight: .thin)
                             .foregroundStyle(overtime == nil ? Color.white : Sky.overtimeInk)
@@ -193,6 +197,12 @@ struct TimerDetailView: View {
                                     TimerStore.acknowledgeFinish(id: payload.id)
                                 }
                                 .buttonStyle(.glassPill)
+                            } else if overtime != nil {
+                                // Ends the orange count when nothing is ringing here — a
+                                // quiet timer never shows Stop (owner's pick A, 2026-11-28).
+                                // This phone only, like Stop, so a view-only share keeps it.
+                                Button("Done") { finishOvertime() }
+                                    .buttonStyle(.glassPill)
                             }
                             Button("Repeat") {
                                 repeatTimer()
@@ -570,6 +580,18 @@ struct TimerDetailView: View {
     /// Restart a finished timer from its detail screen — stop any in-app alarm loop,
     /// re-arm the finish handler, and run the standard mutation path (which reschedules
     /// the AlarmKit alarm / notification and Live Activity).
+    /// "Done" on a finished timer still counting overtime: the same acknowledgment Stop
+    /// writes, plus the finished card goes (it would otherwise keep counting for its
+    /// last minutes) and an alarm still ringing for this finish ends — an explicit tap,
+    /// like the alert's own buttons. Saves nothing and pushes nothing: this phone only.
+    private func finishOvertime() {
+        acknowledgedEnd = payload.endDate
+        TimerStore.acknowledgeFinish(id: payload.id)
+        LiveActivityController.end(id: payload.id)
+        let id = payload.id
+        Task { await AlarmController.dismissRinging(timerID: id, reason: "done") }
+    }
+
     private func repeatTimer() {
         guard canChange() else { return }
         alarm.stop()

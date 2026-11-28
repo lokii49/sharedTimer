@@ -45,12 +45,17 @@ struct TimerRunningView: View {
     @State private var isShared = false
     @State private var confirmingDeleteForEveryone = false
     @State private var showingEdit = false
+    /// The finish "Done" was tapped for here, so the count and the pill go at once.
+    @State private var acknowledgedEnd: Date?
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let remaining = payload.remaining
             let done = payload.isExpired
             let pending = payload.isPending(at: context.date)
+            // Stop or Done (here or in the app) ends the count, as everywhere else.
+            let acknowledged = acknowledgedEnd == payload.endDate || TimerStore.isFinishAcknowledged(id: payload.id)
+            let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: acknowledged) : nil
 
             ZStack {
                 Sky.gradient(for: payload, at: context.date)
@@ -92,8 +97,6 @@ struct TimerRunningView: View {
                             Text(pending ? Sky.pendingSequenceCaption(payload.sequence!) : caption)
                                 .font(.caption).foregroundStyle(.white.opacity(0.6))
                         }
-                        // Stop (here or in the app) ends the count, as everywhere else.
-                        let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: TimerStore.isFinishAcknowledged(id: payload.id)) : nil
                         Text(pending ? Sky.pendingStartText(for: payload.scheduledStartDate!, at: context.date) : overtime ?? TimeFormat.display(remaining))
                             .skyDigits(52, weight: .thin)
                             .foregroundStyle(overtime == nil ? Color.white : Sky.overtimeInk)
@@ -143,26 +146,34 @@ struct TimerRunningView: View {
                     }
 
                     // Same controls, in the same order, as the app's detail screen.
-                    Group {
-                        if pending {
-                            Button("Start Now") { startEarly() }
-                                .buttonStyle(.glassPill)
-                        } else if !done {
-                            GlassEffectContainer(spacing: 16) {
-                                // As in the app: Pause drops below when the row doesn't fit.
-                                ViewThatFits(in: .horizontal) {
-                                    HStack(spacing: 12) { timeControls; pauseButton }
-                                    VStack(spacing: 12) { timeControls; pauseButton }
-                                }
-                            }
-                        } else {
-                            Button("Repeat") { repeatTimer() }
+                    HStack(spacing: 12) {
+                        // Ends the orange count when nothing is ringing here (owner's
+                        // pick A, 2026-11-28). This phone only, so a view-only share keeps it.
+                        if overtime != nil && !(alarm.isPlaying || vibration.isVibrating) {
+                            Button("Done") { finishOvertime() }
                                 .buttonStyle(.glassPill)
                         }
+                        Group {
+                            if pending {
+                                Button("Start Now") { startEarly() }
+                                    .buttonStyle(.glassPill)
+                            } else if !done {
+                                GlassEffectContainer(spacing: 16) {
+                                    // As in the app: Pause drops below when the row doesn't fit.
+                                    ViewThatFits(in: .horizontal) {
+                                        HStack(spacing: 12) { timeControls; pauseButton }
+                                        VStack(spacing: 12) { timeControls; pauseButton }
+                                    }
+                                }
+                            } else {
+                                Button("Repeat") { repeatTimer() }
+                                    .buttonStyle(.glassPill)
+                            }
+                        }
+                        // View only: shown but disabled, so it's clear why they don't work.
+                        .disabled(readOnly)
+                        .opacity(readOnly ? 0.45 : 1)
                     }
-                    // View only: shown but disabled, so it's clear why they don't work.
-                    .disabled(readOnly)
-                    .opacity(readOnly ? 0.45 : 1)
 
                     // A repeating countdown: skip to its next occurrence, like the app's
                     // detail screen ("Next Year", "Next Week", …).
@@ -404,6 +415,14 @@ struct TimerRunningView: View {
         guard let base = latestForChange() else { return }
         payload = base.repeated()
         onUpdate(payload, "startedEarly")
+    }
+
+    /// "Done": the same acknowledgment as Stop (no save, no push — this phone only), and
+    /// the finished card goes instead of counting for its last minutes.
+    private func finishOvertime() {
+        acknowledgedEnd = payload.endDate
+        TimerStore.acknowledgeFinish(id: payload.id)
+        LiveActivityController.end(id: payload.id)
     }
 
     private func repeatTimer() {

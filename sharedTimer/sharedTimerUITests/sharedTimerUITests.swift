@@ -155,6 +155,66 @@ final class sharedTimerUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Delete"].exists)
     }
 
+    /// A quiet timer (no alarm, no vibration) never shows Stop, so its orange overtime
+    /// count had no way to end before its hour. "Done" beside Repeat ends it (owner's
+    /// pick A, 2026-11-28).
+    @MainActor
+    func testDoneEndsAQuietTimersOvertimeCount() throws {
+        let app = XCUIApplication()
+        let id = UUID().uuidString
+        let label = "Done UI \(id.prefix(4))"
+        var share = URLComponents(string: "https://lokii49.github.io/sharedTimer/t.html")!
+        share.queryItems = [
+            URLQueryItem(name: "id", value: id), URLQueryItem(name: "label", value: label),
+            URLQueryItem(name: "end", value: String(Date().addingTimeInterval(-30).timeIntervalSince1970)),
+            URLQueryItem(name: "dur", value: "120"), URLQueryItem(name: "kind", value: "timer"),
+            URLQueryItem(name: "alarm", value: "0"), URLQueryItem(name: "vib", value: "0")
+        ]
+        widgetTestURL = try XCTUnwrap(URL(string: "sharedtimer://timer/" + id))
+        app.open(try XCTUnwrap(share.url))
+        let addButton = app.buttons["Add to My Timers"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
+        addButton.tap()
+        if app.alerts.buttons["Not Now"].exists { app.alerts.buttons["Not Now"].tap() }
+        let card = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        card.tap()
+
+        let overtime = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH ' over'")).firstMatch
+        XCTAssertTrue(overtime.waitForExistence(timeout: 10), "a finished quiet timer counts overtime")
+        let done = app.buttons["Done"]
+        XCTAssertTrue(done.exists)
+        XCTAssertTrue(app.buttons["Repeat"].exists)
+        XCTAssertFalse(app.buttons["Stop"].exists, "nothing rings for a quiet timer")
+        let before = XCTAttachment(screenshot: app.screenshot())
+        before.name = "Overtime with Done"
+        before.lifetime = .keepAlways
+        add(before)
+
+        done.tap()
+        // Gone straight away, not on the next tick.
+        let gone = NSPredicate(format: "exists == false")
+        wait(for: [expectation(for: gone, evaluatedWith: done), expectation(for: gone, evaluatedWith: overtime)], timeout: 2)
+        XCTAssertTrue(app.buttons["Repeat"].exists)
+        let after = XCTAttachment(screenshot: app.screenshot())
+        after.name = "After Done"
+        after.lifetime = .keepAlways
+        add(after)
+
+        // Don't leave the fixture in the device's real History.
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let history = app.buttons["historyButton"]
+        XCTAssertTrue(history.waitForExistence(timeout: 10))
+        history.tap()
+        let row = app.staticTexts[label].firstMatch
+        if row.waitForExistence(timeout: 5) {
+            row.swipeLeft()
+            let forget = app.buttons["Forget"].firstMatch
+            if forget.waitForExistence(timeout: 3) { forget.tap() }
+        }
+        app.buttons["Done"].firstMatch.tap()
+    }
+
     @MainActor
     func testFinishedTimerAppearsInHistoryWithRunAgain() throws {
         let app = XCUIApplication()
