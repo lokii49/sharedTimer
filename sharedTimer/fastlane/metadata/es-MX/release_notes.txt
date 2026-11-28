@@ -7,5 +7,9 @@
 • Filtros de enfoque: silencia los avisos y las novedades de temporizadores compartidos durante un modo de enfoque.
 • Apple Watch: una complicación de esquina con el tiempo restante y un arco que se vacía.
 • Atajos puede buscar temporizadores por nombre, tipo o estado, y una pausa o una extensión pedida a Siri se puede deshacer.
+• Días desde: cuenta los días desde algo, y un cronómetro con vueltas, ambos en +.
+• Pon tu propia foto como fondo de un temporizador.
+• Cuatro tonos de alarma nuevos: Campanilla, Ascenso, Flor y Marimba.
+• Una secuencia silenciosa programada muestra su Actividad en Vivo a tiempo, aunque Timer esté cerrado.
 • El conteo de tiempo extra se detiene al cerrar la alarma de pantalla completa.
 • Y muchas mejoras más pequeñas.

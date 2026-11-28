@@ -7,5 +7,9 @@
 • Focus filters: keep reminders and shared-timer updates quiet during a Focus.
 • Apple Watch: a corner complication with the time left and a draining arc.
 • Shortcuts can find timers by name, kind or state, and a pause or extend asked of Siri can be undone.
+• Days since: count the days since something, and a stopwatch with laps, both under +.
+• Give a timer your own photo as its background.
+• Four new alarm tones: Chime, Rise, Bloom and Marimba.
+• A quiet sequence set to start later shows its Live Activity on time, even with Timer closed.
 • An overtime count now stops when you dismiss the full-screen alarm.
 • Plus many smaller fixes.

@@ -73,5 +73,23 @@ struct LiveActivityDeviceTests {
         try? await Task.sleep(for: .milliseconds(500))
         #expect(cards(pending.id).allSatisfy { $0.activityState == .dismissed || $0.activityState == .ended })
     }
+
+    /// N8, device only (the simulator never leaves `.pending`): a card scheduled five
+    /// seconds ahead is live once its start passes — the release notes' "on time" claim.
+    @Test func aScheduledCardGoesLiveAtItsStart() async throws {
+        #if targetEnvironment(simulator)
+        return
+        #else
+        let quiet = SequencePhase(label: "Goes live test", kind: .timer, duration: 120, alarmEnabled: false, vibrationEnabled: false)
+        let pending = TimerPayload.composeSequence(phases: [quiet], loopCount: 1, startDate: Date().addingTimeInterval(5))
+        await LiveActivityController.startAwaiting(for: pending)
+        #expect(cards(pending.id).first?.activityState == .pending)
+        try await Task.sleep(for: .seconds(9))
+        let state = cards(pending.id).first?.activityState
+        print("LA_SCHEDULED state after start: \(String(describing: state))")
+        #expect(state == .active)
+        await LiveActivityController.endAwaiting(id: pending.id)
+        #endif
+    }
 }
 

@@ -7,5 +7,9 @@
 • Filter Fokus: buat pengingat dan kabar timer bersama tetap senyap selama Fokus.
 • Apple Watch: komplikasi sudut dengan sisa waktu dan busur yang menyusut.
 • Pintasan dapat menemukan timer berdasarkan nama, jenis, atau status, dan jeda atau tambahan waktu yang diminta ke Siri bisa dibatalkan.
+• Hari sejak: hitung hari sejak sesuatu, plus stopwatch dengan putaran, keduanya di +.
+• Jadikan foto Anda sendiri sebagai latar timer.
+• Empat nada alarm baru: Lonceng, Naik, Mekar, dan Marimba.
+• Urutan senyap yang dijadwalkan nanti menampilkan Aktivitas Langsung tepat waktu, meski Timer tertutup.
 • Hitungan waktu lebih kini berhenti saat Anda menutup alarm layar penuh.
 • Plus banyak perbaikan kecil.

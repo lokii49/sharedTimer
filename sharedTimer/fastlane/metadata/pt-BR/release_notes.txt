@@ -7,5 +7,9 @@
 • Filtros de foco: mantenha em silêncio os lembretes e as novidades de timers compartilhados durante um Foco.
 • Apple Watch: uma complicação de canto com o tempo restante e um arco que esvazia.
 • O Atalhos encontra timers por nome, tipo ou estado, e uma pausa ou extensão pedida à Siri pode ser desfeita.
+• Dias desde: conte os dias desde algo, e um cronômetro com voltas, os dois no +.
+• Use sua própria foto como fundo de um timer.
+• Quatro novos toques de alarme: Sino, Ascensão, Flor e Marimba.
+• Uma sequência silenciosa agendada mostra sua Atividade ao Vivo na hora, mesmo com o Timer fechado.
 • A contagem de tempo extra para quando você dispensa o alarme em tela cheia.
 • E muitas correções menores.
