@@ -15,6 +15,8 @@ struct TimerClipView: View {
     @State private var keepAwake = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var hasAlarmed = false
+    /// The finish "Done" was tapped for here, so the count and the pill go at once.
+    @State private var acknowledgedEnd: Date?
     @ObservedObject private var alarm = AlarmPlayer.shared
     @ObservedObject private var vibration = VibrationPlayer.shared
 
@@ -24,6 +26,9 @@ struct TimerClipView: View {
             let remaining = payload.remaining
             let done = payload.isExpired
             let pending = payload.isPending(at: context.date)
+            // Stop or Done (here or in the app) ends the count, as everywhere else.
+            let acknowledged = acknowledgedEnd == payload.endDate || TimerStore.isFinishAcknowledged(id: payload.id)
+            let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: acknowledged) : nil
 
             ZStack {
                 SwayingSkyGradient(colors: Sky.colors(for: payload, at: context.date), swaying: !reduceMotion && !lowPower)
@@ -46,8 +51,6 @@ struct TimerClipView: View {
                             Text(pending ? Sky.pendingSequenceCaption(payload.sequence!) : caption)
                                 .font(.caption).foregroundStyle(.white.opacity(0.6))
                         }
-                        // Stop (here or in the app) ends the count, as everywhere else.
-                        let overtime = done ? Sky.overtimeText(for: payload, at: context.date, acknowledged: TimerStore.isFinishAcknowledged(id: payload.id)) : nil
                         Text(pending ? Sky.pendingStartText(for: payload.scheduledStartDate!, at: context.date) : overtime ?? TimeFormat.display(remaining))
                             .skyDigits(64, weight: .thin)
                             .foregroundStyle(overtime == nil ? Color.white : Sky.overtimeInk)
@@ -85,6 +88,15 @@ struct TimerClipView: View {
                         Button("Stop") {
                             alarm.stop()
                             vibration.stop()
+                            TimerStore.acknowledgeFinish(id: payload.id)
+                        }
+                        .buttonStyle(.glassPill)
+                        .padding(.top, 10)
+                    } else if overtime != nil {
+                        // Ends the orange count when nothing is ringing here (owner's
+                        // pick A, 2026-11-28; the Clip has no Repeat to sit beside).
+                        Button("Done") {
+                            acknowledgedEnd = payload.endDate
                             TimerStore.acknowledgeFinish(id: payload.id)
                         }
                         .buttonStyle(.glassPill)

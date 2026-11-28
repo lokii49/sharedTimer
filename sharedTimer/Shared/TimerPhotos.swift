@@ -62,6 +62,7 @@ enum TimerPhotos {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try jpeg.write(to: url, options: .atomic)
         } catch { return false }
+        TimerCardPhoto.write(fromPhotoAt: url, for: timerID)
         cache.removeObject(forKey: timerID as NSString)
         missingLock.lock(); missing.remove(timerID); missingLock.unlock()
         DispatchQueue.main.async { NotificationCenter.default.post(name: changed, object: timerID) }
@@ -71,6 +72,7 @@ enum TimerPhotos {
     static func remove(_ timerID: String) {
         guard let url = url(for: timerID) else { return }
         try? FileManager.default.removeItem(at: url)
+        TimerCardPhoto.remove(timerID)
         cache.removeObject(forKey: timerID as NSString)
         missingLock.lock(); missing.insert(timerID); missingLock.unlock()
         DispatchQueue.main.async { NotificationCenter.default.post(name: changed, object: timerID) }
@@ -94,6 +96,7 @@ enum TimerPhotos {
         for (url, _) in remembered.sorted(by: { $0.1 > $1.1 }).dropFirst(maxRemembered) {
             try? FileManager.default.removeItem(at: url)
         }
+        TimerCardPhoto.prune(keeping: timerIDs, photoURL: { url(for: $0) })
     }
 
     // MARK: Remembered by name + length (owner's call, as for tags and notes)
@@ -118,6 +121,7 @@ enum TimerPhotos {
         } else if fm.fileExists(atPath: keyURL.path) {
             try? fm.createDirectory(at: timerURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             try? fm.copyItem(at: keyURL, to: timerURL)
+            TimerCardPhoto.write(fromPhotoAt: timerURL, for: timerID)
             // Touch it: least recently used goes first.
             try? fm.setAttributes([.modificationDate: Date()], ofItemAtPath: keyURL.path)
             cache.removeObject(forKey: timerID as NSString)
