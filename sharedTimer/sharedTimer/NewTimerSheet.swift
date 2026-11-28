@@ -63,6 +63,7 @@ struct NewTimerSheet: View {
                                 Button {
                                     let started = recent.payload()
                                     TimerTagStore.update { $0.adopt(timerID: started.id, recentKey: recent.id) }
+            TimerPhotos.adopt(timerID: started.id, recentKey: recent.id)
                                     onCreate(started)
                                     RecentTimersStore.record(recent)
                                     dismiss()

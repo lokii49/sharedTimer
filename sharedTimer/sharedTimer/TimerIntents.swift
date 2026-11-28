@@ -44,6 +44,7 @@ struct StartTimerIntent: AppIntent {
         await TimerArming.armAwaiting(payload)
         if let key = RecentTimersStore.record(payload) {
             TimerTagStore.update { $0.adopt(timerID: payload.id, recentKey: key) }
+            TimerPhotos.adopt(timerID: payload.id, recentKey: key)
         }
         RecentTimersSync.refresh()
         await announceExternalChange()

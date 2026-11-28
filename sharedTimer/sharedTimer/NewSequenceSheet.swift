@@ -373,6 +373,7 @@ struct NewSequenceSheet: View {
                         if let sequence = payload.sequence,
                            let key = RecentTimersStore.record(sequence: sequence, name: sequenceName) {
                             TimerTagStore.update { $0.adopt(timerID: payload.id, recentKey: key) }
+            TimerPhotos.adopt(timerID: payload.id, recentKey: key)
                             RecentTimersSync.refresh()
                         }
                         dismiss()

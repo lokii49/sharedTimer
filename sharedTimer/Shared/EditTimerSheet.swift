@@ -204,6 +204,9 @@ struct EditTimerSheet: View {
                                 case .some(.none): TimerPhotos.remove(original.id)
                                 case .none: break
                                 }
+                                if photoChange != nil {
+                                    TimerPhotos.remember(timerID: original.id, recentKey: TimerTagStore.load().recentOf[original.id])
+                                }
                             }
                             if timerFieldsChanged, let edited = editedLatest() {
                                 onSave(edited)

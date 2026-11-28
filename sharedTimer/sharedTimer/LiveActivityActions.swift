@@ -181,6 +181,7 @@ enum LiveActivityActions {
         TimerStore.setWidgetFocus(id: payload.id)
         if let key = recent?.id ?? RecentTimer.key(for: payload) {
             TimerTagStore.update { $0.adopt(timerID: payload.id, recentKey: key) }
+            TimerPhotos.adopt(timerID: payload.id, recentKey: key)
         }
         TimerStore.save(payload)
         await TimerArming.armAwaiting(payload)

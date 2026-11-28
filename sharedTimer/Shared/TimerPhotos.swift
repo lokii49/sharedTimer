@@ -11,6 +11,7 @@
 //  it never shows the picker (`EditTimerSheet.showsTagsAndNote`).
 //
 
+import CryptoKit
 import ImageIO
 import PhotosUI
 import SwiftUI
@@ -75,13 +76,63 @@ enum TimerPhotos {
         DispatchQueue.main.async { NotificationCenter.default.post(name: changed, object: timerID) }
     }
 
-    /// Photos of timers no longer stored. App only, complete store only (see the caller).
+    /// Photos of timers no longer stored, and remembered name + length photos past the
+    /// newest `maxRemembered`. App only, complete store only (see the caller).
     static func prune(keeping timerIDs: Set<String>) {
         guard let dir = directory, let files = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
+        var remembered: [(URL, Date)] = []
         for file in files where file.hasSuffix(".jpg") {
+            if file.hasPrefix(rememberedPrefix) {
+                let url = dir.appendingPathComponent(file)
+                let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                remembered.append((url, date))
+                continue
+            }
             let id = String(file.dropLast(4))
             if !timerIDs.contains(id) { remove(id) }
         }
+        for (url, _) in remembered.sorted(by: { $0.1 > $1.1 }).dropFirst(maxRemembered) {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
+    // MARK: Remembered by name + length (owner's call, as for tags and notes)
+
+    static let maxRemembered = 500
+    private static let rememberedPrefix = "remembered-"
+
+    /// The photo a name + length (RecentTimer.id) last had. Hashed: the key is free text.
+    static func rememberedURL(_ key: String) -> URL? {
+        let hash = SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
+        return directory?.appendingPathComponent("\(rememberedPrefix)\(hash).jpg")
+    }
+
+    /// A timer just started or filed under `key`: its own photo becomes the remembered
+    /// one; without one, it gets the remembered photo (started again from Recents).
+    static func adopt(timerID: String, recentKey key: String) {
+        guard let timerURL = url(for: timerID), let keyURL = rememberedURL(key) else { return }
+        let fm = FileManager.default
+        if fm.fileExists(atPath: timerURL.path) {
+            try? fm.removeItem(at: keyURL)
+            try? fm.copyItem(at: timerURL, to: keyURL)
+        } else if fm.fileExists(atPath: keyURL.path) {
+            try? fm.createDirectory(at: timerURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? fm.copyItem(at: keyURL, to: timerURL)
+            // Touch it: least recently used goes first.
+            try? fm.setAttributes([.modificationDate: Date()], ofItemAtPath: keyURL.path)
+            cache.removeObject(forKey: timerID as NSString)
+            missingLock.lock(); missing.remove(timerID); missingLock.unlock()
+            DispatchQueue.main.async { NotificationCenter.default.post(name: changed, object: timerID) }
+        }
+    }
+
+    /// After a photo change on a timer filed under `key`: the remembered photo follows
+    /// (a removed photo removes it too).
+    static func remember(timerID: String, recentKey key: String?) {
+        guard let key, let timerURL = url(for: timerID), let keyURL = rememberedURL(key) else { return }
+        let fm = FileManager.default
+        try? fm.removeItem(at: keyURL)
+        if fm.fileExists(atPath: timerURL.path) { try? fm.copyItem(at: timerURL, to: keyURL) }
     }
 
     /// The longest side at most `maxPixel`, as JPEG — without decoding the full image.

@@ -60,4 +60,24 @@ struct TimerPhotosTests {
             #expect(((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).isEmpty)
         }
     }
+
+    @Test func aPhotoFollowsItsNameAndLength() throws {
+        try withTempDirectory { _ in
+            let first = UUID().uuidString, again = UUID().uuidString
+            TimerPhotos.save(bigImageData(), for: first)
+            TimerPhotos.adopt(timerID: first, recentKey: "Trip|2592000")
+            // The first timer leaves the list (pruned); the remembered photo stays.
+            TimerPhotos.prune(keeping: [])
+            #expect(!TimerPhotos.has(first))
+            TimerPhotos.adopt(timerID: again, recentKey: "Trip|2592000")
+            #expect(TimerPhotos.has(again))
+            // Removing it on the new run removes the remembered one too.
+            TimerPhotos.remove(again)
+            TimerPhotos.remember(timerID: again, recentKey: "Trip|2592000")
+            let third = UUID().uuidString
+            TimerPhotos.adopt(timerID: third, recentKey: "Trip|2592000")
+            #expect(!TimerPhotos.has(third))
+        }
+    }
 }
+

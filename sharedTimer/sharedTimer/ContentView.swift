@@ -1311,6 +1311,7 @@ struct ContentView: View {
         // Recents carry tags and notes: before `apply`, so the card shows them at once.
         if let key = recent?.id ?? RecentTimer.key(for: payload) {
             TimerTagStore.update { $0.adopt(timerID: payload.id, recentKey: key) }
+            TimerPhotos.adopt(timerID: payload.id, recentKey: key)
             organizer = TimerTagStore.load()
         }
         apply(payload)
