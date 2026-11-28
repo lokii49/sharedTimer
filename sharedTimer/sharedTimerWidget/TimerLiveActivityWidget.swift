@@ -19,6 +19,8 @@ struct TimerLiveActivityWidget: Widget {
                         ZStack {
                             Sky.gradient(endDate: liveState(context).endDate, pausedRemaining: liveState(context).pausedRemaining)
                             SkyCornerScrim(widthFraction: 0.6, heightFraction: 1.2, anchorY: 0.7)
+                            // The timer's own photo over its sky, when it has one.
+                            CardPhotoBackground(timerID: context.attributes.timerID)
                         }
                     }
                     // Tapping the card opens that timer's details.

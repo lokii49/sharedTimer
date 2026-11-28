@@ -21,6 +21,9 @@ struct TimerAlarmActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: AlarmAttributes<TimerAlarmMetadata>.self) { context in
             let kind = context.attributes.metadata?.kind ?? .timer
+            // The timer's own photo behind the card (owner's pick, 2026-11-28): then it
+            // reads as dark, like the sky cards, instead of the system background.
+            let photoID = context.attributes.metadata.map(\.timerID).flatMap { TimerCardPhoto.exists(for: $0) ? $0 : nil }
             // Stacked, not side-by-side with the countdown — an HStack + Spacer left
             // the label only the leftover width after the countdown text, truncating
             // any label longer than a few characters (see the "Alarm only cou…" report).
@@ -42,11 +45,15 @@ struct TimerAlarmActivityWidget: Widget {
                         .monospacedDigit()
                     Spacer(minLength: 8)
                     alarmControls(context)
-                        .environment(\.liveControlInk, .primary)
+                        .environment(\.liveControlInk, photoID == nil ? .primary : .white)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
+            .background {
+                if let photoID { CardPhotoBackground(timerID: photoID) }
+            }
+            .darkOverPhoto(photoID != nil)
             // Tapping the card opens that timer's details.
             .widgetURL(context.attributes.metadata.map { TimerAppLink.url(for: $0.timerID) })
             } small: {
@@ -55,7 +62,7 @@ struct TimerAlarmActivityWidget: Widget {
                     alarmCountdownText(context.state)
                 }
             }
-            .activityBackgroundTint(nil)
+            .activityBackgroundTint(photoID == nil ? nil : Color.clear)
         } dynamicIsland: { context in
             let kind = context.attributes.metadata?.kind ?? .timer
             return DynamicIsland {
@@ -185,5 +192,12 @@ private func alarmCountdownText(_ state: AlarmPresentationState) -> some View {
         Text("Time's up")
     @unknown default:
         Text("")
+    }
+}
+
+private extension View {
+    /// Dark text styles over a timer's photo; otherwise the card keeps the system's.
+    @ViewBuilder func darkOverPhoto(_ on: Bool) -> some View {
+        if on { environment(\.colorScheme, .dark) } else { self }
     }
 }
