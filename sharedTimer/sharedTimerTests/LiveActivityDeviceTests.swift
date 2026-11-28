@@ -57,4 +57,21 @@ struct LiveActivityDeviceTests {
         #expect(scores[1] > scores[2])
         for payload in [soon, later, paused] { await LiveActivityController.endAwaiting(id: payload.id) }
     }
+
+    /// N8: a quiet sequence starting later gets its card scheduled ahead (`.pending`),
+    /// arming it again reuses that card, and ending it (Delete, Start Now) removes it.
+    @Test func aScheduledQuietSequenceGetsOneCardAheadOfItsStart() async {
+        let quiet = SequencePhase(label: "Scheduled card test", kind: .timer, duration: 120, alarmEnabled: false, vibrationEnabled: false)
+        let pending = TimerPayload.composeSequence(phases: [quiet], loopCount: 1, startDate: Date().addingTimeInterval(120))
+        #expect(pending.isPending())
+        await LiveActivityController.startAwaiting(for: pending)
+        #expect(cards(pending.id).count == 1)
+        #expect(cards(pending.id).first?.activityState == .pending)
+        await LiveActivityController.startAwaiting(for: pending)
+        #expect(cards(pending.id).count == 1)
+        await LiveActivityController.endAwaiting(id: pending.id)
+        try? await Task.sleep(for: .milliseconds(500))
+        #expect(cards(pending.id).allSatisfy { $0.activityState == .dismissed || $0.activityState == .ended })
+    }
 }
+

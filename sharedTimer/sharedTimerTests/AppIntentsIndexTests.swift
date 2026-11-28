@@ -103,4 +103,17 @@ struct AppIntentsIndexTests {
         #expect(checked?.0 == "t" && checked?.1 == now)
         #expect(!performed)
     }
+
+    @Test func onlyStartsWithinTheWindowAreScheduledAhead() {
+        let phase = SequencePhase(label: "W", kind: .timer, duration: 60, alarmEnabled: false, vibrationEnabled: false)
+        let soon = TimerPayload.composeSequence(phases: [phase], loopCount: 1, startDate: Date().addingTimeInterval(3_600))
+        let far = TimerPayload.composeSequence(phases: [phase], loopCount: 1, startDate: Date().addingTimeInterval(2 * 86_400))
+        let now = TimerPayload.composeSequence(phases: [phase], loopCount: 1)
+        #expect(LiveActivityController.shouldSchedule(soon))
+        #expect(!LiveActivityController.shouldSchedule(far))
+        #expect(!LiveActivityController.shouldSchedule(now))
+        // The far one is scheduled once it comes within the window.
+        #expect(LiveActivityController.shouldSchedule(far, at: far.scheduledStartDate!.addingTimeInterval(-3_600)))
+    }
 }
+
