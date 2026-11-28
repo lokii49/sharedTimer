@@ -568,6 +568,59 @@ final class sharedTimerUITests: XCTestCase {
         if delete.waitForExistence(timeout: 5) { delete.tap() }
     }
 
+    /// N6 / N7: make a days-since count (shows "Today", Start Over, delete) and run the
+    /// stopwatch (start, lap, pause, reset). Screenshots for review; cleans up after.
+    @MainActor
+    func testDaysSinceAndStopwatch() throws {
+        let app = XCUIApplication()
+        app.launch()
+        func shot(_ name: String) { let a = XCTAttachment(screenshot: app.screenshot()); a.name = name; a.lifetime = .keepAlways; add(a) }
+        let plus = app.buttons["New"]
+        XCTAssertTrue(plus.waitForExistence(timeout: 10))
+        let name = "Since test \(Int(Date().timeIntervalSince1970) % 100_000)"
+
+        plus.tap()
+        app.buttons["Days Since…"].tap()
+        let label = app.textFields["daysSinceLabel"]
+        XCTAssertTrue(label.waitForExistence(timeout: 5))
+        label.tap(); label.typeText(name)
+        app.buttons["daysSinceStart"].tap()
+        let card = app.buttons.matching(NSPredicate(format: "label == %@", name)).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertTrue((card.value as? String ?? "").hasPrefix(String(localized: "Today")))
+        shot("Since in list")
+        card.tap()
+        let startOver = app.buttons["daysSinceStartOver"]
+        XCTAssertTrue(startOver.waitForExistence(timeout: 5))
+        shot("Since detail")
+        app.buttons["Delete"].tap()
+        let confirm = app.buttons.matching(NSPredicate(format: "label == 'Delete'")).element(boundBy: 1)
+        if confirm.waitForExistence(timeout: 3) { confirm.tap() } else { app.sheets.buttons["Delete"].firstMatch.tap() }
+        XCTAssertTrue(card.waitForNonExistence(timeout: 5))
+
+        plus.tap()
+        app.buttons["Stopwatch"].tap()
+        let startPause = app.buttons["stopwatchStartPause"]
+        XCTAssertTrue(startPause.waitForExistence(timeout: 5))
+        startPause.tap()
+        sleep(2)
+        app.buttons["stopwatchLap"].tap()
+        sleep(1)
+        app.buttons["stopwatchLap"].tap()
+        sleep(1)
+        startPause.tap()
+        shot("Stopwatch paused with laps")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Lap 2'")).firstMatch.exists)
+        app.buttons["Close"].tap()
+        XCTAssertTrue(app.buttons["stopwatchRow"].waitForExistence(timeout: 5) || app.otherElements["stopwatchRow"].exists)
+        shot("Stopwatch in list")
+        app.buttons["stopwatchRow"].firstMatch.tap()
+        let reset = app.buttons["stopwatchReset"]
+        XCTAssertTrue(reset.waitForExistence(timeout: 5))
+        reset.tap()
+        app.buttons["Close"].tap()
+    }
+
     /// History redesign + Stats, on realistic seeded runs (simulator only — the seed
     /// doesn't exist in device builds): screenshots of each screen for review.
     @MainActor

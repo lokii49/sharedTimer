@@ -43,6 +43,11 @@ struct ContentView: View {
     /// stored filter would hide a ringing timer on the next launch).
     @State private var organizer = TimerTagStore.load()
     @State private var tagFilter: String?
+    /// N6 / N7: days-since counts and the stopwatch (CountUps.swift — not timers).
+    @State private var countUps = CountUpStore.load()
+    @State private var showingNewDaysSince = false
+    @State private var openDaysSinceID: String?
+    @State private var showingStopwatch = false
     @State private var taggingPayload: TimerPayload?
     @State private var newTagName = ""
     @State private var undoTask: Task<Void, Never>?
@@ -70,7 +75,7 @@ struct ContentView: View {
     private var timerList: some View {
         let now = Date()
         return Group {
-                if timers.isEmpty {
+                if timers.isEmpty && countUps.daysSince.isEmpty && countUps.stopwatch == nil {
                     emptyState
                 } else {
                     List {
@@ -87,7 +92,8 @@ struct ContentView: View {
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
                         }
-                        if listed.isEmpty {
+                        if tagFilter == nil { countUpSections }
+                        if listed.isEmpty && tagFilter != nil {
                             // A filter that matches nothing: its own small note, not the
                             // first-run quick start.
                             Text("No timers with this tag.")
@@ -146,6 +152,14 @@ struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: TimerTagStore.changed)) { _ in
                 organizer = TimerTagStore.load()
             }
+            .onReceive(NotificationCenter.default.publisher(for: CountUpStore.changed)) { _ in
+                countUps = CountUpStore.load()
+            }
+            .sheet(isPresented: $showingNewDaysSince) { NewDaysSinceSheet() }
+            .fullScreenCover(isPresented: $showingStopwatch) { StopwatchView() }
+            .fullScreenCover(isPresented: Binding(get: { openDaysSinceID != nil }, set: { if !$0 { openDaysSinceID = nil } })) {
+                if let id = openDaysSinceID { DaysSinceDetail(itemID: id) }
+            }
             .alert("New Tag", isPresented: Binding(get: { taggingPayload != nil }, set: { if !$0 { taggingPayload = nil } })) {
                 TextField("Name", text: $newTagName)
                 Button("Add") {
@@ -169,6 +183,47 @@ struct ContentView: View {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
               TimerStore.hasStoredData, let stored = TimerStore.loadAllIfComplete() else { return }
         TimerTagStore.update { $0.prune(keeping: Set(stored.map(\.id))) }
+    }
+
+    /// N6 / N7 at the top of the list (not under a tag filter — they have no tags): the
+    /// stopwatch while it has time on it, then the "Since" counts.
+    @ViewBuilder private var countUpSections: some View {
+        if let watch = countUps.stopwatch, watch.isRunning || watch.elapsed() > 0 {
+            Section {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    CountUpCard.stopwatch(watch, at: context.date)
+                }
+                .frame(maxWidth: 560).frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+                .onTapGesture { showingStopwatch = true }
+                .accessibilityIdentifier("stopwatchRow")
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+            }
+        }
+        if !countUps.daysSince.isEmpty {
+            Section {
+                ForEach(countUps.daysSince) { item in
+                    TimelineView(.periodic(from: .now, by: 60)) { context in
+                        CountUpCard.days(item, at: context.date)
+                    }
+                    .frame(maxWidth: 560).frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture { openDaysSinceID = item.id }
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            CountUpStore.update { $0.daysSince.removeAll { $0.id == item.id } }
+                        } label: { Label("Delete", systemImage: "trash") }
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                }
+            } header: {
+                Text("Since").skyLabel().foregroundStyle(Sky.roomInk)
+            }
+        }
     }
 
     /// Timers the tag filter hides: a count, tap to show everything. A finished timer
@@ -290,6 +345,16 @@ struct ContentView: View {
                             showingNewSequence = true
                         } label: {
                             Label("New Sequence", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        Button {
+                            showingNewDaysSince = true
+                        } label: {
+                            Label("Days Since…", systemImage: "calendar.badge.clock")
+                        }
+                        Button {
+                            showingStopwatch = true
+                        } label: {
+                            Label("Stopwatch", systemImage: "stopwatch")
                         }
                     } label: {
                         Image(systemName: "plus")
