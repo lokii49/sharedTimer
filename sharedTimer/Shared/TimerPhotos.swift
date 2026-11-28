@@ -24,6 +24,10 @@ enum TimerPhotos {
         .containerURL(forSecurityApplicationGroupIdentifier: "group.com.lokesh.sharedTimer")?
         .appendingPathComponent("TimerPhotos", isDirectory: true)
     private static let cache = NSCache<NSString, UIImage>()
+    /// Timers known to have no photo — so a card without one doesn't read the disk on
+    /// every tick. Cleared for an id on save/remove.
+    private static let missingLock = NSLock()
+    nonisolated(unsafe) private static var missing = Set<String>()
 
     static func url(for timerID: String) -> URL? {
         // Timer ids are UUID strings; anything else (path characters) never names a file.
@@ -38,7 +42,12 @@ enum TimerPhotos {
     /// Decoded once and cached: list cards redraw every second.
     static func image(for timerID: String) -> UIImage? {
         if let hit = cache.object(forKey: timerID as NSString) { return hit }
-        guard let url = url(for: timerID), let image = UIImage(contentsOfFile: url.path) else { return nil }
+        missingLock.lock(); let known = missing.contains(timerID); missingLock.unlock()
+        guard !known else { return nil }
+        guard let url = url(for: timerID), let image = UIImage(contentsOfFile: url.path) else {
+            missingLock.lock(); missing.insert(timerID); missingLock.unlock()
+            return nil
+        }
         cache.setObject(image, forKey: timerID as NSString)
         return image
     }
@@ -53,6 +62,7 @@ enum TimerPhotos {
             try jpeg.write(to: url, options: .atomic)
         } catch { return false }
         cache.removeObject(forKey: timerID as NSString)
+        missingLock.lock(); missing.remove(timerID); missingLock.unlock()
         DispatchQueue.main.async { NotificationCenter.default.post(name: changed, object: timerID) }
         return true
     }
@@ -61,6 +71,7 @@ enum TimerPhotos {
         guard let url = url(for: timerID) else { return }
         try? FileManager.default.removeItem(at: url)
         cache.removeObject(forKey: timerID as NSString)
+        missingLock.lock(); missing.insert(timerID); missingLock.unlock()
         DispatchQueue.main.async { NotificationCenter.default.post(name: changed, object: timerID) }
     }
 

@@ -29,7 +29,7 @@ struct CountUpTests {
 
     @Test func daysTickOverAtMidnightNotAfter24Hours() {
         let c = calendar("America/Los_Angeles")
-        let item = DaysSince(label: "x", startDate: date("2026-11-16 23:30", "America/Los_Angeles"))
+        let item = DaysSince(label: "x", startDate: date("2026-11-16 23:30", "America/Los_Angeles"), calendar: c)
         #expect(item.days(at: date("2026-11-16 23:59", "America/Los_Angeles"), calendar: c) == 0)
         #expect(item.days(at: date("2026-11-17 00:01", "America/Los_Angeles"), calendar: c) == 1)
         #expect(item.days(at: date("2026-11-28 08:00", "America/Los_Angeles"), calendar: c) == 12)
@@ -39,24 +39,38 @@ struct CountUpTests {
         // US fall-back was 2026-11-01; India has no DST.
         for zone in ["America/Los_Angeles", "Asia/Kolkata"] {
             let c = calendar(zone)
-            let item = DaysSince(label: "x", startDate: date("2026-10-31 12:00", zone))
+            let item = DaysSince(label: "x", startDate: date("2026-10-31 12:00", zone), calendar: c)
             #expect(item.days(at: date("2026-11-01 12:00", zone), calendar: c) == 1)
             #expect(item.days(at: date("2026-11-02 00:30", zone), calendar: c) == 2)
         }
         let spring = calendar("America/Los_Angeles")
-        let item = DaysSince(label: "x", startDate: date("2026-03-07 09:00", "America/Los_Angeles"))
+        let item = DaysSince(label: "x", startDate: date("2026-03-07 09:00", "America/Los_Angeles"), calendar: spring)
         #expect(item.days(at: date("2026-03-09 09:00", "America/Los_Angeles"), calendar: spring) == 2)
     }
 
     @Test func countTextReadsTodayDaysThenYearsAndMonths() {
         let c = calendar("Asia/Kolkata")
-        let item = DaysSince(label: "x", startDate: date("2025-09-03 10:00", "Asia/Kolkata"))
+        let item = DaysSince(label: "x", startDate: date("2025-09-03 10:00", "Asia/Kolkata"), calendar: c)
         #expect(item.countText(at: date("2025-09-03 20:00", "Asia/Kolkata"), calendar: c) == String(localized: "Today"))
         #expect(item.countText(at: date("2025-09-04 10:00", "Asia/Kolkata"), calendar: c) == "1 day")
         #expect(item.countText(at: date("2025-09-15 10:00", "Asia/Kolkata"), calendar: c) == "12 days")
         let long = item.countText(at: date("2026-11-28 10:00", "Asia/Kolkata"), calendar: c)
         #expect(long.contains("1") && long.contains("2"), "\(long)")
-        #expect(DaysSince(label: "x", startDate: date("2026-12-01 10:00", "Asia/Kolkata")).days(at: date("2026-11-28 10:00", "Asia/Kolkata"), calendar: c) == 0)
+        #expect(DaysSince(label: "x", startDate: date("2026-12-01 10:00", "Asia/Kolkata"), calendar: c).days(at: date("2026-11-28 10:00", "Asia/Kolkata"), calendar: c) == 0)
+    }
+
+    @Test func aDayKeepsItsDateWhenThePhoneMovesZone() throws {
+        // Made in India just after midnight on 16 Nov; read later in California.
+        let india = calendar("Asia/Kolkata"), california = calendar("America/Los_Angeles")
+        let item = DaysSince(label: "x", startDate: date("2026-11-16 00:30", "Asia/Kolkata"), calendar: india)
+        #expect(item.year == 2026 && item.month == 11 && item.day == 16)
+        #expect(item.days(at: date("2026-11-16 20:00", "America/Los_Angeles"), calendar: california) == 0)
+        #expect(item.days(at: date("2026-11-17 08:00", "America/Los_Angeles"), calendar: california) == 1)
+        // Round-trips as a day, and a first-build copy with an instant still decodes.
+        let data = try JSONEncoder().encode(item)
+        #expect(try JSONDecoder().decode(DaysSince.self, from: data) == item)
+        let legacy = Data(#"{"id":"a","label":"Old","startDate":786240000}"#.utf8)
+        #expect(try JSONDecoder().decode(DaysSince.self, from: legacy).label == "Old")
     }
 
     @Test func theStopwatchCountsPausesAndLaps() {

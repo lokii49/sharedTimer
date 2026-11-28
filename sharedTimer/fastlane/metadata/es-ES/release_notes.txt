@@ -10,6 +10,6 @@
 • Días desde: cuenta los días desde algo, y un cronómetro con vueltas, ambos en +.
 • Pon tu propia foto como fondo de un temporizador.
 • Cuatro tonos de alarma nuevos: Campanilla, Ascenso, Flor y Marimba.
-• Una secuencia silenciosa programada muestra su actividad en directo a su hora, aunque Timer esté cerrado.
+• Una secuencia silenciosa programada para las próximas 7 horas muestra su actividad en directo a su hora, aunque Timer esté cerrado.
 • El conteo de tiempo extra se detiene al cerrar la alarma a pantalla completa.
 • Y muchas mejoras más pequeñas.

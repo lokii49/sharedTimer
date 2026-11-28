@@ -10,6 +10,6 @@
 • Hari sejak: hitung hari sejak sesuatu, plus stopwatch dengan putaran, keduanya di +.
 • Jadikan foto Anda sendiri sebagai latar timer.
 • Empat nada alarm baru: Lonceng, Naik, Mekar, dan Marimba.
-• Urutan senyap yang dijadwalkan nanti menampilkan Aktivitas Langsung tepat waktu, meski Timer tertutup.
+• Urutan senyap yang dijadwalkan dalam 7 jam ke depan menampilkan Aktivitas Langsung tepat waktu, meski Timer tertutup.
 • Hitungan waktu lebih kini berhenti saat Anda menutup alarm layar penuh.
 • Plus banyak perbaikan kecil.

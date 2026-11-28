@@ -10,6 +10,6 @@
 • Days since: count the days since something, and a stopwatch with laps, both under +.
 • Give a timer your own photo as its background.
 • Four new alarm tones: Chime, Rise, Bloom and Marimba.
-• A quiet sequence set to start later shows its Live Activity on time, even with Timer closed.
+• A quiet sequence set to start within the next 7 hours shows its Live Activity on time, even with Timer closed.
 • An overtime count now stops when you dismiss the full-screen alarm.
 • Plus many smaller fixes.

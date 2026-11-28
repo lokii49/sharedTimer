@@ -12,17 +12,59 @@
 
 import SwiftUI
 
-/// A count of calendar days since a date (midnight to midnight in the phone's zone).
+/// A count of calendar days since a day (midnight to midnight in the phone's zone).
+/// Stored as that day's year, month and day — not an instant — so moving to another time
+/// zone never shifts it to the day before or after.
 struct DaysSince: Codable, Identifiable, Equatable {
     var id: String = UUID().uuidString
     var label: String
-    /// The day it counts from (its start of day when created).
-    var startDate: Date
+    var year: Int
+    var month: Int
+    var day: Int
+
+    init(id: String = UUID().uuidString, label: String, startDate: Date, calendar: Calendar = .current) {
+        self.id = id
+        self.label = label
+        let parts = calendar.dateComponents([.year, .month, .day], from: startDate)
+        year = parts.year ?? 2000; month = parts.month ?? 1; day = parts.day ?? 1
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, label, year, month, day, startDate }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = (try? c.decode(String.self, forKey: .id)) ?? UUID().uuidString
+        label = (try? c.decode(String.self, forKey: .label)) ?? ""
+        if let y = try? c.decode(Int.self, forKey: .year), let m = try? c.decode(Int.self, forKey: .month), let d = try? c.decode(Int.self, forKey: .day) {
+            year = y; month = m; day = d
+        } else {
+            // A first-build copy stored an instant; read its day where it is now.
+            let legacy = (try? c.decode(Date.self, forKey: .startDate)) ?? Date()
+            let parts = Calendar.current.dateComponents([.year, .month, .day], from: legacy)
+            year = parts.year ?? 2000; month = parts.month ?? 1; day = parts.day ?? 1
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id); try c.encode(label, forKey: .label)
+        try c.encode(year, forKey: .year); try c.encode(month, forKey: .month); try c.encode(day, forKey: .day)
+    }
+
+    /// Midnight of the start day in `calendar`'s zone.
+    func startDate(calendar: Calendar = .current) -> Date {
+        calendar.date(from: DateComponents(year: year, month: month, day: day)) ?? Date()
+    }
+
+    mutating func restart(on date: Date = Date(), calendar: Calendar = .current) {
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)
+        year = parts.year ?? year; month = parts.month ?? month; day = parts.day ?? day
+    }
 
     /// Whole calendar days from the start day to `date`'s day — so it ticks over at
     /// midnight, and a DST day still counts as one.
     func days(at date: Date = Date(), calendar: Calendar = .current) -> Int {
-        let from = calendar.startOfDay(for: startDate), to = calendar.startOfDay(for: date)
+        let from = startDate(calendar: calendar), to = calendar.startOfDay(for: date)
         return max(0, calendar.dateComponents([.day], from: from, to: to).day ?? 0)
     }
 
@@ -38,7 +80,7 @@ struct DaysSince: Codable, Identifiable, Equatable {
             formatter.unitsStyle = .full
             return formatter.string(from: DateComponents(day: days)) ?? "\(days)"
         }
-        let parts = calendar.dateComponents([.year, .month], from: calendar.startOfDay(for: startDate), to: calendar.startOfDay(for: date))
+        let parts = calendar.dateComponents([.year, .month], from: startDate(calendar: calendar), to: calendar.startOfDay(for: date))
         formatter.allowedUnits = [.year, .month]
         formatter.unitsStyle = .short
         return formatter.string(from: DateComponents(year: parts.year, month: parts.month)) ?? "\(days)"
@@ -171,7 +213,7 @@ struct CountUpCard: View {
 
     static func days(_ item: DaysSince, at date: Date) -> CountUpCard {
         CountUpCard(title: item.label, big: item.countText(at: date),
-                    detail: String(localized: "Since \(item.startDate.formatted(date: .abbreviated, time: .omitted))"), sky: sinceSky)
+                    detail: String(localized: "Since \(item.startDate().formatted(date: .abbreviated, time: .omitted))"), sky: sinceSky)
     }
 
     static func stopwatch(_ watch: Stopwatch, at date: Date) -> CountUpCard {
@@ -207,7 +249,7 @@ struct NewDaysSinceSheet: View {
                     Button("Start") {
                         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
                         let item = DaysSince(label: trimmed.isEmpty ? String(localized: "Days Since") : String(trimmed.prefix(200)),
-                                             startDate: Calendar.current.startOfDay(for: day))
+                                             startDate: day)
                         CountUpStore.update { $0.daysSince.append(item) }
                         dismiss()
                     }
@@ -241,13 +283,13 @@ struct DaysSinceDetail: View {
                         Text(item.label).skyLabel(12).foregroundStyle(.white.opacity(0.85))
                         Text(item.countText(at: context.date)).skyDigits(64, weight: .thin)
                             .lineLimit(1).minimumScaleFactor(0.4).padding(.horizontal, 24)
-                        Text("Since \(item.startDate.formatted(date: .complete, time: .omitted))")
+                        Text("Since \(item.startDate().formatted(date: .complete, time: .omitted))")
                             .font(.subheadline).foregroundStyle(.white.opacity(0.85))
                         Spacer()
                         HStack(spacing: 12) {
                             Button("Start Over") {
                                 CountUpStore.update { c in
-                                    if let i = c.daysSince.firstIndex(where: { $0.id == itemID }) { c.daysSince[i].startDate = Calendar.current.startOfDay(for: Date()) }
+                                    if let i = c.daysSince.firstIndex(where: { $0.id == itemID }) { c.daysSince[i].restart() }
                                 }
                                 countUps = CountUpStore.load()
                             }

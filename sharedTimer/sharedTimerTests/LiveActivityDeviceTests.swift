@@ -69,6 +69,12 @@ struct LiveActivityDeviceTests {
         #expect(cards(pending.id).first?.activityState == .pending)
         await LiveActivityController.startAwaiting(for: pending)
         #expect(cards(pending.id).count == 1)
+        // Start Now: the waiting card is replaced by one live card.
+        await LiveActivityController.startAwaiting(for: pending.repeated())
+        try? await Task.sleep(for: .milliseconds(500))
+        let live = cards(pending.id).filter { $0.activityState == .active }
+        #expect(live.count == 1)
+        #expect(cards(pending.id).filter { $0.activityState == .pending }.isEmpty)
         await LiveActivityController.endAwaiting(id: pending.id)
         try? await Task.sleep(for: .milliseconds(500))
         #expect(cards(pending.id).allSatisfy { $0.activityState == .dismissed || $0.activityState == .ended })

@@ -22,6 +22,15 @@ enum LiveActivityController {
         // An ended activity can linger (dismissal pending) — updating it does nothing,
         // so only reuse one that's still active.
         if let existing = activeActivity(for: payload.id) {
+            // A card still waiting for an old start (Start Now, or one that didn't go
+            // live by itself) is replaced by a live one, never left waiting.
+            if existing.activityState == .pending {
+                Task {
+                    await existing.end(nil, dismissalPolicy: .immediate)
+                    if shouldRequest(payload) { request(payload) }
+                }
+                return
+            }
             Task { await existing.update(content(for: payload)) }
             return
         }
@@ -45,6 +54,11 @@ enum LiveActivityController {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         guard !payload.isPending() else { return schedule(payload) }
         if let existing = activeActivity(for: payload.id) {
+            if existing.activityState == .pending {
+                await existing.end(nil, dismissalPolicy: .immediate)
+                if shouldRequest(payload) { request(payload) }
+                return
+            }
             await existing.update(content(for: payload))
             return
         }
@@ -87,9 +101,8 @@ enum LiveActivityController {
         }
         let label = TimerPayload.clampedLabel(payload.label, maxBytes: 256)
         let attributes = TimerActivityAttributes(timerID: payload.id, label: label, kind: payload.kind)
-        let firstPhase = "\(label) · \(TimeFormat.display(payload.duration))"
         let alert = AlertConfiguration(title: LocalizedStringResource("\(label) started"),
-                                       body: LocalizedStringResource("\(firstPhase)"),
+                                       body: LocalizedStringResource("\(TimeFormat.display(payload.duration))"),
                                        sound: .named("vibration_silent.caf"))
         do {
             _ = try Activity.request(attributes: attributes, content: content(for: payload), pushType: nil,

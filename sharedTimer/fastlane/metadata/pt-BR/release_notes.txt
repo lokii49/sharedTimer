@@ -10,6 +10,6 @@
 • Dias desde: conte os dias desde algo, e um cronômetro com voltas, os dois no +.
 • Use sua própria foto como fundo de um timer.
 • Quatro novos toques de alarme: Sino, Ascensão, Flor e Marimba.
-• Uma sequência silenciosa agendada mostra sua Atividade ao Vivo na hora, mesmo com o Timer fechado.
+• Uma sequência silenciosa agendada para as próximas 7 horas mostra sua Atividade ao Vivo na hora, mesmo com o Timer fechado.
 • A contagem de tempo extra para quando você dispensa o alarme em tela cheia.
 • E muitas correções menores.
