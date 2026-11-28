@@ -604,14 +604,14 @@ final class sharedTimerUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-ShowWhatsNew"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["Widgets that keep up"].waitForExistence(timeout: 10))
-        sleep(4)  // the widget scene reaches "Time's up"
+        XCTAssertTrue(app.staticTexts["Tags and notes"].waitForExistence(timeout: 10))
+        sleep(4)  // the tags scene filters and shows the note
         let firstPage = XCTAttachment(screenshot: app.screenshot())
         firstPage.name = "What's New page 1"
         firstPage.lifetime = .keepAlways
         add(firstPage)
         let continueButton = app.buttons["Continue"]
-        for (index, title) in ["More in Messages", "Keep the screen on", "Alarms that listen"].enumerated() {
+        for (index, title) in ["Stats", "Test my alarm", "More in Messages"].enumerated() {
             continueButton.tap()
             XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 5), title)
             sleep(2)  // let the page's scene play to a telling frame

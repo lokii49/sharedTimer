@@ -3800,64 +3800,6 @@
         }
       }
     },
-    "A new lock button keeps the screen awake while you watch, and says so." : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "زر قفل جديد يُبقي الشاشة مضاءة أثناء المتابعة، ويؤكد ذلك."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "নতুন লক বোতাম দেখার সময় স্ক্রিন চালু রাখে, আর তা জানিয়েও দেয়।"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Un nuevo botón de candado mantiene la pantalla encendida mientras miras, y te lo confirma."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Un nouveau bouton cadenas garde l’écran allumé pendant que vous regardez, et vous le confirme."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "नया लॉक बटन देखते समय स्क्रीन चालू रखता है, और यह बताता भी है।"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tombol gembok baru menjaga layar tetap menyala saat Anda melihat, dan memberi tahu Anda."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Um novo botão de cadeado mantém a tela ligada enquanto você olha, e avisa."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Новая кнопка с замком не даёт экрану погаснуть, пока вы смотрите, и сообщает об этом."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新的锁形按钮会在你查看时保持屏幕常亮，并给出提示。"
-          }
-        }
-      }
-    },
     "A quiet notification instead — no ringing." : {
       "localizations" : {
         "ar" : {
@@ -4440,16 +4382,16 @@
     },
     "Add a note" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "添加备注"
+            "value" : "إضافة ملاحظة"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "नोट जोड़ें"
+            "value" : "নোট যোগ করুন"
           }
         },
         "es" : {
@@ -4458,22 +4400,22 @@
             "value" : "Añadir una nota"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إضافة ملاحظة"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ajouter une note"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "নোট যোগ করুন"
+            "value" : "नोट जोड़ें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tambahkan catatan"
           }
         },
         "pt-BR" : {
@@ -4488,10 +4430,10 @@
             "value" : "Добавить заметку"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tambahkan catatan"
+            "value" : "添加备注"
           }
         }
       }
@@ -5030,64 +4972,6 @@
         }
       }
     },
-    "Alarms that listen" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "منبهات تستجيب"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "কথা শোনে এমন অ্যালার্ম"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alarmas que hacen caso"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Des alarmes qui obéissent"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "बात मानने वाले अलार्म"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alarm yang menurut"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alarmes que obedecem"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Будильники слушаются"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "响应更快的闹钟"
-          }
-        }
-      }
-    },
     "Alerts" : {
       "localizations" : {
         "ar" : {
@@ -5316,64 +5200,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请在“设置”中允许访问日历以选择事件。你也可以自己输入日期。"
-          }
-        }
-      }
-    },
-    "An open timer follows every change, and a repeating countdown skips ahead with Next Week." : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "المؤقت المفتوح يتابع كل تغيير، والعد التنازلي المتكرر يتقدّم بزر «الأسبوع التالي»."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "খোলা টাইমার প্রতিটি পরিবর্তন অনুসরণ করে, আর পুনরাবৃত্ত কাউন্টডাউন \"পরের সপ্তাহ\" দিয়ে এগিয়ে যায়।"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Un temporizador abierto sigue cada cambio, y una cuenta atrás que se repite avanza con Semana siguiente."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Un minuteur ouvert suit chaque changement, et un compte à rebours récurrent avance avec Semaine suivante."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "खुला टाइमर हर बदलाव के साथ चलता है, और दोहराने वाला काउंटडाउन \"अगला सप्ताह\" से आगे बढ़ता है।"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Timer yang terbuka mengikuti setiap perubahan, dan hitung mundur berulang bisa maju dengan Minggu Berikutnya."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Um timer aberto acompanha cada mudança, e uma contagem regressiva repetida avança com Próxima Semana."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Открытый таймер следит за каждым изменением, а повторяющийся отсчёт переходит вперёд кнопкой «Следующая неделя»."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开的计时器会跟随每次更改，重复倒计时可用“下一周”跳到下一次。"
           }
         }
       }
@@ -7529,16 +7355,16 @@
     },
     "Delete Tag" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "删除标签"
+            "value" : "حذف الوسم"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "टैग हटाएँ"
+            "value" : "ট্যাগ মুছুন"
           }
         },
         "es" : {
@@ -7547,22 +7373,22 @@
             "value" : "Eliminar etiqueta"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "حذف الوسم"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Supprimer le tag"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ট্যাগ মুছুন"
+            "value" : "टैग हटाएँ"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hapus Tag"
           }
         },
         "pt-BR" : {
@@ -7577,10 +7403,10 @@
             "value" : "Удалить тег"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hapus Tag"
+            "value" : "删除标签"
           }
         }
       }
@@ -7703,16 +7529,16 @@
     },
     "Delete this tag?" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "删除此标签？"
+            "value" : "حذف هذا الوسم؟"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "यह टैग हटाएँ?"
+            "value" : "এই ট্যাগটি মুছবেন?"
           }
         },
         "es" : {
@@ -7721,22 +7547,22 @@
             "value" : "¿Eliminar esta etiqueta?"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "حذف هذا الوسم؟"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Supprimer ce tag ?"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "এই ট্যাগটি মুছবেন?"
+            "value" : "यह टैग हटाएँ?"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hapus tag ini?"
           }
         },
         "pt-BR" : {
@@ -7751,10 +7577,10 @@
             "value" : "Удалить этот тег?"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hapus tag ini?"
+            "value" : "删除此标签？"
           }
         }
       }
@@ -7929,6 +7755,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "它是否响铃并全屏显示？"
+          }
+        }
+      }
+    },
+    "Did it ring?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "响了吗？"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "क्या यह बजा?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Ha sonado?"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "هل رنّ؟"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A-t-elle sonné ?"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এটি কি বেজেছে?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocou?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прозвенело?"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apakah berbunyi?"
           }
         }
       }
@@ -8282,18 +8166,76 @@
         }
       }
     },
-    "Edits the note" : {
+    "Edit a timer, start one of your saved sequences, make a countdown repeat, and undo a removal, all from Messages." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "编辑备注"
+            "value" : "在“信息”中即可编辑计时器、开始已存的序列、让倒计时重复，以及撤销删除。"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "नोट संपादित करता है"
+            "value" : "Messages से ही टाइमर संपादित करें, अपना सहेजा सीक्वेंस शुरू करें, काउंटडाउन दोहराएँ और हटाया हुआ वापस लाएँ।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edita un temporizador, inicia una de tus secuencias guardadas, haz que una cuenta atrás se repita y deshaz una eliminación, todo desde Mensajes."
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "عدّل مؤقتًا، وابدأ أحد تسلسلاتك المحفوظة، واجعل عدًّا تنازليًا يتكرر، وتراجع عن حذف، كل ذلك من الرسائل."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifiez un minuteur, lancez une de vos séquences enregistrées, faites répéter un compte à rebours et annulez une suppression, depuis Messages."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Messages থেকেই টাইমার সম্পাদনা করুন, সেভ করা সিকোয়েন্স শুরু করুন, কাউন্টডাউন পুনরাবৃত্তি করুন এবং মুছে ফেলা ফিরিয়ে আনুন।"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edite um timer, inicie uma das suas sequências salvas, faça uma contagem regressiva se repetir e desfaça uma remoção, tudo pelo Mensagens."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Меняйте таймер, запускайте сохранённые последовательности, делайте отсчёт повторяющимся и отменяйте удаление — прямо в Сообщениях."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit timer, mulai urutan tersimpan, buat hitung mundur berulang, dan batalkan penghapusan, semuanya dari Pesan."
+          }
+        }
+      }
+    },
+    "Edits the note" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يحرّر الملاحظة"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "নোট সম্পাদনা করে"
           }
         },
         "es" : {
@@ -8302,22 +8244,22 @@
             "value" : "Edita la nota"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "يحرّر الملاحظة"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Modifie la note"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "নোট সম্পাদনা করে"
+            "value" : "नोट संपादित करता है"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mengedit catatan"
           }
         },
         "pt-BR" : {
@@ -8332,10 +8274,10 @@
             "value" : "Изменяет заметку"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mengedit catatan"
+            "value" : "编辑备注"
           }
         }
       }
@@ -9761,64 +9703,6 @@
         }
       }
     },
-    "Finishes and next phases show right on time, a tap opens the timer, and there's a one-line Lock Screen widget and a look for tinted Home Screens." : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تظهر النهايات والمراحل التالية في وقتها تمامًا، ونقرة تفتح المؤقت، وهناك أداة بسطر واحد لشاشة القفل ومظهر للشاشات الرئيسية الملوّنة."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "শেষ হওয়া আর পরের ধাপ ঠিক সময়ে দেখা যায়, একটি ট্যাপে টাইমার খোলে, আর আছে লক স্ক্রিনের এক লাইনের উইজেট ও টিন্টেড হোম স্ক্রিনের নতুন চেহারা।"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Los finales y las siguientes fases aparecen justo a tiempo, un toque abre el temporizador y hay un widget de una línea para la pantalla bloqueada y un aspecto para pantallas de inicio con tinte."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les fins et les phases suivantes s’affichent pile à l’heure, un toucher ouvre le minuteur, et il y a un widget d’une ligne pour l’écran verrouillé et un style pour les écrans d’accueil teintés."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "खत्म होना और अगले चरण ठीक समय पर दिखते हैं, एक टैप से टाइमर खुलता है, और लॉक स्क्रीन के लिए एक-पंक्ति विजेट व टिंटेड होम स्क्रीन के लिए नया रूप है।"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Waktu habis dan fase berikutnya tampil tepat waktu, satu ketukan membuka timer, ada widget satu baris untuk Layar Kunci dan tampilan untuk Layar Utama berwarna."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Finais e próximas fases aparecem na hora certa, um toque abre o timer, e há um widget de uma linha para a Tela Bloqueada e um visual para Telas de Início coloridas."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Окончание и следующие этапы показываются точно вовремя, касание открывает таймер, а ещё есть однострочный виджет для экрана блокировки и вид для тонированных экранов «Домой»."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "结束和下一阶段准时显示，轻点即可打开计时器，还有单行锁定屏幕小组件和适配着色主屏幕的外观。"
-          }
-        }
-      }
-    },
     "Forget" : {
       "localizations" : {
         "ar" : {
@@ -10806,6 +10690,64 @@
         }
       }
     },
+    "History now groups repeat runs, and a Stats page shows your week, month and streaks. Export it all as a spreadsheet." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“历史”现在会合并重复的计时，“统计”页面显示你的本周、本月和连续天数。还可以全部导出为表格。"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इतिहास अब दोहराए गए रन एक साथ दिखाता है, और आँकड़े पेज आपका हफ़्ता, महीना और लगातार दिन दिखाता है। सब कुछ स्प्रेडशीट में एक्सपोर्ट करें।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El historial agrupa ahora las repeticiones, y una página de estadísticas muestra tu semana, tu mes y tus rachas. Exporta todo como hoja de cálculo."
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يجمع السجل الآن التشغيلات المتكررة، وتعرض صفحة الإحصاءات أسبوعك وشهرك وأيامك المتتالية. صدّر كل شيء كجدول بيانات."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’historique regroupe désormais les répétitions, et une page Statistiques montre votre semaine, votre mois et vos séries. Exportez le tout en tableur."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ইতিহাস এখন বারবার চালানো একসঙ্গে দেখায়, আর পরিসংখ্যান পাতায় আপনার সপ্তাহ, মাস ও টানা দিন দেখা যায়। সব স্প্রেডশিটে এক্সপোর্ট করুন।"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Histórico agora agrupa repetições, e uma página de estatísticas mostra sua semana, seu mês e suas sequências. Exporte tudo como planilha."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "История теперь объединяет повторы, а страница статистики показывает вашу неделю, месяц и дни подряд. Всё можно выгрузить в таблицу."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riwayat kini mengelompokkan putaran berulang, dan halaman Statistik menampilkan minggu, bulan, dan rentetan hari Anda. Ekspor semuanya sebagai spreadsheet."
+          }
+        }
+      }
+    },
     "Hours" : {
       "localizations" : {
         "ar" : {
@@ -11096,6 +11038,64 @@
         }
       }
     },
+    "In Settings, ring a real alarm in five seconds to make sure it gets through. If it doesn't, Timer shows what to change." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在“设置”中，5 秒后响一次真正的闹钟，确认它能响起。如果没响，Timer 会告诉你需要改什么。"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "सेटिंग्स में, पाँच सेकंड में असली अलार्म बजाकर देखें कि वह पहुँचता है। अगर नहीं, तो Timer बताता है कि क्या बदलना है।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En Ajustes, haz sonar una alarma real en cinco segundos para comprobar que llega. Si no, Timer te dice qué cambiar."
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "في الإعدادات، شغّل منبّهًا حقيقيًا بعد خمس ثوانٍ لتتأكد من وصوله. وإن لم يصل، يوضح Timer ما يجب تغييره."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans Réglages, faites sonner une vraie alarme dans cinq secondes pour vérifier qu’elle passe. Sinon, Timer indique quoi changer."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "সেটিংসে, পাঁচ সেকেন্ডে একটি আসল অ্যালার্ম বাজিয়ে দেখুন সেটি পৌঁছায় কি না। না পৌঁছালে, Timer দেখায় কী বদলাতে হবে।"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Em Ajustes, toque um alarme de verdade em cinco segundos para garantir que ele chega. Se não chegar, o Timer mostra o que mudar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В Настройках включите настоящий будильник через пять секунд и убедитесь, что он звонит. Если нет, Timer подскажет, что изменить."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Di Pengaturan, bunyikan alarm sungguhan dalam lima detik untuk memastikan alarm sampai. Jika tidak, Timer menunjukkan apa yang perlu diubah."
+          }
+        }
+      }
+    },
     "In a month" : {
       "localizations" : {
         "ar" : {
@@ -11214,16 +11214,16 @@
     },
     "In other tags: %lld" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "其他标签中：%lld"
+            "value" : "في وسوم أخرى: %lld"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "दूसरे टैग में: %lld"
+            "value" : "অন্য ট্যাগে: %lld"
           }
         },
         "es" : {
@@ -11232,22 +11232,22 @@
             "value" : "En otras etiquetas: %lld"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "في وسوم أخرى: %lld"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dans d’autres tags : %lld"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "অন্য ট্যাগে: %lld"
+            "value" : "दूसरे टैग में: %lld"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Di tag lain: %lld"
           }
         },
         "pt-BR" : {
@@ -11262,10 +11262,10 @@
             "value" : "В других тегах: %lld"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Di tag lain: %lld"
+            "value" : "其他标签中：%lld"
           }
         }
       }
@@ -11503,76 +11503,18 @@
         }
       }
     },
-    "Keep the screen on" : {
+    "Kept on this iPhone. People you share the timer with don't see it." : {
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "أبقِ الشاشة مضاءة"
+            "value" : "تُحفظ على هذا الـ iPhone. لا يراها من تشارك معهم المؤقت."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "স্ক্রিন চালু রাখুন"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mantén la pantalla encendida"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gardez l’écran allumé"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "स्क्रीन चालू रखें"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Biarkan layar menyala"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mantenha a tela ligada"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Экран не гаснет"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保持屏幕常亮"
-          }
-        }
-      }
-    },
-    "Kept on this iPhone. People you share the timer with don't see it." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "仅保存在这台 iPhone 上。与你共享此计时器的人看不到。"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "यह इसी iPhone पर रहता है। जिनके साथ आप टाइमर शेयर करते हैं, वे इसे नहीं देखते।"
+            "value" : "এই iPhone-এই থাকে। যাদের সঙ্গে টাইমার শেয়ার করেন, তারা এটি দেখতে পান না।"
           }
         },
         "es" : {
@@ -11581,22 +11523,22 @@
             "value" : "Se guarda en este iPhone. Las personas con las que compartes el temporizador no la ven."
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تُحفظ على هذا الـ iPhone. لا يراها من تشارك معهم المؤقت."
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Conservée sur cet iPhone. Les personnes avec qui vous partagez le minuteur ne la voient pas."
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "এই iPhone-এই থাকে। যাদের সঙ্গে টাইমার শেয়ার করেন, তারা এটি দেখতে পান না।"
+            "value" : "यह इसी iPhone पर रहता है। जिनके साथ आप टाइमर शेयर करते हैं, वे इसे नहीं देखते।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disimpan di iPhone ini. Orang yang Anda bagikan timer tidak melihatnya."
           }
         },
         "pt-BR" : {
@@ -11611,10 +11553,10 @@
             "value" : "Хранится на этом iPhone. Те, с кем вы делитесь таймером, её не видят."
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Disimpan di iPhone ini. Orang yang Anda bagikan timer tidak melihatnya."
+            "value" : "仅保存在这台 iPhone 上。与你共享此计时器的人看不到。"
           }
         }
       }
@@ -12841,16 +12783,16 @@
     },
     "New Tag" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新标签"
+            "value" : "وسم جديد"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "नया टैग"
+            "value" : "নতুন ট্যাগ"
           }
         },
         "es" : {
@@ -12859,22 +12801,22 @@
             "value" : "Nueva etiqueta"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "وسم جديد"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nouveau tag"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "নতুন ট্যাগ"
+            "value" : "नया टैग"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tag Baru"
           }
         },
         "pt-BR" : {
@@ -12889,26 +12831,26 @@
             "value" : "Новый тег"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tag Baru"
+            "value" : "新标签"
           }
         }
       }
     },
     "New Tag…" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新标签…"
+            "value" : "وسم جديد…"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "नया टैग…"
+            "value" : "নতুন ট্যাগ…"
           }
         },
         "es" : {
@@ -12917,22 +12859,22 @@
             "value" : "Nueva etiqueta…"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "وسم جديد…"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nouveau tag…"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "নতুন ট্যাগ…"
+            "value" : "नया टैग…"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tag Baru…"
           }
         },
         "pt-BR" : {
@@ -12947,10 +12889,10 @@
             "value" : "Новый тег…"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tag Baru…"
+            "value" : "新标签…"
           }
         }
       }
@@ -13425,64 +13367,6 @@
         }
       }
     },
-    "Next, Next Week and the other alarm buttons now dismiss the alarm right away, and ✕ on a repeating countdown skips just this one." : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "أزرار التالي والأسبوع التالي وغيرها تُغلق المنبه الآن فورًا، و✕ على عد تنازلي متكرر يتخطى هذا الموعد فقط."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "পরের, পরের সপ্তাহ ও অন্য অ্যালার্ম বোতাম এখন সঙ্গে সঙ্গে অ্যালার্ম বন্ধ করে, আর পুনরাবৃত্ত কাউন্টডাউনে ✕ শুধু এবারেরটি বাদ দেয়।"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Siguiente, Semana siguiente y los demás botones de la alarma ahora la cierran al instante, y ✕ en una cuenta atrás que se repite solo salta esta."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Suivant, Semaine suivante et les autres boutons de l’alarme la ferment désormais aussitôt, et ✕ sur un compte à rebours récurrent ne saute que celui-ci."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "अगला, अगला सप्ताह और अलार्म के बाकी बटन अब उसे तुरंत बंद कर देते हैं, और दोहराने वाले काउंटडाउन पर ✕ सिर्फ़ इस बार वाला छोड़ता है।"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Berikutnya, Minggu Berikutnya, dan tombol alarm lainnya kini langsung menutup alarm, dan ✕ pada hitung mundur berulang hanya melewati yang ini."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Próximo, Próxima semana e os outros botões do alarme agora o fecham na hora, e ✕ em uma contagem regressiva repetida pula só esta."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "«Далее», «Следующая неделя» и другие кнопки будильника теперь сразу его закрывают, а ✕ на повторяющемся отсчёте пропускает только этот раз."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“下一步”“下一周”等闹钟按钮现在会立即关闭闹钟，在重复倒计时上点 ✕ 只会跳过这一次。"
-          }
-        }
-      }
-    },
     "No Timers" : {
       "localizations" : {
         "ar" : {
@@ -13775,16 +13659,16 @@
     },
     "No timers with this tag." : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有带此标签的计时器。"
+            "value" : "لا توجد مؤقتات بهذا الوسم."
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "इस टैग वाला कोई टाइमर नहीं।"
+            "value" : "এই ট্যাগে কোনো টাইমার নেই।"
           }
         },
         "es" : {
@@ -13793,22 +13677,22 @@
             "value" : "No hay temporizadores con esta etiqueta."
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "لا توجد مؤقتات بهذا الوسم."
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aucun minuteur avec ce tag."
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "এই ট্যাগে কোনো টাইমার নেই।"
+            "value" : "इस टैग वाला कोई टाइमर नहीं।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak ada timer dengan tag ini."
           }
         },
         "pt-BR" : {
@@ -13823,10 +13707,10 @@
             "value" : "Нет таймеров с этим тегом."
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tidak ada timer dengan tag ini."
+            "value" : "没有带此标签的计时器。"
           }
         }
       }
@@ -14123,16 +14007,16 @@
     },
     "Note" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "备注"
+            "value" : "ملاحظة"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "नोट"
+            "value" : "নোট"
           }
         },
         "es" : {
@@ -14141,22 +14025,22 @@
             "value" : "Nota"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ملاحظة"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Note"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "নোট"
+            "value" : "नोट"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catatan"
           }
         },
         "pt-BR" : {
@@ -14171,10 +14055,10 @@
             "value" : "Заметка"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Catatan"
+            "value" : "备注"
           }
         }
       }
@@ -17512,16 +17396,16 @@
     },
     "Rename Tag" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "重命名标签"
+            "value" : "إعادة تسمية الوسم"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "टैग का नाम बदलें"
+            "value" : "ট্যাগের নাম বদলান"
           }
         },
         "es" : {
@@ -17530,22 +17414,22 @@
             "value" : "Renombrar etiqueta"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إعادة تسمية الوسم"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Renommer le tag"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ট্যাগের নাম বদলান"
+            "value" : "टैग का नाम बदलें"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganti Nama Tag"
           }
         },
         "pt-BR" : {
@@ -17560,26 +17444,26 @@
             "value" : "Переименовать тег"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ganti Nama Tag"
+            "value" : "重命名标签"
           }
         }
       }
     },
     "Rename…" : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "重命名…"
+            "value" : "إعادة تسمية…"
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "नाम बदलें…"
+            "value" : "নাম বদলান…"
           }
         },
         "es" : {
@@ -17588,22 +17472,22 @@
             "value" : "Renombrar…"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إعادة تسمية…"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Renommer…"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "নাম বদলান…"
+            "value" : "नाम बदलें…"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganti Nama…"
           }
         },
         "pt-BR" : {
@@ -17618,10 +17502,10 @@
             "value" : "Переименовать…"
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ganti Nama…"
+            "value" : "重命名…"
           }
         }
       }
@@ -22970,18 +22854,76 @@
         }
       }
     },
-    "Tags" : {
+    "Tag timers like Kitchen or Work and filter the list. Add a note, such as “Turn at half time”, and it comes back the next time you start that timer." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "标签"
+            "value" : "给计时器加上“厨房”“工作”等标签并筛选列表。添加备注，比如“到一半时翻面”，下次开始同一个计时器时它会再次出现。"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "टैग"
+            "value" : "टाइमर पर Kitchen या Work जैसे टैग लगाएँ और सूची छाँटें। “आधे समय पर पलटें” जैसा नोट जोड़ें, और अगली बार वही टाइमर शुरू करने पर वह फिर दिखेगा।"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etiqueta temporizadores como Cocina o Trabajo y filtra la lista. Añade una nota, como “Dar la vuelta a mitad”, y volverá la próxima vez que inicies ese temporizador."
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ضع وسومًا للمؤقتات مثل المطبخ أو العمل وصفِّ القائمة. أضف ملاحظة مثل «اقلبه في المنتصف»، وستعود في المرة القادمة التي تبدأ فيها ذلك المؤقت."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajoutez des tags comme Cuisine ou Travail et filtrez la liste. Ajoutez une note, comme « Retourner à mi-cuisson », et elle revient la prochaine fois que vous lancez ce minuteur."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "টাইমারে Kitchen বা Work-এর মতো ট্যাগ দিন এবং তালিকা ছাঁকুন। “অর্ধেক সময়ে উল্টে দিন”-এর মতো নোট যোগ করুন, পরের বার সেই টাইমার শুরু করলে সেটি আবার আসবে।"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marque timers como Cozinha ou Trabalho e filtre a lista. Adicione uma nota, como “Virar na metade”, e ela volta na próxima vez que você iniciar esse timer."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отмечайте таймеры тегами вроде «Кухня» или «Работа» и фильтруйте список. Добавьте заметку, например «Перевернуть на середине», и она вернётся, когда вы снова запустите этот таймер."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beri tag pada timer seperti Dapur atau Kerja dan saring daftarnya. Tambahkan catatan, misalnya “Balik di tengah waktu”, dan catatan itu kembali saat Anda memulai timer itu lagi."
+          }
+        }
+      }
+    },
+    "Tags" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الوسوم"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ট্যাগ"
           }
         },
         "es" : {
@@ -22990,22 +22932,22 @@
             "value" : "Etiquetas"
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الوسوم"
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tags"
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ট্যাগ"
+            "value" : "टैग"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tag"
           }
         },
         "pt-BR" : {
@@ -23020,10 +22962,68 @@
             "value" : "Теги"
           }
         },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标签"
+          }
+        }
+      }
+    },
+    "Tags and notes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标签与备注"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "टैग और नोट"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etiquetas y notas"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الوسوم والملاحظات"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tags et notes"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ট্যাগ ও নোট"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Etiquetas e notas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Теги и заметки"
+          }
+        },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tag"
+            "value" : "Tag dan catatan"
           }
         }
       }
@@ -23840,6 +23840,64 @@
         }
       }
     },
+    "This week" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本周"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस हफ़्ते"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta semana"
+          }
+        },
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "هذا الأسبوع"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette semaine"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই সপ্তাহ"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta semana"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "На этой неделе"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minggu ini"
+          }
+        }
+      }
+    },
     "Time" : {
       "localizations" : {
         "ar" : {
@@ -24538,16 +24596,16 @@
     },
     "Timers keep running; they just lose this tag." : {
       "localizations" : {
-        "zh-Hans" : {
+        "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "计时器会继续运行，只是不再带有此标签。"
+            "value" : "تستمر المؤقتات في العمل، وتفقد هذا الوسم فقط."
           }
         },
-        "hi" : {
+        "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "टाइमर चलते रहेंगे; बस यह टैग हट जाएगा।"
+            "value" : "টাইমার চলতেই থাকবে; শুধু এই ট্যাগটি থাকবে না।"
           }
         },
         "es" : {
@@ -24556,22 +24614,22 @@
             "value" : "Los temporizadores siguen; solo pierden esta etiqueta."
           }
         },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تستمر المؤقتات في العمل، وتفقد هذا الوسم فقط."
-          }
-        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Les minuteurs continuent ; ils perdent seulement ce tag."
           }
         },
-        "bn" : {
+        "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "টাইমার চলতেই থাকবে; শুধু এই ট্যাগটি থাকবে না।"
+            "value" : "टाइमर चलते रहेंगे; बस यह टैग हट जाएगा।"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timer tetap berjalan; hanya tag ini yang dilepas."
           }
         },
         "pt-BR" : {
@@ -24586,10 +24644,10 @@
             "value" : "Таймеры продолжат идти, просто без этого тега."
           }
         },
-        "id" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Timer tetap berjalan; hanya tag ini yang dilepas."
+            "value" : "计时器会继续运行，只是不再带有此标签。"
           }
         }
       }
@@ -26156,64 +26214,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此阶段结束时"
-          }
-        }
-      }
-    },
-    "Widgets that keep up" : {
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "أدوات تواكب الوقت"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "সময়ের সঙ্গে চলা উইজেট"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Widgets que van al día"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Des widgets toujours à l’heure"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "समय के साथ चलते विजेट"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Widget yang selalu tepat waktu"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Widgets sempre em dia"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Виджеты, которые не отстают"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "准时更新的小组件"
           }
         }
       }
