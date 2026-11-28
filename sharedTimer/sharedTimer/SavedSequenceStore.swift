@@ -2,71 +2,13 @@
 //  SavedSequenceStore.swift
 //  sharedTimer
 //
+//  The app-only half of SavedSequenceStore (Shared/SavedSequence.swift): saving a
+//  template, which also records it as a Recent (RecentTimersStore is app + widget only).
+//
 
 import Foundation
 
-/// A reusable sequence blueprint — phases + loop count a user has chosen to keep for
-/// starting again later, distinct from a running `TimerPayload.sequence` instance.
-/// Main-app-only, same as sequences themselves (see CLAUDE.md): never carried through
-/// `TimerPayload.url()`, CloudKit, or the watch app, so this file intentionally lives in
-/// sharedTimer/, not in Shared/.
-struct SavedSequence: Codable, Identifiable, Equatable {
-    let id: String
-    var name: String
-    var phases: [SequencePhase]
-    var loopCount: Int
-
-    init(id: String = UUID().uuidString, name: String, phases: [SequencePhase], loopCount: Int) {
-        self.id = id
-        self.name = name
-        self.phases = phases
-        self.loopCount = loopCount
-    }
-
-    // Decoded as a root array: a field added without a default would fail every entry.
-    // New fields: `decodeIfPresent` + default.
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(String.self, forKey: .id)
-        phases = try container.decode([SequencePhase].self, forKey: .phases)
-        name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Sequence"
-        loopCount = try container.decodeIfPresent(Int.self, forKey: .loopCount) ?? 1
-    }
-}
-
-enum SavedSequenceStore {
-    // Same App Group container `TimerStore` uses, under its own key — nothing else
-    // reads this suite from a different target, but keeping all of this app's
-    // persistence in one container avoids a stray `UserDefaults.standard` write that's
-    // easy to lose track of later.
-    private static let appGroupID = "group.com.lokesh.sharedTimer"
-    private static let key = "savedSequences"
-
-    private static var defaults: UserDefaults? {
-        UserDefaults(suiteName: appGroupID)
-    }
-
-    /// Falls back to entry-by-entry like `TimerStore.loadAll`, so one template this
-    /// build can't read drops only itself instead of every saved template.
-    static func loadAll() -> [SavedSequence] {
-        guard let data = defaults?.data(forKey: key) else { return [] }
-        if let decoded = try? JSONDecoder().decode([SavedSequence].self, from: data) {
-            return decoded
-        }
-        guard let rawArray = try? JSONSerialization.jsonObject(with: data) as? [Any] else { return [] }
-        let decoder = JSONDecoder()
-        return rawArray.compactMap { entry in
-            guard let dict = entry as? [String: Any],
-                  let entryData = try? JSONSerialization.data(withJSONObject: dict) else { return nil }
-            return try? decoder.decode(SavedSequence.self, from: entryData)
-        }
-    }
-
-    static func saveAll(_ sequences: [SavedSequence]) {
-        guard let data = try? JSONEncoder().encode(sequences) else { return }
-        defaults?.set(data, forKey: key)
-    }
-
+extension SavedSequenceStore {
     /// Keeps a running sequence (e.g. one received in Messages) as a template. Only the
     /// blueprint is stored — phases and loop count — never the running position.
     static func add(_ sequence: SequenceInfo, name: String) {

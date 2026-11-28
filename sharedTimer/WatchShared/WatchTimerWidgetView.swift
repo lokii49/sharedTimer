@@ -57,12 +57,24 @@ struct WatchTimerWidgetView: View {
         }
     }
 
+    /// The curved label of the corner complication: live while running (the system
+    /// drains it), frozen when paused, empty when done or with no timer.
+    @ViewBuilder private var cornerArc: some View {
+        if snapshot.isRunning, let timer = snapshot.timer {
+            ProgressView(timerInterval: timer.endDate.addingTimeInterval(-max(timer.duration + timer.extraTime, snapshot.remaining))...timer.endDate, countsDown: true) {
+                EmptyView()
+            } currentValueLabel: { EmptyView() }
+        } else {
+            ProgressView(value: snapshot.progress).tint(.secondary)
+        }
+    }
+
     var body: some View {
         Group {
             switch family {
             case .accessoryInline:
                 ViewThatFits {
-                    HStack { Image(systemName: symbol); Text(snapshot.timer?.label ?? String(localized: "Shared Timer")).privacySensitive(); time }
+                    HStack { Image(systemName: symbol); Text(snapshot.timer?.label ?? String(localized: "Timer")).privacySensitive(); time }
                     HStack { Image(systemName: symbol); time }
                 }
             case .accessoryRectangular:
@@ -71,13 +83,21 @@ struct WatchTimerWidgetView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         // Only the name is private (owner's call, as on the phone): a
                         // wrist-down or locked Watch still shows the time.
-                        Text(snapshot.timer?.label ?? String(localized: "Shared Timer")).font(.headline).lineLimit(1)
+                        Text(snapshot.timer?.label ?? String(localized: "Timer")).font(.headline).lineLimit(1)
                             .privacySensitive()
                         time.font(.title3).lineLimit(1).minimumScaleFactor(0.5)
                         Text(snapshot.timer == nil ? String(localized: "Sync timers from iPhone") : snapshot.status)
                             .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
+            case .accessoryCorner:
+                // Owner's pick B (2026-11-27, https://claude.ai/artifact/KNVYgLpZerGaRPBHKMpCeM):
+                // time left in the corner, an arc draining along the curve. No name —
+                // nothing on this face needs hiding on a locked wrist.
+                time.font(.system(size: 16, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.5)
+                    .foregroundStyle(snapshot.isRunning ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                    .widgetCurvesContent()
+                    .widgetLabel { cornerArc }
             default: ring(showTime: true)
             }
         }

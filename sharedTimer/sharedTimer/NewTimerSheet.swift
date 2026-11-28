@@ -19,13 +19,20 @@ struct NewTimerSheet: View {
     @State private var alarmEnabled = true
     @State private var vibrationEnabled = true
     @State private var reminders: Set<TimerReminder> = []
+    /// N5: this phone's tags (the list's current filter preselected) and a note.
+    @State private var tagIDs: [String] = []
+    @State private var note = ""
+    /// N13: a picked photo's data (nil = the sky), saved for the new timer on Start.
+    @State private var photoData: Data?
+    @State private var photoPreview: UIImage?
     @FocusState private var labelFocused: Bool
     @State private var recents: [RecentTimer] = RecentTimersStore.all()
 
     let onCreate: (TimerPayload) -> Void
 
-    init(initialKind: TimerKind = .timer, onCreate: @escaping (TimerPayload) -> Void) {
+    init(initialKind: TimerKind = .timer, initialTagID: String? = nil, onCreate: @escaping (TimerPayload) -> Void) {
         self._kind = State(initialValue: initialKind)
+        self._tagIDs = State(initialValue: initialTagID.map { [$0] } ?? [])
         self.onCreate = onCreate
     }
 
@@ -34,45 +41,14 @@ struct NewTimerSheet: View {
         composedPayload
     }
 
-    /// A 0:00:00 timer or a countdown target already in the past would ring at once
-    /// (compose clamps both to one second). A yearly countdown rolls a past date to
-    /// its next anniversary, so it's always fine.
+    /// Same rules as Messages' compose (`ComposeRules`).
     private func canStart(at date: Date) -> Bool {
-        switch kind {
-        case .timer: return minutes * 60 >= 1
-        case .countdown: return repeatFrequency != nil || targetDate > date
-        }
+        ComposeRules.canStart(kind: kind, minutes: minutes, targetDate: targetDate, repeatFrequency: repeatFrequency, at: date)
     }
 
     private var composedPayload: TimerPayload {
-        if kind == .countdown, let repeatFrequency {
-            return TimerPayload.composeAnnual(label: label, targetDate: targetDate, timeZone: countdownTimeZone, frequency: repeatFrequency,
-                                              alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
-        }
-        return TimerPayload.compose(label: label.isEmpty ? (kind == .timer ? String(localized: "Timer") : String(localized: "Countdown")) : label,
-                             kind: kind, minutes: minutes, targetDate: targetDate, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
-    }
-
-    /// "Every Tuesday at 9:00 AM in Europe/Lisbon." — what the rule will do.
-    private func repeatFooter(_ frequency: AnnualRecurrence.Frequency) -> String {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = countdownTimeZone
-        let time = targetDate.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: countdownTimeZone))
-        let zone = countdownTimeZone.identifier
-        switch frequency {
-        case .daily:
-            return String(localized: "Every day at \(time) in \(zone).")
-        case .weekly:
-            let weekday = targetDate.formatted(Date.FormatStyle(timeZone: countdownTimeZone).weekday(.wide))
-            return String(localized: "Every \(weekday) at \(time) in \(zone).")
-        case .monthly:
-            let day = calendar.component(.day, from: targetDate)
-            return day > 28
-                ? String(localized: "Every month on day \(day) at \(time) in \(zone). Shorter months use their last day.")
-                : String(localized: "Every month on day \(day) at \(time) in \(zone).")
-        case .yearly:
-            return String(localized: "Repeats at this date and time in \(zone). February 29 uses February 28 in non-leap years. Open Timer each year to keep future reminders scheduled.")
-        }
+        ComposeRules.payload(label: label, kind: kind, minutes: minutes, targetDate: targetDate, repeatFrequency: repeatFrequency,
+                             timeZone: countdownTimeZone, alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
     }
 
     var body: some View {
@@ -85,7 +61,10 @@ struct NewTimerSheet: View {
                         ChipFlowLayout(spacing: 8) {
                             ForEach(recents) { recent in
                                 Button {
-                                    onCreate(recent.payload())
+                                    let started = recent.payload()
+                                    TimerTagStore.update { $0.adopt(timerID: started.id, recentKey: recent.id) }
+            TimerPhotos.adopt(timerID: started.id, recentKey: recent.id)
+                                    onCreate(started)
                                     RecentTimersStore.record(recent)
                                     dismiss()
                                 } label: {
@@ -146,7 +125,7 @@ struct NewTimerSheet: View {
                         .pickerStyle(.menu)
                         .tint(kind.accentColor)
                     } footer: {
-                        if let repeatFrequency { Text(repeatFooter(repeatFrequency)) }
+                        if let repeatFrequency { Text(repeatFrequency.composeFooter(targetDate: targetDate, timeZone: countdownTimeZone)) }
                     }
                 }
 
@@ -164,6 +143,23 @@ struct NewTimerSheet: View {
                     whenItEndsExtra: AnyView(ReminderChips(kind: kind, span: kind == .timer ? minutes * 60 : max(0, targetDate.timeIntervalSinceNow), selection: $reminders))
                 )
                 .environment(\.timeZone, countdownTimeZone)
+
+                Section {
+                    TagChipsPicker(selection: $tagIDs)
+                }
+                Section("Note") {
+                    TextField("Add a note", text: $note, axis: .vertical)
+                        .lineLimit(2...6)
+                        .accessibilityIdentifier("noteField")
+                }
+                Section {
+                    PhotoBackgroundRow(preview: photoPreview,
+                                       onPick: { data in
+                                           photoData = data
+                                           photoPreview = TimerPhotos.downscaledJPEG(data).flatMap(UIImage.init(data:))
+                                       },
+                                       onRemove: { photoData = nil; photoPreview = nil })
+                }
             }
             .sheet(isPresented: $showingCalendarImport) {
                 CalendarImportSheet { choice in
@@ -190,6 +186,12 @@ struct NewTimerSheet: View {
                             let payload = composedPayload
                             // Set before onCreate: its arm plans the reminders.
                             TimerReminders.set(reminders.filter { $0.fits(span: payload.span) && TimerReminder.choices(for: payload.kind).contains($0) }, for: payload.id)
+                            let tags = tagIDs, text = note
+                            TimerTagStore.update { organizer in
+                                organizer.setTags(tags, for: payload.id)
+                                organizer.setNote(text, for: payload.id)
+                            }
+                            if let photoData { TimerPhotos.save(photoData, for: payload.id) }
                             onCreate(payload)
                             dismiss()
                         }
@@ -198,43 +200,6 @@ struct NewTimerSheet: View {
                     }
                 }
             }
-        }
-    }
-}
-
-/// Left-aligned wrapping row of chips — fills a line, then wraps to the next.
-struct ChipFlowLayout: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxWidth = proposal.width ?? .infinity
-        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, widest: CGFloat = 0
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > 0 && x + size.width > maxWidth {
-                y += rowHeight + spacing
-                x = 0
-                rowHeight = 0
-            }
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-            widest = max(widest, x - spacing)
-        }
-        return CGSize(width: proposal.width ?? widest, height: y + rowHeight)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > bounds.minX && x + size.width > bounds.maxX {
-                y += rowHeight + spacing
-                x = bounds.minX
-                rowHeight = 0
-            }
-            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
         }
     }
 }

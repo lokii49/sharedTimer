@@ -1,7 +1,15 @@
-• Corrigido: o Histórico podia fechar inesperadamente ao mostrar uma sequência ou uma contagem regressiva repetida.
-• Próximo, Próxima semana e os outros botões de um alarme em tela cheia agora o fecham na hora.
-• Widgets em dia: finais e novas fases aparecem na hora certa, tocar em um widget ou Atividade ao Vivo abre o timer, há um widget de uma linha para a Tela Bloqueada e um visual mais claro em Telas de Início coloridas, no Modo Mesa de Cabeceira à noite e no tamanho extragrande do iPad.
-• Parar uma contagem regressiva repetida pelo widget ou pela Atividade ao Vivo agora pula para a próxima em vez de encerrar a série.
-• Mensagens: um timer aberto acompanha cada mudança e contagens regressivas repetidas ganham Próxima semana.
-• Um novo botão de cadeado mantém a tela ligada enquanto você olha.
-• Além de muitas outras correções.
+• Etiquetas e notas: marque timers como Cozinha ou Trabalho, filtre a lista e adicione uma nota que volta na próxima vez que você iniciar esse timer.
+• Estatísticas: o Histórico agrupa repetições, e uma nova página de estatísticas mostra sua semana, seu mês e suas sequências, com exportação para planilha.
+• Testar meu alarme, em Ajustes, toca um alarme de verdade em cinco segundos e mostra o que mudar se ele não chegar.
+• Um novo botão − tira tempo de um timer, também no Mensagens, no Apple Watch e com a Siri.
+• Mensagens: edite um timer, inicie uma sequência salva, faça uma contagem regressiva se repetir, adicione lembretes antecipados e desfaça uma remoção.
+• Avisos falados nas sequências: nome das fases, aviso de um minuto e bipes enquanto o Timer está aberto.
+• Filtros de foco: mantenha em silêncio os lembretes e as novidades de timers compartilhados durante um Foco.
+• Apple Watch: uma complicação de canto com o tempo restante e um arco que esvazia.
+• O Atalhos encontra timers por nome, tipo ou estado, e uma pausa ou extensão pedida à Siri pode ser desfeita.
+• Dias desde: conte os dias desde algo, e um cronômetro com voltas, os dois no +.
+• Use sua própria foto como fundo de um timer.
+• Quatro novos toques de alarme: Sino, Ascensão, Flor e Marimba.
+• Uma sequência silenciosa agendada para as próximas 7 horas mostra sua Atividade ao Vivo na hora, mesmo com o Timer fechado.
+• A contagem de tempo extra para quando você dispensa o alarme em tela cheia.
+• E muitas correções menores.

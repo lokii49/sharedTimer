@@ -13,7 +13,7 @@ import SwiftUI
 enum WhatsNew {
     /// The version whose features the pages below describe. Bump it (and the pages)
     /// when a later release gets its own tour; a release without one shows nothing.
-    static let contentVersion = "1.0.9"
+    static let contentVersion = "1.0.10"
     static let seenVersionKey = "whatsNewSeenVersion"
     /// UI tests and screenshots: present regardless of the stored version.
     static let forceShowArgument = "-ShowWhatsNew"
@@ -60,15 +60,21 @@ enum WhatsNew {
         let body: String
     }
 
+    /// 1.0.10 lineup A (owner's pick 2026-11-28, https://claude.ai/artifact/DstXtpzgtHHLtfAVJLQDXe):
+    /// only claims already seen working. Spoken cues and the − button are in the
+    /// release notes instead.
     static let features: [Feature] = [
-        Feature(id: 0, title: String(localized: "Widgets that keep up"),
-                body: String(localized: "Finishes and next phases show right on time, a tap opens the timer, and there's a one-line Lock Screen widget and a look for tinted Home Screens.")),
-        Feature(id: 1, title: String(localized: "More in Messages"),
-                body: String(localized: "An open timer follows every change, and a repeating countdown skips ahead with Next Week.")),
-        Feature(id: 2, title: String(localized: "Keep the screen on"),
-                body: String(localized: "A new lock button keeps the screen awake while you watch, and says so.")),
-        Feature(id: 3, title: String(localized: "Alarms that listen"),
-                body: String(localized: "Next, Next Week and the other alarm buttons now dismiss the alarm right away, and ✕ on a repeating countdown skips just this one."))
+        Feature(id: 0, title: String(localized: "Tags and notes"),
+                body: String(localized: "Tag timers like Kitchen or Work and filter the list. Add a note, such as “Turn at half time”, and it comes back the next time you start that timer.")),
+        Feature(id: 1, title: String(localized: "Stats"),
+                body: String(localized: "History now groups repeat runs, and a Stats page shows your week, month and streaks. Export it all as a spreadsheet.")),
+        Feature(id: 2, title: String(localized: "Test my alarm"),
+                body: String(localized: "In Settings, ring a real alarm in five seconds to make sure it gets through. If it doesn't, Timer shows what to change.")),
+        Feature(id: 3, title: String(localized: "More in Messages"),
+                body: String(localized: "Edit a timer, start one of your saved sequences, make a countdown repeat, and undo a removal, all from Messages.")),
+        // Owner asked for a tour page for the late 1.0.10 additions (2026-11-28).
+        Feature(id: 4, title: String(localized: "Days since and a stopwatch"),
+                body: String(localized: "Count the days since something, or time anything with a stopwatch that keeps laps. Both are under the + button."))
     ]
 }
 
@@ -191,8 +197,8 @@ private struct WhatsNewIllustration: View {
     let isActive: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var period: Double { [6, 6, 5, 6][index] }
-    private var restingT: Double { [0.8, 0.75, 0.6, 0.85][index] }
+    private var period: Double { [6, 5, 6, 7, 6][index] }
+    private var restingT: Double { [0.85, 0.8, 0.85, 0.9, 0.8][index] }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !isActive)) { context in
@@ -200,10 +206,11 @@ private struct WhatsNewIllustration: View {
             let t = reduceMotion ? restingT : (seconds.truncatingRemainder(dividingBy: period)) / period
             Group {
                 switch index {
-                case 0: WidgetScene(t: t)
-                case 1: MessagesScene(t: t)
-                case 2: KeepAwakeScene(t: t)
-                default: AlarmButtonsScene(t: t)
+                case 0: TagsScene(t: t)
+                case 1: StatsScene(t: t)
+                case 2: TestAlarmScene(t: t)
+                case 3: MessagesParityScene(t: t)
+                default: CountUpScene(t: t)
                 }
             }
             .frame(width: 260, height: 210)
@@ -242,161 +249,249 @@ private let emberCard = LinearGradient(colors: Sky.ember.stops(drain: 0), startP
 
 private let duskCard = LinearGradient(colors: Sky.dusk.stops(drain: 0.2), startPoint: .topLeading, endPoint: .bottomTrailing)
 
-/// A small widget counting its last seconds into "Time's up" with Repeat, on time; the
-/// one-line Lock Screen widget above it; a tap opening the timer.
-private struct WidgetScene: View {
+private let tealCard = LinearGradient(colors: [Color(red: 0.07, green: 0.23, blue: 0.23), Color(red: 0.18, green: 0.49, blue: 0.43)], startPoint: .topLeading, endPoint: .bottomTrailing)
+
+/// The tag row filters the list (Kitchen: the Work timer drops out), then a note
+/// appears under the first timer.
+private struct TagsScene: View {
     let t: Double
 
     var body: some View {
-        let left = max(0, 3 - t * 6)                 // 3 s left → 0 at t = 0.5
-        let finished = left <= 0
-        VStack(spacing: 12) {
-            HStack(spacing: 5) {
-                Image(systemName: "timer")
-                Text(verbatim: "Tea  " + TimeFormat.display(finished ? 0 : left.rounded(.up)))
-                    .monospacedDigit()
+        let filtered = ramp(t, 0.2, 0.32)
+        let note = ramp(t, 0.5, 0.62)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                chip(String(localized: "All"), on: filtered < 0.5)
+                chip("Kitchen", on: filtered >= 0.5)
+                    .overlay {
+                        Circle().stroke(.white.opacity(0.8), lineWidth: 2)
+                            .frame(width: 18 + 26 * ramp(t, 0.14, 0.26), height: 18 + 26 * ramp(t, 0.14, 0.26))
+                            .opacity(pulse(t, 0.12, 0.16, 0.24, 0.3))
+                    }
+                chip("Work", on: false)
             }
-            .font(.caption.weight(.semibold))
-            .opacity(0.85)
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(verbatim: "TEA").skyLabel(10).opacity(0.85)
-                    Spacer()
-                    if finished { Text("Time's up").skyLabel(9).opacity(0.85) }
-                }
-                Spacer(minLength: 0)
-                Text(verbatim: TimeFormat.display(finished ? 0 : left.rounded(.up)))
-                    .skyDigits(32, weight: .regular)
-                Text("Repeat").font(.caption2.weight(.semibold))
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(.white.opacity(0.2), in: Capsule())
-                    .opacity(finished ? 1 : 0)
+            card("PIZZA", tag: "Kitchen", digits: "13:51", fill: emberCard)
+            if note > 0 {
+                Text(verbatim: "Turn at half time")
+                    .font(.caption2)
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .frame(width: 230, alignment: .leading)
+                    .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .opacity(note)
             }
-            .padding(12)
-            .frame(width: 130, height: 130)
-            .background(finished ? LinearGradient(colors: Sky.overcast, startPoint: .topLeading, endPoint: .bottomTrailing) : emberCard,
-                        in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay {
-                // The tap that opens the timer.
-                Circle().stroke(.white.opacity(0.8), lineWidth: 2)
-                    .frame(width: 22 + 30 * ramp(t, 0.75, 0.95), height: 22 + 30 * ramp(t, 0.75, 0.95))
-                    .opacity(pulse(t, 0.72, 0.78, 0.92, 0.98))
-            }
+            card("REPORT", tag: "Work", digits: "42:10", fill: duskCard)
+                .frame(height: 50 * (1 - filtered), alignment: .top)
+                .clipped()
+                .opacity(1 - filtered)
+            card("EGGS", tag: "Kitchen", digits: "06:10", fill: tealCard)
         }
+        .frame(width: 240, height: 210, alignment: .top)
+    }
+
+    private func chip(_ title: String, on: Bool) -> some View {
+        Text(verbatim: title)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(on ? Color.white.opacity(0.9) : .white.opacity(0.15), in: Capsule())
+            .foregroundStyle(on ? Color.black : .white)
+    }
+
+    private func card(_ name: String, tag: String, digits: String, fill: LinearGradient) -> some View {
+        HStack(alignment: .lastTextBaseline) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
+                    Text(verbatim: name).skyLabel(9).opacity(0.9)
+                    Text(verbatim: tag).font(.system(size: 8, weight: .semibold))
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(.white.opacity(0.22), in: Capsule())
+                }
+                Text(verbatim: digits).skyDigits(20, weight: .regular)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .frame(width: 230, height: 50)
+        .background(fill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
-/// An open timer following a change made elsewhere (it pauses), then "Next Week" on a
-/// repeating countdown. (No "re-share collapses the old card": checked on device
-/// 2026-11-27, Messages keeps both cards.)
-private struct MessagesScene: View {
+/// A week of day bars growing in, the week's total and the days-in-a-row streak.
+private struct StatsScene: View {
     let t: Double
+    private let days: [Double] = [0.35, 0.6, 0.2, 0.8, 0.55, 0.9, 0.45]
 
     var body: some View {
-        let paused = ramp(t, 0.15, 0.3)
-        VStack(alignment: .trailing, spacing: 8) {
-            ZStack(alignment: .topLeading) {
-                card(caption: "6:00 left", height: 70).opacity(1 - paused)
-                card(caption: "Paused · 4:12 left", height: 70).opacity(paused)
+        VStack(spacing: 14) {
+            HStack(spacing: 10) {
+                tile(value: "6h 40m", label: String(localized: "This week"), shown: ramp(t, 0.45, 0.55))
+                tile(value: "4", label: String(localized: "Days in a row"), shown: ramp(t, 0.6, 0.7))
             }
-            card(caption: "every week, next Sat", height: 70)
-                .offset(y: 30 * (1 - ramp(t, 0.35, 0.5)))
-                .opacity(ramp(t, 0.35, 0.5))
-            Text("Next Week").font(.caption.weight(.semibold))
-                .padding(.horizontal, 14).padding(.vertical, 7)
-                .glassEffect(.regular, in: Capsule())
-                .opacity(ramp(t, 0.55, 0.7))
+            HStack(alignment: .bottom, spacing: 10) {
+                ForEach(days.indices, id: \.self) { i in
+                    let grow = ramp(t, 0.05 + Double(i) * 0.05, 0.25 + Double(i) * 0.05)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(i == days.count - 1 ? Color(red: 1, green: 0.62, blue: 0.25) : .white.opacity(0.75))
+                        .frame(width: 20, height: max(2, 90 * days[i] * grow))
+                }
+            }
+            .frame(height: 92, alignment: .bottom)
         }
-        .frame(width: 230, alignment: .trailing)
+        .frame(width: 250, height: 210)
     }
 
-    private func card(caption: String, height: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(verbatim: "Gym").font(.footnote.weight(.semibold))
-            Text(verbatim: caption).font(.caption2).opacity(0.8)
+    private func tile(value: String, label: String, shown: Double) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(verbatim: value).font(.headline.weight(.semibold)).monospacedDigit()
+            Text(label).font(.caption2).opacity(0.75)
         }
         .padding(10)
-        .frame(width: 190, height: height, alignment: .topLeading)
-        .background(duskCard, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .clipped()
+        .frame(width: 118, alignment: .leading)
+        .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .opacity(0.25 + 0.75 * shown)
     }
 }
 
-/// Keep Screen On: the lock fills warm and confirms "Screen stays on".
-private struct KeepAwakeScene: View {
+/// Settings' "Test my alarm": tapped, a five-second count, the alarm rings, "Did it ring?"
+private struct TestAlarmScene: View {
     let t: Double
 
     var body: some View {
-        let on = t > 0.3 && t < 0.9
-        VStack(spacing: 18) {
-            Text("Screen stays on")
+        let counting = t >= 0.15 && t < 0.55
+        let left = max(1, Int((5 * (1 - ramp(t, 0.15, 0.55))).rounded(.up)))
+        let ringing = t >= 0.55 && t < 0.78
+        let asked = ramp(t, 0.78, 0.86)
+        VStack(spacing: 16) {
+            Text("Test my alarm")
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 16).padding(.vertical, 8)
                 .glassEffect(.regular, in: Capsule())
-                .opacity(pulse(t, 0.3, 0.38, 0.62, 0.7))
-            Image(systemName: on ? "lock.slash.fill" : "lock.slash")
-                .font(.system(size: 34))
-                .foregroundStyle(on ? Color(red: 1, green: 0.82, blue: 0.45) : .white)
-                .frame(width: 72, height: 72)
-                .background(.white.opacity(0.14), in: Circle())
-            Text(verbatim: "07:42").skyDigits(30, weight: .thin).opacity(0.85)
+                .overlay {
+                    Capsule().stroke(.white.opacity(0.8), lineWidth: 2)
+                        .scaleEffect(1 + 0.25 * ramp(t, 0.06, 0.16))
+                        .opacity(pulse(t, 0.04, 0.08, 0.13, 0.17))
+                }
+            ZStack {
+                if counting {
+                    Text(verbatim: "\(left)").skyDigits(54, weight: .thin)
+                }
+                if ringing {
+                    Image(systemName: "alarm.fill")
+                        .font(.system(size: 50))
+                        .foregroundStyle(Color(red: 1, green: 0.62, blue: 0.25))
+                        .rotationEffect(.degrees(sin(t * 120) * 10))
+                }
+                if asked > 0 {
+                    VStack(spacing: 10) {
+                        Text("Did it ring?").font(.subheadline.weight(.semibold))
+                        HStack(spacing: 8) {
+                            Label("Yes", systemImage: "checkmark")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 12).padding(.vertical, 6)
+                                .background(.white.opacity(0.22), in: Capsule())
+                        }
+                    }
+                    .opacity(asked)
+                }
+            }
+            .frame(height: 90)
         }
+        .frame(width: 250, height: 210)
     }
 }
 
-/// The full-screen alarm's banner (as on the Lock Screen / over the app): ⏩ is tapped,
-/// the alarm slides away, and the next phase is running.
-private struct AlarmButtonsScene: View {
+/// Messages: a countdown set to repeat weekly, a saved sequence started, then a removed
+/// timer brought back with Undo.
+private struct MessagesParityScene: View {
     let t: Double
 
     var body: some View {
-        let tapped = t > 0.35
-        let gone = ramp(t, 0.42, 0.58)
-        ZStack(alignment: .top) {
-            // What's underneath: the next phase, already running.
-            VStack(alignment: .leading, spacing: 4) {
-                Text(verbatim: "REST").skyLabel(10).opacity(0.85)
-                Text(verbatim: "Phase 2 of 2").font(.caption2).opacity(0.7)
-                Spacer(minLength: 0)
-                Text(verbatim: "25:00").skyDigits(30, weight: .thin)
-            }
-            .padding(12)
-            .frame(width: 230, height: 110, alignment: .leading)
-            .background(emberCard, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .padding(.top, 70)
-            .opacity(0.5 + 0.5 * gone)
-
-            // The alarm banner.
+        VStack(spacing: 10) {
+            row(title: String(localized: "Repeat"), value: "Weekly", shown: ramp(t, 0.05, 0.15))
             HStack(spacing: 10) {
-                Image(systemName: "alarm.fill")
-                    .font(.system(size: 26))
-                    .foregroundStyle(Color(red: 1, green: 0.62, blue: 0.25))
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(verbatim: "Timer").font(.caption2).opacity(0.7)
-                    Text(verbatim: "Work").font(.subheadline.weight(.semibold))
+                RoundedRectangle(cornerRadius: 7, style: .continuous).fill(emberCard).frame(width: 26, height: 26)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(verbatim: "Pomodoro").font(.footnote.weight(.semibold))
+                    Text(verbatim: "25 + 5 min").font(.caption2).opacity(0.7)
                 }
-                Spacer(minLength: 0)
-                Image(systemName: "forward.fill")
-                    .font(.system(size: 15, weight: .bold))
+                Spacer()
+                Text("Start").font(.caption.weight(.semibold))
                     .foregroundStyle(Color(red: 1, green: 0.62, blue: 0.25))
-                    .frame(width: 40, height: 40)
-                    .background(Color(red: 1, green: 0.62, blue: 0.25).opacity(tapped ? 0.55 : 0.28), in: Circle())
-                    .overlay {
-                        Circle().stroke(.white.opacity(0.8), lineWidth: 2)
-                            .frame(width: 40 + 26 * ramp(t, 0.3, 0.45), height: 40 + 26 * ramp(t, 0.3, 0.45))
-                            .opacity(pulse(t, 0.28, 0.32, 0.4, 0.46))
-                    }
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .bold))
-                    .frame(width: 40, height: 40)
-                    .background(.white.opacity(0.18), in: Circle())
             }
-            .padding(.horizontal, 14)
-            .frame(width: 250, height: 62)
-            .background(.black, in: Capsule())
-            .offset(y: -60 * gone)
-            .opacity(1 - gone)
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .frame(width: 230)
+            .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .opacity(0.2 + 0.8 * ramp(t, 0.3, 0.4))
+            HStack {
+                Text("Removed “\("Tea")”").font(.caption.weight(.semibold)).lineLimit(1)
+                Spacer()
+                Text("Undo").font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(.white.opacity(0.22), in: Capsule())
+            }
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .frame(width: 230)
+            .glassEffect(.regular, in: Capsule())
+            .offset(y: 20 * (1 - ramp(t, 0.55, 0.65)))
+            .opacity(pulse(t, 0.55, 0.65, 0.95, 1))
         }
-        .frame(width: 260, height: 200, alignment: .top)
+        .frame(width: 250, height: 210)
+    }
+
+    private func row(title: String, value: String, shown: Double) -> some View {
+        HStack {
+            Text(title).font(.footnote)
+            Spacer()
+            Text(verbatim: value).font(.footnote.weight(.semibold))
+                .foregroundStyle(Color(red: 1, green: 0.42, blue: 0.4))
+        }
+        .padding(.horizontal, 12).padding(.vertical, 9)
+        .frame(width: 230)
+        .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .opacity(0.2 + 0.8 * shown)
     }
 }
+
+/// A "Since" card turning over to the next day, and a stopwatch running with a lap
+/// dropping into its list.
+private struct CountUpScene: View {
+    let t: Double
+
+    var body: some View {
+        let days = t < 0.35 ? 12 : 13
+        let elapsed = 3 + t * 12
+        VStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: "QUIT COFFEE").skyLabel(9).opacity(0.9)
+                HStack(alignment: .lastTextBaseline) {
+                    // The real card's wording: the system formatter, plurals included.
+                    Text(verbatim: DaysSince(label: "", startDate: Date().addingTimeInterval(-Double(days) * 86_400)).countText())
+                        .skyDigits(24, weight: .regular)
+                        .contentTransition(.numericText())
+                    Spacer()
+                    Text(verbatim: "16 NOV").skyLabel(8).opacity(0.8)
+                }
+            }
+            .padding(.horizontal, 12).padding(.vertical, 9)
+            .frame(width: 230)
+            .background(tealCard, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .animation(.easeInOut(duration: 0.4), value: days)
+            VStack(spacing: 6) {
+                Text(verbatim: Stopwatch.text(elapsed)).skyDigits(30, weight: .thin).monospacedDigit()
+                HStack {
+                    Text(verbatim: "Lap 1").font(.caption2)
+                    Spacer()
+                    Text(verbatim: "00:05.12").font(.caption2).monospacedDigit()
+                }
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .frame(width: 200)
+                .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .opacity(ramp(t, 0.6, 0.7))
+            }
+            .padding(12)
+            .frame(width: 230)
+            .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .frame(width: 250, height: 210)
+    }
+}
+

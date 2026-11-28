@@ -26,6 +26,9 @@ final class NotificationService: UNNotificationServiceExtension {
     override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
         let content = request.content.mutableCopy() as? UNMutableNotificationContent
         content?.body = CloudSyncController.changeAlertText
+        // A Focus with Timer's filter may mute these (N10). If this extension never gets
+        // to run, the push arrives untagged and is shown, as before.
+        content?.filterCriteria = NotificationScheduler.sharedUpdateCriteria
         lock.withLock {
             self.contentHandler = contentHandler
             self.content = content

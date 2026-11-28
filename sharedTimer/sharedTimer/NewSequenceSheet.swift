@@ -370,8 +370,10 @@ struct NewSequenceSheet: View {
                         )
                         onCreate(payload)
                         // One recency list for chips, Quick Actions and the Control.
-                        if let sequence = payload.sequence {
-                            RecentTimersStore.record(sequence: sequence, name: sequenceName)
+                        if let sequence = payload.sequence,
+                           let key = RecentTimersStore.record(sequence: sequence, name: sequenceName) {
+                            TimerTagStore.update { $0.adopt(timerID: payload.id, recentKey: key) }
+            TimerPhotos.adopt(timerID: payload.id, recentKey: key)
                             RecentTimersSync.refresh()
                         }
                         dismiss()

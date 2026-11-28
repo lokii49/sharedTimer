@@ -81,6 +81,13 @@ struct RecentTimer: Codable, Hashable, Identifiable {
         sequence = (try? c.decodeIfPresent(SequenceInfo.self, forKey: .sequence)) ?? nil
     }
 
+    /// The recent a plain timer is filed under (nil for countdowns and sequences — a
+    /// sequence's recent is named when it starts; see `record(sequence:name:)`).
+    static func key(for payload: TimerPayload) -> String? {
+        guard payload.kind == .timer, payload.sequence == nil else { return nil }
+        return RecentTimer(label: payload.label, duration: payload.duration, alarmEnabled: true, vibrationEnabled: true).id
+    }
+
     /// A fresh payload for this recent, running from now.
     func payload() -> TimerPayload {
         if let sequence, !sequence.phases.isEmpty {
@@ -105,15 +112,22 @@ enum RecentTimersStore {
 
     /// Moves (or adds) this timer to the front. Ignores countdowns and sequences (a
     /// sequence's name isn't on the payload — see `record(sequence:name:)`).
-    static func record(_ payload: TimerPayload) {
-        guard payload.kind == .timer, payload.sequence == nil else { return }
-        record(RecentTimer(label: payload.label, duration: payload.duration, alarmEnabled: payload.alarmEnabled, vibrationEnabled: payload.vibrationEnabled))
+    /// Returns the recent's id (nil when nothing was recorded).
+    @discardableResult
+    static func record(_ payload: TimerPayload) -> String? {
+        guard payload.kind == .timer, payload.sequence == nil else { return nil }
+        let recent = RecentTimer(label: payload.label, duration: payload.duration, alarmEnabled: payload.alarmEnabled, vibrationEnabled: payload.vibrationEnabled)
+        record(recent)
+        return recent.id
     }
 
     /// A sequence started from New Sequence or saved as a template.
-    static func record(sequence: SequenceInfo, name: String) {
-        guard !sequence.phases.isEmpty else { return }
-        record(RecentTimer(sequence: sequence, name: name))
+    @discardableResult
+    static func record(sequence: SequenceInfo, name: String) -> String? {
+        guard !sequence.phases.isEmpty else { return nil }
+        let recent = RecentTimer(sequence: sequence, name: name)
+        record(recent)
+        return recent.id
     }
 
     /// Moves (or adds) this recent to the front — also how starting one from a chip,

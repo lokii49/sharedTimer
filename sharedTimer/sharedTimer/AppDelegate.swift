@@ -22,6 +22,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         #if DEBUG && targetEnvironment(simulator)
         if ProcessInfo.processInfo.arguments.contains("-SeedHistory") { TimerHistory.seedForScreenshots() }
+        // N13 UI test: a bright "beach" photo for one timer (the system picker can't be
+        // driven by tests). `-SeedPhoto <timer id>`.
+        if let i = ProcessInfo.processInfo.arguments.firstIndex(of: "-SeedPhoto"), i + 1 < ProcessInfo.processInfo.arguments.count {
+            TimerPhotos.seedForScreenshots(timerID: ProcessInfo.processInfo.arguments[i + 1])
+        }
         #endif
         // N15: a push whose change lost to a newer one elsewhere put the server's copy in
         // the store — arm to it before that push (and any intent awaiting it) returns.

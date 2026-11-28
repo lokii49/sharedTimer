@@ -15,11 +15,22 @@ enum LiveActivityController {
         // (AlarmKit/notification) immediately regardless -- only this cosmetic surface
         // waits. Once the start time passes, the next `armAlerts` call (foregrounding,
         // or any other mutation) starts it normally.
-        guard !payload.isPending() else { return }
+        // N8: within `scheduleWindow` of its start, a scheduled card is requested ahead
+        // instead, so it appears on time with Timer closed.
+        guard !payload.isPending() else { return schedule(payload) }
 
         // An ended activity can linger (dismissal pending) — updating it does nothing,
         // so only reuse one that's still active.
         if let existing = activeActivity(for: payload.id) {
+            // A card still waiting for an old start (Start Now, or one that didn't go
+            // live by itself) is replaced by a live one, never left waiting.
+            if existing.activityState == .pending {
+                Task {
+                    await existing.end(nil, dismissalPolicy: .immediate)
+                    if shouldRequest(payload) { request(payload) }
+                }
+                return
+            }
             Task { await existing.update(content(for: payload)) }
             return
         }
@@ -40,8 +51,14 @@ enum LiveActivityController {
     /// `start`, awaited — for an intent's `perform()`, which the system may tear down
     /// as soon as it returns (same rule as `AlarmController.rescheduleAwaiting`).
     static func startAwaiting(for payload: TimerPayload) async {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled, !payload.isPending() else { return }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        guard !payload.isPending() else { return schedule(payload) }
         if let existing = activeActivity(for: payload.id) {
+            if existing.activityState == .pending {
+                await existing.end(nil, dismissalPolicy: .immediate)
+                if shouldRequest(payload) { request(payload) }
+                return
+            }
             await existing.update(content(for: payload))
             return
         }
@@ -52,8 +69,47 @@ enum LiveActivityController {
     private static func activeActivity(for id: String) -> Activity<TimerActivityAttributes>? {
         // `.stale` too: every running card is stale once its `staleDate` (the end) passes,
         // and is still on screen — requesting a new one then left two cards for one timer
-        // (a quiet sequence past phase 0, a widget Repeat after a finish).
-        Activity<TimerActivityAttributes>.activities.first { $0.attributes.timerID == id && ($0.activityState == .active || $0.activityState == .stale) }
+        // (a quiet sequence past phase 0, a widget Repeat after a finish). `.pending` too:
+        // a card scheduled ahead (N8) is the one to keep once its start arrives.
+        Activity<TimerActivityAttributes>.activities.first {
+            $0.attributes.timerID == id && ($0.activityState == .active || $0.activityState == .stale || $0.activityState == .pending)
+        }
+    }
+
+    /// How far ahead a scheduled sequence's card is requested. A Live Activity lasts
+    /// about 8 h without updates and it isn't confirmed whether that counts from the
+    /// request or the start, so only starts within this window are scheduled; a later
+    /// one is scheduled when the app next arms it inside the window (foreground, edit).
+    static let scheduleWindow: TimeInterval = 7 * 3600
+
+    /// Whether `payload` should get a card scheduled ahead now (pure, tested).
+    static func shouldSchedule(_ payload: TimerPayload, at date: Date = Date()) -> Bool {
+        guard payload.isPending(at: date), let start = payload.scheduledStartDate else { return false }
+        return start.timeIntervalSince(date) <= scheduleWindow
+    }
+
+    /// N8 (owner's pick A, 2026-11-28): a scheduled card with the quiet banner iOS
+    /// requires for it — a silent sound (iOS has no "no sound" case, as for AlarmKit).
+    /// Only reached for payloads with no AlarmKit alert (callers arm the custom card
+    /// only then). Reuses a card already scheduled or showing.
+    private static func schedule(_ payload: TimerPayload) {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled, shouldSchedule(payload),
+              let start = payload.scheduledStartDate else { return }
+        if let existing = activeActivity(for: payload.id) {
+            Task { await existing.update(content(for: payload)) }
+            return
+        }
+        let label = TimerPayload.clampedLabel(payload.label, maxBytes: 256)
+        let attributes = TimerActivityAttributes(timerID: payload.id, label: label, kind: payload.kind)
+        let alert = AlertConfiguration(title: LocalizedStringResource("\(label) started"),
+                                       body: LocalizedStringResource("\(TimeFormat.display(payload.duration))"),
+                                       sound: .named("vibration_silent.caf"))
+        do {
+            _ = try Activity.request(attributes: attributes, content: content(for: payload), pushType: nil,
+                                     style: .standard, alertConfiguration: alert, start: start)
+        } catch {
+            print("SharedTimer scheduled live activity error: \(error)")
+        }
     }
 
     private static func request(_ payload: TimerPayload) {

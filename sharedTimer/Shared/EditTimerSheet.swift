@@ -1,6 +1,6 @@
 //
 //  EditTimerSheet.swift
-//  sharedTimer
+//  Shared (app + Messages, owner's pick 3A)
 //
 
 import SwiftUI
@@ -18,6 +18,22 @@ struct EditTimerSheet: View {
     /// "changed", and Save wrote the old values back over it.
     @State private var original: TimerPayload
     let onSave: (TimerPayload) -> Void
+    /// App: AlarmKit denied (`AlarmController.fullScreenAlarmsDenied`, app only).
+    var fullScreenAlarmsOff = false
+    /// Messages: an extension can't use AlarmKit, so the footnote says it notifies.
+    var notificationOnlyHere = false
+    /// Messages, for a timer the app arms through AlarmKit: an Alarm/Vibrate change made
+    /// here only reaches that full-screen alarm once Timer opens (owner's call).
+    var alarmChangeWaitsForApp = false
+    /// App only (N5): tags and the note, kept on this phone. Messages doesn't show them.
+    var showsTagsAndNote = false
+    @State private var tagIDs: [String] = []
+    @State private var originalTagIDs: [String] = []
+    @State private var note = ""
+    @State private var originalNote = ""
+    /// N13: nil = unchanged, .some(nil) = back to the sky, .some(data) = a new photo.
+    @State private var photoChange: Data?? = nil
+    @State private var pickedPreview: UIImage?
 
     @State private var label: String
     @State private var kind: TimerKind
@@ -29,9 +45,20 @@ struct EditTimerSheet: View {
     @State private var originalReminders: Set<TimerReminder> = []
     @FocusState private var labelFocused: Bool
 
-    init(payload: TimerPayload, onSave: @escaping (TimerPayload) -> Void) {
+    init(payload: TimerPayload, fullScreenAlarmsOff: Bool = false, notificationOnlyHere: Bool = false,
+         alarmChangeWaitsForApp: Bool = false, showsTagsAndNote: Bool = false, onSave: @escaping (TimerPayload) -> Void) {
         _original = State(initialValue: payload)
         self.onSave = onSave
+        self.fullScreenAlarmsOff = fullScreenAlarmsOff
+        self.notificationOnlyHere = notificationOnlyHere
+        self.alarmChangeWaitsForApp = alarmChangeWaitsForApp
+        self.showsTagsAndNote = showsTagsAndNote
+        let organizer = TimerTagStore.load()
+        let tags = organizer.tags(for: payload.id).map(\.id)
+        _tagIDs = State(initialValue: tags)
+        _originalTagIDs = State(initialValue: tags)
+        _note = State(initialValue: organizer.note(for: payload.id) ?? "")
+        _originalNote = State(initialValue: organizer.note(for: payload.id) ?? "")
         _label = State(initialValue: payload.label)
         _kind = State(initialValue: payload.kind)
         _minutes = State(initialValue: payload.duration / 60)
@@ -73,7 +100,12 @@ struct EditTimerSheet: View {
 
     /// `edited` always restamps `updatedAt`, so compare the fields an edit can change.
     private var hasChanges: Bool {
-        timerFieldsChanged || reminders != originalReminders
+        timerFieldsChanged || reminders != originalReminders || localExtrasChanged
+    }
+
+    /// Tags and note: this phone only, never an "edited" change for everyone.
+    private var localExtrasChanged: Bool {
+        showsTagsAndNote && (tagIDs != originalTagIDs || note != originalNote || photoChange != nil)
     }
 
     private var timerFieldsChanged: Bool {
@@ -82,6 +114,14 @@ struct EditTimerSheet: View {
             || next.alarmEnabled != original.alarmEnabled
             || next.vibrationEnabled != original.vibrationEnabled
             || next.endDate != original.endDate
+    }
+
+    private var photoPreview: UIImage? {
+        switch photoChange {
+        case .some(.some): return pickedPreview
+        case .some(.none): return nil
+        case .none: return TimerPhotos.image(for: original.id)
+        }
     }
 
     private var timeZone: TimeZone {
@@ -110,12 +150,35 @@ struct EditTimerSheet: View {
                     repeatFrequency: original.recurrence?.frequency,
                     showsTimerLength: false,
                     targetDateDisabled: original.isPaused,
-                    fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied,
+                    fullScreenAlarmsOff: fullScreenAlarmsOff,
+                    notificationOnlyHere: notificationOnlyHere,
+                    whenItEndsNote: alarmChangeWaitsForApp
+                        && (alarmEnabled != original.alarmEnabled || vibrationEnabled != original.vibrationEnabled)
+                        ? Text("Open Timer to apply. Until then, its alarm rings as it was set.") : nil,
                     whenItEndsExtra: original.sequence == nil
                         ? AnyView(ReminderChips(kind: kind, span: kind == .timer ? original.span : max(0, targetDate.timeIntervalSince(original.endDate.addingTimeInterval(-original.duration))), selection: $reminders))
                         : nil
                 )
                 .environment(\.timeZone, timeZone)
+
+                if showsTagsAndNote {
+                    Section {
+                        TagChipsPicker(selection: $tagIDs)
+                    }
+                    Section("Note") {
+                        TextField("Add a note", text: $note, axis: .vertical)
+                            .lineLimit(2...6)
+                            .accessibilityIdentifier("noteField")
+                    }
+                    Section {
+                        PhotoBackgroundRow(preview: photoPreview,
+                                           onPick: { data in
+                                               photoChange = .some(data)
+                                               pickedPreview = TimerPhotos.downscaledJPEG(data).flatMap(UIImage.init(data:))
+                                           },
+                                           onRemove: { photoChange = .some(nil); pickedPreview = nil })
+                    }
+                }
             }
             .scrollContentBackground(.hidden)
             .background(Sky.room)
@@ -131,6 +194,20 @@ struct EditTimerSheet: View {
                             guard targetStillValid(at: Date()) else { return }
                             guard TimerStore.loadAll().contains(where: { $0.id == original.id }) else { return dismiss() }
                             TimerReminders.set(reminders, for: original.id)
+                            if localExtrasChanged {
+                                TimerTagStore.update { organizer in
+                                    organizer.setTags(tagIDs, for: original.id)
+                                    organizer.setNote(note, for: original.id)
+                                }
+                                switch photoChange {
+                                case .some(.some(let data)): TimerPhotos.save(data, for: original.id)
+                                case .some(.none): TimerPhotos.remove(original.id)
+                                case .none: break
+                                }
+                                if photoChange != nil {
+                                    TimerPhotos.remember(timerID: original.id, recentKey: TimerTagStore.load().recentOf[original.id])
+                                }
+                            }
                             if timerFieldsChanged, let edited = editedLatest() {
                                 onSave(edited)
                             } else if let latest = TimerStore.loadAll().first(where: { $0.id == original.id }) {

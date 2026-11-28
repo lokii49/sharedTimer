@@ -67,7 +67,14 @@ struct TimerDetailView: View {
             let colors = Sky.colors(for: payload, at: context.date)
 
             ZStack {
-                SwayingSkyGradient(colors: colors, swaying: !reduceMotion && !lowPower)
+                Group {
+                    // N13: the timer's own photo (this phone only) in place of the sky.
+                    if let photo = TimerPhotos.image(for: payload.id) {
+                        PhotoBackdrop(image: photo)
+                    } else {
+                        SwayingSkyGradient(colors: colors, swaying: !reduceMotion && !lowPower)
+                    }
+                }
                 .ignoresSafeArea()
                 // Same "not live yet" muting as SkyCard's row treatment.
                 .saturation(pending ? 0.35 : 1)
@@ -124,6 +131,12 @@ struct TimerDetailView: View {
                     // C6 · A: captions at 85% (white with Increase Contrast) over a
                     // soft centered scrim, instead of 55–75% straight on the sky.
                     .background(SkyCenterScrim().padding(.horizontal, -40).padding(.vertical, -20))
+
+                    // Its own view, keyed by the timer only: inside the 1 s tick a menu
+                    // rebuilt every second swallowed taps on its items.
+                    TimerNoteAndTags(timerID: payload.id)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 16)
 
                     Spacer()
 
@@ -359,7 +372,7 @@ struct TimerDetailView: View {
             .ignoresSafeArea()
         }
         .sheet(isPresented: $showingEdit) {
-            EditTimerSheet(payload: payload) { edited in
+            EditTimerSheet(payload: payload, fullScreenAlarmsOff: AlarmController.fullScreenAlarmsDenied, showsTagsAndNote: true) { edited in
                 applyEdit(edited)
             }
         }
@@ -578,6 +591,121 @@ struct TimerDetailView: View {
             parts.append(CloudSyncController.attributionPhrase(name: attribution.name, action: attribution.action))
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+}
+
+/// N5: edit a timer's note (this phone only).
+private struct NoteEditorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State var note: String
+    let onSave: (String) -> Void
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Add a note", text: $note, axis: .vertical)
+                        .lineLimit(3...12)
+                        .focused($focused)
+                        .accessibilityIdentifier("noteEditor")
+                } footer: {
+                    Text("Kept on this iPhone. People you share the timer with don't see it.")
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Sky.room)
+            .navigationTitle("Note")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { onSave(note); dismiss() }.fontWeight(.semibold)
+                }
+            }
+            .onAppear { focused = true }
+        }
+    }
+}
+
+/// N5 · 2A: the note under the time (tap to edit; "Add a note" when there's none) and a
+/// Tags menu. Not behind the view-only check: neither changes the timer. This phone only.
+private struct TimerNoteAndTags: View {
+    let timerID: String
+    @State private var organizer = TimerTagStore.load()
+    @State private var editingNote = false
+    @State private var namingTag = false
+    @State private var newTagName = ""
+
+    var body: some View {
+        let note = organizer.note(for: timerID)
+        let tags = organizer.tags(for: timerID)
+        return VStack(spacing: 10) {
+            if let note {
+                Button { editingNote = true } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Note").font(.caption2.weight(.semibold)).textCase(.uppercase).opacity(0.7)
+                        Text(note).font(.footnote).lineLimit(4).multilineTextAlignment(.leading)
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: 420, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("noteBox")
+                .accessibilityHint("Edits the note")
+            }
+            HStack(spacing: 10) {
+                if note == nil {
+                    Button { editingNote = true } label: { Label("Add a note", systemImage: "note.text") }
+                        .accessibilityIdentifier("addNoteButton")
+                }
+                Menu {
+                    ForEach(organizer.tags) { tag in
+                        let on = tags.contains(tag)
+                        Button {
+                            TimerTagStore.update { $0.toggle(tagID: tag.id, for: timerID) }
+                            organizer = TimerTagStore.load()
+                        } label: {
+                            if on { Label(tag.name, systemImage: "checkmark") } else { Text(tag.name) }
+                        }
+                    }
+                    Button { newTagName = ""; namingTag = true } label: { Label("New Tag…", systemImage: "plus") }
+                } label: {
+                    Label(tags.isEmpty ? String(localized: "Tags") : tags.map(\.name).joined(separator: ", "), systemImage: "tag")
+                        .lineLimit(1)
+                }
+                .accessibilityIdentifier("tagsMenu")
+            }
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(.white.opacity(0.85))
+            .buttonStyle(.plain)
+        }
+        .sheet(isPresented: $editingNote) {
+            NoteEditorSheet(note: note ?? "") { text in
+                TimerTagStore.update { $0.setNote(text, for: timerID) }
+                organizer = TimerTagStore.load()
+            }
+            .preferredColorScheme(.dark)
+        }
+        .alert("New Tag", isPresented: $namingTag) {
+            TextField("Name", text: $newTagName)
+            Button("Add") {
+                TimerTagStore.update { organizer in
+                    if let tag = organizer.addTag(named: newTagName), !(organizer.tagsByTimer[timerID] ?? []).contains(tag.id) {
+                        organizer.toggle(tagID: tag.id, for: timerID)
+                    }
+                }
+                organizer = TimerTagStore.load()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .onReceive(NotificationCenter.default.publisher(for: TimerTagStore.changed)) { _ in
+            organizer = TimerTagStore.load()
+        }
     }
 
 }

@@ -1,6 +1,6 @@
 //
 //  TimerReminders.swift
-//  sharedTimer
+//  Shared
 //
 //  Heads-up reminders before a timer ends (1.0.7, mockup D1 · A): "Halfway",
 //  "5 min left", "1 min left" for a timer, "1 day before" / "1 hour before" for a
@@ -12,8 +12,10 @@
 //  finish path's cancel (and AlarmController's keep-path) never touches them; they are
 //  re-planned by `TimerArming` on every arm, and cancelled on delete.
 //
-//  Main app only. Mutations made in Messages don't move them until the app next arms
-//  the timer — the same limit the AlarmKit alarm has.
+//  App and Messages (1.0.10, owner's pick 5A: the same chips when composing and editing
+//  there). Messages plans them when it starts or changes a timer; the app re-plans them
+//  on every arm. Excluded from the Clip, widget and notification service (the service
+//  only cancels them, by prefix, through NotificationScheduler.cancelReminders).
 //
 
 import SwiftUI
@@ -98,23 +100,65 @@ enum TimerReminders {
         "\(timerID).reminder.\(reminder.rawValue)"
     }
 
-    /// Re-plans this timer's reminders for its current run.
+    private static let lock = NSLock()
+    private static var generations: [String: UUID] = [:]
+
+    /// Re-plans this timer's reminders for its current run. The adds wait for
+    /// notification permission (asked once, like the finish alert) — the first timer
+    /// someone starts, in Messages especially, used to add them before the answer. A
+    /// later sync or cancel for the same timer makes a still-waiting one do nothing.
     static func sync(_ payload: TimerPayload, at date: Date = Date()) {
         cancel(id: payload.id)
+        let planned = get(payload.id).compactMap { reminder in reminder.fireDate(for: payload, at: date).map { (reminder, $0) } }
+        guard !planned.isEmpty else { return }
+        let generation = UUID()
+        lock.lock(); generations[payload.id] = generation; lock.unlock()
+        let id = payload.id, label = payload.label, end = payload.endDate
         let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+            lock.lock(); let current = generations[id] == generation; lock.unlock()
+            guard granted, current else { return }
+            for (reminder, fire) in planned {
+                let wait = fire.timeIntervalSinceNow
+                guard wait > 0 else { continue }
+                let content = UNMutableNotificationContent()
+                content.title = label
+                content.body = String(localized: "\(reminder.body) · ends \(end.formatted(date: .omitted, time: .shortened))")
+                content.sound = .default
+                content.userInfo["timerID"] = id
+                content.filterCriteria = NotificationScheduler.headsUpCriteria
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, wait), repeats: false)
+                center.add(UNNotificationRequest(identifier: identifier(id, reminder), content: content, trigger: trigger))
+            }
+        }
+    }
+
+    /// For an intent's `perform()` or background refresh, which may be torn down the
+    /// moment they return: the adds are awaited. While permission hasn't been asked yet
+    /// it doesn't wait for the person's answer — it falls back to `sync`.
+    static func syncAwaiting(_ payload: TimerPayload, at date: Date = Date()) async {
+        let center = UNUserNotificationCenter.current()
+        let status = await center.notificationSettings().authorizationStatus
+        guard status != .notDetermined else { return sync(payload, at: date) }
+        cancel(id: payload.id)
+        guard status == .authorized || status == .provisional || status == .ephemeral else { return }
         for reminder in get(payload.id) {
             guard let fire = reminder.fireDate(for: payload, at: date) else { continue }
+            let wait = fire.timeIntervalSinceNow
+            guard wait > 0 else { continue }
             let content = UNMutableNotificationContent()
             content.title = payload.label
             content.body = String(localized: "\(reminder.body) · ends \(payload.endDate.formatted(date: .omitted, time: .shortened))")
             content.sound = .default
             content.userInfo["timerID"] = payload.id
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, fire.timeIntervalSince(date)), repeats: false)
-            center.add(UNNotificationRequest(identifier: identifier(payload.id, reminder), content: content, trigger: trigger))
+            content.filterCriteria = NotificationScheduler.headsUpCriteria
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, wait), repeats: false)
+            try? await center.add(UNNotificationRequest(identifier: identifier(payload.id, reminder), content: content, trigger: trigger))
         }
     }
 
     static func cancel(id: String) {
+        lock.lock(); generations[id] = nil; lock.unlock()
         UNUserNotificationCenter.current().removePendingNotificationRequests(
             withIdentifiers: TimerReminder.allCases.map { identifier(id, $0) })
     }
@@ -170,5 +214,42 @@ struct ReminderChips: View {
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+/// Left-aligned wrapping row of chips — fills a line, then wraps to the next.
+struct ChipFlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, widest: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0 && x + size.width > maxWidth {
+                y += rowHeight + spacing
+                x = 0
+                rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+            widest = max(widest, x - spacing)
+        }
+        return CGSize(width: proposal.width ?? widest, height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX && x + size.width > bounds.maxX {
+                y += rowHeight + spacing
+                x = bounds.minX
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
     }
 }

@@ -1,7 +1,15 @@
-• Fixed: History could close unexpectedly when it listed a sequence or a repeating countdown.
-• Next, Next Week and the other buttons on a full-screen alarm now dismiss it straight away.
-• Widgets keep up: finishes and new phases show right on time, tapping a widget or Live Activity opens its timer, there's a one-line Lock Screen widget, and a clearer look on tinted Home Screens, in StandBy at night and in the iPad's extra-large size.
-• Stopping a repeating countdown from its widget or Live Activity now skips to the next one instead of ending the series.
-• Messages: an open timer follows every change, and repeating countdowns get Next Week.
-• A new lock button keeps the screen on while you watch.
+• Tags and notes: tag timers like Kitchen or Work, filter the list, and add a note that comes back the next time you start that timer.
+• Stats: History groups repeat runs, and a new Stats page shows your week, month and streaks, with export to a spreadsheet.
+• Test my alarm, in Settings, rings a real alarm in five seconds and shows what to change if it doesn't get through.
+• A new − button takes time off a timer, also in Messages, on Apple Watch and with Siri.
+• Messages: edit a timer, start a saved sequence, make a countdown repeat, add heads-up reminders and undo a removal.
+• Spoken cues for sequences: phase names, a one-minute warning and beeps while Timer is open.
+• Focus filters: keep reminders and shared-timer updates quiet during a Focus.
+• Apple Watch: a corner complication with the time left and a draining arc.
+• Shortcuts can find timers by name, kind or state, and a pause or extend asked of Siri can be undone.
+• Days since: count the days since something, and a stopwatch with laps, both under +.
+• Give a timer your own photo as its background.
+• Four new alarm tones: Chime, Rise, Bloom and Marimba.
+• A quiet sequence set to start within the next 7 hours shows its Live Activity on time, even with Timer closed.
+• An overtime count now stops when you dismiss the full-screen alarm.
 • Plus many smaller fixes.

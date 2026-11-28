@@ -230,6 +230,14 @@ extension ButtonStyle where Self == GlassPillButtonStyle {
 struct SkyCard: View {
     let payload: TimerPayload
     let date: Date
+    /// N5: this phone's tag names, shown as small pills by the label. Only the app's
+    /// list passes them — share previews, Messages and the Edit sheet never do.
+    var tags: [String] = []
+    #if canImport(UIKit)
+    /// N13: this phone's photo for the timer, in place of the sky. Like `tags`, only the
+    /// app's list passes it — share previews and Messages never do.
+    var photo: UIImage? = nil
+    #endif
     @Environment(\.dynamicTypeSize) private var typeSize
     /// Digits grow with Dynamic Type on the large layout (C9 · A), capped so a long
     /// countdown still fits one line.
@@ -248,6 +256,16 @@ struct SkyCard: View {
                 Text(payload.label)
                     .skyLabel(12)
                     .lineLimit(large ? 2 : 1)
+                    .layoutPriority(1)
+                ForEach(tags.prefix(2), id: \.self) { name in
+                    Text(name)
+                        .font(.caption2.weight(.semibold))
+                        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                        .lineLimit(1)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(.white.opacity(0.22), in: Capsule())
+                }
                 Spacer()
                 if pending {
                     Text("Scheduled").skyLabel(12)
@@ -302,6 +320,10 @@ struct SkyCard: View {
         .padding(14)
         .frame(minHeight: 104, maxHeight: large ? nil : 104)
         .background(
+            ZStack { cardPhoto }
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        )
+        .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(Sky.gradient(for: payload, at: date))
                 // Reads as "not live yet" at a glance, not just via the "Scheduled"
@@ -319,12 +341,26 @@ struct SkyCard: View {
         .accessibilityValue(accessibilityStatus(remaining: remaining, pending: pending))
     }
 
+    /// The photo, darkened so the white text reads on a bright picture; empty without one.
+    @ViewBuilder private var cardPhoto: some View {
+        #if canImport(UIKit)
+        if let photo {
+            GeometryReader { geo in
+                Image(uiImage: photo).resizable().scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height).clipped()
+            }
+            .overlay(LinearGradient(colors: [.black.opacity(0.45), .black.opacity(0.15), .black.opacity(0.55)], startPoint: .top, endPoint: .bottom))
+        }
+        #endif
+    }
+
     private var accessibilityTitle: String {
         let kind = payload.sequence != nil ? String(localized: "sequence") : payload.kind == .countdown ? String(localized: "countdown") : String(localized: "timer")
+        let tagged = tags.isEmpty ? "" : ", " + tags.joined(separator: ", ")
         if let caption = payload.sequenceCaption, !payload.isPending(at: date) {
-            return "\(payload.label), \(kind), \(caption)"
+            return "\(payload.label), \(kind), \(caption)\(tagged)"
         }
-        return "\(payload.label), \(kind)"
+        return "\(payload.label), \(kind)\(tagged)"
     }
 
     private func accessibilityStatus(remaining: TimeInterval, pending: Bool) -> String {

@@ -1,7 +1,15 @@
-• Corregido: el Historial podía cerrarse inesperadamente al mostrar una secuencia o una cuenta atrás que se repite.
-• Siguiente, Semana siguiente y los demás botones de una alarma a pantalla completa ahora la cierran al instante.
-• Widgets al día: los finales y las nuevas fases aparecen justo a tiempo, al tocar un widget o una actividad en directo se abre su temporizador, hay un widget de una línea para la pantalla bloqueada y un aspecto más claro en pantallas de inicio con tinte, en StandBy de noche y en el tamaño extragrande del iPad.
-• Detener una cuenta atrás que se repite desde su widget o Actividad en Vivo ahora salta a la siguiente en lugar de terminar la serie.
-• Mensajes: un temporizador abierto sigue cada cambio y las cuentas atrás que se repiten tienen Semana siguiente.
-• Un nuevo botón de candado mantiene la pantalla encendida mientras miras.
-• Y muchas correcciones más.
+• Etiquetas y notas: etiqueta temporizadores como Cocina o Trabajo, filtra la lista y añade una nota que vuelve la próxima vez que inicies ese temporizador.
+• Estadísticas: el historial agrupa las repeticiones y una nueva página de estadísticas muestra tu semana, tu mes y tus rachas, con exportación a hoja de cálculo.
+• Probar mi alarma, en Ajustes, hace sonar una alarma real en cinco segundos y te dice qué cambiar si no llega.
+• Un nuevo botón − quita tiempo a un temporizador, también en Mensajes, en el Apple Watch y con Siri.
+• Mensajes: edita un temporizador, inicia una secuencia guardada, haz que una cuenta atrás se repita, añade avisos previos y deshaz una eliminación.
+• Avisos hablados en las secuencias: nombre de cada fase, aviso de un minuto y pitidos mientras Timer está abierto.
+• Filtros de concentración: silencia los avisos y las novedades de temporizadores compartidos durante un modo de concentración.
+• Apple Watch: una complicación de esquina con el tiempo restante y un arco que se vacía.
+• Atajos puede buscar temporizadores por nombre, tipo o estado, y una pausa o una ampliación pedida a Siri se puede deshacer.
+• Días desde: cuenta los días desde algo, y un cronómetro con vueltas, ambos en +.
+• Pon tu propia foto como fondo de un temporizador.
+• Cuatro tonos de alarma nuevos: Campanilla, Ascenso, Flor y Marimba.
+• Una secuencia silenciosa programada para las próximas 7 horas muestra su actividad en directo a su hora, aunque Timer esté cerrado.
+• El conteo de tiempo extra se detiene al cerrar la alarma a pantalla completa.
+• Y muchas mejoras más pequeñas.

@@ -5,6 +5,58 @@
 
 import SwiftUI
 
+/// What "Start" makes from the compose fields — the app's New Timer/Countdown sheet and
+/// Messages' compose sheet use the same rules (pure, unit-tested from the app target).
+enum ComposeRules {
+    /// A 0:00:00 timer or a countdown target already in the past would ring at once
+    /// (compose clamps both to one second). A repeating countdown rolls a past date to
+    /// its next occurrence, so it's always fine.
+    static func canStart(kind: TimerKind, minutes: Double, targetDate: Date,
+                         repeatFrequency: AnnualRecurrence.Frequency?, at date: Date) -> Bool {
+        switch kind {
+        case .timer: return minutes * 60 >= 1
+        case .countdown: return repeatFrequency != nil || targetDate > date
+        }
+    }
+
+    /// The repeat only applies to a countdown: switching the Type back to Timer ignores it.
+    static func payload(label: String, kind: TimerKind, minutes: Double, targetDate: Date,
+                        repeatFrequency: AnnualRecurrence.Frequency?, timeZone: TimeZone = .current,
+                        alarmEnabled: Bool, vibrationEnabled: Bool) -> TimerPayload {
+        if kind == .countdown, let repeatFrequency {
+            return TimerPayload.composeAnnual(label: label, targetDate: targetDate, timeZone: timeZone, frequency: repeatFrequency,
+                                              alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
+        }
+        return TimerPayload.compose(label: label.isEmpty ? (kind == .timer ? String(localized: "Timer") : String(localized: "Countdown")) : label,
+                                    kind: kind, minutes: minutes, targetDate: targetDate,
+                                    alarmEnabled: alarmEnabled, vibrationEnabled: vibrationEnabled)
+    }
+}
+
+extension AnnualRecurrence.Frequency {
+    /// "Every Tuesday at 9:00 AM in Europe/Lisbon." — what the rule will do.
+    func composeFooter(targetDate: Date, timeZone: TimeZone) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let time = targetDate.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: timeZone))
+        let zone = timeZone.identifier
+        switch self {
+        case .daily:
+            return String(localized: "Every day at \(time) in \(zone).")
+        case .weekly:
+            let weekday = targetDate.formatted(Date.FormatStyle(timeZone: timeZone).weekday(.wide))
+            return String(localized: "Every \(weekday) at \(time) in \(zone).")
+        case .monthly:
+            let day = calendar.component(.day, from: targetDate)
+            return day > 28
+                ? String(localized: "Every month on day \(day) at \(time) in \(zone). Shorter months use their last day.")
+                : String(localized: "Every month on day \(day) at \(time) in \(zone).")
+        case .yearly:
+            return String(localized: "Repeats at this date and time in \(zone). February 29 uses February 28 in non-leap years. Open Timer each year to keep future reminders scheduled.")
+        }
+    }
+}
+
 /// Shared compose fields for creating a timer or a date-targeted countdown, as `Form`
 /// sections. Embedded by both the Messages compose sheet and the main app's "New" sheet;
 /// each host supplies its own trailing action (Start & Share vs. Start).
@@ -40,8 +92,11 @@ struct TimerFieldsView: View {
     /// opens (and arms the alarm) only a notification is scheduled — don't promise a
     /// full-screen ring.
     var notificationOnlyHere: Bool = false
+    /// Replaces the "When it ends" footnote — Messages' Edit sheet says an alarm change
+    /// waits for the app (it can't move an alarm the app set through AlarmKit).
+    var whenItEndsNote: Text? = nil
     /// Extra rows under the Alarm/Vibrate toggles — the main app's reminder chips
-    /// (TimerReminders.swift is main-app only, so it comes in as a view).
+    /// (passed in, so each host decides when they apply — none for a sequence).
     var whenItEndsExtra: AnyView? = nil
 
     private let presets: [Double] = [1, 3, 5, 10, 15, 30, 60]
@@ -78,7 +133,9 @@ struct TimerFieldsView: View {
         } header: {
             Text("When it ends")
         } footer: {
-            if fullScreenAlarmsOff && (alarmEnabled || vibrationEnabled) {
+            if let whenItEndsNote {
+                whenItEndsNote
+            } else if fullScreenAlarmsOff && (alarmEnabled || vibrationEnabled) {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Full-screen alarms are off for Timer, so this will only send a notification, which follows the silent switch.", systemImage: "exclamationmark.triangle.fill")
                     if let settings = URL(string: UIApplication.openSettingsURLString) {

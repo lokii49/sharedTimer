@@ -14,6 +14,9 @@ import Foundation
 
 enum AlarmTone: String, CaseIterable, Identifiable {
     case classic, glass, ember, dawn
+    /// N12 (1.0.10, owner's picks 2026-11-28 by ear in the mockup): synthesized, same
+    /// format as the others (mono 44.1 kHz IMA4, 3.03 s), one copy per target folder.
+    case chime, rise, bloom, marimba
 
     var id: String { rawValue }
 
@@ -30,6 +33,10 @@ enum AlarmTone: String, CaseIterable, Identifiable {
         case .glass: return "Glass"
         case .ember: return "Ember"
         case .dawn: return "Dawn"
+        case .chime: return "Chime"
+        case .rise: return "Rise"
+        case .bloom: return "Bloom"
+        case .marimba: return "Marimba"
         }
     }
 

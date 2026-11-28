@@ -44,6 +44,7 @@ struct TimerRunningView: View {
     @State private var showingCustomExtend = false
     @State private var isShared = false
     @State private var confirmingDeleteForEveryone = false
+    @State private var showingEdit = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -54,6 +55,30 @@ struct TimerRunningView: View {
             ZStack {
                 Sky.gradient(for: payload, at: context.date)
                     .ignoresSafeArea()
+
+                // Edit (owner's pick 3A): the app's sheet; not for sequences. On a view-only
+                // share it's shown but disabled, like Pause (the mockup's rule).
+                if payload.sequence == nil {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Button { showingEdit = true } label: {
+                                Image(systemName: "pencil")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 44, height: 44)
+                                    .glassEffect(.regular.interactive(), in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(readOnly)
+                            .opacity(readOnly ? 0.45 : 1)
+                            .accessibilityLabel("Edit")
+                            .padding(.trailing, 16)
+                            .padding(.top, 12)
+                        }
+                        Spacer()
+                    }
+                }
 
                 VStack {
                     Spacer()
@@ -222,6 +247,25 @@ struct TimerRunningView: View {
             CustomExtendSheet { interval in
                 if !payload.isFinished { extend(by: interval) }
             }
+            // A sheet doesn't inherit the controller's forced dark style.
+            .preferredColorScheme(.dark)
+        }
+        .sheet(isPresented: $showingEdit) {
+            EditTimerSheet(payload: payload, notificationOnlyHere: true,
+                           alarmChangeWaitsForApp: TimerStore.isAlarmKitArmed(id: payload.id)) { edited in
+                // Same path as Pause and +1:00: the view-only re-check first.
+                guard latestForChange() != nil else { return }
+                // As the app's applyEdit: a finished countdown moved into the future
+                // stops ringing and can ring again at its new end.
+                if payload.isFinished && !edited.isFinished {
+                    alarm.stop()
+                    vibration.stop()
+                    hasBuzzedFinish = false
+                }
+                payload = edited
+                onUpdate(edited, "edited")
+            }
+            .preferredColorScheme(.dark)
         }
         .onReceive(NotificationCenter.default.publisher(for: CloudSyncController.permissionsChanged)) { _ in
             refreshPermissionState()
