@@ -71,7 +71,10 @@ enum WhatsNew {
         Feature(id: 2, title: String(localized: "Test my alarm"),
                 body: String(localized: "In Settings, ring a real alarm in five seconds to make sure it gets through. If it doesn't, Timer shows what to change.")),
         Feature(id: 3, title: String(localized: "More in Messages"),
-                body: String(localized: "Edit a timer, start one of your saved sequences, make a countdown repeat, and undo a removal, all from Messages."))
+                body: String(localized: "Edit a timer, start one of your saved sequences, make a countdown repeat, and undo a removal, all from Messages.")),
+        // Owner asked for a tour page for the late 1.0.10 additions (2026-11-28).
+        Feature(id: 4, title: String(localized: "Days since and a stopwatch"),
+                body: String(localized: "Count the days since something, or time anything with a stopwatch that keeps laps. Both are under the + button."))
     ]
 }
 
@@ -194,8 +197,8 @@ private struct WhatsNewIllustration: View {
     let isActive: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var period: Double { [6, 5, 6, 7][index] }
-    private var restingT: Double { [0.85, 0.8, 0.85, 0.9][index] }
+    private var period: Double { [6, 5, 6, 7, 6][index] }
+    private var restingT: Double { [0.85, 0.8, 0.85, 0.9, 0.8][index] }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !isActive)) { context in
@@ -206,7 +209,8 @@ private struct WhatsNewIllustration: View {
                 case 0: TagsScene(t: t)
                 case 1: StatsScene(t: t)
                 case 2: TestAlarmScene(t: t)
-                default: MessagesParityScene(t: t)
+                case 3: MessagesParityScene(t: t)
+                default: CountUpScene(t: t)
                 }
             }
             .frame(width: 260, height: 210)
@@ -446,3 +450,48 @@ private struct MessagesParityScene: View {
         .opacity(0.2 + 0.8 * shown)
     }
 }
+
+/// A "Since" card turning over to the next day, and a stopwatch running with a lap
+/// dropping into its list.
+private struct CountUpScene: View {
+    let t: Double
+
+    var body: some View {
+        let days = t < 0.35 ? 12 : 13
+        let elapsed = 3 + t * 12
+        VStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: "QUIT COFFEE").skyLabel(9).opacity(0.9)
+                HStack(alignment: .lastTextBaseline) {
+                    // The real card's wording: the system formatter, plurals included.
+                    Text(verbatim: DaysSince(label: "", startDate: Date().addingTimeInterval(-Double(days) * 86_400)).countText())
+                        .skyDigits(24, weight: .regular)
+                        .contentTransition(.numericText())
+                    Spacer()
+                    Text(verbatim: "16 NOV").skyLabel(8).opacity(0.8)
+                }
+            }
+            .padding(.horizontal, 12).padding(.vertical, 9)
+            .frame(width: 230)
+            .background(tealCard, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .animation(.easeInOut(duration: 0.4), value: days)
+            VStack(spacing: 6) {
+                Text(verbatim: Stopwatch.text(elapsed)).skyDigits(30, weight: .thin).monospacedDigit()
+                HStack {
+                    Text(verbatim: "Lap 1").font(.caption2)
+                    Spacer()
+                    Text(verbatim: "00:05.12").font(.caption2).monospacedDigit()
+                }
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .frame(width: 200)
+                .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .opacity(ramp(t, 0.6, 0.7))
+            }
+            .padding(12)
+            .frame(width: 230)
+            .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .frame(width: 250, height: 210)
+    }
+}
+

@@ -46,8 +46,8 @@ struct WhatsNewTests {
     }
 
     @Test func everyPageHasCopy() {
-        #expect(WhatsNew.features.count == 4)
+        #expect(WhatsNew.features.count == 5)
         #expect(WhatsNew.features.allSatisfy { !$0.title.isEmpty && !$0.body.isEmpty })
-        #expect(WhatsNew.features.map(\.id) == Array(0..<4))
+        #expect(WhatsNew.features.map(\.id) == Array(0..<5))
     }
 }
