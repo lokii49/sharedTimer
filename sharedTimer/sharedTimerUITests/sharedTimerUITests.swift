@@ -217,8 +217,12 @@ final class sharedTimerUITests: XCTestCase {
         screenshot.name = "Settings (Sky Stack)"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+        // The tone chips are a lazy grid since there are eight: on a short sheet (iPad)
+        // they aren't created until scrolled to.
+        var scrolls = 0
+        while !app.buttons["Classic"].exists && scrolls < 6 { app.swipeUp(); scrolls += 1 }
         // Put back whichever tone the phone had (Settings re-arms every alarm with it).
-        let original = ["Classic", "Glass", "Ember", "Dawn"].first { app.buttons[$0].isSelected } ?? "Classic"
+        let original = ["Classic", "Glass", "Ember", "Dawn", "Chime", "Rise", "Bloom", "Marimba"].first { app.buttons[$0].exists && app.buttons[$0].isSelected } ?? "Classic"
         let other = original == "Glass" ? "Ember" : "Glass"
         let pick = app.buttons[other]
         XCTAssertTrue(pick.exists)
