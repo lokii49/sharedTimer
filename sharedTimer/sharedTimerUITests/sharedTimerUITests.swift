@@ -545,8 +545,9 @@ final class sharedTimerUITests: XCTestCase {
         let detailShot = XCTAttachment(screenshot: app.screenshot()); detailShot.name = "Tags detail"; detailShot.lifetime = .keepAlways; add(detailShot)
 
         // The list, filtered by the tag: A shows, B is counted under "other tags".
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        // iPhone: back to the list. iPad: the list is already beside the detail.
         let chip = app.scrollViews["tagFilterBar"].buttons[tagName]
+        if !chip.waitForExistence(timeout: 2) { app.navigationBars.buttons.element(boundBy: 0).tap() }
         XCTAssertTrue(chip.waitForExistence(timeout: 5))
         chip.tap()
         let otherRow = app.buttons["otherTagsRow"]
